@@ -1,0 +1,28 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": [
+    "bom1"
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/social-publish",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/expire-orders",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/domains",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/gbp-reviews",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/notifications",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
