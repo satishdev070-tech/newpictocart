@@ -7,31 +7,41 @@ import type { NavIconName } from "@/components/app-shell/icons";
  * checks with requireTenantPermission(), and RLS enforces it in the database.
  */
 export type NavItem = { href: string; label: string; permission: string; icon: NavIconName };
-export type NavGroup = { label: string; items: NavItem[] };
+/** A sidebar section. Groups with more than one item render as a collapsible submenu headed by `icon`. */
+export type NavGroup = { label: string; icon?: NavIconName; items: NavItem[] };
 
 type TenantNavItem = NavItem & { permission: TenantPermission };
 
-export const DASHBOARD_NAV: { label: string; items: TenantNavItem[] }[] = [
+export const DASHBOARD_NAV: { label: string; icon: NavIconName; items: TenantNavItem[] }[] = [
   {
     label: "Overview",
+    icon: "dashboard",
     items: [{ href: "/dashboard", label: "Dashboard", permission: "store.read", icon: "dashboard" }],
   },
   {
-    label: "Commerce",
+    label: "Catalog",
+    icon: "products",
     items: [
-      { href: "/dashboard/orders", label: "Orders", permission: "orders.read", icon: "orders" },
-      { href: "/dashboard/payments", label: "Payments", permission: "orders.read", icon: "payments" },
-      { href: "/dashboard/returns", label: "Returns", permission: "orders.read", icon: "returns" },
       { href: "/dashboard/products", label: "Products", permission: "catalog.read", icon: "products" },
       { href: "/dashboard/collections", label: "Collections", permission: "catalog.read", icon: "collections" },
       { href: "/dashboard/categories", label: "Categories", permission: "catalog.read", icon: "categories" },
       { href: "/dashboard/inventory", label: "Inventory", permission: "inventory.read", icon: "inventory" },
       { href: "/dashboard/size-charts", label: "Size charts", permission: "catalog.read", icon: "sizeCharts" },
+    ],
+  },
+  {
+    label: "Sales",
+    icon: "orders",
+    items: [
+      { href: "/dashboard/orders", label: "Orders", permission: "orders.read", icon: "orders" },
+      { href: "/dashboard/payments", label: "Payments", permission: "orders.read", icon: "payments" },
+      { href: "/dashboard/returns", label: "Returns", permission: "orders.read", icon: "returns" },
       { href: "/dashboard/customers", label: "Customers", permission: "customers.read", icon: "customers" },
     ],
   },
   {
     label: "Marketing",
+    icon: "social",
     items: [
       { href: "/dashboard/discounts", label: "Coupons", permission: "marketing.read", icon: "coupons" },
       { href: "/dashboard/marketing/social", label: "Social", permission: "marketing.read", icon: "social" },
@@ -43,7 +53,8 @@ export const DASHBOARD_NAV: { label: string; items: TenantNavItem[] }[] = [
     ],
   },
   {
-    label: "Store",
+    label: "Storefront",
+    icon: "themes",
     items: [
       { href: "/dashboard/themes", label: "Theme marketplace", permission: "theme.edit", icon: "themes" },
       { href: "/dashboard/theme", label: "Theme editor", permission: "theme.edit", icon: "theme" },
@@ -56,13 +67,15 @@ export const DASHBOARD_NAV: { label: string; items: TenantNavItem[] }[] = [
   },
   {
     label: "Analytics",
+    icon: "analytics",
     items: [{ href: "/dashboard/analytics", label: "Analytics", permission: "analytics.read", icon: "analytics" }],
   },
   {
     label: "Settings",
+    icon: "settings",
     items: [
-      { href: "/dashboard/settings", label: "Settings", permission: "store.read", icon: "settings" },
-      { href: "/dashboard/settings/payments", label: "Payments", permission: "payments.manage", icon: "payments" },
+      { href: "/dashboard/settings", label: "General", permission: "store.read", icon: "settings" },
+      { href: "/dashboard/settings/payments", label: "Payment methods", permission: "payments.manage", icon: "payments" },
       { href: "/dashboard/settings/shipping", label: "Shipping", permission: "store.read", icon: "shipping" },
       { href: "/dashboard/settings/team", label: "Team", permission: "members.read", icon: "team" },
     ],

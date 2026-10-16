@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/cn";
 
 /**
@@ -39,7 +40,7 @@ export function Popover({ trigger, label, children, align = "end", className }: 
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-8 items-center gap-2 rounded-md px-1.5 text-muted transition-colors hover:bg-surface-secondary hover:text-foreground aria-expanded:bg-surface-secondary"
+        className="flex h-9 items-center gap-2 rounded-lg px-2 text-muted transition-colors hover:bg-surface-secondary hover:text-foreground aria-expanded:bg-surface-secondary"
       >
         {trigger}
       </button>
@@ -48,7 +49,7 @@ export function Popover({ trigger, label, children, align = "end", className }: 
           id={id}
           onClick={(e) => (e.target as HTMLElement).closest("a") && setOpen(false)}
           className={cn(
-            "absolute top-full z-40 mt-2 w-72 origin-top rounded-lg border border-border bg-surface-elevated p-1.5 text-foreground shadow-lg animate-[pop-in_140ms_ease-out]",
+            "absolute top-full z-40 mt-2 w-72 origin-top rounded-xl border border-border bg-surface-elevated p-1.5 text-foreground shadow-lg animate-[pop-in_140ms_ease-out]",
             align === "end" ? "right-0" : "left-0",
             className,
           )}
@@ -61,12 +62,20 @@ export function Popover({ trigger, label, children, align = "end", className }: 
 }
 
 export function PopoverItem({ href, children, external, onClick }: { href?: string; children: ReactNode; external?: boolean; onClick?: () => void }) {
-  const cls = "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-small text-foreground hover:bg-surface-secondary [&_svg]:size-4 [&_svg]:text-muted";
-  if (href) {
+  const cls = "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-small text-foreground hover:bg-surface-secondary [&_svg]:size-4 [&_svg]:text-muted";
+  if (href && external) {
     return (
-      <a href={href} className={cls} {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
+      <a href={href} className={cls} target="_blank" rel="noopener noreferrer">
         {children}
       </a>
+    );
+  }
+  // Internal links are client-side transitions (a plain <a> reloaded the whole panel).
+  if (href) {
+    return (
+      <Link href={href} className={cls}>
+        {children}
+      </Link>
     );
   }
   return (

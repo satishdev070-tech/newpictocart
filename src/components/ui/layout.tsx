@@ -16,7 +16,7 @@ export function PageHeader({ title, description, actions, back }: { title: strin
 
 export function Card({ title, description, actions, children, className }: { title?: ReactNode; description?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cn("rounded-lg border border-border bg-surface shadow-xs", className)}>
+    <section className={cn("rounded-xl border border-border bg-surface shadow-xs", className)}>
       {title || actions ? (
         <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
           <div className="min-w-0">
@@ -38,16 +38,31 @@ const BADGE_TONES = {
   error: "bg-error/10 text-error ring-error/20",
   accent: "bg-accent-soft text-accent ring-accent/20",
   info: "bg-info/10 text-info ring-info/20",
+  /** Solid primary pill (e.g. "Published"). */
+  brand: "rounded-full bg-primary px-2 text-primary-foreground ring-transparent",
 } as const;
 
 export function Badge({ tone = "neutral", children }: { tone?: keyof typeof BADGE_TONES; children: ReactNode }) {
   return <span className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-caption font-medium whitespace-nowrap ring-1 ring-inset", BADGE_TONES[tone])}>{children}</span>;
 }
 
-export function StatCard({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
+/** Soft tinted surfaces for KPI cards (panel theme tokens). */
+const STAT_TONES = {
+  plain: { card: "border-border bg-surface", icon: "bg-surface-secondary text-muted" },
+  peach: { card: "border-tint-peach-border bg-gradient-to-br from-tint-peach to-surface", icon: "bg-tint-peach-border/70 text-tint-peach-ink" },
+  lavender: { card: "border-tint-lavender-border bg-gradient-to-br from-tint-lavender to-surface", icon: "bg-tint-lavender-border/70 text-tint-lavender-ink" },
+  mint: { card: "border-tint-mint-border bg-gradient-to-br from-tint-mint to-surface", icon: "bg-tint-mint-border/70 text-tint-mint-ink" },
+  sky: { card: "border-tint-sky-border bg-gradient-to-br from-tint-sky to-surface", icon: "bg-tint-sky-border/70 text-tint-sky-ink" },
+  rose: { card: "border-tint-rose-border bg-gradient-to-br from-tint-rose to-surface", icon: "bg-tint-rose-border/70 text-tint-rose-ink" },
+} as const;
+export type StatTone = keyof typeof STAT_TONES;
+
+export function StatCard({ label, value, hint, tone = "plain", icon }: { label: string; value: ReactNode; hint?: ReactNode; tone?: StatTone; icon?: ReactNode }) {
+  const t = STAT_TONES[tone];
   return (
-    <div className="rounded-lg border border-border bg-surface p-4 shadow-xs">
-      <p className="text-small text-muted">{label}</p>
+    <div className={cn("rounded-xl border p-4 shadow-xs sm:p-5", t.card)}>
+      {icon ? <div className={cn("mb-3 grid size-9 place-items-center rounded-lg [&_svg]:size-[18px]", t.icon)}>{icon}</div> : null}
+      <p className={cn("text-small text-muted", tone !== "plain" && "text-overline")}>{label}</p>
       <p className="mt-1 text-h1 tabular-nums">{value}</p>
       {hint ? <p className="mt-1 text-caption text-muted">{hint}</p> : null}
     </div>
@@ -57,7 +72,7 @@ export function StatCard({ label, value, hint }: { label: string; value: ReactNo
 /** Responsive table wrapper: scrolls horizontally on small screens instead of breaking layout. */
 export function Table({ children, caption }: { children: ReactNode; caption?: string }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-xs">
+    <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-xs">
       <table className="w-full min-w-[640px] text-left text-body">
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         {children}

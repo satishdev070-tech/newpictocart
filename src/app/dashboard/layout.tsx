@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { platformIconMetadata } from "@/features/platform/server/public-config";
 import Link from "next/link";
-import { Bell, ChevronsUpDown, ExternalLink, LogOut, Store } from "lucide-react";
+import { Bell, ChevronsUpDown, ExternalLink, LogOut } from "lucide-react";
 import { requireTenant } from "@/lib/tenant/membership";
 import { DASHBOARD_NAV } from "@/components/dashboard/nav";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Popover, PopoverItem } from "@/components/app-shell/popover";
-import { AppearanceToggle } from "@/components/ui/appearance-toggle";
+import { AppearanceQuickToggle, AppearanceToggle } from "@/components/ui/appearance-toggle";
+import { PanelLogo, PanelMark } from "@/components/app-shell/panel-logo";
 import { switchTenantAction } from "@/features/tenants/actions";
 import { signOutAction } from "@/features/auth/actions";
 import { getDashboardAlerts } from "@/features/dashboard-ui/alerts";
@@ -42,7 +43,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 function Monogram({ name, className = "size-7" }: { name: string; className?: string }) {
   return (
-    <span aria-hidden className={`grid shrink-0 place-items-center rounded-md bg-primary text-caption font-semibold text-primary-foreground ${className}`}>
+    <span aria-hidden className={`grid shrink-0 place-items-center rounded-lg bg-accent-soft text-caption font-bold text-accent ring-1 ring-inset ring-accent/20 ${className}`}>
       {name.trim().slice(0, 1).toUpperCase()}
     </span>
   );
@@ -52,36 +53,43 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   const ctx = await requireTenant();
   const groups = DASHBOARD_NAV.map((g) => ({ ...g, items: g.items.filter((i) => ctx.permissions.has(i.permission)) })).filter((g) => g.items.length);
   const storeUrl = storeOrigin(storeSubdomain(ctx.tenantSlug));
-  const [alerts, trial] = await Promise.all([getDashboardAlerts(ctx), ctx.tenantStatus === "trial" ? trialInfo(ctx.tenantId) : Promise.resolve(null)]);
+  // Independent reads in parallel (the cookie store is needed only for the support banner).
+  const [alerts, trial, cookieStore] = await Promise.all([getDashboardAlerts(ctx), ctx.tenantStatus === "trial" ? trialInfo(ctx.tenantId) : Promise.resolve(null), cookies()]);
   const alertTotal = alerts.reduce((s, a) => s + a.count, 0);
   const displayName = ctx.user.displayName ?? ctx.user.email ?? "Account";
 
-  const brand = (
-    <Link href="/dashboard" className="flex min-w-0 items-center gap-2.5">
-      <Monogram name={ctx.tenantName} />
-      <span className="min-w-0">
-        <span className="block truncate text-small font-semibold">{ctx.tenantName}</span>
-        <span className="block truncate text-caption text-subtle">{ctx.tenantSlug}</span>
-      </span>
-    </Link>
-  );
+  const brand = <PanelLogo href="/dashboard" label="Pictocart seller dashboard" />;
+  const brandMark = <PanelMark href="/dashboard" label="Pictocart seller dashboard" />;
 
+  // Store identity (opens the live storefront) and sign-out, above the sidebar's Collapse control.
   const sidebarFooter = (
-    <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="flex h-9 items-center gap-2.5 rounded-md px-3 text-small text-muted hover:bg-surface-secondary hover:text-foreground">
-      <Store aria-hidden className="size-4" strokeWidth={1.75} />
-      <span className="flex-1">View storefront</span>
-      <ExternalLink aria-hidden className="size-3.5" />
-    </a>
+    <>
+      <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-secondary">
+        <Monogram name={ctx.tenantName} className="size-8" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-small font-semibold">{ctx.tenantName}</span>
+          <span className="block truncate text-caption text-muted">View storefront</span>
+        </span>
+        <ExternalLink aria-hidden className="size-4 shrink-0 text-subtle group-hover:text-accent" strokeWidth={1.75} />
+      </a>
+      <form action={signOutAction}>
+        <button type="submit" className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-small text-error transition-colors hover:bg-error/10">
+          <LogOut aria-hidden className="size-[18px]" strokeWidth={1.75} />
+          Sign out
+        </button>
+      </form>
+    </>
   );
 
   const topbarEnd = (
     <>
+      <AppearanceQuickToggle />
       <Popover
         label={alertTotal ? `Notifications, ${alertTotal} need attention` : "Notifications"}
         trigger={
           <span className="relative grid size-5 place-items-center">
-            <Bell aria-hidden className="size-4" strokeWidth={1.75} />
-            {alertTotal ? <span aria-hidden className="absolute -right-1 -top-1 size-2 rounded-full bg-accent ring-2 ring-surface" /> : null}
+            <Bell aria-hidden className="size-[18px]" strokeWidth={1.75} />
+            {alertTotal ? <span aria-hidden className="absolute -right-1 -top-1 size-2 rounded-full bg-accent-strong ring-2 ring-surface" /> : null}
           </span>
         }
       >
@@ -101,7 +109,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         label="Account and store"
         trigger={
           <>
-            <span aria-hidden className="grid size-7 place-items-center rounded-full bg-surface-secondary text-caption font-semibold text-foreground ring-1 ring-border">
+            <span aria-hidden className="grid size-8 place-items-center rounded-full bg-accent-soft text-caption font-bold text-accent ring-1 ring-inset ring-accent/20">
               {displayName.slice(0, 1).toUpperCase()}
             </span>
             <ChevronsUpDown aria-hidden className="hidden size-3.5 sm:block" />
@@ -149,7 +157,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   );
 
   // Platform super admin signed in as this member (Admin → Store → Log in as store).
-  const support = readSupportLogin((await cookies()).get(SUPPORT_LOGIN_COOKIE)?.value);
+  const support = readSupportLogin(cookieStore.get(SUPPORT_LOGIN_COOKIE)?.value);
   const supportBanner =
     support && support.userId === ctx.user.id ? (
       <div role="status" className="flex flex-wrap items-center justify-between gap-2 border-b border-warning/40 bg-warning/15 px-5 py-2 text-small text-foreground">
@@ -189,7 +197,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   ) : null;
 
   return (
-    <AppShell groups={groups} homeHref="/dashboard" brand={brand} sidebarFooter={sidebarFooter} topbarEnd={topbarEnd} banner={banner} storageKey="paliya-seller-sidebar">
+    <AppShell groups={groups} homeHref="/dashboard" brand={brand} brandMark={brandMark} sidebarFooter={sidebarFooter} topbarEnd={topbarEnd} banner={banner} storageKey="paliya-seller-sidebar">
       {children}
     </AppShell>
   );

@@ -62,7 +62,7 @@ export function AppearanceToggle({ className, compact = false }: { className?: s
             onClick={() => choose(p)}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-caption font-medium transition-colors",
-              on ? "bg-surface text-foreground shadow-xs" : "text-muted hover:text-foreground",
+              on ? "bg-surface text-accent shadow-xs" : "text-muted hover:text-foreground",
             )}
           >
             <Icon className="size-3.5" strokeWidth={1.75} aria-hidden />
@@ -71,5 +71,36 @@ export function AppearanceToggle({ className, compact = false }: { className?: s
         );
       })}
     </div>
+  );
+}
+
+/** One-click light/dark switch for topbars (the full Light / Dark / System choice stays in the account menu). */
+export function AppearanceQuickToggle({ className }: { className?: string }) {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading the applied theme after mount
+    setDark(document.documentElement.getAttribute("data-theme") === "dark");
+  }, []);
+  const toggle = () => {
+    const next: Appearance = dark ? "light" : "dark";
+    try {
+      localStorage.setItem(APPEARANCE_KEY, next);
+    } catch {
+      /* storage unavailable: applies for this page only */
+    }
+    apply(next);
+    setDark(!dark);
+  };
+  const Icon = dark ? Sun : Moon;
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      title={dark ? "Light mode" : "Dark mode"}
+      className={cn("grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-secondary hover:text-foreground", className)}
+    >
+      <Icon aria-hidden className="size-[18px]" strokeWidth={1.75} />
+    </button>
   );
 }

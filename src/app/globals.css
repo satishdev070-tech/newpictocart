@@ -112,6 +112,124 @@
 }
 
 /*
+ * Panel theme: seller dashboard and super admin console (AppShell adds .theme-panel). Pictocart
+ * orange on warm-neutral surfaces, soft tinted cards, a slightly larger type scale and Manrope
+ * headings. Contrast (light): white on --primary 4.6:1, --accent on --accent-soft 4.8:1, --muted
+ * on --background 7.3:1, --subtle 5.1:1. Vivid --accent-strong (#f97316) is for non-text marks
+ * only (progress bars, dots, active rails). Dark: --primary-foreground on --primary 6.8:1,
+ * --accent on --accent-soft 7.5:1.
+ */
+.theme-panel {
+  --background: #fafaf9;
+  --surface: #ffffff;
+  --surface-secondary: #f5f4f2;
+  --surface-elevated: #ffffff;
+  --foreground: #1c1917;
+  --muted: #57534e;
+  --subtle: #706a64;
+  --border: #ebe8e4;
+  --border-strong: #d9d4ce;
+  --primary: #cc4a0c;
+  --primary-foreground: #ffffff;
+  --accent: #c2410c;
+  --accent-foreground: #ffffff;
+  --accent-soft: #fff4ec;
+  --accent-strong: #f97316;
+  --success: #15803d;
+  --warning: #b45309;
+  --error: #b91c1c;
+  --info: #4f46e5;
+  --focus: #ea580c;
+
+  --tint-peach: #fff5ee;
+  --tint-peach-border: #fde2cf;
+  --tint-peach-ink: #c2410c;
+  --tint-lavender: #f4f2ff;
+  --tint-lavender-border: #e2ddfd;
+  --tint-lavender-ink: #5b4bd6;
+  --tint-mint: #edfaf3;
+  --tint-mint-border: #cdeedc;
+  --tint-mint-ink: #047857;
+  --tint-sky: #eff6ff;
+  --tint-sky-border: #d4e5fb;
+  --tint-sky-ink: #1d5fbf;
+  --tint-rose: #fff1f2;
+  --tint-rose-border: #fbd3d9;
+  --tint-rose-ink: #be123c;
+
+  --shadow-xs: 0 1px 2px rgb(28 25 23 / 0.04);
+  --shadow-sm: 0 1px 3px rgb(28 25 23 / 0.06), 0 1px 2px rgb(28 25 23 / 0.03);
+
+  --font-heading: var(--font-manrope), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --heading-weight: 700;
+  --text-display-size: 2.125rem;
+  --text-display-lh: 2.5rem;
+  --text-h1-size: 1.625rem;
+  --text-h1-lh: 2.125rem;
+  --text-h2-size: 1.1875rem;
+  --text-h2-lh: 1.75rem;
+  --text-h3-size: 1rem;
+  --text-h3-lh: 1.5rem;
+  --text-h4-size: 0.875rem;
+  --text-h4-lh: 1.25rem;
+  --text-body-size: 0.9375rem;
+  --text-body-lh: 1.5rem;
+  --text-small-size: 0.875rem;
+  --text-small-lh: 1.375rem;
+  --text-caption-size: 0.78125rem;
+  --text-caption-lh: 1.125rem;
+  --text-label-size: 0.875rem;
+  --text-label-lh: 1.25rem;
+  --text-overline-size: 0.71875rem;
+
+  background: var(--background);
+  color: var(--foreground);
+  font-size: var(--text-body-size);
+}
+[data-theme="dark"] .theme-panel,
+.theme-panel[data-theme="dark"] {
+  --background: #0e0e10;
+  --surface: #161618;
+  --surface-secondary: #1e1e21;
+  --surface-elevated: #222225;
+  --foreground: #f0eeec;
+  --muted: #a8a29e;
+  --subtle: #8a837d;
+  --border: #29292d;
+  --border-strong: #3a3a40;
+  --primary: #f97316;
+  --primary-foreground: #1c0d03;
+  --accent: #fb923c;
+  --accent-foreground: #1c0d03;
+  --accent-soft: #2a1810;
+  --accent-strong: #fb923c;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --info: #a5b4fc;
+  --focus: #fb923c;
+
+  --tint-peach: #22160f;
+  --tint-peach-border: #3d2618;
+  --tint-peach-ink: #fdba74;
+  --tint-lavender: #1b1a2a;
+  --tint-lavender-border: #2e2b4a;
+  --tint-lavender-ink: #c4bbff;
+  --tint-mint: #111f19;
+  --tint-mint-border: #1f3a2d;
+  --tint-mint-ink: #6ee7b7;
+  --tint-sky: #111b27;
+  --tint-sky-border: #1f3247;
+  --tint-sky-ink: #93c5fd;
+  --tint-rose: #231317;
+  --tint-rose-border: #40212a;
+  --tint-rose-ink: #fda4af;
+
+  --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+}
+
+/*
  * Pictocart brand (public marketing site, seller sign-in/sign-up and onboarding). Scoped to
  * .theme-brand so the seller dashboard and storefronts are unaffected. Always light: marketing
  * pages pin data-theme="light" so contrast is predictable.
@@ -205,6 +323,23 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-strong: var(--accent-strong, var(--accent));
+  /* Panel tints (.theme-panel only): soft card fills, their borders and icon/ink colours. */
+  --color-tint-peach: var(--tint-peach);
+  --color-tint-peach-border: var(--tint-peach-border);
+  --color-tint-peach-ink: var(--tint-peach-ink);
+  --color-tint-lavender: var(--tint-lavender);
+  --color-tint-lavender-border: var(--tint-lavender-border);
+  --color-tint-lavender-ink: var(--tint-lavender-ink);
+  --color-tint-mint: var(--tint-mint);
+  --color-tint-mint-border: var(--tint-mint-border);
+  --color-tint-mint-ink: var(--tint-mint-ink);
+  --color-tint-sky: var(--tint-sky);
+  --color-tint-sky-border: var(--tint-sky-border);
+  --color-tint-sky-ink: var(--tint-sky-ink);
+  --color-tint-rose: var(--tint-rose);
+  --color-tint-rose-border: var(--tint-rose-border);
+  --color-tint-rose-ink: var(--tint-rose-ink);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-error: var(--error);
@@ -230,54 +365,60 @@
 /*
  * Type scale (platform UI). Use these instead of ad-hoc text-[..] sizes.
  * display 32/38 · h1 24/32 · h2 18/26 · h3 15/22 · h4 13/20 · body 14/22 · small 13/20 · caption 12/16 · label 13/18
+ * .theme-panel scales them up one step (body 15/24, small 14/22, h1 26/34 …) through the
+ * --text-*-size/-lh variables and sets --font-heading (Manrope) for display/h1–h3.
  */
 @utility text-display {
-  font-size: 2rem;
-  line-height: 2.375rem;
-  font-weight: 600;
+  font-size: var(--text-display-size, 2rem);
+  line-height: var(--text-display-lh, 2.375rem);
+  font-family: var(--font-heading, inherit);
+  font-weight: var(--heading-weight, 600);
   letter-spacing: -0.025em;
 }
 @utility text-h1 {
-  font-size: 1.5rem;
-  line-height: 2rem;
-  font-weight: 600;
+  font-size: var(--text-h1-size, 1.5rem);
+  line-height: var(--text-h1-lh, 2rem);
+  font-family: var(--font-heading, inherit);
+  font-weight: var(--heading-weight, 600);
   letter-spacing: -0.02em;
 }
 @utility text-h2 {
-  font-size: 1.125rem;
-  line-height: 1.625rem;
-  font-weight: 600;
+  font-size: var(--text-h2-size, 1.125rem);
+  line-height: var(--text-h2-lh, 1.625rem);
+  font-family: var(--font-heading, inherit);
+  font-weight: var(--heading-weight, 600);
   letter-spacing: -0.01em;
 }
 @utility text-h3 {
-  font-size: 0.9375rem;
-  line-height: 1.375rem;
+  font-size: var(--text-h3-size, 0.9375rem);
+  line-height: var(--text-h3-lh, 1.375rem);
+  font-family: var(--font-heading, inherit);
   font-weight: 600;
 }
 @utility text-h4 {
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
+  font-size: var(--text-h4-size, 0.8125rem);
+  line-height: var(--text-h4-lh, 1.25rem);
   font-weight: 600;
 }
 @utility text-body {
-  font-size: 0.875rem;
-  line-height: 1.375rem;
+  font-size: var(--text-body-size, 0.875rem);
+  line-height: var(--text-body-lh, 1.375rem);
 }
 @utility text-small {
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
+  font-size: var(--text-small-size, 0.8125rem);
+  line-height: var(--text-small-lh, 1.25rem);
 }
 @utility text-caption {
-  font-size: 0.75rem;
-  line-height: 1rem;
+  font-size: var(--text-caption-size, 0.75rem);
+  line-height: var(--text-caption-lh, 1rem);
 }
 @utility text-label {
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
+  font-size: var(--text-label-size, 0.8125rem);
+  line-height: var(--text-label-lh, 1.125rem);
   font-weight: 500;
 }
 @utility text-overline {
-  font-size: 0.6875rem;
+  font-size: var(--text-overline-size, 0.6875rem);
   line-height: 1rem;
   font-weight: 600;
   letter-spacing: 0.08em;
