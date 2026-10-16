@@ -62,6 +62,27 @@ name maps to one section family per industry.
 - In the dashboard, **Live preview** opens a dialog with Desktop (1280 px, scaled) and Mobile
   (390 px) frames. It is shown only when the demo store exists and is open.
 
+## Marketing site previews (pictocart.in)
+
+- **Preview Theme** on the home page cards, `/themes` and `/themes/[key]` opens `/themes/[key]/preview`, which works for
+  every theme: it frames a live demo store with the theme applied in memory when one is up, otherwise it renders a
+  **sample store** server-side from the theme preset (colours, fonts, header layout, hero, product card, spacing, footer)
+  with the industry's Unsplash photos (credited). Desktop / Phone switch; the phone frame is 390 px.
+- The demo store for a theme is its own `demo`, else its industry's showcase store, else `sabkuch`, else any live showcase
+  store (`previewDemoCandidates`): Live Preview applies any theme on any showcase tenant.
+- Card images: captured screenshot (`public/theme-previews`, listed in `theme-previews.json`) first, then the category's
+  Unsplash photo (`src/lib/unsplash.ts`), then the token mockup.
+- **Why previews were not real (2026-10-16):** none of the showcase demo stores existed (the connected Supabase project and
+  `*.pictocart.in` both 404 for `kaya-studio`, `dewbloom`, `sabkuch`, `chinar`), so no live preview URL was produced and the
+  screenshot manifest stayed empty. The sample store now covers that case.
+- **Regenerate screenshots / enable live previews:**
+  1. Build the demo stores (writes only to those demo tenants):
+     `pnpm exec tsx --env-file=.env.local scripts/dev/showcase/run.mts kaya-studio voltnest dewbloom … sabkuch`
+     (original fashion demos: `scripts/dev/demo-stores/run.mts`).
+  2. Capture: `pnpm themes:capture --root pictocart.in` (production), or `pnpm themes:capture --root localhost --port 3000`
+     against a local `pnpm dev`; `--only key1,key2` for a subset. Or GitHub → Actions → "Capture theme previews".
+  3. Commit `public/theme-previews/*.webp` and `src/features/marketing-site/theme-previews.json`.
+
 ## Marketplace UI
 
 Industry chips with counts, style filter, search (name, tagline, style, best-for) and sort

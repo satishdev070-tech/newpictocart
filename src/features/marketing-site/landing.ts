@@ -214,7 +214,31 @@ export const featuresSchema = z.object({
   mini: z.array(z.object({ icon, title: str(40) })).max(8),
 });
 
-export const themesSchema = z.object({ enabled: z.boolean(), badge: str(60), title: str(160), body: str(300), count: z.number().int().min(2).max(12), button: link });
+/** Home theme showcase: themes shown by default (two rows of four) and the CMS bounds. */
+export const THEMES_DEFAULT_COUNT = 8;
+export const THEMES_MAX_COUNT = 12;
+const themeCount = z.number().int().min(2).max(THEMES_MAX_COUNT);
+export const themesSchema = z.object({
+  enabled: z.boolean(),
+  badge: str(60),
+  title: str(160),
+  body: str(300),
+  /** Number of themes shown (CMS "Number of themes shown"). */
+  limit: themeCount.optional(),
+  /** Legacy field from before `limit` (its default was 4); still accepted, see themesShown. */
+  count: themeCount.optional(),
+  button: link,
+});
+
+/**
+ * Themes to show on the home page: `limit` when set; otherwise a legacy `count` the admin changed
+ * from the old default of 4; otherwise the default (8, two rows of four).
+ */
+export function themesShown(t: { limit?: number; count?: number }): number {
+  if (t.limit) return t.limit;
+  if (t.count && t.count !== 4) return t.count;
+  return THEMES_DEFAULT_COUNT;
+}
 
 const categoryItem = z.object({ label: str(40), icon, color, href, imageUrl });
 const categoriesObject = z.object({ enabled: z.boolean(), title: str(160), body: str(300), items: z.array(categoryItem).max(30) });
@@ -442,7 +466,7 @@ export const DEFAULT_LANDING: LandingContent = {
     badge: "Theme Marketplace",
     title: "Stunning Themes for Every Business",
     body: "Browse themes made for every business category. Each one fully customisable.",
-    count: 4,
+    limit: THEMES_DEFAULT_COUNT,
     button: { label: "Browse all themes", href: "/themes" },
   },
   categories: {

@@ -176,3 +176,13 @@ or the store's `/account/auth/callback`, both accept `token_hash`), only for hos
 host; anything else falls back to `/auth/confirm`), brand it (store name/logo for shoppers, platform for sellers) and send it
 through `sendEmail()` (Resend, `email_log`, idempotency). If the email can't be sent we return an error to Supabase so the
 user sees a failure rather than waiting for a mail that never comes.
+
+## ADR-035 — Unsplash photos in the media library are imported copies · Accepted
+The media picker hands callers storage paths (`tenant/{id}/media/…`), and every image field resolves them with
+`assetUrl()`, which only accepts store paths. So a seller's "use this Unsplash photo" imports a copy (≤ 2000 px JPEG from
+images.unsplash.com) into the store's own library with the member's session (Storage + `media_assets` RLS, no admin client),
+instead of teaching every consumer about external URLs. The Unsplash License allows this. API-guideline duties are kept:
+browsing hotlinks images.unsplash.com thumbnails with "Photo by X on Unsplash" links (UTM), each import or super-admin "Copy URL"
+calls the photo's `download_location`, the photo is looked up by id server-side (never a URL from the browser), and the credit
+goes into the copy's alt text and file name. The API key stays server-side; searches go through Next's fetch cache and a
+per-store rate limit (the API's demo tier is 50 requests/hour).

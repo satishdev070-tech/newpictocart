@@ -7,7 +7,7 @@ import { mapDbError } from "@/lib/supabase/errors";
 import { AppError } from "@/lib/errors";
 import { STORE_ASSETS_BUCKET, assetUrl } from "@/lib/storage/assets";
 import { sniffImage } from "@/lib/storage/upload";
-import { MEDIA_TYPES, cleanFilename, isMediaMime, validateMediaFile, type FileMeta } from "../rules";
+import { MEDIA_MAX_BYTES, MEDIA_TYPES, cleanFilename, isMediaMime, validateMediaFile, type FileMeta } from "../rules";
 
 export type MediaItem = {
   id: string;
@@ -109,6 +109,36 @@ export async function registerUpload(
     .select(SELECT)
     .single();
   if (error) throw mapDbError(error);
+  return toItem(data);
+}
+
+/**
+ * Catalogues an image fetched by the server (e.g. an Unsplash photo): sniffs the bytes, stores
+ * them at a server-chosen path with the member's own session (Storage RLS), makes the WebP copies
+ * and inserts the media row (RLS). The stored file is removed again if cataloguing fails.
+ */
+export async function registerImportedImage(
+  tenantId: string,
+  userId: string,
+  input: { bytes: Uint8Array; filename: string; folder: string; alt: string | null; width: number | null; height: number | null },
+): Promise<MediaItem> {
+  const kind = sniffImage(input.bytes);
+  if (!kind || !isMediaMime(kind.mime)) throw new AppError("VALIDATION", { message: "That photo couldn't be read as an image." });
+  if (input.bytes.byteLength > MEDIA_MAX_BYTES) throw new AppError("VALIDATION", { message: "That photo is too large to import." });
+  const path = `tenant/${tenantId}/media/${randomUUID()}.${MEDIA_TYPES[kind.mime][0]}`;
+  const supabase = await createSupabaseServerClient();
+  const { error: upError } = await supabase.storage.from(STORE_ASSETS_BUCKET).upload(path, input.bytes, { contentType: kind.mime, cacheControl: "3600", upsert: false });
+  if (upError) throw new AppError("FORBIDDEN", { message: "You don't have permission to add images to this store." });
+  await createVariantsOnUpload(supabase, path, input.bytes);
+  const { data, error } = await supabase
+    .from("media_assets")
+    .insert({ tenant_id: tenantId, storage_path: path, filename: cleanFilename(input.filename), folder: input.folder, alt_text: input.alt, mime_type: kind.mime, bytes: input.bytes.byteLength, width: input.width, height: input.height, uploaded_by: userId })
+    .select(SELECT)
+    .single();
+  if (error) {
+    await supabase.storage.from(STORE_ASSETS_BUCKET).remove([path, ...variantPathsFor(path)]);
+    throw mapDbError(error);
+  }
   return toItem(data);
 }
 

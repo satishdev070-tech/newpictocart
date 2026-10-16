@@ -179,3 +179,15 @@ export async function getCategoryImages(categories: readonly string[]): Promise<
   const images = await Promise.all(unique.map((c) => getCategoryImage(c)));
   return new Map(unique.map((c, i) => [c, images[i]!]));
 }
+
+// ---- Media library helpers (appended; see src/features/media/unsplash) -------------------------
+
+/** Search terms used for a category's photo, so the media library can find the same photo. */
+export function unsplashCategoryQuery(category: string): string {
+  return QUERIES[toUnsplashCategory(category)];
+}
+
+/** The curated fallback photos (images.unsplash.com ids like "photo-…"), keyed by category. PURE. */
+export function curatedUnsplashPhotos(): { category: UnsplashCategory; id: string; alt: string }[] {
+  return UNSPLASH_CATEGORIES.map((category) => ({ category, ...FALLBACK[category] }));
+}

@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { buildMarketingMetadata } from "@/features/marketing-site/seo";
 import { siteOrigin } from "@/features/marketing-site/site";
 import { filterThemes, parseThemeQuery, themeIndustries, themesHref } from "@/features/marketing-site/themes";
-import { livePreviewUrls } from "@/features/marketing-site/server/themes";
+import { getCategoryImages } from "@/lib/unsplash";
 import { ThemeCard } from "@/features/marketing-site/components/theme-card";
 import { ButtonLink, Container } from "@/features/marketing-site/components/ui";
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
@@ -27,7 +27,8 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
   const query = parseThemeQuery(await searchParams);
   const industries = themeIndustries();
   const result = filterThemes(query);
-  const previews = await livePreviewUrls(result.items);
+  // Category photo per card, shown when the theme has no captured screenshot.
+  const images = await getCategoryImages(result.items.map((t) => t.industry));
 
   return (
     <>
@@ -101,7 +102,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
           <ul className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {result.items.map((t) => (
               <li key={t.key} className="h-full">
-                <ThemeCard theme={t} previewUrl={previews.get(t.key) ?? null} headingLevel="h2" location="themes_page" />
+                <ThemeCard theme={t} image={images.get(t.industry) ?? null} headingLevel="h2" location="themes_page" />
               </li>
             ))}
           </ul>

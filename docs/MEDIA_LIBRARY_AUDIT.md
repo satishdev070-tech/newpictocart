@@ -19,6 +19,20 @@ other place using it once files became shared.
 - **Media picker** (`MediaPicker`): "Select from media library" with search, load more and in-place upload, single or multiple selection.
   Used by theme editor image fields, product images ("Add from media library"), category images and collection images.
 
+## Unsplash (2026-10-16)
+
+- **Dashboard → Media** has a "Your files | Unsplash" switch, and the **media picker** an "Unsplash" tab, for members who can
+  add images (`catalog.write`, `content.write` or `theme.edit`). With an empty search it lists the photos Pictocart's theme and
+  category cards use ("Used for: Fashion, Footwear themes"); typing searches Unsplash (safe content, 24 per page).
+- "Add to library" / choosing a photo in the picker imports a copy (folder `unsplash`, credit in alt text and file name) and
+  returns an ordinary media item, so every picker consumer works unchanged (ADR-035). Each import calls Unsplash's
+  `download_location` and is audited (`media.unsplash_imported`).
+- **Super admin → Media library** (`/admin/media`, `platform.settings.manage`): same listing and search, "Copy URL" (hotlink
+  + credit, records the download) for the landing CMS's image fields.
+- Server: `src/features/media/unsplash/server.ts` (key server-side, fetch cache: a day for theme photos and lookups, an hour for
+  searches; 60 searches/hour per store or admin), actions in `unsplash-actions.ts` (`runAction` + `parseInput`). Without
+  `UNSPLASH_ACCESS_KEY` the tab lists the curated fallback photos. Tests: `tests/unit/media/unsplash-media.test.ts`.
+
 ## Architecture & security
 
 1. The server chooses the path: `tenant/{tenantId}/media/{uuid}.{ext}` (tenant from the member's context, never from input).

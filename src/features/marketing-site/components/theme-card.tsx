@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { Eye } from "lucide-react";
 import { ThemeMockup } from "@/features/theme/marketplace/mockup";
 import { THEME_STYLE_LABELS, type MarketplaceTheme } from "@/features/theme/marketplace/types";
 import { industryShort } from "@/features/stores/industries";
@@ -9,6 +9,7 @@ import { buttonClass } from "./ui";
 import { DESKTOP_VIEWPORT, LiveFrame, PHONE_VIEWPORT } from "./live-frame";
 import { ClickToLive } from "./click-to-live";
 import { themeShot, type ShotDevice } from "../theme-shots";
+import { themePreviewHref } from "../themes";
 import type { ReactNode } from "react";
 import type { CategoryImage } from "@/lib/unsplash";
 
@@ -133,10 +134,12 @@ const PILL = "inline-flex h-6 items-center rounded-full px-2.5 text-xs font-semi
 
 /**
  * Theme card. Preview priority: captured screenshot, then `image` (the theme's category photo,
- * from src/lib/unsplash.ts), then the token mockup. Fixed-ratio preview + clamped copy keep every
- * card in a row the same height with the buttons aligned along the bottom.
+ * from src/lib/unsplash.ts), then the token mockup. "Preview Theme" opens the on-site preview page
+ * (live demo store when one is up, else the sample store), so it works for every theme.
+ * Fixed-ratio preview + clamped copy keep every card in a row the same height with the buttons
+ * aligned along the bottom.
  */
-export function ThemeCard({ theme, previewUrl, headingLevel = "h3", location, image = null }: { theme: MarketplaceTheme; previewUrl: string | null; headingLevel?: "h2" | "h3"; location: string; image?: CategoryImage | null }) {
+export function ThemeCard({ theme, headingLevel = "h3", location, image = null }: { theme: MarketplaceTheme; headingLevel?: "h2" | "h3"; location: string; image?: CategoryImage | null }) {
   const H = headingLevel;
   const photo = image && !themeShot(theme.key, "desktop") ? image : null;
   return (
@@ -159,16 +162,9 @@ export function ThemeCard({ theme, previewUrl, headingLevel = "h3", location, im
         </H>
         <p className="mt-1 line-clamp-2 min-h-[2lh] text-sm text-muted">{theme.tagline}</p>
         <div className="mt-auto grid gap-2 pt-5">
-          {previewUrl ? (
-            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary", "sm", "w-full")} {...analyticsAttributes("theme_preview", theme.key, location)}>
-              Preview Theme <ExternalLink aria-hidden className="size-3.5" />
-              <span className="sr-only">: {theme.name} (opens a demo store in a new tab)</span>
-            </a>
-          ) : (
-            <Link href={`/themes/${theme.key}`} className={buttonClass("secondary", "sm", "w-full")} {...analyticsAttributes("theme_preview", theme.key, location)}>
-              Preview Theme<span className="sr-only">: {theme.name}</span>
-            </Link>
-          )}
+          <Link href={themePreviewHref(theme.key)} prefetch={false} className={buttonClass("secondary", "sm", "w-full")} {...analyticsAttributes("theme_preview", theme.key, location)}>
+            <Eye aria-hidden className="size-3.5" /> Preview Theme<span className="sr-only">: {theme.name}</span>
+          </Link>
           <Link href={`/themes/${theme.key}/use`} prefetch={false} className={buttonClass("primary", "sm", "w-full")} {...analyticsAttributes("cta_click", `use_${theme.key}`, location)}>
             Use This Theme<span className="sr-only">: {theme.name}</span>
           </Link>

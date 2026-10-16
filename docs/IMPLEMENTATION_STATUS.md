@@ -501,3 +501,25 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
 - **Shell.** Seller nav regrouped as Dashboard · Catalog · Sales · Marketing · Storefront · Analytics · Settings. Multi-item groups are collapsible submenus (grid-rows animation, no measuring, `inert` when closed; the active group opens by default, choices saved per browser). Exactly one item is active (longest matching href). Breadcrumbs moved from the topbar into the content area; the topbar has the wide search, a light/dark toggle, notifications and account. Primitives: `StatCard` gained optional `tone` + `icon`, `Badge` a `brand` tone, `AppearanceQuickToggle`; cards/buttons are rounder.
 - **Speed.** 25 new `loading.tsx` boundaries (14 → 39) using shared skeletons (`components/app-shell/skeletons.tsx`), so every sidebar destination shows its fallback on click and is prefetched up to it. Clicking a nav item highlights it before the route commits (preview, dev mode: ~0.2 s to highlight vs ~1.2 s to commit, where it used to appear). Submenu links are prefetched on hover/focus of the group, and a `useLinkStatus` dot shows a pending navigation. Notification links in topbar popovers are now `next/link` (they did full page reloads). `getPlatformOverview` is `React.cache`d (the console layout and overview page ran the `platform_overview` RPC twice per load: now once); the dashboard layout reads cookies in parallel with alerts/trial info; the console layout no longer loads branding itself.
 - **Not verified here:** signed-in dashboard/admin pages (sign-in was not available to the session); visual QA used the real `AppShell` and primitives with mock data at 375 px and 1440 px, light and dark.
+
+## Theme previews on the marketing site + Unsplash in the media library (2026-10-16)
+
+- **Home themes section:** two rows of four by default, one theme per industry (fashion, gourmet, jewellery, beauty,
+  furniture, electronics, handicrafts, general; then grocery, footwear, kids, watches up to the max of 12), 4/2/1 columns.
+  CMS field `themes.limit` (2–12, default 8). Back-compat: documents saved with the old `themes.count` still validate; a
+  stored `count` of 4 (the old default) now means the new default, any other value is kept (`themesShown`).
+- **Preview Theme** (home cards, `/themes`, `/themes/[key]`) → `/themes/[key]/preview` (noindex): the live demo store in a
+  Desktop/Phone frame when any showcase demo store is up (theme's own demo first, then its industry's, then any:
+  `previewDemoCandidates`), otherwise a server-rendered sample store from the theme preset with Unsplash photos.
+  Root cause of "no real preview": the showcase demo stores were never built on the connected project or on pictocart.in,
+  so no live URL and no screenshots existed. `/themes` cards now show the category photo too.
+- **Capture script** (`scripts/themes/capture-previews.mts`): uses the same demo fallback, works against a local dev
+  server (`--root localhost --port 3000`); not run here because no demo store is up. How to regenerate:
+  docs/THEME_MARKETPLACE.md → "Marketing site previews".
+- **Media library Unsplash tab** (dashboard Media page, media picker, new super-admin `/admin/media`): theme/category
+  photos + Unsplash search, attribution, import-on-insert with the download endpoint triggered (ADR-035, MEDIA_LIBRARY_AUDIT.md).
+- **Not verified here:** the signed-in Media pages and picker (seed accounts exist only for a local Supabase; this
+  worktree uses the cloud project), and a real live preview / screenshot capture (no demo store is up). Checked in the dev
+  server: home grid (8 cards, 4 columns, photos, preview links), `/themes` cards, preview page desktop + phone.
+- Note: the configured `UNSPLASH_ACCESS_KEY` is a demo-tier key (50 requests/hour); apply for production (5000/hour)
+  before launch. Responses are cached, but a cold cache needs ~20 requests.

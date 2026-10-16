@@ -2,17 +2,84 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Images, Search, Upload } from "lucide-react";
+import { Check, ImagePlus, Images, Search, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
 import { MEDIA_FOLDERS, MEDIA_TYPES } from "../rules";
 import type { MediaItem } from "../server/media";
 import { Dropzone, MediaDetails, MediaGrid, UploadQueue } from "./media-ui";
 import { useMediaUploads } from "./use-media-uploads";
+import { UnsplashBrowser, actionError } from "./unsplash-browser";
+import { importUnsplashAction, listUnsplashAction } from "../unsplash-actions";
+import type { UnsplashPhoto } from "../unsplash/photos";
 
 const control = "h-9 rounded-md border border-border bg-surface px-2.5 text-small shadow-xs focus:border-accent focus:outline-none focus:ring-3 focus:ring-accent/15";
 
-export function MediaLibrary({ items, total, folders, page, pageSize, canUpload }: { items: MediaItem[]; total: number; folders: string[]; page: number; pageSize: number; canUpload: boolean }) {
+type Props = { items: MediaItem[]; total: number; folders: string[]; page: number; pageSize: number; canUpload: boolean };
+
+/** Media page: the store's own files, plus an Unsplash tab (for members who can add images). */
+export function MediaLibrary(props: Props) {
+  const [source, setSource] = useState<"files" | "unsplash">("files");
+  if (!props.canUpload) return <OwnFiles {...props} />;
+  return (
+    <div className="space-y-5">
+      <div role="tablist" aria-label="Source" className="inline-flex rounded-md bg-surface-secondary p-0.5">
+        {(["files", "unsplash"] as const).map((t) => (
+          <button
+            key={t}
+            role="tab"
+            type="button"
+            aria-selected={source === t}
+            onClick={() => setSource(t)}
+            className={`rounded-[5px] px-3 py-1 text-small font-medium ${source === t ? "bg-surface shadow-xs" : "text-muted hover:text-foreground"}`}
+          >
+            {t === "files" ? "Your files" : "Unsplash"}
+          </button>
+        ))}
+      </div>
+      {source === "files" ? <OwnFiles {...props} /> : <UnsplashPanel />}
+    </div>
+  );
+}
+
+/** Free Unsplash photos (incl. the ones Pictocart's themes use); "Add to library" imports a copy. */
+function UnsplashPanel() {
+  const router = useRouter();
+  const [state, setState] = useState<Record<string, "pending" | "done" | string>>({});
+  const add = async (p: UnsplashPhoto) => {
+    setState((s) => ({ ...s, [p.id]: "pending" }));
+    const r = await importUnsplashAction({ id: p.id });
+    setState((s) => ({ ...s, [p.id]: r.ok ? "done" : actionError(r) }));
+    if (r.ok) router.refresh();
+  };
+  return (
+    <div className="space-y-3">
+      <p className="text-small text-muted">Free to use under the Unsplash License. Adding a photo saves a copy in your library (folder “unsplash”) with the photographer’s credit in its alt text.</p>
+      <UnsplashBrowser
+        load={listUnsplashAction}
+        action={(p) => {
+          const st = state[p.id];
+          if (st === "done")
+            return (
+              <p className="inline-flex items-center gap-1 text-small font-medium text-success">
+                <Check aria-hidden className="size-4" /> Added to your library
+              </p>
+            );
+          return (
+            <>
+              <Button size="sm" variant="secondary" pending={st === "pending"} onClick={() => void add(p)}>
+                <ImagePlus aria-hidden /> Add to library
+              </Button>
+              {st && st !== "pending" ? <p className="mt-1 text-caption text-error">{st}</p> : null}
+            </>
+          );
+        }}
+      />
+    </div>
+  );
+}
+
+function OwnFiles({ items, total, folders, page, pageSize, canUpload }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();

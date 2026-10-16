@@ -14,6 +14,9 @@ import {
   LANDING_ICONS,
   SECTION_LABELS,
   STEP_VISUALS,
+  THEMES_DEFAULT_COUNT,
+  THEMES_MAX_COUNT,
+  themesShown,
   type AccentColor,
   type LandingContent,
   type LandingIcon,
@@ -145,8 +148,8 @@ export function LandingEditor({ initial, defaults }: { initial: LandingContent; 
           {tab === "themes" ? (
             <SectionShell enabled={content.themes.enabled} onToggle={(enabled) => set("themes", { ...content.themes, enabled })} note="Theme cards come from the live theme catalogue.">
               <Headings value={content.themes} onChange={(v) => set("themes", { ...content.themes, ...v })} />
-              <Field label="Number of themes shown" hint="2 to 8; one theme per business category.">
-                <input type="number" min={2} max={8} value={content.themes.count} onChange={(e) => set("themes", { ...content.themes, count: Math.min(8, Math.max(2, Number(e.target.value) || 4)) })} className={cn(inputClassName, "w-28")} />
+              <Field label="Number of themes shown" hint={`2 to ${THEMES_MAX_COUNT}, four per row on desktop (${THEMES_DEFAULT_COUNT} = two rows); one theme per business category.`}>
+                <input type="number" min={2} max={THEMES_MAX_COUNT} value={themesShown(content.themes)} onChange={(e) => set("themes", { ...content.themes, count: undefined, limit: Math.min(THEMES_MAX_COUNT, Math.max(2, Number(e.target.value) || THEMES_DEFAULT_COUNT)) })} className={cn(inputClassName, "w-28")} />
               </Field>
               <LinkEditor label="Button" value={content.themes.button} onChange={(button) => set("themes", { ...content.themes, button })} />
             </SectionShell>

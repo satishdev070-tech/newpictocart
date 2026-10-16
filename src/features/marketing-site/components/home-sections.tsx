@@ -147,7 +147,7 @@ function CategoryPreview({ theme, label }: { theme: MarketplaceTheme; label: str
   );
 }
 
-export function ThemeShowcase({ themes, previews }: { themes: MarketplaceTheme[]; previews: Map<string, string> }) {
+export function ThemeShowcase({ themes }: { themes: MarketplaceTheme[] }) {
   return (
     <Section id={SECTION_IDS.themes} labelledBy="themes-title">
       <div className="flex flex-wrap items-end justify-between gap-6">
@@ -159,7 +159,7 @@ export function ThemeShowcase({ themes, previews }: { themes: MarketplaceTheme[]
       <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {themes.map((t) => (
           <li key={t.key} className="h-full">
-            <ThemeCard theme={t} previewUrl={previews.get(t.key) ?? null} location="home_themes" />
+            <ThemeCard theme={t} location="home_themes" />
           </li>
         ))}
       </ul>
