@@ -3,9 +3,12 @@ import { assetUrl } from "@/lib/storage/assets";
 
 import imageLoader from "@/lib/images/loader";
 
+/** A stand-in photo (Unsplash stock, src/lib/unsplash-stock.ts) for an empty image slot. */
+export type ImageFallback = { url: string; alt: string };
+
 /**
- * Tenant image from Supabase Storage via next/image. Renders a neutral placeholder when the
- * path is empty/invalid (assetUrl only accepts tenant/{uuid}/... paths).
+ * Tenant image from Supabase Storage via next/image. When the path is empty/invalid (assetUrl only
+ * accepts tenant/{uuid}/... paths) it shows the `stock` photo if given, else a neutral placeholder.
  */
 export function StoreImage({
   path,
@@ -14,6 +17,7 @@ export function StoreImage({
   priority = false,
   className = "",
   natural = false,
+  stock = null,
 }: {
   path: string | null | undefined;
   alt: string;
@@ -22,16 +26,20 @@ export function StoreImage({
   className?: string;
   /** Full width, height from the image's own proportions (never cropped). Used by banner slides. */
   natural?: boolean;
+  /** Stand-in photo when the path is empty. */
+  stock?: ImageFallback | null;
 }) {
-  const src = assetUrl(path);
+  const own = assetUrl(path);
+  const src = own ?? stock?.url ?? null;
+  const label = !own && stock ? alt || stock.alt : alt;
   if (!src) {
     return <div aria-hidden className={`absolute inset-0 bg-[color-mix(in_srgb,var(--sf-border)_60%,var(--sf-surface))] ${className}`} />;
   }
   // `priority` = the LCP candidate (eager, high fetch priority, preloaded); everything else lazy-loads.
   // Kept on the deprecated `priority` prop on purpose: `preload` emits a different preload hint, and
   // the browser then reuses a different candidate width (measurable pixel change on live stores).
-  if (natural) return <Image src={src} alt={alt} width={0} height={0} sizes={sizes} priority={priority} className={`block h-auto w-full ${className}`} />;
-  return <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className={`object-cover ${className}`} />;
+  if (natural) return <Image src={src} alt={label} width={0} height={0} sizes={sizes} priority={priority} className={`block h-auto w-full ${className}`} />;
+  return <Image src={src} alt={label} fill sizes={sizes} priority={priority} className={`object-cover ${className}`} />;
 }
 
 /**
@@ -47,6 +55,7 @@ export function StoreArtImage({
   sizes,
   priority = false,
   natural = false,
+  stock = null,
 }: {
   path: string | null | undefined;
   mobilePath: string | null | undefined;
@@ -54,10 +63,11 @@ export function StoreArtImage({
   sizes: string;
   priority?: boolean;
   natural?: boolean;
+  stock?: ImageFallback | null;
 }) {
   const desktop = assetUrl(path);
   const mobile = assetUrl(mobilePath);
-  if (!desktop || !mobile) return <StoreImage path={path ?? mobilePath} alt={alt} sizes={sizes} priority={priority} natural={natural} />;
+  if (!desktop || !mobile) return <StoreImage path={path || mobilePath} alt={alt} sizes={sizes} priority={priority} natural={natural} stock={stock} />;
   // getImageProps ignores `priority`; the LCP slide gets an eager, high-priority fetch instead.
   const common = { alt, sizes, ...(priority ? { loading: "eager" as const, fetchPriority: "high" as const } : {}), ...(natural ? { width: 0, height: 0 } : { fill: true }) };
   const { props: d } = getImageProps({ ...common, src: desktop });

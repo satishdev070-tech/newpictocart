@@ -9,6 +9,7 @@ import type { ThemeVersionSummary, EditorPickers } from "@/features/theme/server
 import { SECTION_DEFINITIONS, defaultSettings } from "@/features/theme/sections/definitions";
 import { FONT_STACKS, BUTTON_SHAPES, BUTTON_VARIANTS, CARD_RADII, CONTAINER_WIDTHS, SPACING_SCALES } from "@/features/theme/schema/tokens";
 import { assetUrl } from "@/lib/storage/assets";
+import { UNSPLASH_CATEGORIES } from "@/lib/unsplash-categories";
 import { Button } from "@/components/ui/button";
 import { inputClassName as input } from "@/components/ui/field";
 
@@ -64,6 +65,83 @@ function VideoUpload({ onUploaded }: { onUploaded: (path: string) => void }) {
   );
 }
 
+/** Layout variants as a grid of cards (radio group), each with a small diagram of the layout. */
+function VariantPicker({ field, value, onChange }: { field: Extract<EditorField, { kind: "select" }>; value: string; onChange: (v: unknown) => void }) {
+  const name = `v-${field.key}-${useId()}`;
+  return (
+    <fieldset>
+      <legend className="mb-1 block text-xs font-medium">{field.label}</legend>
+      <div className="grid grid-cols-2 gap-1.5">
+        {field.options.map((o) => {
+          const on = o.value === value;
+          return (
+            <label key={o.value} className={`cursor-pointer rounded-md border p-2 text-xs transition ${on ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-foreground/40"}`}>
+              <input type="radio" name={name} value={o.value} checked={on} onChange={() => onChange(o.value)} className="sr-only" />
+              <VariantDiagram value={o.value} />
+              <span className="mt-1.5 block font-medium">{o.label}</span>
+              {o.hint ? <span className="block text-[11px] leading-snug text-muted">{o.hint}</span> : null}
+            </label>
+          );
+        })}
+      </div>
+      {field.help ? <p className="mt-1 text-xs text-muted">{field.help}</p> : null}
+    </fieldset>
+  );
+}
+
+/** Tiny wireframe per variant value (decorative). Boxes: [x, y, w, h] on a 40x24 grid; "t" = text line. */
+const DIAGRAMS: Record<string, [number, number, number, number, ("img" | "t")?][]> = {
+  overlay: [[0, 0, 40, 24], [4, 14, 16, 2, "t"], [4, 18, 10, 2, "t"]],
+  split: [[0, 0, 20, 24], [24, 8, 12, 2, "t"], [24, 12, 9, 2, "t"]],
+  collage: [[2, 8, 14, 2, "t"], [2, 12, 10, 2, "t"], [20, 2, 10, 20], [31, 2, 7, 9], [28, 12, 10, 10]],
+  minimal: [[8, 3, 24, 3, "t"], [12, 8, 16, 2, "t"], [3, 13, 34, 10]],
+  band: [[0, 0, 40, 11], [2, 15, 18, 3, "t"], [24, 15, 14, 2, "t"]],
+  cards: [[0, 3, 4, 18], [6, 3, 28, 18], [36, 3, 4, 18]],
+  framed: [[3, 2, 34, 20], [6, 13, 14, 7, "t"]],
+  grid: [[1, 3, 8, 10], [11, 3, 8, 10], [21, 3, 8, 10], [31, 3, 8, 10], [1, 15, 8, 2, "t"], [11, 15, 8, 2, "t"], [21, 15, 8, 2, "t"], [31, 15, 8, 2, "t"]],
+  masonry: [[1, 1, 12, 14], [14, 1, 12, 9], [27, 1, 12, 12], [1, 17, 12, 6], [14, 12, 12, 11], [27, 15, 12, 8]],
+  lookbook: [[1, 1, 18, 22], [21, 1, 8, 10], [31, 1, 8, 10], [21, 13, 8, 10], [31, 13, 8, 10]],
+  rail: [[1, 4, 10, 14], [13, 4, 10, 14], [25, 4, 10, 14], [37, 4, 3, 14]],
+  bigtile: [[1, 2, 18, 20], [21, 2, 18, 20]],
+  list: [[1, 2, 6, 5], [9, 3, 20, 2, "t"], [1, 9, 6, 5], [9, 10, 20, 2, "t"], [1, 16, 6, 5], [9, 17, 20, 2, "t"]],
+  carousel: [[1, 4, 10, 14], [13, 4, 10, 14], [25, 4, 10, 14], [37, 4, 3, 14]],
+  index: [[1, 3, 4, 2, "t"], [7, 2, 24, 4, "t"], [33, 2, 6, 4], [1, 10, 4, 2, "t"], [7, 9, 20, 4, "t"], [33, 9, 6, 4], [1, 17, 4, 2, "t"], [7, 16, 22, 4, "t"], [33, 16, 6, 4]],
+  pills: [[1, 4, 12, 5], [15, 4, 10, 5], [27, 4, 12, 5], [5, 13, 12, 5], [19, 13, 14, 5]],
+  mosaic: [[1, 1, 18, 22], [21, 1, 8, 10], [31, 1, 8, 10], [21, 13, 8, 10], [31, 13, 8, 10]],
+  centered: [[16, 2, 8, 6], [8, 10, 24, 3, "t"], [11, 15, 18, 2, "t"], [8, 20, 24, 2, "t"]],
+  spotlight: [[6, 6, 28, 4, "t"], [9, 12, 22, 3, "t"], [15, 18, 10, 2, "t"]],
+  wall: [[1, 1, 12, 10], [14, 1, 12, 14], [27, 1, 12, 8], [1, 13, 12, 10], [14, 17, 12, 6], [27, 11, 12, 12]],
+  marquee: [[-4, 7, 14, 10], [12, 7, 14, 10], [28, 7, 14, 10]],
+  banner: [[0, 0, 40, 24], [10, 8, 20, 2, "t"], [12, 13, 16, 3, "t"]],
+  card: [[0, 0, 22, 24], [24, 6, 14, 2, "t"], [24, 11, 14, 3, "t"]],
+  inline: [[2, 10, 14, 3, "t"], [20, 9, 18, 5]],
+  line: [[2, 11, 8, 2, "t"], [12, 11, 8, 2, "t"], [22, 11, 8, 2, "t"], [32, 11, 6, 2, "t"]],
+  badges: [[3, 5, 8, 8], [16, 5, 8, 8], [29, 5, 8, 8], [3, 16, 8, 2, "t"], [16, 16, 8, 2, "t"], [29, 16, 8, 2, "t"]],
+  classic: [[0, 0, 40, 6], [2, 2, 8, 2, "t"]],
+  bordered: [[0, 0, 40, 8], [2, 3, 8, 2, "t"], [0, 9, 40, 1]],
+  inverted: [[0, 0, 40, 6], [2, 2, 8, 2, "t"]],
+  floating: [[2, 2, 36, 6], [5, 4, 8, 2, "t"]],
+  editorial: [[0, 0, 40, 10], [12, 3, 16, 4, "t"]],
+  columns: [[1, 4, 10, 2, "t"], [14, 4, 7, 2, "t"], [23, 4, 7, 2, "t"], [32, 4, 7, 2, "t"], [0, 18, 40, 6]],
+  statement: [[1, 2, 8, 2, "t"], [14, 2, 7, 2, "t"], [23, 2, 7, 2, "t"], [2, 10, 36, 9, "t"]],
+  default: [[1, 4, 18, 16], [21, 4, 18, 16]],
+  fullbleed: [[0, 0, 40, 18], [4, 20, 6, 4], [12, 20, 6, 4], [20, 20, 6, 4]],
+  journal: [[6, 2, 28, 4, "t"], [8, 8, 24, 14]],
+  overlap: [[1, 1, 26, 20], [20, 8, 18, 12, "t"]],
+};
+
+function VariantDiagram({ value }: { value: string }) {
+  const boxes = DIAGRAMS[value];
+  if (!boxes) return null;
+  return (
+    <svg viewBox="0 0 40 24" aria-hidden className="h-9 w-full rounded-sm bg-surface-secondary">
+      {boxes.map(([x, y, w, h, kind], i) => (
+        <rect key={i} x={x} y={y} width={w} height={h} rx={kind === "t" ? 1 : 1.5} className={kind === "t" ? "fill-foreground/60" : "fill-foreground/20"} />
+      ))}
+    </svg>
+  );
+}
+
 function Field({ field, value, onChange, pickers }: { field: EditorField; value: unknown; onChange: (v: unknown) => void; pickers: EditorPickers }) {
   const id = `f-${field.key}-${useId()}`;
   const label = (
@@ -111,6 +189,7 @@ function Field({ field, value, onChange, pickers }: { field: EditorField; value:
         </div>
       );
     case "select":
+      if (field.display === "variants") return <VariantPicker field={field} value={String(value ?? "")} onChange={onChange} />;
       return (
         <div>
           {label}
@@ -453,6 +532,7 @@ export function ThemeEditor({
                 ["spacing", "Spacing", SPACING_SCALES],
                 ["sectionHeadingAlign", "Section titles", ["left", "center"]],
                 ["finish", "Finish (refined = extra polish for editorial sections)", ["standard", "refined"]],
+                ["imagery", "Stock photos for empty image slots (Unsplash)", ["auto", "off", ...UNSPLASH_CATEGORIES]],
               ] as const
             ).map(([k, lbl, values]) => (
               <div key={k}>

@@ -1,6 +1,6 @@
 # Implementation Status
 
-_Last updated: 2026-10-11 (online payments fix + transactions, super-admin store control, auth email via Resend, 16 more industries)_
+_Last updated: 2026-10-16 (theme layout variants, per-category layouts, Unsplash theme imagery)_
 
 ## Phase overview
 
@@ -442,6 +442,25 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   defaults per section (`src/features/marketing-site/landing.ts`, unit tested); saves are validated
   server-side, rate limited, audited and revalidate the site immediately.
 - Testimonials ship empty and hidden: add only real merchant quotes.
+
+## Theme layout variants, per-category layouts, Unsplash theme imagery (2026-10-16)
+
+- Every core section has several layouts as editable settings (hero ×7, product grid ×6, category tiles ×5,
+  story ×5, testimonials ×5, newsletter ×5, USP band ×5, header styles ×6, footer layouts ×4, per-section
+  spacing and product image shape). Defaults reproduce the old look, so saved themes render unchanged.
+  Details and the variant API: `docs/THEME_MARKETPLACE.md` → "Layout variants".
+- Each category has a layout personality (`src/features/theme/layouts/personalities.ts`); all marketplace
+  themes get their variants, header style and footer layout from it by position, so themes look different
+  across and within categories. `signatureComposition(industry)` gives a new store's default home page.
+- Theme editor: variant fields are a grid of layout cards with diagrams; Design has "Stock photos".
+- Empty image slots use curated / API Unsplash photos for the store's category, with credits
+  (`src/lib/unsplash-stock.ts`, `getStockSet`, `themeUnsplashImages`, `getThemeUnsplashImages`). Product
+  placeholders only on demo stores and Live Preview.
+- Marketplace mockups draw each theme's real layout with category photos.
+- No migration. Tests: `tests/unit/theme-layouts.test.ts`.
+- Verified: `pnpm check` green (66 files / 784 tests, build OK). Visual check at 1280px and 375px of furniture,
+  bakery, jewellery, electronics, books, beauty and pets themes, using a temporary page that renders the real section
+  components with sample data (the local dev database has no showcase stores). Not yet checked on real showcase stores.
 
 ## Home themes section + Unsplash category photos (2026-10-16)
 

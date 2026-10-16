@@ -2,6 +2,22 @@ import { z } from "zod";
 import { PRODUCT_TYPES, PRODUCT_TYPE_LABELS } from "@/features/storefront/constants";
 import { hexColor, imagePath, menuHandle, plainText, safeHref, socialUrl, uuidOrEmpty, videoUrl } from "../schema/primitives";
 import type { EditorField, SectionDefinition, SectionType } from "./types";
+import {
+  CARD_RATIOS,
+  CATEGORY_VARIANTS,
+  FOOTER_LAYOUTS,
+  HEADER_STYLES,
+  HERO_MEDIA_RATIOS,
+  HERO_VARIANTS,
+  NEWSLETTER_VARIANTS,
+  PRODUCT_GRID_VARIANTS,
+  SECTION_SPACINGS,
+  STORY_VARIANTS,
+  TESTIMONIAL_VARIANTS,
+  USP_VARIANTS,
+  values,
+  type VariantOption,
+} from "./variants";
 
 /**
  * The section registry (definitions half). One entry per section type: label, allowed groups,
@@ -17,6 +33,19 @@ const opts = <T extends string>(values: readonly T[], labels?: Partial<Record<T,
 // -----------------------------------------------------------------------------
 // Shared setting groups
 // -----------------------------------------------------------------------------
+
+/** Layout variant picker (rendered as cards in the editor). The list's first value is the default. */
+const variantEditor = (key: string, label: string, list: readonly VariantOption[], extra: Partial<EditorField> = {}): EditorField =>
+  ({ kind: "select", key, label, display: "variants", options: list.map((o) => ({ value: o.value, label: o.label, hint: o.hint })), ...extra }) as EditorField;
+const variantSchema = <T extends string>(list: readonly VariantOption<T>[]) => z.enum(values(list)).default(list[0]!.value as never);
+
+/** Vertical rhythm of one section; applied by SectionList around the section. */
+const spacingFields = { spacing: variantSchema(SECTION_SPACINGS) };
+const spacingEditor: EditorField = { kind: "select", key: "spacing", label: "Space above and below", options: SECTION_SPACINGS.map((o) => ({ value: o.value, label: o.label })) };
+
+/** Per-section product image shape. */
+const cardRatioFields = { cardRatio: variantSchema(CARD_RATIOS) };
+const cardRatioEditor: EditorField = { kind: "select", key: "cardRatio", label: "Product image shape", options: CARD_RATIOS.map((o) => ({ value: o.value, label: o.label })) };
 const TONES = ["light", "dark", "accent", "muted"] as const;
 
 /** Heading looks: the theme heading font, a bold condensed display face, or italic. */
@@ -139,8 +168,11 @@ const header = {
     layout: z.enum(["logo-left", "logo-center", "logo-left-nav-center"]).default("logo-center"),
     showInlineMenu: z.boolean().default(false),
     menuStyle: z.enum(["bar", "drawer"]).default("bar"),
+    /** Bar look (colour, borders, height); independent of where the logo sits. */
+    style: variantSchema(HEADER_STYLES),
   }),
   fields: [
+    variantEditor("style", "Header style", HEADER_STYLES),
     { kind: "select", key: "layout", label: "Layout", options: opts(["logo-left", "logo-center", "logo-left-nav-center"] as const, { "logo-left": "Logo left", "logo-center": "Logo centred", "logo-left-nav-center": "Large logo left, menu centred (dropdown mega menu)" }) },
     { kind: "toggle", key: "showInlineMenu", label: "Show menu inside the header (desktop)", help: "Turn off when using a Mega menu section below the header." },
     { kind: "select", key: "menuStyle", label: "Desktop menu", options: [{ value: "bar", label: "Menu bar / mega menu" }, { value: "drawer", label: "Menu button (drawer) on every screen" }], help: "Drawer: a menu icon opens the full menu on desktop too, and the Mega menu section is hidden." },
@@ -189,8 +221,16 @@ const hero = {
     counter: z.boolean().default(false),
     footnote: txt(60),
     scrollLabel: txt(40),
+    variant: variantSchema(HERO_VARIANTS),
+    /** Photo shape in the split / framed / minimal layouts. */
+    mediaRatio: variantSchema(HERO_MEDIA_RATIOS),
+    /** Background of the text panel (split, collage, minimal, band, framed). */
+    panelTone: z.enum(TONES).default("muted"),
   }),
   fields: [
+    variantEditor("variant", "Hero layout", HERO_VARIANTS),
+    { kind: "select", key: "mediaRatio", label: "Photo shape", options: HERO_MEDIA_RATIOS.map((o) => ({ value: o.value, label: o.label })), showIf: { key: "variant", equals: ["split", "framed", "minimal"] } },
+    { kind: "select", key: "panelTone", label: "Text panel colour", options: opts(TONES), showIf: { key: "variant", equals: ["split", "collage", "minimal", "band", "framed"] } },
     {
       kind: "list",
       key: "slides",
@@ -229,6 +269,7 @@ const promoBanner = {
   schema: z.object({
     tiles: z.array(promoTile).min(1).max(3).default([promoTile.parse({ heading: "Everyday cottons", ctaLabel: "Explore", ctaHref: "/collections" })]),
     aspect: z.enum(["wide", "square", "portrait", "banner"]).default("wide"),
+    ...spacingFields,
   }),
   fields: [
     {
@@ -247,6 +288,7 @@ const promoBanner = {
       ],
     },
     { kind: "select", key: "aspect", label: "Tile shape", options: opts(["wide", "square", "portrait", "banner"] as const, { banner: "Banner (2:1)" }) },
+    spacingEditor,
   ],
 } satisfies SectionDefinition;
 
@@ -262,8 +304,11 @@ const categoryGrid = {
     items: z.array(gridItem).max(12).default([]),
     limit: z.coerce.number().int().min(2).max(12).default(6),
     shape: z.enum(["portrait", "square", "circle", "arch"]).default("portrait"),
+    variant: variantSchema(CATEGORY_VARIANTS),
+    ...spacingFields,
   }),
   fields: [
+    variantEditor("variant", "Tiles layout", CATEGORY_VARIANTS),
     ...headingEditor,
     { kind: "select", key: "mode", label: "Categories", options: [{ value: "auto", label: "Top-level categories" }, { value: "manual", label: "Choose categories" }] },
     {
@@ -280,7 +325,8 @@ const categoryGrid = {
       ],
     },
     { kind: "number", key: "limit", label: "Maximum tiles", min: 2, max: 12 },
-    { kind: "select", key: "shape", label: "Tile shape", options: opts(["portrait", "square", "circle", "arch"] as const, { arch: "Arch (rounded top)" }) },
+    { kind: "select", key: "shape", label: "Tile shape", options: opts(["portrait", "square", "circle", "arch"] as const, { arch: "Arch (rounded top)" }), showIf: { key: "variant", equals: ["grid", "rail"] } },
+    spacingEditor,
   ],
 } satisfies SectionDefinition;
 
@@ -297,8 +343,12 @@ const collectionGrid = {
     columns: z.coerce.number().int().min(2).max(4).default(4),
     /** overlay: serif title and a small caps subtitle over the image. */
     variant: z.enum(["default", "overlay"]).default("default"),
+    /** Arrangement of the tiles (the caption style above is separate). */
+    layout: variantSchema(CATEGORY_VARIANTS.filter((o) => o.value === "grid" || o.value === "mosaic" || o.value === "rail")),
+    ...spacingFields,
   }),
   fields: [
+    variantEditor("layout", "Tiles layout", CATEGORY_VARIANTS.filter((o) => o.value === "grid" || o.value === "mosaic" || o.value === "rail")),
     ...headingEditor,
     { kind: "select", key: "mode", label: "Collections", options: [{ value: "auto", label: "All collections (by position)" }, { value: "manual", label: "Choose collections" }] },
     {
@@ -318,6 +368,7 @@ const collectionGrid = {
     { kind: "number", key: "limit", label: "Maximum tiles", min: 2, max: 12 },
     { kind: "number", key: "columns", label: "Columns (desktop)", min: 2, max: 4 },
     { kind: "select", key: "variant", label: "Caption style", options: [{ value: "default", label: "Title on a gradient" }, { value: "overlay", label: "Title and subtitle overlay" }] },
+    spacingEditor,
   ],
 } satisfies SectionDefinition;
 
@@ -334,6 +385,8 @@ const productCarousel = {
     dragLabel: txt(40, "Drag to explore"),
     /** tilt only: continuous slow auto-scroll (pauses on hover/focus/touch; off for reduced motion). */
     autoScroll: z.boolean().default(false),
+    ...cardRatioFields,
+    ...spacingFields,
   }),
   fields: [
     ...headingEditor,
@@ -341,6 +394,8 @@ const productCarousel = {
     { kind: "select", key: "variant", label: "Style", options: [{ value: "cards", label: "Product cards" }, { value: "tilt", label: "Tilted image cards" }] },
     { kind: "text", key: "dragLabel", label: "Label between the arrows", maxLength: 40, showIf: { key: "variant", equals: ["tilt"] } },
     { kind: "toggle", key: "autoScroll", label: "Scroll continuously", help: "Pauses on hover, focus and touch. Off for visitors who prefer reduced motion.", showIf: { key: "variant", equals: ["tilt"] } },
+    { ...cardRatioEditor, showIf: { key: "variant", equals: ["cards"] } },
+    spacingEditor,
   ],
 } satisfies SectionDefinition;
 
@@ -349,8 +404,15 @@ const productGrid = {
   label: "Product grid",
   description: "A grid of products, e.g. a featured collection.",
   groups: ["home", "collection", "product"],
-  schema: z.object({ ...headingFields, ...productSourceFields, columns: z.coerce.number().int().min(2).max(6).default(4) }),
-  fields: [...headingEditor, ...productSourceEditor(), { kind: "number", key: "columns", label: "Columns (desktop)", min: 2, max: 6 }],
+  schema: z.object({ ...headingFields, ...productSourceFields, columns: z.coerce.number().int().min(2).max(6).default(4), variant: variantSchema(PRODUCT_GRID_VARIANTS), ...cardRatioFields, ...spacingFields }),
+  fields: [
+    variantEditor("variant", "Grid layout", PRODUCT_GRID_VARIANTS),
+    ...headingEditor,
+    ...productSourceEditor(),
+    { kind: "number", key: "columns", label: "Columns (desktop)", min: 2, max: 6, showIf: { key: "variant", equals: ["grid", "masonry"] } },
+    cardRatioEditor,
+    spacingEditor,
+  ],
 } satisfies SectionDefinition;
 
 const presetProducts = (type: SectionType, label: string, description: string, heading: string, layout: "carousel" | "grid") =>
@@ -363,14 +425,18 @@ const presetProducts = (type: SectionType, label: string, description: string, h
       ...headingFields,
       heading: txt(120, heading),
       limit: z.coerce.number().int().min(2).max(24).default(8),
-      layout: z.enum(["carousel", "grid"]).default(layout),
+      layout: z.enum(["carousel", ...values(PRODUCT_GRID_VARIANTS)]).default(layout),
       viewAllHref: safeHref.default(""),
+      ...cardRatioFields,
+      ...spacingFields,
     }),
     fields: [
+      variantEditor("layout", "Layout", [{ value: "carousel", label: "Carousel", hint: "A row with arrows" }, ...PRODUCT_GRID_VARIANTS]),
       ...headingEditor,
       { kind: "number", key: "limit", label: "Number of products", min: 2, max: 24 },
-      { kind: "select", key: "layout", label: "Layout", options: opts(["carousel", "grid"] as const) },
       { kind: "link", key: "viewAllHref", label: "“View all” link" },
+      cardRatioEditor,
+      spacingEditor,
     ],
   }) satisfies SectionDefinition;
 
@@ -424,13 +490,20 @@ const editorial = {
     imagePosition: z.enum(["left", "right"]).default("left"),
     tone: z.enum(TONES).default("light"),
     /** split: image beside text. fullbleed: text over a full-width image with a thumbnail strip. journal: condensed title, image, style note. */
-    variant: z.enum(["split", "fullbleed", "journal"]).default("split"),
+    variant: z.enum(["split", "fullbleed", "journal", "overlap"]).default("split"),
     thumbs: z.array(z.object({ imagePath: imagePath.default(""), alt: txt(200), href: safeHref.default("") })).max(8).default([]),
     showLogo: z.boolean().default(false),
     noteEyebrow: txt(60),
     noteHeading: txt(120),
+    ...spacingFields,
   }),
   fields: [
+    variantEditor("variant", "Layout", [
+      { value: "split", label: "Image beside text", hint: "Photo and story side by side" },
+      { value: "fullbleed", label: "Full-width image", hint: "Text over a wide photo with thumbnails" },
+      { value: "journal", label: "Journal", hint: "Condensed title, photo and a style note" },
+      { value: "overlap", label: "Overlapping card", hint: "Large photo with the text card overlapping it" },
+    ]),
     { kind: "select", key: "source", label: "Content", options: [{ value: "manual", label: "Write it here" }, { value: "page", label: "From a page" }, { value: "blog", label: "From a blog post" }] },
     { kind: "picker", key: "pageId", label: "Page", picker: "page", showIf: { key: "source", equals: ["page"] } },
     { kind: "picker", key: "blogPostId", label: "Blog post", picker: "blogPost", showIf: { key: "source", equals: ["blog"] } },
@@ -441,7 +514,6 @@ const editorial = {
     ...ctaEditor,
     { kind: "select", key: "imagePosition", label: "Image position", options: opts(["left", "right"] as const) },
     { kind: "select", key: "tone", label: "Background", options: opts(TONES) },
-    { kind: "select", key: "variant", label: "Layout", options: [{ value: "split", label: "Image beside text" }, { value: "fullbleed", label: "Full-width image with thumbnails" }, { value: "journal", label: "Journal (title, image, style note)" }] },
     {
       kind: "list",
       key: "thumbs",
@@ -458,6 +530,7 @@ const editorial = {
     { kind: "toggle", key: "showLogo", label: "Show the logo on the image", showIf: { key: "variant", equals: ["fullbleed"] } },
     { kind: "text", key: "noteEyebrow", label: "Style note label", maxLength: 60, showIf: { key: "variant", equals: ["journal"] } },
     { kind: "text", key: "noteHeading", label: "Style note heading", maxLength: 120, showIf: { key: "variant", equals: ["journal"] } },
+    spacingEditor,
   ],
 } satisfies SectionDefinition;
 
@@ -494,6 +567,7 @@ const lookbook = {
       .max(12)
       .default([]),
     layout: z.enum(["masonry", "row", "arches"]).default("masonry"),
+    ...spacingFields,
   }),
   fields: [
     ...headingEditor,
@@ -511,6 +585,7 @@ const lookbook = {
       ],
     },
     { kind: "select", key: "layout", label: "Layout", options: opts(["masonry", "row", "arches"] as const, { arches: "Arches beside the heading" }) },
+    spacingEditor,
   ],
 } satisfies SectionDefinition;
 
@@ -527,8 +602,13 @@ const brandStory = {
     alt: txt(200),
     stats: z.array(z.object({ value: plainText(12).pipe(z.string().min(1)), label: plainText(40).pipe(z.string().min(1)) })).max(4).default([]),
     ...ctaFields,
+    variant: variantSchema(STORY_VARIANTS),
+    imagePosition: z.enum(["right", "left"]).default("right"),
+    tone: z.enum(TONES).default("light"),
+    ...spacingFields,
   }),
   fields: [
+    variantEditor("variant", "Story layout", STORY_VARIANTS),
     ...headingEditor,
     { kind: "text", key: "body", label: "Story", maxLength: 1500, multiline: true },
     { kind: "image", key: "imagePath", label: "Image (optional)" },
@@ -545,6 +625,9 @@ const brandStory = {
       ],
     },
     ...ctaEditor,
+    { kind: "select", key: "imagePosition", label: "Photo side", options: opts(["right", "left"] as const), showIf: { key: "variant", equals: ["split", "collage"] } },
+    { kind: "select", key: "tone", label: "Background", options: opts(TONES) },
+    spacingEditor,
   ],
 } satisfies SectionDefinition;
 
@@ -567,8 +650,12 @@ const testimonials = {
       )
       .max(8)
       .default([]),
+    variant: variantSchema(TESTIMONIAL_VARIANTS),
+    tone: z.enum(TONES).default("muted"),
+    ...spacingFields,
   }),
   fields: [
+    variantEditor("variant", "Layout", TESTIMONIAL_VARIANTS),
     ...headingEditor,
     {
       kind: "list",
@@ -583,6 +670,8 @@ const testimonials = {
         { kind: "number", key: "rating", label: "Stars (0 = hide)", min: 0, max: 5 },
       ],
     },
+    { kind: "select", key: "tone", label: "Background", options: opts(TONES) },
+    spacingEditor,
   ],
 } satisfies SectionDefinition;
 
@@ -661,8 +750,20 @@ const newsletter = {
     subheading: txt(300, "New prints, restocks and early access to sales. No spam."),
     buttonLabel: txt(30, "Subscribe"),
     tone: z.enum(TONES).default("muted"),
+    variant: variantSchema(NEWSLETTER_VARIANTS),
+    imagePath: imagePath.default(""),
+    alt: txt(200),
+    ...spacingFields,
   }),
-  fields: [...headingEditor, { kind: "text", key: "buttonLabel", label: "Button label", maxLength: 30 }, { kind: "select", key: "tone", label: "Background", options: opts(TONES) }],
+  fields: [
+    variantEditor("variant", "Layout", NEWSLETTER_VARIANTS),
+    ...headingEditor,
+    { kind: "text", key: "buttonLabel", label: "Button label", maxLength: 30 },
+    { kind: "select", key: "tone", label: "Background", options: opts(TONES) },
+    { kind: "image", key: "imagePath", label: "Photo (empty = stock photo)", showIf: { key: "variant", equals: ["banner", "card"] } },
+    { kind: "text", key: "alt", label: "Photo description", maxLength: 200, showIf: { key: "variant", equals: ["banner", "card"] } },
+    spacingEditor,
+  ],
 } satisfies SectionDefinition;
 
 const faq = {
@@ -719,7 +820,7 @@ const trustBadges = {
         { icon: "handmade", title: "Handcrafted", text: "Made by artisans in India" },
       ]),
     tone: z.enum(TONES).default("light"),
-    layout: z.enum(["grid", "marquee", "line"]).default("grid"),
+    layout: variantSchema(USP_VARIANTS),
   }),
   fields: [
     {
@@ -736,7 +837,7 @@ const trustBadges = {
       ],
     },
     { kind: "select", key: "tone", label: "Background", options: opts(TONES) },
-    { kind: "select", key: "layout", label: "Layout", options: [{ value: "grid", label: "Grid" }, { value: "marquee", label: "Scrolling strip" }, { value: "line", label: "One quiet line" }] },
+    variantEditor("layout", "Layout", USP_VARIANTS),
   ],
 } satisfies SectionDefinition;
 
@@ -942,8 +1043,10 @@ const footer = {
     showNewsletter: z.boolean().default(false),
     newsletterHeading: txt(80, "Join our family"),
     newsletterText: txt(160, "New arrivals, festive edits and early access to offers."),
+    layout: variantSchema(FOOTER_LAYOUTS),
   }),
   fields: [
+    variantEditor("layout", "Footer layout", FOOTER_LAYOUTS),
     { kind: "tags", key: "menuHandles", label: "Menus (handles)", max: 4, placeholder: "footer" },
     { kind: "text", key: "about", label: "About text", maxLength: 400, multiline: true },
     { kind: "toggle", key: "showContact", label: "Show contact details" },
