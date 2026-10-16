@@ -6,12 +6,14 @@ import { dispatch } from "@/features/notifications/events";
 import { emitAbandonedCarts } from "@/features/notifications/email/abandoned";
 import { processDueJobs } from "@/features/notifications/whatsapp/queue";
 import { findWhatsAppAbandonedCarts } from "@/features/notifications/whatsapp/abandoned";
+import { runNotificationReminders } from "@/features/notifications/inbox/server";
 
 /**
  * Cron (every 5–15 min, Authorization: Bearer CRON_SECRET):
  * 1. retries due WhatsApp notification jobs (backoff, max attempts),
  * 2. emits cart.abandoned for idle carts (email-enabled stores via role C's helper, and
  *    WhatsApp-enabled stores here). Idempotency keys make repeated runs send at most once.
+ * 3. in-app bell: trial-ending reminders (deduped per store/day) and retention of old rows.
  */
 export const maxDuration = 60;
 
@@ -38,6 +40,12 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     logger.error("cron.notifications_abandoned_failed", { error: err });
     out.abandoned = "failed";
+  }
+  try {
+    out.inApp = await runNotificationReminders();
+  } catch (err) {
+    logger.error("cron.notifications_in_app_failed", { error: err });
+    out.inApp = "failed";
   }
   return NextResponse.json(out);
 }

@@ -531,3 +531,25 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
 - **KPI cards.** `StatCard` tones (mint, lavender, peach, sky, rose, + new amber, teal tokens for light and dark) render a soft diagonal gradient, matching border, an icon chip in the tint's ink, an overline label, and a hover lift (off under reduced motion); optional `trend` chip. The admin overview's 8 KPIs and the seller dashboard's KPI strip use it (the bespoke `Kpi` / bordered strip are gone).
 - **Not verified here:** signed-in pages. Sign-in would send the super-admin password to the hosted Supabase project, so the session rendered the real `AppShell`, nav configs and `StatCard`s in a temporary unauthenticated harness route (removed before commit) and checked expanded, collapsed (+flyout, tooltip) and mobile drawer at 1440 px / 390 px in light and dark, plus keyboard flows and cookie persistence with headless Chrome.
 
+
+## In-app notifications: bell, pages, producers (2026-10-16)
+
+- **Data** — migration `20261016003000_in_app_notifications.sql`: `notifications` (per recipient: scope tenant/platform,
+  type, title, body, in-app link, data, dedupe key, read_at; RLS own rows while still a member; clients update `read_at`
+  only) and `notification_preferences` (per-user muted types). Added to the `supabase_realtime` publication when present.
+  Types hand-added to `database.types.ts`. Design: ADR-035.
+- **Producers (DB triggers)** — seller: new order (COD at placement, online once paid), payment received / failed, order
+  cancelled, returned/RTO, return requested, low stock / sold out, new review, new customer, abandoned cart recovered
+  (only after an email/WhatsApp reminder), plan request decided, AI credits low (80 %) / used up, custom domain verified /
+  failed, SSL active / failed. Platform: new sign-up, new store, store published, plan request. Cron
+  (`/api/cron/notifications`): trial ends in ≤3 days (deduped per store and day) + retention (read > 90 days, any > 180).
+- **Reserved, no producer yet** — APK requests, disputes, failed platform payments/payouts: those flows/tables don't
+  exist. Types, icons and `notifyPlatform()` (`src/features/notifications/inbox/server.ts`) are ready for them.
+- **UI** — `features/notifications/inbox/**`: header bell with unread badge + popover (icon per type, relative time,
+  mark read on click, mark all as read, keeps the "needs attention" counters, link to the page), `/dashboard/notifications`
+  and `/admin/notifications` (all/unread + group filters, pagination, mark unread, per-type in-app preferences at
+  `?tab=preferences`), "Recent activity" card on the dashboard home. Live via Supabase Realtime + 60 s polling fallback.
+- **Tests** — `tests/rls/notifications.test.ts` (RLS, producers, recipients by permission, mutes, dedupe, cart recovery,
+  reminders, function grants), `tests/unit/notifications/inbox.test.ts` (catalog ↔ SQL producers, AI limit sync, link
+  safety, relative time, server-resolved audience in actions, preferences).
+- **Not done** — migration not applied to the remote Supabase project; e-mail/WhatsApp copies of these alerts.

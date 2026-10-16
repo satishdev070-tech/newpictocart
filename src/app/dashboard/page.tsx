@@ -12,6 +12,7 @@ import { StatusBadge } from "@/features/orders-admin/components/status-badge";
 import { orderNumberLabel } from "@/features/orders-admin/format";
 import { getLaunchStatusForMember } from "@/features/stores/launch";
 import { PreviewStoreButton, PublishStoreButton } from "@/features/stores/components/launch-controls";
+import { RecentActivityCard } from "@/features/notifications/inbox/components/recent-activity-card";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -162,6 +163,8 @@ export default async function DashboardHome() {
         </div>
 
         <div className="space-y-6">
+          <RecentActivityCard audience={{ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId }} href="/dashboard/notifications" />
+
           {home.counts.toFulfil !== null || home.lowStock ? (
             <Card title="Needs attention">
               <ul className="space-y-3 text-sm">

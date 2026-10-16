@@ -186,3 +186,17 @@ browsing hotlinks images.unsplash.com thumbnails with "Photo by X on Unsplash" l
 calls the photo's `download_location`, the photo is looked up by id server-side (never a URL from the browser), and the credit
 goes into the copy's alt text and file name. The API key stays server-side; searches go through Next's fetch cache and a
 per-store rate limit (the API's demo tier is 50 requests/hour).
+
+## ADR-036 — In-app notifications: per-recipient rows written by DB triggers · Accepted
+The bell (seller dashboard + super admin console) reads `public.notifications`, one row per recipient. Producers are
+`AFTER` triggers on the tables where events already happen (orders, returns, inventory_levels, reviews, customers, carts,
+domains, ai_generations, plan_requests, profiles, tenants, stores), fanning out through `app.notify_tenant` /
+`app.notify_platform` to members whose role (system or custom) grants the event's permission, minus the actor and users who
+muted the type. Triggers catch every code path (storefront RPCs, verified webhooks, dashboard actions) without the
+secret-key client, and each producer swallows its own errors so a notification can never roll back the business write.
+Rows are deduped by `(user_id, dedupe_key)`. RLS: own rows only, while still a member; clients may update `read_at` only.
+Time-based reminders (trial ending) and retention run in `notifications_run_reminders()` from the notifications cron
+(service role). Platform events without a table yet (APK requests, disputes, payout failures) go through
+`notifyPlatform()` → `notify_platform_event()` (service role, after the caller verified the event). Live updates use
+Supabase Realtime on the user's rows with a 60 s polling fallback. Chosen over a shared row + per-user read table (more
+complex RLS and Realtime filtering) and over app-level `emit()` calls (misses SQL-only paths such as `place_order`).

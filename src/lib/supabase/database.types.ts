@@ -1829,6 +1829,24 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          muted_types: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          muted_types?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          muted_types?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notification_templates: {
         Row: {
           active: boolean
@@ -1863,6 +1881,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "notification_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          data: Json
+          dedupe_key: string | null
+          id: string
+          link: string | null
+          read_at: string | null
+          scope: string
+          tenant_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          data?: Json
+          dedupe_key?: string | null
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          scope: string
+          tenant_id?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          data?: Json
+          dedupe_key?: string | null
+          id?: string
+          link?: string | null
+          read_at?: string | null
+          scope?: string
+          tenant_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -4604,6 +4675,19 @@ export type Database = {
           source_tenant: string
           target_tenant: string
         }[]
+      }
+      notifications_run_reminders: { Args: never; Returns: Json }
+      notify_platform_event: {
+        Args: {
+          p_body: string
+          p_data: Json
+          p_dedupe: string
+          p_link: string
+          p_perm: string
+          p_title: string
+          p_type: string
+        }
+        Returns: number
       }
       platform_create_tenant: {
         Args: {

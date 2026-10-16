@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { platformIconMetadata } from "@/features/platform/server/public-config";
 import Link from "next/link";
-import { Bell, ChevronsUpDown, ExternalLink, LogOut } from "lucide-react";
+import { ChevronsUpDown, ExternalLink, LogOut } from "lucide-react";
 import { requireTenant } from "@/lib/tenant/membership";
 import { DASHBOARD_NAV } from "@/components/dashboard/nav";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { NotificationBell } from "@/features/notifications/inbox/components/notification-bell";
+import { getBellData } from "@/features/notifications/inbox/server";
 import { Popover, PopoverItem } from "@/components/app-shell/popover";
 import { AppearanceQuickToggle, AppearanceToggle } from "@/components/ui/appearance-toggle";
 import { PanelLogo, PanelMark } from "@/components/app-shell/panel-logo";
@@ -54,8 +56,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   const groups = DASHBOARD_NAV.map((g) => ({ ...g, items: g.items.filter((i) => ctx.permissions.has(i.permission)) })).filter((g) => g.items.length);
   const storeUrl = storeOrigin(storeSubdomain(ctx.tenantSlug));
   // Independent reads in parallel (the cookie store is needed only for the support banner).
-  const [alerts, trial, cookieStore] = await Promise.all([getDashboardAlerts(ctx), ctx.tenantStatus === "trial" ? trialInfo(ctx.tenantId) : Promise.resolve(null), cookies()]);
-  const alertTotal = alerts.reduce((s, a) => s + a.count, 0);
+  const [alerts, trial, cookieStore, bell] = await Promise.all([getDashboardAlerts(ctx), ctx.tenantStatus === "trial" ? trialInfo(ctx.tenantId) : Promise.resolve(null), cookies(), getBellData({ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId })]);
   const displayName = ctx.user.displayName ?? ctx.user.email ?? "Account";
 
   const brand = <PanelLogo href="/dashboard" label="Pictocart seller dashboard" />;
@@ -84,27 +85,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   const topbarEnd = (
     <>
       <AppearanceQuickToggle />
-      <Popover
-        label={alertTotal ? `Notifications, ${alertTotal} need attention` : "Notifications"}
-        trigger={
-          <span className="relative grid size-5 place-items-center">
-            <Bell aria-hidden className="size-[18px]" strokeWidth={1.75} />
-            {alertTotal ? <span aria-hidden className="absolute -right-1 -top-1 size-2 rounded-full bg-accent-strong ring-2 ring-surface" /> : null}
-          </span>
-        }
-      >
-        <p className="px-2.5 pb-1 pt-1.5 text-overline text-subtle">Needs attention</p>
-        {alerts.length ? (
-          alerts.map((a) => (
-            <PopoverItem key={a.key} href={a.href}>
-              <span className="grid min-w-6 place-items-center rounded bg-accent-soft px-1 text-caption font-semibold text-accent">{a.count}</span>
-              <span>{a.label}</span>
-            </PopoverItem>
-          ))
-        ) : (
-          <p className="px-2.5 py-3 text-small text-muted">You&apos;re all caught up.</p>
-        )}
-      </Popover>
+      <NotificationBell scope="tenant" userId={ctx.user.id} initial={bell} attention={alerts} viewAllHref="/dashboard/notifications" />
       <Popover
         label="Account and store"
         trigger={
