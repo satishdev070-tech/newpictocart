@@ -1,4 +1,4 @@
-# The Paliya — multi-tenant fashion commerce SaaS
+# The Pictocart — fashion commerce SaaS
 
 Shopify-style platform for Indian fashion brands: each seller gets a storefront on its own subdomain or custom domain, a seller dashboard, and a configurable theme. The platform itself is run from a super-admin console.
 
