@@ -6,15 +6,17 @@ import type { NavIconName } from "@/components/app-shell/icons";
  * permission; each page also calls requirePlatform(permission) and RLS enforces the same keys.
  */
 export type AdminNavItem = { href: string; label: string; permission: PlatformPermission; icon: NavIconName };
-export type AdminNavGroup = { label: string; items: AdminNavItem[] };
+export type AdminNavGroup = { label: string; icon?: NavIconName; items: AdminNavItem[] };
 
 export const ADMIN_NAV: readonly AdminNavGroup[] = [
   {
     label: "Overview",
+    icon: "dashboard",
     items: [{ href: "/admin", label: "Dashboard", permission: "platform.tenants.read", icon: "dashboard" }],
   },
   {
     label: "Stores",
+    icon: "stores",
     items: [
       { href: "/admin/stores", label: "Stores", permission: "platform.tenants.read", icon: "stores" },
       { href: "/admin/domains", label: "Domains", permission: "platform.tenants.read", icon: "domains" },
@@ -23,6 +25,7 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
   },
   {
     label: "Billing & features",
+    icon: "billing",
     items: [
       { href: "/admin/plan-requests", label: "Plan requests", permission: "platform.tenants.read", icon: "plans" },
       { href: "/admin/plans", label: "Plans", permission: "platform.plans.manage", icon: "plans" },
@@ -31,6 +34,7 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
   },
   {
     label: "Monitoring",
+    icon: "monitoring",
     items: [
       { href: "/admin/usage", label: "Usage & storage", permission: "platform.usage.read", icon: "usage" },
       { href: "/admin/audit", label: "Audit log", permission: "platform.audit.read", icon: "audit" },
@@ -41,6 +45,7 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
   },
   {
     label: "Platform",
+    icon: "settings",
     items: [
       { href: "/admin/users", label: "Platform users", permission: "platform.users.manage", icon: "users" },
       { href: "/admin/landing", label: "Landing page", permission: "platform.settings.manage", icon: "pages" },

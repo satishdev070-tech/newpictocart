@@ -36,7 +36,16 @@ export const DASHBOARD_NAV: { label: string; icon: NavIconName; items: TenantNav
       { href: "/dashboard/orders", label: "Orders", permission: "orders.read", icon: "orders" },
       { href: "/dashboard/payments", label: "Payments", permission: "orders.read", icon: "payments" },
       { href: "/dashboard/returns", label: "Returns", permission: "orders.read", icon: "returns" },
+    ],
+  },
+  {
+    label: "Accounts",
+    icon: "accounts",
+    items: [
       { href: "/dashboard/customers", label: "Customers", permission: "customers.read", icon: "customers" },
+      { href: "/dashboard/settings/team", label: "Team", permission: "members.read", icon: "team" },
+      { href: "/dashboard/settings/roles", label: "Roles & permissions", permission: "roles.manage", icon: "roles" },
+      { href: "/dashboard/settings/plan", label: "Plan & billing", permission: "store.read", icon: "billing" },
     ],
   },
   {
@@ -50,6 +59,7 @@ export const DASHBOARD_NAV: { label: string; icon: NavIconName; items: TenantNav
       { href: "/dashboard/marketing/google", label: "Google Business", permission: "marketing.read", icon: "gbp" },
       { href: "/dashboard/marketing/creative", label: "Creative studio", permission: "marketing.read", icon: "creative" },
       { href: "/dashboard/reviews", label: "Reviews", permission: "reviews.moderate", icon: "reviews" },
+      { href: "/dashboard/settings/seo", label: "SEO", permission: "store.read", icon: "seo" },
     ],
   },
   {
@@ -63,6 +73,9 @@ export const DASHBOARD_NAV: { label: string; icon: NavIconName; items: TenantNav
       { href: "/dashboard/content/menus", label: "Menus", permission: "content.write", icon: "menus" },
       { href: "/dashboard/content/blog", label: "Blog", permission: "content.write", icon: "blog" },
       { href: "/dashboard/content/faqs", label: "FAQs", permission: "content.write", icon: "faqs" },
+      { href: "/dashboard/content/locations", label: "Store locations", permission: "content.write", icon: "locations" },
+      { href: "/dashboard/content/redirects", label: "Redirects", permission: "content.write", icon: "redirects" },
+      { href: "/dashboard/settings/domains", label: "Domains", permission: "store.read", icon: "domains" },
     ],
   },
   {
@@ -76,8 +89,11 @@ export const DASHBOARD_NAV: { label: string; icon: NavIconName; items: TenantNav
     items: [
       { href: "/dashboard/settings", label: "General", permission: "store.read", icon: "settings" },
       { href: "/dashboard/settings/payments", label: "Payment methods", permission: "payments.manage", icon: "payments" },
-      { href: "/dashboard/settings/shipping", label: "Shipping", permission: "store.read", icon: "shipping" },
-      { href: "/dashboard/settings/team", label: "Team", permission: "members.read", icon: "team" },
+      { href: "/dashboard/settings/checkout", label: "Checkout", permission: "store.read", icon: "checkout" },
+      { href: "/dashboard/settings/shipping", label: "Shipping & COD", permission: "store.read", icon: "shipping" },
+      { href: "/dashboard/settings/taxes", label: "Taxes", permission: "settings.write", icon: "taxes" },
+      { href: "/dashboard/settings/notifications", label: "Notifications", permission: "settings.write", icon: "notifications" },
+      { href: "/dashboard/settings/security", label: "Security & activity", permission: "members.manage", icon: "roles" },
     ],
   },
 ];
