@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 import { brandImageView, getPublicPlatformConfig } from "@/features/platform/server/public-config";
 
 /**
- * The Build Brighten logo, linking home. Uses the logo uploaded in the platform console
+ * The Pictocart logo, linking home. Uses the logo uploaded in the platform console
  * (/admin/branding; the footer logo on dark backgrounds, falling back to the header logo), then
  * PLATFORM_LOGO, then a plain text wordmark.
  */
@@ -19,8 +19,15 @@ export async function BrandLogo({ className, tone = "dark", size = "compact" }: 
   const config = await getPublicPlatformConfig();
   const uploaded = brandImageView(tone === "light" ? (config.footerLogo ?? config.headerLogo) : config.headerLogo);
   const logo = uploaded ?? PLATFORM_LOGO;
+  // The built-in logo has navy lettering, so on dark backgrounds it sits on a white chip
+  // (as on the earlier pictocart.in). An uploaded footer logo is shown as-is.
+  const chip = tone === "light" && !uploaded && logo !== null;
   return (
-    <Link href="/" className={cn("inline-flex items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand", className)} aria-label={`${PLATFORM_NAME} home`}>
+    <Link
+      href="/"
+      className={cn("inline-flex items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand", chip && "rounded-brand-md bg-white px-3 py-1.5 shadow-brand-card", className)}
+      aria-label={`${PLATFORM_NAME} home`}
+    >
       {logo ? (
         // Plain <img>: the file is already sized for display; width/height reserve space (no layout shift).
         // eslint-disable-next-line @next/next/no-img-element

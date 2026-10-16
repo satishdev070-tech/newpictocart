@@ -10,7 +10,7 @@ import { platformOrigin } from "@/lib/platform/urls";
 /** Used for metadataBase/JSON-LD when env is not configured (Next's own default). */
 export const FALLBACK_ORIGIN = "http://localhost:3000";
 /** Example root domain used in docs/tests until the real one is chosen (ADR-021). */
-export const FALLBACK_ROOT_DOMAIN = "paliya.store";
+export const FALLBACK_ROOT_DOMAIN = "pictocart.in";
 
 export function siteOrigin(): string {
   try {
@@ -20,7 +20,7 @@ export function siteOrigin(): string {
   }
 }
 
-/** Root domain that store subdomains live under, for copy such as "yourbrand.paliya.store". */
+/** Root domain that store subdomains live under, for copy such as "yourbrand.pictocart.in". */
 export function storeRootDomain(): string {
   try {
     return publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN;

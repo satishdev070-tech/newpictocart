@@ -79,13 +79,13 @@ describe("input schema", () => {
 
 describe("setup guide URLs", () => {
   it("builds exact callback and webhook URLs from the platform origin", () => {
-    expect(oauthRedirectUri("https://paliya.store/", "google-business")).toBe("https://paliya.store/api/oauth/google-business/callback");
-    const g = setupGuides("https://paliya.store");
+    expect(oauthRedirectUri("https://pictocart.in/", "google-business")).toBe("https://pictocart.in/api/oauth/google-business/callback");
+    const g = setupGuides("https://pictocart.in");
     const meta = g.find((x) => x.provider === "meta")!;
-    expect(meta.redirectUris).toEqual(["https://paliya.store/api/oauth/meta/callback"]);
-    expect(meta.webhooks.map((w) => w.url)).toEqual(["https://paliya.store/api/webhooks/meta", "https://paliya.store/api/webhooks/whatsapp"]);
+    expect(meta.redirectUris).toEqual(["https://pictocart.in/api/oauth/meta/callback"]);
+    expect(meta.webhooks.map((w) => w.url)).toEqual(["https://pictocart.in/api/webhooks/meta", "https://pictocart.in/api/webhooks/whatsapp"]);
     expect(meta.permissions.map((p) => p.name)).toEqual(expect.arrayContaining(["pages_manage_posts", "instagram_content_publish", "pages_messaging", "instagram_manage_messages", "whatsapp_business_messaging"]));
-    expect(g.find((x) => x.provider === "google")!.redirectUris).toEqual(["https://paliya.store/api/oauth/youtube/callback", "https://paliya.store/api/oauth/google-business/callback"]);
+    expect(g.find((x) => x.provider === "google")!.redirectUris).toEqual(["https://pictocart.in/api/oauth/youtube/callback", "https://pictocart.in/api/oauth/google-business/callback"]);
     expect(g.map((x) => x.provider)).toEqual(["meta", "pinterest", "google", "gemini", "groq", "anthropic"]);
   });
 });
@@ -104,7 +104,7 @@ describe("getAppCredential (server)", () => {
     Object.assign(process.env, {
       NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_xxxxxxxxxxxxxxxxxxxx",
-      NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "paliya.store",
+      NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "pictocart.in",
       SUPABASE_SECRET_KEY: "sb_secret_xxxxxxxxxxxxxxxxxxxxxxxx",
       APP_SECRET: "a".repeat(40),
       GROQ_API_KEY: "gsk_env_key_123456",

@@ -113,7 +113,7 @@ describe("Resend platform credential", () => {
   });
 
   it("validates the From mailbox (header-safe)", () => {
-    expect(saveAppCredentialSchema.parse({ provider: "resend", from: "Build Brighten <no-reply@mail.buildbrighten.in>" }).from).toBe("Build Brighten <no-reply@mail.buildbrighten.in>");
+    expect(saveAppCredentialSchema.parse({ provider: "resend", from: "Pictocart <no-reply@mail.pictocart.in>" }).from).toBe("Pictocart <no-reply@mail.pictocart.in>");
     expect(FROM_RE.test("Evil\r\nBcc: x <a@b.co>")).toBe(false);
     expect(FROM_RE.test("a@b")).toBe(false);
     expect(saveAppCredentialSchema.safeParse({ provider: "resend", from: "nope" }).success).toBe(false);

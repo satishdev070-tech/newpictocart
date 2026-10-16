@@ -34,7 +34,7 @@ export default async function EmailProviderPage() {
           <div>
             <h3 className="mb-2 text-small font-medium">Setup checklist</h3>
             <ol className="list-decimal space-y-2 pl-5 text-small">
-              <li>Resend → Domains → Add domain (e.g. mail.buildbrighten.in) and add the DNS records it shows (SPF, DKIM, and the MX for bounces) at your DNS provider.</li>
+              <li>Resend → Domains → Add domain (e.g. mail.pictocart.in) and add the DNS records it shows (SPF, DKIM, and the MX for bounces) at your DNS provider.</li>
               <li>Wait for the domain to show “Verified”.</li>
               <li>Resend → API Keys → Create API key with “Sending access”, limited to that domain.</li>
               <li>Paste the key and a From address on the verified domain here, save, then send yourself a test email.</li>

@@ -5,10 +5,10 @@ describe("rankStoreHosts", () => {
   it("drops localhost seeds in production and puts the custom domain first", () => {
     const rows = [
       { hostname: "the-paliya.localhost", is_primary: true, type: "platform_subdomain" },
-      { hostname: "the-paliya.buildbrighten.in", is_primary: false, type: "platform_subdomain" },
+      { hostname: "the-paliya.pictocart.in", is_primary: false, type: "platform_subdomain" },
       { hostname: "thepaliya.com", is_primary: false, type: "custom" },
     ];
-    expect(rankStoreHosts(rows, "buildbrighten.in")).toEqual(["thepaliya.com", "the-paliya.buildbrighten.in"]);
+    expect(rankStoreHosts(rows, "pictocart.in")).toEqual(["thepaliya.com", "the-paliya.pictocart.in"]);
   });
 
   it("keeps localhost hosts when the platform runs on localhost", () => {
@@ -17,9 +17,9 @@ describe("rankStoreHosts", () => {
 
   it("prefers the current root over an old one", () => {
     const rows = [
-      { hostname: "acme.paliya.store", is_primary: false, type: "platform_subdomain" },
-      { hostname: "acme.buildbrighten.in", is_primary: false, type: "platform_subdomain" },
+      { hostname: "acme.pictocart.in", is_primary: false, type: "platform_subdomain" },
+      { hostname: "acme.pictocart.in", is_primary: false, type: "platform_subdomain" },
     ];
-    expect(rankStoreHosts(rows, "buildbrighten.in")[0]).toBe("acme.buildbrighten.in");
+    expect(rankStoreHosts(rows, "pictocart.in")[0]).toBe("acme.pictocart.in");
   });
 });

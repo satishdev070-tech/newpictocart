@@ -22,7 +22,7 @@ const MERCHANT_POINTS = [
 
 const ASIDE_THEME = MARKETPLACE_THEMES.find((t) => t.key === "contemporary-ethnic") ?? MARKETPLACE_THEMES[0];
 
-/** Left panel for merchant sign-in / sign-up (Build Brighten brand). Value statements only, no invented numbers. */
+/** Left panel for merchant sign-in / sign-up (Pictocart brand). Value statements only, no invented numbers. */
 export function MerchantAside({ mode }: { mode: "login" | "register" }) {
   return (
     <>

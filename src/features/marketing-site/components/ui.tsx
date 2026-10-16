@@ -16,6 +16,10 @@ const variants = {
   secondary: "border border-border-strong bg-white text-brand-ink hover:border-brand hover:text-brand",
   light: "bg-white text-brand-ink hover:bg-brand-soft",
   ghostLight: "border border-white/40 text-white hover:bg-white/10",
+  cta: "bg-brand-cta font-bold text-white shadow-[0_10px_30px_-10px_rgb(5_150_105/0.7)] hover:bg-brand-cta-hover",
+  orange: "bg-brand-orange font-bold text-white shadow-[0_10px_30px_-10px_rgb(234_88_12/0.7)] hover:bg-brand-orange-hover",
+  night: "bg-brand-ink text-white hover:bg-brand-ink/90",
+  indigo: "bg-brand text-white shadow-[0_10px_30px_-10px_rgb(79_70_229/0.7)] hover:bg-brand-hover",
 } as const;
 
 export function buttonClass(variant: keyof typeof variants = "primary", size: keyof typeof sizes = "md", extra?: string) {

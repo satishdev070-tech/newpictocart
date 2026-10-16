@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const env: { RESEND_API_KEY?: string; EMAIL_FROM: string } = { EMAIL_FROM: "The Paliya <no-reply@mail.example.com>" };
+const env: { RESEND_API_KEY?: string; EMAIL_FROM: string } = { EMAIL_FROM: "Pictocart <no-reply@mail.example.com>" };
 const inserted: Record<string, unknown>[] = [];
 let sentRows: string[] = [];
 

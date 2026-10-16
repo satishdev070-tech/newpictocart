@@ -34,24 +34,24 @@ describe("standard webhook signatures (Supabase auth hooks)", () => {
 });
 
 describe("auth email links", () => {
-  const trusted = (u: URL) => u.host === "acme.buildbrighten.in";
+  const trusted = (u: URL) => u.host === "acme.pictocart.in";
 
   it("appends the token hash to a trusted callback", () => {
-    const link = buildActionLink({ redirectTo: "https://acme.buildbrighten.in/account/auth/callback?next=/account", tokenHash: "abc", type: "recovery", trusted, fallbackOrigin: "https://buildbrighten.in" });
+    const link = buildActionLink({ redirectTo: "https://acme.pictocart.in/account/auth/callback?next=/account", tokenHash: "abc", type: "recovery", trusted, fallbackOrigin: "https://pictocart.in" });
     const u = new URL(link);
-    expect(u.host).toBe("acme.buildbrighten.in");
+    expect(u.host).toBe("acme.pictocart.in");
     expect(u.searchParams.get("next")).toBe("/account");
     expect(u.searchParams.get("token_hash")).toBe("abc");
     expect(u.searchParams.get("type")).toBe("recovery");
   });
 
   it("never links to a foreign host; falls back to /auth/confirm", () => {
-    const link = buildActionLink({ redirectTo: "https://evil.example/steal", tokenHash: "abc", type: "recovery", trusted, fallbackOrigin: "https://buildbrighten.in" });
+    const link = buildActionLink({ redirectTo: "https://evil.example/steal", tokenHash: "abc", type: "recovery", trusted, fallbackOrigin: "https://pictocart.in" });
     const u = new URL(link);
-    expect(u.origin).toBe("https://buildbrighten.in");
+    expect(u.origin).toBe("https://pictocart.in");
     expect(u.pathname).toBe("/auth/confirm");
     expect(u.searchParams.get("next")).toBe("/reset-password");
-    expect(buildActionLink({ redirectTo: "javascript:alert(1)", tokenHash: "x", type: "signup", trusted: () => true, fallbackOrigin: "https://buildbrighten.in" })).toMatch(/^https:\/\/buildbrighten\.in\/auth\/confirm\?/);
+    expect(buildActionLink({ redirectTo: "javascript:alert(1)", tokenHash: "x", type: "signup", trusted: () => true, fallbackOrigin: "https://pictocart.in" })).toMatch(/^https:\/\/pictocart\.in\/auth\/confirm\?/);
   });
 
   it("maps actions and parses Supabase payloads", () => {
@@ -65,13 +65,13 @@ describe("auth email links", () => {
 });
 
 describe("account email templates", () => {
-  const brand = { storeName: "Build Brighten", storeUrl: "https://buildbrighten.in" };
+  const brand = { storeName: "Pictocart", storeUrl: "https://pictocart.in" };
 
   it("renders a reset email with an escaped, https-only button", () => {
-    const e = renderAuthEmail({ action: "recovery", brand, actionUrl: "https://buildbrighten.in/auth/confirm?token_hash=x&type=recovery" });
+    const e = renderAuthEmail({ action: "recovery", brand, actionUrl: "https://pictocart.in/auth/confirm?token_hash=x&type=recovery" });
     expect(e.subject).toContain("Reset");
     expect(e.html).toContain("token_hash=x&amp;type=recovery");
-    expect(e.text).toContain("https://buildbrighten.in/auth/confirm");
+    expect(e.text).toContain("https://pictocart.in/auth/confirm");
     const bad = renderAuthEmail({ action: "signup", brand: { storeName: "<b>Shop</b>" }, actionUrl: "javascript:alert(1)" });
     expect(bad.html).not.toContain("javascript:");
     expect(bad.html).toContain("&lt;b&gt;Shop&lt;/b&gt;");
@@ -84,8 +84,8 @@ describe("account email templates", () => {
   });
 
   it("store-created email differs for new and existing owners", () => {
-    const n = renderStoreCreatedEmail({ brand, storeName: "Acme", storeUrl: "https://acme.buildbrighten.in", actionUrl: "https://buildbrighten.in/x", newAccount: true });
-    const o = renderStoreCreatedEmail({ brand, storeName: "Acme", storeUrl: "https://acme.buildbrighten.in", actionUrl: "https://buildbrighten.in/x", newAccount: false });
+    const n = renderStoreCreatedEmail({ brand, storeName: "Acme", storeUrl: "https://acme.pictocart.in", actionUrl: "https://pictocart.in/x", newAccount: true });
+    const o = renderStoreCreatedEmail({ brand, storeName: "Acme", storeUrl: "https://acme.pictocart.in", actionUrl: "https://pictocart.in/x", newAccount: false });
     expect(n.html).toContain("Set your password");
     expect(o.html).toContain("Open your dashboard");
   });
@@ -93,7 +93,7 @@ describe("account email templates", () => {
 
 describe("Resend helpers", () => {
   it("extracts the sender domain", () => {
-    expect(senderDomain("Build Brighten <no-reply@mail.buildbrighten.in>")).toBe("mail.buildbrighten.in");
+    expect(senderDomain("Pictocart <no-reply@mail.pictocart.in>")).toBe("mail.pictocart.in");
     expect(senderDomain("orders@shop.in")).toBe("shop.in");
     expect(senderDomain("nope")).toBeNull();
   });

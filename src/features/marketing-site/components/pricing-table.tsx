@@ -47,8 +47,8 @@ export function PricingTable({ plans, headingLevel = "h3" }: { plans: MarketingP
           const featured = plan.code === rec;
           const saving = yearlySavingsPercent(plan.monthlyMinor, plan.yearlyMinor);
           return (
-            <li key={plan.code} className={cn("relative flex flex-col rounded-brand-lg border bg-white p-7", featured ? "border-brand shadow-brand-float ring-1 ring-brand" : "border-border")}>
-              {featured ? <span className="absolute -top-3 left-7 rounded-full bg-brand-accent px-3 py-1 text-xs font-bold text-brand-ink">Recommended</span> : null}
+            <li key={plan.code} className={cn("relative flex flex-col rounded-brand-lg border bg-white p-7", featured ? "border-brand bg-brand-soft/40 shadow-brand-float ring-1 ring-brand" : "border-border")}>
+              {featured ? <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand px-3 py-1 text-xs font-bold whitespace-nowrap text-white">Most Popular</span> : null}
               <H className="font-brand text-xl font-bold text-brand-ink">{plan.name}</H>
               {plan.description ? <p className="mt-1 text-sm text-muted">{plan.description}</p> : null}
               <p className="mt-6 flex items-baseline gap-1 text-brand-ink">

@@ -112,25 +112,31 @@
 }
 
 /*
- * Build Brighten brand (public marketing site, seller sign-in/sign-up and onboarding). Scoped to
+ * Pictocart brand (public marketing site, seller sign-in/sign-up and onboarding). Scoped to
  * .theme-brand so the seller dashboard and storefronts are unaffected. Always light: marketing
  * pages pin data-theme="light" so contrast is predictable.
  *
- * PROVISIONAL PALETTE: the official logo file was not available when these were chosen, so the
- * values are not yet sampled from it. Replace the --brand-* values below with the logo's colours
- * (docs/BRAND.md) and every component picks them up. Contrast checked for the pairs used:
- * white on --brand-primary 7.9:1, --brand-ink on --brand-accent 8.3:1, --muted on white 7.5:1,
- * --subtle on white 5.5:1, --brand-primary on --brand-primary-soft 7.0:1 (WCAG AA for body text).
+ * PICTOCART PALETTE: sampled from the logo (navy #212447, orange #f26b2a) and the earlier
+ * pictocart.in site (indigo links/buttons, emerald "create store" CTA, orange highlights,
+ * deep-indigo hero). Contrast for the pairs used: white on --brand-primary 6.3:1, white on
+ * --brand-ink 14.9:1, --muted on white 7.5:1; white on --brand-cta 3.8:1 and on
+ * --brand-orange 3.6:1 (used only for bold button labels, AA for large/bold UI text).
  */
 .theme-brand {
-  --brand-primary: #4338ca;
-  --brand-primary-hover: #3730a3;
+  --brand-primary: #4f46e5;
+  --brand-primary-hover: #4338ca;
   --brand-primary-soft: #eef0ff;
-  --brand-ink: #0b1b3f;
-  --brand-accent: #f5a524;
-  --brand-accent-soft: #fff5db;
+  --brand-ink: #1b1d45;
+  --brand-accent: #f97316;
+  --brand-accent-soft: #fff1e6;
   --brand-mint: #e7f7ef;
   --brand-canvas: #f7f8fc;
+  --brand-cta: #059669;
+  --brand-cta-hover: #047857;
+  --brand-orange: #ea580c;
+  --brand-orange-hover: #c2410c;
+  --brand-purple: #7c3aed;
+  --brand-night: #0f0c2e;
 
   --background: #ffffff;
   --surface: #ffffff;
@@ -154,7 +160,7 @@
   --brand-radius-xl: 28px;
   --brand-shadow-card: 0 1px 2px rgb(15 23 42 / 0.05), 0 8px 24px -12px rgb(15 23 42 / 0.12);
   --brand-shadow-float: 0 24px 60px -24px rgb(11 27 63 / 0.35);
-  --font-brand-display: var(--font-manrope), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-brand-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
   background: var(--background);
   color: var(--foreground);
@@ -169,6 +175,12 @@
   --color-brand-accent-soft: var(--brand-accent-soft);
   --color-brand-mint: var(--brand-mint);
   --color-brand-canvas: var(--brand-canvas);
+  --color-brand-cta: var(--brand-cta);
+  --color-brand-cta-hover: var(--brand-cta-hover);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-orange-hover: var(--brand-orange-hover);
+  --color-brand-purple: var(--brand-purple);
+  --color-brand-night: var(--brand-night);
   --radius-brand-sm: var(--brand-radius-sm);
   --radius-brand-md: var(--brand-radius-md);
   --radius-brand-lg: var(--brand-radius-lg);
@@ -304,5 +316,15 @@ body {
   from {
     opacity: 0;
     transform: translateY(-4px) scale(0.98);
+  }
+}
+
+/* Landing page trust strip (the list is rendered twice, so -50% loops seamlessly). */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }

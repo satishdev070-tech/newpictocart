@@ -51,7 +51,7 @@ describe("marketing content & seo", () => {
     expect(JSON.parse(out).name).toContain("alert");
   });
   it("has FAQs and only relative, existing-route links", () => {
-    expect(buildFaqs("buildbrighten.in").length).toBeGreaterThan(3);
+    expect(buildFaqs("pictocart.in").length).toBeGreaterThan(3);
     const routes = ["/features", "/themes", "/how-it-works", "/pricing", "/seller/register", "/seller/login", "/seller/forgot-password", "/terms", "/privacy"];
     for (const l of [...NAV_LINKS, ...FOOTER_GROUPS.flatMap((g) => g.links)]) expect(routes).toContain(l.href);
   });

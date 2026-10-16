@@ -38,9 +38,9 @@ describe("Resend client", () => {
 
 describe("address helpers", () => {
   it("keeps the verified address and swaps only the display name", () => {
-    expect(formatFrom("The Paliya <no-reply@mail.example.com>", "Ramya By Ayushi")).toBe("Ramya By Ayushi <no-reply@mail.example.com>");
+    expect(formatFrom("Pictocart <no-reply@mail.example.com>", "Ramya By Ayushi")).toBe("Ramya By Ayushi <no-reply@mail.example.com>");
     expect(formatFrom("no-reply@mail.example.com", 'Evil" <x@y.z>\r\nBcc: a@b')).toBe("Evil x y.z Bcc a b <no-reply@mail.example.com>");
-    expect(formatFrom("The Paliya <no-reply@mail.example.com>", null)).toBe("The Paliya <no-reply@mail.example.com>");
+    expect(formatFrom("Pictocart <no-reply@mail.example.com>", null)).toBe("Pictocart <no-reply@mail.example.com>");
     expect(parseMailbox("nonsense")).toBeNull();
   });
 

@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: PageProps<"/store/[host]">): 
     siteName: sf.store.name,
     noindex: sf.preview,
   });
-  // Absolute: the store's home title must not pick up the platform's "… · The Paliya" template.
+  // Absolute: the store's home title must not pick up the platform's "… · Pictocart" template.
   return { ...meta, title: { absolute: title } };
 }
 

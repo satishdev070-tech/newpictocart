@@ -9,7 +9,7 @@ export const OG_IMAGE_PATH = "/og";
 export const OG_IMAGE_SIZE = { width: 1200, height: 630 } as const;
 
 export const SITE_DESCRIPTION =
-  "Create your online store, showcase your products and manage orders, payments and shipping from one dashboard. Build Brighten is an e-commerce platform for Indian businesses.";
+  "Create your online store, showcase your products and manage orders, payments and shipping from one dashboard. Pictocart is an e-commerce platform for Indian businesses.";
 
 type MetadataInput = {
   /** Page title. The home page passes an absolute title; inner pages use the root template. */
