@@ -10,7 +10,7 @@ _Platform UI (seller dashboard, platform console, auth, marketing). Storefronts 
   `data-theme` (the auth side panels pin dark).
 - Dark is a separate palette (charcoal surfaces, softened text, brighter accent), not an inversion.
 - `.theme-panel` (added by `AppShell`) is the seller dashboard and super admin theme: Pictocart orange (`primary` #cc4a0c, `accent` #c2410c,
-  `accent-soft`, vivid `accent-strong` #f97316 for non-text marks), warm-neutral surfaces, tinted fills `tint-{peach,lavender,mint,sky,rose}`
+  `accent-soft`, vivid `accent-strong` #f97316 for non-text marks), warm-neutral surfaces, tinted fills `tint-{peach,lavender,mint,sky,rose,amber,teal}`
   (+ `-border`, `-ink`), a one-step larger type scale and Manrope headings. Light and dark.
 - `.theme-console` (cool slate + blue) remains only on the console sign-in panel.
 - Storefronts are never switched: store origins have their own storage and use `--sf-*` tokens from the tenant theme.
@@ -59,9 +59,9 @@ h1 26/34, display 34/40) through `--text-*-size` / `--text-*-lh`, and display/h1
 | `Button` / `buttonClass()` | `primary` `accent` `secondary` `outline` `ghost` `danger`; `sm` 32px, `md` 36px, `lg` 40px; `pending` shows a spinner and disables |
 | `TextField` `TextAreaField` `SelectField` `CheckboxField` | Label, hint, error (`role="alert"`), `aria-invalid` + `aria-describedby` |
 | `PasswordField` | Adds a show/hide toggle (`aria-pressed`) |
-| `Card` `PageHeader` `StatCard` `Badge` `Table` (`th`/`td`) | Badges are soft fills with an inset ring (`brand` = solid primary pill); `StatCard` takes `tone` (tinted fill) and `icon`; tables scroll horizontally on small screens |
+| `Card` `PageHeader` `StatCard` `Badge` `Table` (`th`/`td`) | Badges are soft fills with an inset ring (`brand` = solid primary pill); `StatCard` takes `tone` (tinted gradient fill + matching border and icon chip, hover lift), `icon` and `trend`; tables scroll horizontally on small screens |
 | `EmptyState` `ErrorState` `Skeleton` | Empty states take an optional icon and action |
-| `AppShell` | Collapsible sidebar (saved) with collapsible submenus per group, tooltips when collapsed, mobile drawer (native `<dialog>`), breadcrumbs above the page, ⌘K quick jump, optimistic active item |
+| `AppShell` | Sidebar with a collapse/expand toggle at the top (state in a per-panel cookie, read on the server: no flash). Expanded: logo, labels, submenus with chevrons (active group auto-opens, ↑/↓/←/→ keys). Collapsed: icon rail with tooltips and hover/click flyout submenus (fixed-positioned, never clipped). Mobile drawer (native `<dialog>`), breadcrumbs above the page, ⌘K quick jump, optimistic active item. Pure helpers in `nav-tree.ts` / `sidebar-cookie.ts` |
 | `PanelLogo` / `PanelMark` | Pictocart logo / square mark for panel sidebars |
 | `TablePageSkeleton` `FormPageSkeleton` `GridPageSkeleton` `OverviewSkeleton` | Route `loading.tsx` fallbacks (`components/app-shell/skeletons.tsx`) |
 | `Popover` / `PopoverItem` | Topbar menus; Esc and outside click close them and focus returns to the trigger |

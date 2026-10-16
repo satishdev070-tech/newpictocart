@@ -46,25 +46,46 @@ export function Badge({ tone = "neutral", children }: { tone?: keyof typeof BADG
   return <span className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-caption font-medium whitespace-nowrap ring-1 ring-inset", BADGE_TONES[tone])}>{children}</span>;
 }
 
-/** Soft tinted surfaces for KPI cards (panel theme tokens). */
+/**
+ * Soft tinted surfaces for KPI cards (panel theme tokens, light and dark): a gentle diagonal
+ * gradient from the tint into the card surface, a matching border and an icon chip in the tint's ink.
+ */
 const STAT_TONES = {
-  plain: { card: "border-border bg-surface", icon: "bg-surface-secondary text-muted" },
-  peach: { card: "border-tint-peach-border bg-gradient-to-br from-tint-peach to-surface", icon: "bg-tint-peach-border/70 text-tint-peach-ink" },
-  lavender: { card: "border-tint-lavender-border bg-gradient-to-br from-tint-lavender to-surface", icon: "bg-tint-lavender-border/70 text-tint-lavender-ink" },
-  mint: { card: "border-tint-mint-border bg-gradient-to-br from-tint-mint to-surface", icon: "bg-tint-mint-border/70 text-tint-mint-ink" },
-  sky: { card: "border-tint-sky-border bg-gradient-to-br from-tint-sky to-surface", icon: "bg-tint-sky-border/70 text-tint-sky-ink" },
-  rose: { card: "border-tint-rose-border bg-gradient-to-br from-tint-rose to-surface", icon: "bg-tint-rose-border/70 text-tint-rose-ink" },
+  plain: { card: "border-border bg-surface", icon: "bg-surface-secondary text-muted ring-border" },
+  peach: { card: "border-tint-peach-border bg-gradient-to-br from-tint-peach via-tint-peach/60 to-surface", icon: "bg-tint-peach-border/70 text-tint-peach-ink ring-tint-peach-border" },
+  lavender: { card: "border-tint-lavender-border bg-gradient-to-br from-tint-lavender via-tint-lavender/60 to-surface", icon: "bg-tint-lavender-border/70 text-tint-lavender-ink ring-tint-lavender-border" },
+  mint: { card: "border-tint-mint-border bg-gradient-to-br from-tint-mint via-tint-mint/60 to-surface", icon: "bg-tint-mint-border/70 text-tint-mint-ink ring-tint-mint-border" },
+  sky: { card: "border-tint-sky-border bg-gradient-to-br from-tint-sky via-tint-sky/60 to-surface", icon: "bg-tint-sky-border/70 text-tint-sky-ink ring-tint-sky-border" },
+  rose: { card: "border-tint-rose-border bg-gradient-to-br from-tint-rose via-tint-rose/60 to-surface", icon: "bg-tint-rose-border/70 text-tint-rose-ink ring-tint-rose-border" },
+  amber: { card: "border-tint-amber-border bg-gradient-to-br from-tint-amber via-tint-amber/60 to-surface", icon: "bg-tint-amber-border/70 text-tint-amber-ink ring-tint-amber-border" },
+  teal: { card: "border-tint-teal-border bg-gradient-to-br from-tint-teal via-tint-teal/60 to-surface", icon: "bg-tint-teal-border/70 text-tint-teal-ink ring-tint-teal-border" },
 } as const;
 export type StatTone = keyof typeof STAT_TONES;
+/** Tones in display order, for KPI rows that cycle through them. */
+export const STAT_TONE_CYCLE: readonly StatTone[] = ["mint", "lavender", "peach", "sky", "rose", "amber", "teal"];
 
-export function StatCard({ label, value, hint, tone = "plain", icon }: { label: string; value: ReactNode; hint?: ReactNode; tone?: StatTone; icon?: ReactNode }) {
+/**
+ * KPI tile. Tinted tones put the icon chip first and the label as an overline (like the panel
+ * reference); `trend` is an optional chip on the top right (e.g. "▲ 12%").
+ */
+export function StatCard({ label, value, hint, tone = "plain", icon, trend }: { label: string; value: ReactNode; hint?: ReactNode; tone?: StatTone; icon?: ReactNode; trend?: ReactNode }) {
   const t = STAT_TONES[tone];
   return (
-    <div className={cn("rounded-xl border p-4 shadow-xs sm:p-5", t.card)}>
-      {icon ? <div className={cn("mb-3 grid size-9 place-items-center rounded-lg [&_svg]:size-[18px]", t.icon)}>{icon}</div> : null}
-      <p className={cn("text-small text-muted", tone !== "plain" && "text-overline")}>{label}</p>
-      <p className="mt-1 text-h1 tabular-nums">{value}</p>
-      {hint ? <p className="mt-1 text-caption text-muted">{hint}</p> : null}
+    <div
+      className={cn(
+        "relative flex min-w-0 flex-col rounded-xl border p-4 shadow-xs transition-[translate,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:p-5",
+        t.card,
+      )}
+    >
+      {icon || trend ? (
+        <div className="mb-3 flex items-start justify-between gap-2">
+          {icon ? <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl ring-1 ring-inset [&_svg]:size-5", t.icon)}>{icon}</span> : <span />}
+          {trend ? <span className="shrink-0 text-caption font-medium">{trend}</span> : null}
+        </div>
+      ) : null}
+      <p className={cn("truncate", tone === "plain" && !icon ? "text-small text-muted" : "text-overline text-muted")}>{label}</p>
+      <p className="mt-1 truncate text-h1 tabular-nums">{value}</p>
+      {hint ? <div className="mt-1 text-caption text-muted">{hint}</div> : null}
     </div>
   );
 }

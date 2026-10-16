@@ -41,6 +41,12 @@ import {
   Share2,
   Sparkles,
   Brush,
+  Wallet,
+  UserCog,
+  ShoppingCart,
+  ArrowLeftRight,
+  MapPin,
+  Gauge,
   type LucideIcon,
 } from "lucide-react";
 
@@ -92,6 +98,12 @@ export const NAV_ICONS = {
   gbp: MapPinned,
   creative: Sparkles,
   themes: Brush,
+  billing: Wallet,
+  accounts: UserCog,
+  checkout: ShoppingCart,
+  redirects: ArrowLeftRight,
+  locations: MapPin,
+  monitoring: Gauge,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIconName = keyof typeof NAV_ICONS;

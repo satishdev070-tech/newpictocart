@@ -156,6 +156,12 @@
   --tint-rose: #fff1f2;
   --tint-rose-border: #fbd3d9;
   --tint-rose-ink: #be123c;
+  --tint-amber: #fffaeb;
+  --tint-amber-border: #fbe6b0;
+  --tint-amber-ink: #a16207;
+  --tint-teal: #ecfbfa;
+  --tint-teal-border: #c6ecea;
+  --tint-teal-ink: #0f766e;
 
   --shadow-xs: 0 1px 2px rgb(28 25 23 / 0.04);
   --shadow-sm: 0 1px 3px rgb(28 25 23 / 0.06), 0 1px 2px rgb(28 25 23 / 0.03);
@@ -224,6 +230,12 @@
   --tint-rose: #231317;
   --tint-rose-border: #40212a;
   --tint-rose-ink: #fda4af;
+  --tint-amber: #211b0d;
+  --tint-amber-border: #3d3215;
+  --tint-amber-ink: #fcd34d;
+  --tint-teal: #0f1f1e;
+  --tint-teal-border: #1b3a37;
+  --tint-teal-ink: #5eead4;
 
   --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.3);
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
@@ -340,6 +352,12 @@
   --color-tint-rose: var(--tint-rose);
   --color-tint-rose-border: var(--tint-rose-border);
   --color-tint-rose-ink: var(--tint-rose-ink);
+  --color-tint-amber: var(--tint-amber);
+  --color-tint-amber-border: var(--tint-amber-border);
+  --color-tint-amber-ink: var(--tint-amber-ink);
+  --color-tint-teal: var(--tint-teal);
+  --color-tint-teal-border: var(--tint-teal-border);
+  --color-tint-teal-ink: var(--tint-teal-ink);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-error: var(--error);
