@@ -442,3 +442,13 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   defaults per section (`src/features/marketing-site/landing.ts`, unit tested); saves are validated
   server-side, rate limited, audited and revalidate the site immediately.
 - Testimonials ship empty and hidden: add only real merchant quotes.
+
+## Home themes section + Unsplash category photos (2026-10-16)
+
+- Theme cards (`theme-card.tsx`): fixed 4:3 preview stage with the phone sized from the stage
+  height and pinned inside it, so it no longer overhangs the card; equal preview heights, clamped
+  tagline, full-width stacked buttons, hover lift / photo zoom (reduced-motion aware).
+- Card preview priority: captured screenshot → category photo → token mockup. `src/lib/unsplash.ts`
+  (`getCategoryImage` / `getCategoryImages`, reusable by other sections) searches Unsplash with
+  `UNSPLASH_ACCESS_KEY` (fetch-cached 1 day) and falls back to a curated `images.unsplash.com` photo
+  per category; cards show the required "Photo: X / Unsplash" credit. Unit tested (fallbacks).

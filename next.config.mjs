@@ -35,10 +35,12 @@ const nextConfig = {
     proxyClientMaxBodySize: "25mb",
   },
   images: {
-    // Product/store images are served from Supabase Storage public buckets only.
-    remotePatterns: supabaseHost
-      ? [{ protocol: "https", hostname: supabaseHost, pathname: "/storage/v1/object/public/**" }]
-      : [],
+    // Product/store images are served from Supabase Storage public buckets; marketing category
+    // photos are hotlinked from Unsplash (src/lib/unsplash.ts, pre-sized via URL params).
+    remotePatterns: [
+      ...(supabaseHost ? [{ protocol: "https", hostname: supabaseHost, pathname: "/storage/v1/object/public/**" }] : []),
+      { protocol: "https", hostname: "images.unsplash.com", pathname: "/**" },
+    ],
     // Every (image × width × format) the optimizer produces counts against Vercel's Image
     // Optimization "transformations" quota (the Hobby plan was paused for exceeding it), so:
     // WebP only (AVIF doubled the count for a small size gain) and a short width ladder

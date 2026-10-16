@@ -4,6 +4,7 @@ import { buildMarketingMetadata, faqJsonLd, organizationJsonLd, serializeJsonLd,
 import { siteOrigin } from "@/features/marketing-site/site";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { livePreviewUrls } from "@/features/marketing-site/server/themes";
+import { getCategoryImages } from "@/lib/unsplash";
 import { getLandingContent } from "@/features/marketing-site/server/landing";
 import { findTheme, showcaseThemes } from "@/features/marketing-site/themes";
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
@@ -42,7 +43,12 @@ export default async function HomePage() {
   const content = await getLandingContent();
   const themes = showcaseThemes(SHOWCASE_INDUSTRIES).slice(0, content.themes.count);
   const hero = findTheme(HERO_THEME) ?? themes[0];
-  const [plans, previews] = await Promise.all([getMarketingPlans(), livePreviewUrls([...themes, ...(hero ? [hero] : [])])]);
+  const [plans, previews, themeImages] = await Promise.all([
+    getMarketingPlans(),
+    livePreviewUrls([...themes, ...(hero ? [hero] : [])]),
+    // Category photo per showcase theme, shown when the theme has no captured screenshot.
+    getCategoryImages(themes.map((t) => t.industry)),
+  ]);
   const tokens = { themes: MARKETPLACE_THEMES.length };
 
   const sections: Record<SectionKey, () => ReactNode> = {
@@ -52,7 +58,7 @@ export default async function HomePage() {
     steps: () => <Steps content={content.steps} />,
     faq: () => <LandingFaq content={content.faq} />,
     features: () => <Features content={content.features} />,
-    themes: () => <LandingThemes content={content.themes} themes={themes} previews={previews} />,
+    themes: () => <LandingThemes content={content.themes} themes={themes} previews={previews} images={themeImages} />,
     categories: () => <LandingCategories content={content.categories} />,
     pricing: () => <LandingPricing content={content.pricing} plans={plans} />,
     testimonials: () => <Testimonials content={content.testimonials} />,

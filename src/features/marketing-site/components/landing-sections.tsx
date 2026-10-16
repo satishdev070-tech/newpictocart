@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Check, ChevronDown, ChevronRight, Quote, Star } from "lucide-react";
 import type { ReactNode } from "react";
 import type { MarketplaceTheme } from "@/features/theme/marketplace/types";
+import type { CategoryImage } from "@/lib/unsplash";
 import { cn } from "@/lib/cn";
 import type { MarketingPlan } from "../plans";
 import { fillTokens, type LandingContent, type StepVisual } from "../landing";
@@ -465,7 +466,7 @@ function FeatureCard({ icon, title, body }: LandingContent["features"]["items"][
 
 // ---- Themes ------------------------------------------------------------------------------
 
-export function LandingThemes({ content, themes, previews }: { content: LandingContent["themes"]; themes: MarketplaceTheme[]; previews: Map<string, string> }) {
+export function LandingThemes({ content, themes, previews, images }: { content: LandingContent["themes"]; themes: MarketplaceTheme[]; previews: Map<string, string>; images?: Map<string, CategoryImage> }) {
   if (!themes.length) return null;
   return (
     <section id="themes" aria-labelledby="themes-title" className="scroll-mt-20 bg-white py-20 sm:py-24">
@@ -474,7 +475,7 @@ export function LandingThemes({ content, themes, previews }: { content: LandingC
         <ul className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {themes.map((t) => (
             <li key={t.key} className="h-full">
-              <ThemeCard theme={t} previewUrl={previews.get(t.key) ?? null} location="home_themes" />
+              <ThemeCard theme={t} previewUrl={previews.get(t.key) ?? null} image={images?.get(t.industry) ?? null} location="home_themes" />
             </li>
           ))}
         </ul>
