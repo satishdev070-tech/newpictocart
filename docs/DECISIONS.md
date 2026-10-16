@@ -176,3 +176,17 @@ or the store's `/account/auth/callback`, both accept `token_hash`), only for hos
 host; anything else falls back to `/auth/confirm`), brand it (store name/logo for shoppers, platform for sellers) and send it
 through `sendEmail()` (Resend, `email_log`, idempotency). If the email can't be sent we return an error to Supabase so the
 user sees a failure rather than waiting for a mail that never comes.
+
+## ADR-035 — In-app notifications: per-recipient rows written by DB triggers · Accepted
+The bell (seller dashboard + super admin console) reads `public.notifications`, one row per recipient. Producers are
+`AFTER` triggers on the tables where events already happen (orders, returns, inventory_levels, reviews, customers, carts,
+domains, ai_generations, plan_requests, profiles, tenants, stores), fanning out through `app.notify_tenant` /
+`app.notify_platform` to members whose role (system or custom) grants the event's permission, minus the actor and users who
+muted the type. Triggers catch every code path (storefront RPCs, verified webhooks, dashboard actions) without the
+secret-key client, and each producer swallows its own errors so a notification can never roll back the business write.
+Rows are deduped by `(user_id, dedupe_key)`. RLS: own rows only, while still a member; clients may update `read_at` only.
+Time-based reminders (trial ending) and retention run in `notifications_run_reminders()` from the notifications cron
+(service role). Platform events without a table yet (APK requests, disputes, payout failures) go through
+`notifyPlatform()` → `notify_platform_event()` (service role, after the caller verified the event). Live updates use
+Supabase Realtime on the user's rows with a 60 s polling fallback. Chosen over a shared row + per-user read table (more
+complex RLS and Realtime filtering) and over app-level `emit()` calls (misses SQL-only paths such as `place_order`).

@@ -501,3 +501,25 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
 - **Shell.** Seller nav regrouped as Dashboard · Catalog · Sales · Marketing · Storefront · Analytics · Settings. Multi-item groups are collapsible submenus (grid-rows animation, no measuring, `inert` when closed; the active group opens by default, choices saved per browser). Exactly one item is active (longest matching href). Breadcrumbs moved from the topbar into the content area; the topbar has the wide search, a light/dark toggle, notifications and account. Primitives: `StatCard` gained optional `tone` + `icon`, `Badge` a `brand` tone, `AppearanceQuickToggle`; cards/buttons are rounder.
 - **Speed.** 25 new `loading.tsx` boundaries (14 → 39) using shared skeletons (`components/app-shell/skeletons.tsx`), so every sidebar destination shows its fallback on click and is prefetched up to it. Clicking a nav item highlights it before the route commits (preview, dev mode: ~0.2 s to highlight vs ~1.2 s to commit, where it used to appear). Submenu links are prefetched on hover/focus of the group, and a `useLinkStatus` dot shows a pending navigation. Notification links in topbar popovers are now `next/link` (they did full page reloads). `getPlatformOverview` is `React.cache`d (the console layout and overview page ran the `platform_overview` RPC twice per load: now once); the dashboard layout reads cookies in parallel with alerts/trial info; the console layout no longer loads branding itself.
 - **Not verified here:** signed-in dashboard/admin pages (sign-in was not available to the session); visual QA used the real `AppShell` and primitives with mock data at 375 px and 1440 px, light and dark.
+
+## In-app notifications: bell, pages, producers (2026-10-16)
+
+- **Data** — migration `20261016003000_in_app_notifications.sql`: `notifications` (per recipient: scope tenant/platform,
+  type, title, body, in-app link, data, dedupe key, read_at; RLS own rows while still a member; clients update `read_at`
+  only) and `notification_preferences` (per-user muted types). Added to the `supabase_realtime` publication when present.
+  Types hand-added to `database.types.ts`. Design: ADR-035.
+- **Producers (DB triggers)** — seller: new order (COD at placement, online once paid), payment received / failed, order
+  cancelled, returned/RTO, return requested, low stock / sold out, new review, new customer, abandoned cart recovered
+  (only after an email/WhatsApp reminder), plan request decided, AI credits low (80 %) / used up, custom domain verified /
+  failed, SSL active / failed. Platform: new sign-up, new store, store published, plan request. Cron
+  (`/api/cron/notifications`): trial ends in ≤3 days (deduped per store and day) + retention (read > 90 days, any > 180).
+- **Reserved, no producer yet** — APK requests, disputes, failed platform payments/payouts: those flows/tables don't
+  exist. Types, icons and `notifyPlatform()` (`src/features/notifications/inbox/server.ts`) are ready for them.
+- **UI** — `features/notifications/inbox/**`: header bell with unread badge + popover (icon per type, relative time,
+  mark read on click, mark all as read, keeps the "needs attention" counters, link to the page), `/dashboard/notifications`
+  and `/admin/notifications` (all/unread + group filters, pagination, mark unread, per-type in-app preferences at
+  `?tab=preferences`), "Recent activity" card on the dashboard home. Live via Supabase Realtime + 60 s polling fallback.
+- **Tests** — `tests/rls/notifications.test.ts` (RLS, producers, recipients by permission, mutes, dedupe, cart recovery,
+  reminders, function grants), `tests/unit/notifications/inbox.test.ts` (catalog ↔ SQL producers, AI limit sync, link
+  safety, relative time, server-resolved audience in actions, preferences).
+- **Not done** — migration not applied to the remote Supabase project; e-mail/WhatsApp copies of these alerts.

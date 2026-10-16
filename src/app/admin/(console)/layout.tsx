@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Bell, ChevronsUpDown, LogOut, Shield } from "lucide-react";
+import { ChevronsUpDown, LogOut, Shield } from "lucide-react";
 import { requirePlatform } from "@/lib/platform/access";
 import { adminNavFor } from "@/features/platform/nav";
 import { getMyActiveSupportSessions, getPlatformOverview } from "@/features/platform/server/queries";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { NotificationBell } from "@/features/notifications/inbox/components/notification-bell";
+import { getBellData } from "@/features/notifications/inbox/server";
 import { Popover, PopoverItem } from "@/components/app-shell/popover";
 import { AppearanceQuickToggle, AppearanceToggle } from "@/components/ui/appearance-toggle";
 import { PanelLogo, PanelMark } from "@/components/app-shell/panel-logo";
@@ -22,9 +24,10 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const ctx = await requirePlatform();
   const groups = adminNavFor(ctx.permissions);
   // getPlatformOverview is request-cached, so the overview page reuses this result.
-  const [sessions, overview] = await Promise.all([
+  const [sessions, overview, bell] = await Promise.all([
     ctx.permissions.has("platform.support.impersonate") ? getMyActiveSupportSessions(ctx.user.id) : Promise.resolve([]),
     ctx.permissions.has("platform.tenants.read") ? getPlatformOverview().catch(() => null) : Promise.resolve(null),
+    getBellData({ userId: ctx.user.id, scope: "platform", tenantId: null }),
   ]);
   const alerts = overview
     ? [
@@ -32,7 +35,6 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
         { key: "domains", label: "custom domains awaiting verification", count: overview.customDomainsPending, href: "/admin/domains?status=pending" },
       ].filter((a) => a.count > 0)
     : [];
-  const alertTotal = alerts.reduce((s, a) => s + a.count, 0);
 
   const label = `${PLATFORM_NAME} super admin`;
   const brand = <PanelLogo href="/admin" label={label} />;
@@ -67,27 +69,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const topbarEnd = (
     <>
       <AppearanceQuickToggle />
-      <Popover
-        label={alertTotal ? `Notifications, ${alertTotal} need attention` : "Notifications"}
-        trigger={
-          <span className="relative grid size-5 place-items-center">
-            <Bell aria-hidden className="size-[18px]" strokeWidth={1.75} />
-            {alertTotal ? <span aria-hidden className="absolute -right-1 -top-1 size-2 rounded-full bg-accent-strong ring-2 ring-surface" /> : null}
-          </span>
-        }
-      >
-        <p className="px-2.5 pb-1 pt-1.5 text-overline text-subtle">Needs attention</p>
-        {alerts.length ? (
-          alerts.map((a) => (
-            <PopoverItem key={a.key} href={a.href}>
-              <span className="grid min-w-6 place-items-center rounded bg-accent-soft px-1 text-caption font-semibold text-accent">{a.count}</span>
-              <span>{a.label}</span>
-            </PopoverItem>
-          ))
-        ) : (
-          <p className="px-2.5 py-3 text-small text-muted">Nothing needs attention.</p>
-        )}
-      </Popover>
+      <NotificationBell scope="platform" userId={ctx.user.id} initial={bell} attention={alerts} viewAllHref="/admin/notifications" />
       <Popover
         label="Account"
         trigger={
