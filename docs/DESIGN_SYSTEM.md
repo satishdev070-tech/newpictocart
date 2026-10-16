@@ -9,7 +9,10 @@ _Platform UI (seller dashboard, platform console, auth, marketing). Storefronts 
 - Tokens live on `:root, [data-theme="light"]` and `[data-theme="dark"]` in `app/globals.css`. Any subtree can pin a theme with
   `data-theme` (the auth side panels pin dark).
 - Dark is a separate palette (charcoal surfaces, softened text, brighter accent), not an inversion.
-- `.theme-console` re-tones the same tokens for the platform console (cool slate + blue accent) in both modes.
+- `.theme-panel` (added by `AppShell`) is the seller dashboard and super admin theme: Pictocart orange (`primary` #cc4a0c, `accent` #c2410c,
+  `accent-soft`, vivid `accent-strong` #f97316 for non-text marks), warm-neutral surfaces, tinted fills `tint-{peach,lavender,mint,sky,rose}`
+  (+ `-border`, `-ink`), a one-step larger type scale and Manrope headings. Light and dark.
+- `.theme-console` (cool slate + blue) remains only on the console sign-in panel.
 - Storefronts are never switched: store origins have their own storage and use `--sf-*` tokens from the tenant theme.
 
 ## Semantic tokens (Tailwind colour names)
@@ -27,6 +30,8 @@ _Platform UI (seller dashboard, platform console, auth, marketing). Storefronts 
 ## Typography
 
 Inter (UI) and Fraunces (brand/marketing display), self-hosted from `@fontsource` via `next/font/local` (`app/fonts.ts`).
+In `.theme-panel` the sizes below are one step larger (body 15/24, small 14/22, caption 12.5/18, label 14/20, h4 14/20, h3 16/24, h2 19/28,
+h1 26/34, display 34/40) through `--text-*-size` / `--text-*-lh`, and display/h1–h3 use Manrope 700 (`--font-heading`, `--heading-weight`).
 
 | Utility | Size / line | Weight |
 |---|---|---|
@@ -45,7 +50,7 @@ Inter (UI) and Fraunces (brand/marketing display), self-hosted from `@fontsource
 
 - Spacing: Tailwind's 4px scale only (page padding `px-4 sm:px-6 lg:px-8`, card padding `p-4 sm:p-5`, stacks `space-y-6`).
 - Radius: `sm` 4 · `md` 6 (inputs, buttons) · `lg` 10 (cards) · `xl` 14 (dialogs) · `2xl` 20. Pills only for avatars and counters.
-- Shadows: `shadow-xs` (cards, inputs), `shadow-sm`, `shadow-md` (tooltips), `shadow-lg` (dialogs, popovers). No glows, no gradients on components.
+- Shadows: `shadow-xs` (cards, inputs), `shadow-sm`, `shadow-md` (tooltips), `shadow-lg` (dialogs, popovers). No glows; the only gradients are the soft tinted `StatCard` fills in the panels.
 
 ## Components (`components/ui`, `components/app-shell`, `components/auth`)
 
@@ -54,9 +59,11 @@ Inter (UI) and Fraunces (brand/marketing display), self-hosted from `@fontsource
 | `Button` / `buttonClass()` | `primary` `accent` `secondary` `outline` `ghost` `danger`; `sm` 32px, `md` 36px, `lg` 40px; `pending` shows a spinner and disables |
 | `TextField` `TextAreaField` `SelectField` `CheckboxField` | Label, hint, error (`role="alert"`), `aria-invalid` + `aria-describedby` |
 | `PasswordField` | Adds a show/hide toggle (`aria-pressed`) |
-| `Card` `PageHeader` `StatCard` `Badge` `Table` (`th`/`td`) | Badges are soft fills with an inset ring; tables scroll horizontally on small screens |
+| `Card` `PageHeader` `StatCard` `Badge` `Table` (`th`/`td`) | Badges are soft fills with an inset ring (`brand` = solid primary pill); `StatCard` takes `tone` (tinted fill) and `icon`; tables scroll horizontally on small screens |
 | `EmptyState` `ErrorState` `Skeleton` | Empty states take an optional icon and action |
-| `AppShell` | Collapsible sidebar (saved), tooltips when collapsed, mobile drawer (native `<dialog>`), breadcrumbs, ⌘K quick jump |
+| `AppShell` | Collapsible sidebar (saved) with collapsible submenus per group, tooltips when collapsed, mobile drawer (native `<dialog>`), breadcrumbs above the page, ⌘K quick jump, optimistic active item |
+| `PanelLogo` / `PanelMark` | Pictocart logo / square mark for panel sidebars |
+| `TablePageSkeleton` `FormPageSkeleton` `GridPageSkeleton` `OverviewSkeleton` | Route `loading.tsx` fallbacks (`components/app-shell/skeletons.tsx`) |
 | `Popover` / `PopoverItem` | Topbar menus; Esc and outside click close them and focus returns to the trigger |
 | `AuthSplit` / `AuthHeading` | 60/40 auth layout, `merchant` and `console` variants |
 | `ColumnChart` / `BarList` / `RevenueChart` | Server-rendered charts with screen-reader values |

@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mapDbError } from "@/lib/supabase/errors";
@@ -69,7 +70,8 @@ export type PlatformOverview = {
   customDomainsPending: number;
 };
 
-export async function getPlatformOverview(): Promise<PlatformOverview> {
+/** Request-cached: the console layout (notifications) and the overview page share one RPC call. */
+export const getPlatformOverview = cache(async (): Promise<PlatformOverview> => {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("platform_overview");
   check(error);
@@ -91,7 +93,7 @@ export async function getPlatformOverview(): Promise<PlatformOverview> {
     trialsEnding7d: o.trials_ending_7d,
     customDomainsPending: o.custom_domains_pending,
   };
-}
+});
 
 const money = z.union([z.number(), z.string()]).transform((v) => {
   try {
