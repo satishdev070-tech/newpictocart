@@ -130,7 +130,7 @@ export const saveAppCredentialSchema = z.object({
   /** Write-only: blank keeps the saved secret. */
   secret: z.preprocess(blankToUndef, z.string().min(10, "That secret looks too short").max(500).regex(/^\S+$/, "Secrets don't contain spaces").optional()),
   /** Resend only: the sender mailbox, on a domain verified in Resend. Not secret. */
-  from: z.preprocess(blankToUndef, z.string().max(200).regex(FROM_RE, "Use an address on your verified domain, e.g. Build Brighten <no-reply@mail.buildbrighten.in>").optional()),
+  from: z.preprocess(blankToUndef, z.string().max(200).regex(FROM_RE, "Use an address on your verified domain, e.g. Pictocart <no-reply@mail.pictocart.in>").optional()),
 });
 export type SaveAppCredentialInput = z.infer<typeof saveAppCredentialSchema>;
 

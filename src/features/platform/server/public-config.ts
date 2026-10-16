@@ -13,6 +13,8 @@ import { logger } from "@/lib/observability/logger";
 import { assertPlatformPermission, type PlatformContext } from "@/lib/platform/access";
 import { audit } from "@/lib/audit";
 import type { Json } from "@/lib/supabase/database.types";
+import { PLATFORM_ICON } from "@/config/platform";
+import { LANDING_KEY } from "@/features/marketing-site/landing";
 import {
   BRANDING_BUCKET,
   DEFAULT_PUBLIC_CONFIG,
@@ -38,7 +40,7 @@ class PublicConfigUnavailable extends Error {}
 
 async function load(): Promise<PublicPlatformConfig> {
   // Anon client + RLS (platform_settings_public_select): only `public.*` keys are visible.
-  const { data, error } = await createSupabasePublicClient().from("platform_settings").select("key, value").like("key", "public.%").limit(100);
+  const { data, error } = await createSupabasePublicClient().from("platform_settings").select("key, value").like("key", "public.%").neq("key", LANDING_KEY).limit(100);
   if (error) {
     logger.warn("platform.public_config_unavailable", { code: error.code });
     throw new PublicConfigUnavailable(); // not cached; defaults are used below
@@ -182,5 +184,6 @@ export async function shareImageUrl(): Promise<string | null> {
 
 export async function platformIconMetadata(): Promise<Metadata> {
   const favicon = brandImageView((await getPublicPlatformConfig()).favicon);
-  return favicon ? { icons: { icon: favicon.src, apple: favicon.src } } : {};
+  // Fallback: the Pictocart mark shipped in /public (app/favicon.ico also covers /favicon.ico).
+  return { icons: favicon ? { icon: favicon.src, apple: favicon.src } : { icon: PLATFORM_ICON, apple: PLATFORM_ICON } };
 }

@@ -5,7 +5,7 @@
  * images instead of loading live demo stores for every visitor (live demos load on click only).
  *
  *   pnpm themes:capture                       # all themes, demo stores on NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN
- *   pnpm themes:capture --root buildbrighten.in --only heritage-kashmir,luxury-indian
+ *   pnpm themes:capture --root pictocart.in --only heritage-kashmir,luxury-indian
  *
  * Needs network access to the live demo stores and a Chromium for Playwright
  * (`pnpm exec playwright install chromium` once, or CHROMIUM_PATH=/path/to/chrome). Commit the
@@ -22,7 +22,7 @@ const arg = (name: string) => {
   return i > -1 ? process.argv[i + 1] : undefined;
 };
 const root = arg("root") ?? process.env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN;
-if (!root || root === "localhost") throw new Error("Pass --root <platform root domain>, e.g. --root buildbrighten.in");
+if (!root || root === "localhost") throw new Error("Pass --root <platform root domain>, e.g. --root pictocart.in");
 const only = new Set((arg("only") ?? "").split(",").filter(Boolean));
 const outDir = resolve("public/theme-previews");
 const manifestPath = resolve("src/features/marketing-site/theme-previews.json");

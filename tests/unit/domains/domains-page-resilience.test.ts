@@ -30,11 +30,11 @@ beforeEach(() => {
   logError.mockReset();
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://abc.supabase.co");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_xxxxxxxxxxxxxxxxxxxx");
-  vi.stubEnv("NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN", "buildbrighten.in");
+  vi.stubEnv("NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN", "pictocart.in");
 });
 afterEach(() => vi.unstubAllEnvs());
 
-const row = { id: "d1", tenant_id: "t1", hostname: "acme.buildbrighten.in", type: "platform_subdomain", status: "verified", is_primary: true };
+const row = { id: "d1", tenant_id: "t1", hostname: "acme.pictocart.in", type: "platform_subdomain", status: "verified", is_primary: true };
 
 describe("listTenantDomains", () => {
   it("returns rows normally", async () => {
@@ -66,8 +66,8 @@ describe("domainSettings", () => {
     vi.stubEnv("SUPABASE_SECRET_KEY", "");
     vi.stubEnv("APP_SECRET", "");
     vi.stubEnv("VERCEL_TOKEN", "");
-    vi.stubEnv("CUSTOM_DOMAIN_CNAME_TARGET", "Stores.BuildBrighten.in");
+    vi.stubEnv("CUSTOM_DOMAIN_CNAME_TARGET", "Stores.Pictocart.in");
     const { domainSettings } = await import("@/features/domains/server/service");
-    expect(domainSettings()).toMatchObject({ rootDomain: "buildbrighten.in", cnameTarget: "stores.buildbrighten.in", vercel: null });
+    expect(domainSettings()).toMatchObject({ rootDomain: "pictocart.in", cnameTarget: "stores.pictocart.in", vercel: null });
   });
 });

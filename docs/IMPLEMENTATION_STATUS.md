@@ -41,7 +41,7 @@ Still not verified here: live Razorpay keys and webhooks, Resend email, Shiprock
 
 ## Store subdomains and custom domains on Hostinger (2026-10-12)
 
-- `workers/domain-router/wrangler.toml` is configured for buildbrighten.in: it routes `*.buildbrighten.in`, `thepaliya.com` and `www.thepaliya.com` to the Worker, with origin `https://buildbrighten.in`.
+- `workers/domain-router/wrangler.toml` is configured for pictocart.in: it routes `*.pictocart.in`, `thepaliya.com` and `www.thepaliya.com` to the Worker, with origin `https://pictocart.in`.
 - Setup steps are in `docs/DEPLOY_HOSTINGER.md` (Cloudflare free plan, `EDGE_SHARED_SECRET`).
 - Verified on a production build: a signed host resolves to that store; a forged signature falls back to the platform.
 
@@ -165,7 +165,7 @@ The Vercel Hobby team was paused for exceeding Image Optimization transformation
   frame shows the store's real mobile layout). The token mockup is the fallback until the demo
   loads, or when a theme has no demo store. Store pages may now be framed by every exact platform
   origin (root, `www`, aliases) instead of only `NEXT_PUBLIC_PLATFORM_URL`, so previews also work
-  on the apex `buildbrighten.in` (`platformFrameOrigins`, `src/lib/security/headers.ts`).
+  on the apex `pictocart.in` (`platformFrameOrigins`, `src/lib/security/headers.ts`).
 - **Migration 2500** (`20261003002500_platform_branding_checkout.sql`, `supabase/dev/apply-2500.sql`),
   additive only: anon may read `platform_settings` keys under `public.`; public `platform-branding`
   storage bucket (writes need `platform.settings.manage`, no SVG); `resend` allowed in
@@ -219,9 +219,9 @@ The Vercel Hobby team was paused for exceeding Image Optimization transformation
 - **Data:** seed fixed (GoTrue token columns, idempotent inserts); `scripts/dev/demo-media/run.mts` generates original demo imagery and publishes the demo theme.
 - **Tests:** `zeroFillDays`; admin stats RPC; shopper↔shopper and shopper→seller/platform isolation.
 
-## Build Brighten marketing site + seller onboarding (2026-10-03)
+## Pictocart marketing site + seller onboarding (2026-10-03)
 
-- Brand: platform name is now "Build Brighten". `.theme-brand` tokens in `globals.css` (provisional palette; the logo file wasn't available; see `docs/BRAND.md`). `BrandLogo` renders a text wordmark until `PLATFORM_LOGO` is set.
+- Brand: platform name is now "Pictocart". `.theme-brand` tokens in `globals.css` (provisional palette; the logo file wasn't available; see `docs/BRAND.md`). `BrandLogo` renders a text wordmark until `PLATFORM_LOGO` is set.
 - Marketing (`src/app/(marketing)`): new home, `/features`, `/pricing` (plan cards, monthly/yearly toggle, comparison table from plan limits/features), `/themes` (search, category filter, pagination, loading/error/empty states), `/themes/[key]` (detail + live demo preview), `/themes/[key]/use` (signup / onboarding / dashboard handoff), `/how-it-works`. Accessible header with mobile menu, footer, platform `sitemap.xml` + `robots.txt`.
 - Theme previews: token-driven `ThemeMockup` (new `phone` size) per theme; "Preview Theme" opens the theme on its demo store (`?sf_theme`, in-memory, showcase tenants only).
 - Sign-up carries `?plan` / `?theme` through registration, Google sign-in and email confirmation (user metadata `requested_plan` / `requested_theme`). New accounts always go through onboarding (the auto-create-from-name path was removed).
@@ -235,11 +235,11 @@ The Vercel Hobby team was paused for exceeding Image Optimization transformation
 - `/dashboard/settings/domains` crashed ("This page couldn't load") in production. The page now degrades instead: `listTenantDomains` falls back to the pre-migration-21 columns when the database lacks `provider`/`provider_status`/`dns_records`/`redirect_hostname` (logs `domains.schema_outdated`; fix by applying `supabase/dev/apply-2100.sql`), `domainSettings()` reads only the variables it needs instead of the whole server env, a failed plan lookup hides only the add form (`domains.allowance_failed`), and any other failure shows an inline message (`domains.page_failed`).
 - Tests: `tests/unit/domains/domains-page-resilience.test.ts`.
 
-## Root domain switch to buildbrighten.in (2026-10-03)
+## Root domain switch to pictocart.in (2026-10-03)
 
 - Production returned a plain 500 on every host: `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` was not a bare hostname, so `publicEnv()` threw `EnvValidationError` in the proxy. The schema now reduces a pasted URL (`https://www.example.in/`) to the bare root; ports and non-hostnames are still rejected.
 - `supabase/dev/move-platform-root.sql`: idempotent ops script adding `{slug}.{new root}` platform-subdomain rows (and moving the primary off old platform subdomains; custom primaries untouched). Tested on the local test DB.
-- Tests: env normalisation, proxy routing for `www.buildbrighten.in` / `{slug}.buildbrighten.in`.
+- Tests: env normalisation, proxy routing for `www.pictocart.in` / `{slug}.pictocart.in`.
 
 ## Platform host aliases / Vercel 404 fix (2026-10-03)
 
@@ -425,3 +425,20 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
 - Branded HTML and text templates cover: order confirmation (with COD amount due), owner new-order alert, payment failed, shipped, out for delivery, delivered, cancelled, refund, return update, abandoned cart (opt-in), team invite, and contact-form forward.
 - Migration 22 (`20261003002200_email_log.sql`) adds `email_log` and `email_preferences`, with toggles in Settings → Notifications. The old `notifications/send.ts` has been removed.
 - See `docs/EMAIL.md` for setup (Resend domain DNS, Supabase SMTP) and what's still missing.
+
+
+## Pictocart rebrand and landing page CMS (branch `pictocart`)
+
+- Platform renamed to **Pictocart** (`src/config/platform.ts`), domain examples `pictocart.in`, DNS
+  ownership record `_pictocart-verify`. Logo, favicon and palette applied (docs/BRAND.md).
+- Home page rebuilt to the earlier pictocart.in layout: hero with rotating words and stats, trust
+  strip, "what / where to sell" grid, 5 steps with built-in illustrations, FAQ, features, themes
+  (live catalogue), categories, pricing (Plans console), testimonials, final CTA, footer with
+  socials and a floating WhatsApp button.
+- **Landing page CMS** (`/admin/landing`, permission `platform.settings.manage`): every section's
+  text and lists, section order and visibility, header menu, footer, socials, WhatsApp number
+  and SEO. Stored as one JSON document in `platform_settings` key `public.marketing.landing`
+  (anon-readable via the existing `public.%` policy; no migration needed). Parsing falls back to
+  defaults per section (`src/features/marketing-site/landing.ts`, unit tested); saves are validated
+  server-side, rate limited, audited and revalidate the site immediately.
+- Testimonials ship empty and hidden: add only real merchant quotes.

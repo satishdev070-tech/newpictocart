@@ -14,7 +14,7 @@ export const revalidate = 3600;
 export function generateMetadata(): Metadata {
   return buildMarketingMetadata({
     title: "Pricing",
-    description: "Compare Build Brighten plans: product, staff, storage and custom-domain limits, with prices in rupees and monthly or yearly billing.",
+    description: "Compare Pictocart plans: product, staff, storage and custom-domain limits, with prices in rupees and monthly or yearly billing.",
     path: "/pricing",
     origin: siteOrigin(),
   });

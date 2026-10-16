@@ -59,17 +59,17 @@ export const DEFAULT_TEMPLATES: Record<TemplateKey, { subject: string; body: str
 
 export const SAMPLE_VALUES: Record<Placeholder, string> = {
   store_name: "Aangan Jaipur",
-  store_url: "https://aangan.paliya.store",
+  store_url: "https://aangan.pictocart.in",
   customer_name: "Neha",
   order_number: "#1042",
   order_total: "₹2,499",
-  order_url: "https://aangan.paliya.store/orders/1042",
+  order_url: "https://aangan.pictocart.in/orders/1042",
   carrier: "Delhivery",
   tracking_number: "1234567890",
   tracking_url: "https://www.delhivery.com/track/package/1234567890",
   refund_amount: "₹2,499",
   return_status: "Approved",
-  cart_url: "https://aangan.paliya.store/cart",
+  cart_url: "https://aangan.pictocart.in/cart",
 };
 
 const TOKEN = /\{\{\s*([a-z_]+)\s*\}\}/g;

@@ -43,6 +43,7 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
     label: "Platform",
     items: [
       { href: "/admin/users", label: "Platform users", permission: "platform.users.manage", icon: "users" },
+      { href: "/admin/landing", label: "Landing page", permission: "platform.settings.manage", icon: "pages" },
       { href: "/admin/branding", label: "Branding & analytics", permission: "platform.settings.manage", icon: "themes" },
       { href: "/admin/sign-in", label: "Sign-in & checkout", permission: "platform.settings.manage", icon: "users" },
       { href: "/admin/email", label: "Email (Resend)", permission: "platform.settings.manage", icon: "notifications" },

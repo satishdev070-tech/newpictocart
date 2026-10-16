@@ -12,7 +12,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 vi.mock("@/lib/observability/logger", () => ({ logger: { error: logError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() } }));
 vi.mock("react", () => ({ cache: <T,>(fn: T) => fn }));
-vi.mock("@/lib/env/public", () => ({ publicEnv: () => ({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "paliya.store" }) }));
+vi.mock("@/lib/env/public", () => ({ publicEnv: () => ({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "pictocart.in" }) }));
 
 beforeEach(() => {
   vi.resetModules();
@@ -40,15 +40,15 @@ describe("tenantDirectory.findByHost", () => {
   it("throws (5xx) and logs diagnostics when the lookup query fails, instead of reporting not found", async () => {
     results.push({ data: null, error: { code: "PGRST301", message: "JWT could not be decoded", details: null, hint: null } });
     const { tenantDirectory, TenantDirectoryError } = await load();
-    await expect(tenantDirectory.findByHost("acme.paliya.store")).rejects.toBeInstanceOf(TenantDirectoryError);
-    expect(logError).toHaveBeenCalledWith("tenant_directory.lookup_failed", expect.objectContaining({ host: "acme.paliya.store", code: "PGRST301" }));
+    await expect(tenantDirectory.findByHost("acme.pictocart.in")).rejects.toBeInstanceOf(TenantDirectoryError);
+    expect(logError).toHaveBeenCalledWith("tenant_directory.lookup_failed", expect.objectContaining({ host: "acme.pictocart.in", code: "PGRST301" }));
   });
 
   it("throws when the primary-domain query fails rather than caching a wrong canonical host", async () => {
-    results.push({ data: { hostname: "acme.paliya.store", tenant_id: "t2", tenants: { id: "t2", slug: "acme", status: "active", stores: null } }, error: null });
+    results.push({ data: { hostname: "acme.pictocart.in", tenant_id: "t2", tenants: { id: "t2", slug: "acme", status: "active", stores: null } }, error: null });
     results.push({ data: null, error: { code: "08006", message: "connection failure", details: null, hint: null } });
     const { tenantDirectory, TenantDirectoryError } = await load();
-    await expect(tenantDirectory.findByHost("acme.paliya.store")).rejects.toBeInstanceOf(TenantDirectoryError);
+    await expect(tenantDirectory.findByHost("acme.pictocart.in")).rejects.toBeInstanceOf(TenantDirectoryError);
   });
 });
 
@@ -69,11 +69,11 @@ describe("www / apex partner of a custom domain", () => {
 
   it("never borrows a platform subdomain or a non-custom row", async () => {
     const { companionCustomHost } = await load();
-    expect(companionCustomHost("acme.paliya.store", "paliya.store")).toBeNull();
-    expect(companionCustomHost("paliya.store", "paliya.store")).toBeNull();
-    expect(companionCustomHost("www.com", "paliya.store")).toBeNull();
-    expect(companionCustomHost("thepaliya.com", "paliya.store")).toBe("www.thepaliya.com");
-    expect(companionCustomHost("www.x", "paliya.store")).toBeNull();
+    expect(companionCustomHost("acme.pictocart.in", "pictocart.in")).toBeNull();
+    expect(companionCustomHost("pictocart.in", "pictocart.in")).toBeNull();
+    expect(companionCustomHost("www.com", "pictocart.in")).toBeNull();
+    expect(companionCustomHost("thepaliya.com", "pictocart.in")).toBe("www.thepaliya.com");
+    expect(companionCustomHost("www.x", "pictocart.in")).toBeNull();
     results.push({ data: null, error: null }, paliya("thepaliya.com", "platform_subdomain"), { data: null, error: null });
     const { tenantDirectory } = await load();
     await expect(tenantDirectory.findByHost("www.thepaliya.com")).resolves.toBeNull();

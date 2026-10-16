@@ -12,7 +12,7 @@ const hostnameLike = z
   .toLowerCase()
   .regex(
     /^(localhost|([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+)$/,
-    "must be a bare hostname such as paliya.store or localhost (no scheme, port or path)",
+    "must be a bare hostname such as pictocart.in or localhost (no scheme, port or path)",
   );
 
 /**
@@ -32,10 +32,10 @@ export const publicEnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.url(),
   /** Supabase publishable (formerly "anon") key. Safe for the browser; RLS protects data. */
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(20),
-  /** Root domain that hosts the platform, e.g. `paliya.store`. Stores live at `{slug}.{root}`. */
+  /** Root domain that hosts the platform, e.g. `pictocart.in`. Stores live at `{slug}.{root}`. */
   NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: rootDomain,
   /**
-   * Full origin (scheme + host, no path) of the platform app, e.g. https://paliya.store. Used for
+   * Full origin (scheme + host, no path) of the platform app, e.g. https://pictocart.in. Used for
    * links in emails and OAuth callbacks (defaults from the root domain). Its host is also served
    * as the platform, so it may differ from the root domain (e.g. https://saas-ecom-puce.vercel.app).
    */
@@ -82,11 +82,11 @@ export const serverEnvSchema = publicEnvSchema.extend({
   VERCEL_TOKEN: z.string().min(10).optional(),
   VERCEL_PROJECT_ID: z.string().min(3).optional(),
   VERCEL_TEAM_ID: z.string().min(3).optional(),
-  EMAIL_FROM: z.string().min(3).default("The Paliya <no-reply@example.com>"),
+  EMAIL_FROM: z.string().min(3).default("Pictocart <no-reply@example.com>"),
   /** Cloudflare for SaaS custom hostnames (Phase 11). Optional until custom domains go live. */
   CLOUDFLARE_API_TOKEN: z.string().min(20).optional(),
   CLOUDFLARE_ZONE_ID: z.string().min(10).optional(),
-  /** CNAME target customers point custom domains at, e.g. stores.paliya.store */
+  /** CNAME target customers point custom domains at, e.g. stores.pictocart.in */
   CUSTOM_DOMAIN_CNAME_TARGET: hostnameLike.optional(),
   /**
    * Platform OAuth apps for the social hub (sellers connect their own accounts through them).

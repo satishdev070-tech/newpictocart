@@ -50,7 +50,7 @@ export default async function HowItWorksPage() {
     <>
       <section className="bg-gradient-to-b from-brand-soft/70 to-white pt-16 pb-10 sm:pt-20">
         <Container>
-          <SectionHeading as="h1" eyebrow="How it works" title="Your store, step by step" body="What setting up a Build Brighten store involves, including what you need to have ready." />
+          <SectionHeading as="h1" eyebrow="How it works" title="Your store, step by step" body="What setting up a Pictocart store involves, including what you need to have ready." />
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <ButtonLink href={SIGNUP_HREF} size="lg" track={{ id: "create_store", location: "how_it_works_page" }}>
               {CTA_CREATE}

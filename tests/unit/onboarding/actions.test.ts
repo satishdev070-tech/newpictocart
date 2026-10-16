@@ -12,7 +12,7 @@ vi.mock("@/lib/tenant/active", () => ({ setActiveTenant: vi.fn() }));
 const audit = vi.fn();
 vi.mock("@/lib/audit", () => ({ audit: (...a: unknown[]) => audit(...a) }));
 vi.mock("@/lib/observability/logger", () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() } }));
-vi.mock("@/lib/env/public", () => ({ publicEnv: () => ({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "buildbrighten.in" }) }));
+vi.mock("@/lib/env/public", () => ({ publicEnv: () => ({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "pictocart.in" }) }));
 const applyTheme = vi.fn(async (_ctx: unknown, key: string) => ({ theme: { key, version: "1.0.0" } }));
 vi.mock("@/features/theme/server/apply-marketplace", () => ({ applyMarketplaceThemeToDraft: (ctx: unknown, key: string) => applyTheme(ctx, key) }));
 

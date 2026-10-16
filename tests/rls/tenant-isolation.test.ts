@@ -261,17 +261,17 @@ describe("storage policies", () => {
 describe("onboarding", () => {
   it("create_tenant makes the caller owner with a verified platform subdomain", async () => {
     await as(user(USERS.shopper), async (q) => {
-      const { create_tenant: id } = one(await q<{ create_tenant: string }>("select public.create_tenant('Neha Label', 'neha-label', 'paliya.store')"));
+      const { create_tenant: id } = one(await q<{ create_tenant: string }>("select public.create_tenant('Neha Label', 'neha-label', 'pictocart.in')"));
       const [m] = await q<{ role: string }>("select role from tenant_memberships where tenant_id = $1", [id]);
       expect(m?.role).toBe("owner");
       const [d] = await q<{ hostname: string; status: string }>("select hostname, status from domains where tenant_id = $1", [id]);
-      expect(d).toEqual({ hostname: "neha-label.paliya.store", status: "verified" });
+      expect(d).toEqual({ hostname: "neha-label.pictocart.in", status: "verified" });
     });
   });
 
   it("rejects reserved and malformed slugs", async () => {
-    await rejects(as(user(USERS.shopper), (q) => q("select public.create_tenant('X Store', 'admin', 'paliya.store')")), /check constraint/);
-    await rejects(as(user(USERS.shopper), (q) => q("select public.create_tenant('X Store', 'Bad Slug', 'paliya.store')")), /check constraint/);
+    await rejects(as(user(USERS.shopper), (q) => q("select public.create_tenant('X Store', 'admin', 'pictocart.in')")), /check constraint/);
+    await rejects(as(user(USERS.shopper), (q) => q("select public.create_tenant('X Store', 'Bad Slug', 'pictocart.in')")), /check constraint/);
   });
 
   it("custom domains can only be added as pending", async () => {

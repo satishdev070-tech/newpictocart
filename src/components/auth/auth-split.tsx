@@ -9,12 +9,12 @@ import { BrandLogo } from "@/features/marketing-site/components/brand-logo";
 /**
  * Split authentication layout for platform users. The left panel carries brand/value content
  * (hidden below lg, where a compact brand row replaces it); the right panel holds the form.
- * `variant="merchant"` uses the Build Brighten brand; `variant="console"` the platform-staff system.
+ * `variant="merchant"` uses the Pictocart brand; `variant="console"` the platform-staff system.
  */
 export function AuthSplit({ variant, aside, children, back }: { variant: "merchant" | "console"; aside: ReactNode; children: ReactNode; back?: { href: string; label: string } }) {
   const merchant = variant === "merchant";
   return (
-    // Merchant screens use the Build Brighten brand (light only); the staff console keeps its own look.
+    // Merchant screens use the Pictocart brand (light only); the staff console keeps its own look.
     <div data-theme={merchant ? "light" : undefined} className={cn("grid min-h-dvh flex-1", merchant ? "theme-brand lg:grid-cols-[1fr_1.1fr]" : "theme-console lg:grid-cols-[3fr_2fr]")}>
       {merchant ? (
         <aside className="relative hidden overflow-hidden bg-brand-soft lg:flex">

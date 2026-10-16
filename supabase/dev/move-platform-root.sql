@@ -14,7 +14,7 @@
 
 do $$
 declare
-  new_root constant text := 'buildbrighten.in';
+  new_root constant text := 'pictocart.in';
   added int;
   promoted int;
 begin

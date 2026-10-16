@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildOriginRequest, isImmutableAsset, normalizeHost } from "../../workers/domain-router/src/index";
 import { verifyEdgeHost } from "@/lib/tenant/edge-signature";
 
-const env = { ORIGIN_URL: "https://origin.paliya.store", EDGE_SHARED_SECRET: "s".repeat(40) };
+const env = { ORIGIN_URL: "https://origin.pictocart.in", EDGE_SHARED_SECRET: "s".repeat(40) };
 
 describe("domain-router worker", () => {
   it("signs the customer host so the app verifier accepts it", async () => {
@@ -10,7 +10,7 @@ describe("domain-router worker", () => {
     const out = await buildOriginRequest(req, env, 1_800_000_000);
     expect(out).toBeInstanceOf(Request);
     const r = out as Request;
-    expect(r.url).toBe("https://origin.paliya.store/products/x?y=1");
+    expect(r.url).toBe("https://origin.pictocart.in/products/x?y=1");
     expect(r.headers.get("x-paliya-host")).toBeNull();
     expect(r.headers.get("x-paliya-edge-host")).toBe("shop.brand.in");
     const ok = await verifyEdgeHost({ secret: env.EDGE_SHARED_SECRET, host: "shop.brand.in", ts: r.headers.get("x-paliya-edge-ts"), signature: r.headers.get("x-paliya-edge-sig"), nowSeconds: 1_800_000_010 });

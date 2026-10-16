@@ -1,24 +1,24 @@
-name = "buildbrighten-domain-router"
+name = "pictocart-domain-router"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
 workers_dev = false
 
-# Every proxied (orange cloud) host in the buildbrighten.in zone runs this Worker:
-#  - store subdomains  (*.buildbrighten.in)
+# Every proxied (orange cloud) host in the pictocart.in zone runs this Worker:
+#  - store subdomains  (*.pictocart.in)
 #  - seller custom domains added as Cloudflare for SaaS custom hostnames (thepaliya.com, …),
-#    whose DNS CNAMEs to stores.buildbrighten.in (the fallback origin).
-# The platform itself (buildbrighten.in, www) is DNS-only, so the Worker never runs for it.
+#    whose DNS CNAMEs to stores.pictocart.in (the fallback origin).
+# The platform itself (pictocart.in, www) is DNS-only, so the Worker never runs for it.
 # Custom domains must NOT have their own Worker route in another zone: a cross-zone fetch reaches
 # the origin from one shared Cloudflare address, and Hostinger rate-limits it (HTTP 429).
 # See docs/DEPLOY_HOSTINGER.md.
 routes = [
-  { pattern = "*/*", zone_name = "buildbrighten.in" },
+  { pattern = "*/*", zone_name = "pictocart.in" },
 ]
 
 [vars]
 # The host that serves the app (Hostinger knows this name). Platform links use www, so origin
 # redirects to this exact host are safe to rewrite back to the store's host.
-ORIGIN_URL = "https://buildbrighten.in"
+ORIGIN_URL = "https://pictocart.in"
 
 # Secret (not in this file): npx wrangler secret put EDGE_SHARED_SECRET
 # Same 32+ character value as EDGE_SHARED_SECRET in the app's environment.

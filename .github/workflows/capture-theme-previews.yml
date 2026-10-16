@@ -9,7 +9,7 @@ on:
     inputs:
       root:
         description: Platform root domain that serves the demo stores
-        default: buildbrighten.in
+        default: pictocart.in
         required: true
       only:
         description: Optional comma-separated theme keys (blank = all themes)

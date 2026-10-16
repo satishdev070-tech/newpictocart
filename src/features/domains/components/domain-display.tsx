@@ -72,7 +72,7 @@ export function DnsInstructions({ hostname, token, cnameTarget }: { hostname: st
       <RecordRow type="TXT" nameLabel="Name / Host" name={verificationRecordName(hostname)} value={token} />
       {cnameTarget ? <RecordRow type="CNAME" nameLabel="Name / Host" name={hostname} value={cnameTarget} /> : null}
       <p className="py-3 text-xs text-muted">
-        Some DNS providers add your domain automatically — if so, enter only the part before it (for example <code>_paliya-verify.www</code>). If you use Cloudflare DNS
+        Some DNS providers add your domain automatically — if so, enter only the part before it (for example <code>_pictocart-verify.www</code>). If you use Cloudflare DNS
         yourself, set the CNAME to “DNS only” (grey cloud). Changes usually appear within minutes but can take up to 24 hours.
       </p>
     </div>
@@ -92,7 +92,7 @@ export function VercelDnsInstructions({ records }: { records: StoredDnsRecord[] 
         <RecordRow key={`${r.type}|${r.name}|${r.value}`} type={r.type} nameLabel="Name / Host" name={r.name} value={r.value} note={RECORD_PURPOSE_LABEL[r.purpose]} />
       ))}
       <p className="py-3 text-xs text-muted">
-        Many DNS providers add your domain automatically. If so, enter only the part before it (for example <code>_paliya-verify.www</code> or <code>www</code>), and use{" "}
+        Many DNS providers add your domain automatically. If so, enter only the part before it (for example <code>_pictocart-verify.www</code> or <code>www</code>), and use{" "}
         <code>@</code> for an A record on the root domain. Remove any other A, AAAA or CNAME records for the same name. If you use Cloudflare DNS, set these records to
         “DNS only” (grey cloud). Changes usually appear within minutes but can take up to 24 hours.
       </p>

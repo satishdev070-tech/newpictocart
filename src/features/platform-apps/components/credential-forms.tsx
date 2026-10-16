@@ -82,7 +82,7 @@ export function EmailProviderForm({ from, secretHint, savedInDb, configured }: {
               defaultValue={from ?? ""}
               autoComplete="off"
               spellCheck={false}
-              placeholder="Build Brighten <no-reply@mail.buildbrighten.in>"
+              placeholder="Pictocart <no-reply@mail.pictocart.in>"
               hint="Must be on a domain verified in Resend → Domains. Stores send as “Store name <this address>”."
               errors={e.from}
             />

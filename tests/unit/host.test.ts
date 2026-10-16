@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { classifyHost, isValidStoreSlug, normalizeHost } from "@/lib/tenant/host";
 
-const ROOT = "paliya.store";
+const ROOT = "pictocart.in";
 
 describe("normalizeHost", () => {
   it.each([
-    ["Acme.Paliya.Store", "acme.paliya.store"],
-    ["acme.paliya.store:3000", "acme.paliya.store"],
+    ["Acme.Pictocart.In", "acme.pictocart.in"],
+    ["acme.pictocart.in:3000", "acme.pictocart.in"],
     ["www.brand.com.", "www.brand.com"],
     ["localhost:3000", "localhost"],
   ])("normalises %s", (input, expected) => expect(normalizeHost(input)).toBe(expected));
@@ -19,30 +19,30 @@ describe("normalizeHost", () => {
 
 describe("classifyHost", () => {
   it("recognises the platform root and www", () => {
-    expect(classifyHost("paliya.store", ROOT).kind).toBe("platform");
-    expect(classifyHost("www.paliya.store", ROOT).kind).toBe("platform");
+    expect(classifyHost("pictocart.in", ROOT).kind).toBe("platform");
+    expect(classifyHost("www.pictocart.in", ROOT).kind).toBe("platform");
   });
 
   it("extracts a store slug from a single-level subdomain", () => {
-    expect(classifyHost("jaipur-looms.paliya.store", ROOT)).toEqual({
+    expect(classifyHost("jaipur-looms.pictocart.in", ROOT)).toEqual({
       kind: "store-subdomain",
-      host: "jaipur-looms.paliya.store",
+      host: "jaipur-looms.pictocart.in",
       slug: "jaipur-looms",
     });
   });
 
   it("marks reserved subdomains", () => {
-    expect(classifyHost("admin.paliya.store", ROOT).kind).toBe("reserved");
-    expect(classifyHost("api.paliya.store", ROOT).kind).toBe("reserved");
+    expect(classifyHost("admin.pictocart.in", ROOT).kind).toBe("reserved");
+    expect(classifyHost("api.pictocart.in", ROOT).kind).toBe("reserved");
   });
 
   it("rejects nested subdomains of the root", () => {
-    expect(classifyHost("a.b.paliya.store", ROOT).kind).toBe("invalid");
+    expect(classifyHost("a.b.pictocart.in", ROOT).kind).toBe("invalid");
   });
 
   it("does not treat look-alike suffixes as the platform", () => {
-    expect(classifyHost("evilpaliya.store", ROOT).kind).toBe("custom-domain");
-    expect(classifyHost("paliya.store.evil.com", ROOT).kind).toBe("custom-domain");
+    expect(classifyHost("evilpictocart.in", ROOT).kind).toBe("custom-domain");
+    expect(classifyHost("pictocart.in.evil.com", ROOT).kind).toBe("custom-domain");
   });
 
   it("treats other dotted hosts as candidate custom domains (resolved against verified domains later)", () => {

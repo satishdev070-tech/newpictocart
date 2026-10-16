@@ -79,7 +79,7 @@ export function Hero({ theme, previewUrl, trialDays }: { theme: MarketplaceTheme
 export function Benefits() {
   return (
     <Section id={SECTION_IDS.benefits} labelledBy="benefits-title">
-      <SectionHeading id="benefits-title" eyebrow="Why Build Brighten" title="Everything you need to sell online" body="Set up a store, take orders and run your business from one dashboard." />
+      <SectionHeading id="benefits-title" eyebrow="Why Pictocart" title="Everything you need to sell online" body="Set up a store, take orders and run your business from one dashboard." />
       <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {BENEFITS.map((b) => {
           const Icon = BENEFIT_ICONS[b.key];

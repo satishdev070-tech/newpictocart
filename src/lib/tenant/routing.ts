@@ -2,7 +2,7 @@ import { classifyHost, type HostClassification } from "./host";
 
 /**
  * Internal route prefix that storefront hosts are rewritten into.
- * `acme.paliya.store/products/kurta` -> `/store/acme.paliya.store/products/kurta`.
+ * `acme.pictocart.in/products/kurta` -> `/store/acme.pictocart.in/products/kurta`.
  * Never reachable directly from a platform host (see decideRoute).
  */
 export const STORE_ROUTE_PREFIX = "/store";

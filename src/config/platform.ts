@@ -1,10 +1,12 @@
 /** Platform-level constants (not tenant data). */
-export const PLATFORM_NAME = "Build Brighten";
-export const PLATFORM_TAGLINE = "Online stores for Indian businesses";
+export const PLATFORM_NAME = "Pictocart";
+export const PLATFORM_TAGLINE = "Launch your online store in 5 minutes";
 
 /**
- * Official logo file, served from /public. Set this to the path of the Build Brighten logo
- * (e.g. "/brand/build-brighten-logo.svg") once the file is added to the repository; until then
- * the header and footer render the brand name as a text wordmark. See docs/BRAND.md.
+ * Official logo file, served from /public (transparent PNG, trimmed). A logo uploaded in
+ * /admin/branding takes precedence over this file. See docs/BRAND.md.
  */
-export const PLATFORM_LOGO: { src: string; width: number; height: number } | null = null;
+export const PLATFORM_LOGO: { src: string; width: number; height: number } | null = { src: "/brand/pictocart-logo.png", width: 583, height: 192 };
+
+/** Square brand mark (camera + cart), used for the favicon and compact placements. */
+export const PLATFORM_ICON = "/brand/pictocart-icon.png";

@@ -128,15 +128,15 @@ describe("settings, health, nav", () => {
 
 describe("framing headers", () => {
   it("lets only the platform origin frame storefronts", () => {
-    expect(framingHeaders("store", "https://paliya.store/")).toEqual({ "Content-Security-Policy": "frame-ancestors 'self' https://paliya.store" });
+    expect(framingHeaders("store", "https://pictocart.in/")).toEqual({ "Content-Security-Policy": "frame-ancestors 'self' https://pictocart.in" });
     expect(framingHeaders("store", "not a url")).toEqual({ "Content-Security-Policy": "frame-ancestors 'self'" });
-    expect(framingHeaders("platform", "https://paliya.store")).toEqual({ "Content-Security-Policy": "frame-ancestors 'self'", "X-Frame-Options": "SAMEORIGIN" });
+    expect(framingHeaders("platform", "https://pictocart.in")).toEqual({ "Content-Security-Policy": "frame-ancestors 'self'", "X-Frame-Options": "SAMEORIGIN" });
   });
 
   it("lists every exact platform origin (apex, www, aliases) and nothing else", () => {
-    const origins = platformFrameOrigins("https://www.buildbrighten.in", "buildbrighten.in", ["saas-ecom-puce.vercel.app"]);
+    const origins = platformFrameOrigins("https://www.pictocart.in", "pictocart.in", ["saas-ecom-puce.vercel.app"]);
     expect(framingHeaders("store", origins)).toEqual({
-      "Content-Security-Policy": "frame-ancestors 'self' https://www.buildbrighten.in https://buildbrighten.in https://saas-ecom-puce.vercel.app",
+      "Content-Security-Policy": "frame-ancestors 'self' https://www.pictocart.in https://pictocart.in https://saas-ecom-puce.vercel.app",
     });
     expect(platformFrameOrigins("http://localhost:3000", "localhost", [])).toEqual(["http://localhost:3000"]);
     expect(framingHeaders("store", ["javascript:alert(1)", "*.vercel.app"])).toEqual({ "Content-Security-Policy": "frame-ancestors 'self'" });

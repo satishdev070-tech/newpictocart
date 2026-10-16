@@ -15,7 +15,7 @@
  */
 
 export interface Env {
-  /** App origin, e.g. https://origin.paliya.store (no trailing slash). */
+  /** App origin, e.g. https://origin.pictocart.in (no trailing slash). */
   ORIGIN_URL: string;
   /** Same value as the app's EDGE_SHARED_SECRET (wrangler secret put EDGE_SHARED_SECRET). */
   EDGE_SHARED_SECRET: string;

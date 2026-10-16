@@ -31,7 +31,7 @@ compiler (`GLIBC_2.29 not found`) and falls back to the WebAssembly one. Two con
 - **Scheduled jobs**: `vercel.json` crons don't run on Hostinger. Add cron jobs in hPanel (daily is
   fine), each calling one route with the cron secret:
   ```
-  curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://www.buildbrighten.in/api/cron/expire-orders
+  curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://www.pictocart.in/api/cron/expire-orders
   ```
   Routes: `/api/cron/expire-orders`, `/api/cron/domains`, `/api/cron/notifications`,
   `/api/cron/social-publish`, `/api/cron/gbp-reviews`.
@@ -63,16 +63,16 @@ variables (names and reasons only, never values) and whether Supabase answers:
 
 ## Store subdomains and custom domains
 
-On Vercel these just worked: Vercel accepted any host (`*.buildbrighten.in`, `thepaliya.com`) and
+On Vercel these just worked: Vercel accepted any host (`*.pictocart.in`, `thepaliya.com`) and
 issued certificates automatically. Hostinger serves the Node.js app only for the domain it is
-attached to (`buildbrighten.in`) and does not issue wildcard certificates. Without help:
-- `the-paliya.buildbrighten.in` fails with `DNS_PROBE_FINISHED_NXDOMAIN`, because the wildcard
+attached to (`pictocart.in`) and does not issue wildcard certificates. Without help:
+- `the-paliya.pictocart.in` fails with `DNS_PROBE_FINISHED_NXDOMAIN`, because the wildcard
   DNS record went away when DNS moved off Vercel;
 - `thepaliya.com` still points to Vercel and shows "This deployment is temporarily paused".
 
 The fix uses the free Cloudflare plan in front, with the domain-router Worker
 (`workers/domain-router`). Cloudflare handles certificates for every store host. The Worker
-forwards each request to `https://buildbrighten.in` and adds a signed header naming the real host
+forwards each request to `https://pictocart.in` and adds a signed header naming the real host
 (`EDGE_SHARED_SECRET`). The app trusts that header only when the signature is valid, and serves
 the right store.
 
@@ -81,14 +81,14 @@ Generate 40+ random characters (e.g. `openssl rand -hex 32`). Add it in hPanel �
 Environment variables as `EDGE_SHARED_SECRET`, then redeploy. Keep it: the Worker needs the same
 value.
 
-### 2. Put buildbrighten.in on Cloudflare (free)
-1. In Cloudflare → Add a domain → `buildbrighten.in` → Free plan. Check that the imported
+### 2. Put pictocart.in on Cloudflare (free)
+1. In Cloudflare → Add a domain → `pictocart.in` → Free plan. Check that the imported
    records include your MX/TXT (email) records.
 2. DNS records:
    | Type | Name | Content | Proxy |
    |---|---|---|---|
    | A | `@` | Hostinger server IP (hPanel → Hosting → Details) | DNS only (grey) |
-   | CNAME | `www` | `buildbrighten.in` | DNS only (grey) |
+   | CNAME | `www` | `pictocart.in` | DNS only (grey) |
    | A | `*` | the same Hostinger IP | **Proxied (orange)** |
    Leaving the apex and www grey keeps Hostinger's own SSL working.
 3. SSL/TLS → Overview → **Full (strict)**.
@@ -96,21 +96,21 @@ value.
    takes minutes, but can take up to 24 h.
 
 ### 3. Seller custom domains (thepaliya.com) via Custom Hostnames
-Custom domains are served **through the buildbrighten.in zone** (Cloudflare for SaaS, first 100
+Custom domains are served **through the pictocart.in zone** (Cloudflare for SaaS, first 100
 hostnames free). Do not give them their own Worker route in their own zone: a Worker fetch from
 another zone reaches Hostinger from one shared Cloudflare address, and Hostinger answers 429
 after about a dozen requests. Through the same zone, the visitor's real IP reaches Hostinger.
 
-1. buildbrighten.in zone → DNS → add `A` `stores` → Hostinger IP, **Proxied (orange)**.
-2. buildbrighten.in zone → SSL/TLS → **Custom Hostnames** → enable Cloudflare for SaaS (it may
+1. pictocart.in zone → DNS → add `A` `stores` → Hostinger IP, **Proxied (orange)**.
+2. pictocart.in zone → SSL/TLS → **Custom Hostnames** → enable Cloudflare for SaaS (it may
    ask for a payment method; the first 100 hostnames are free) → **Fallback Origin** =
-   `stores.buildbrighten.in` → wait for it to show Active.
+   `stores.pictocart.in` → wait for it to show Active.
 3. **Add Custom Hostname** `thepaliya.com` (certificate validation: HTTP, minimum TLS 1.2),
    then again for `www.thepaliya.com`. Each shows a TXT record for ownership (name
    `_cf-custom-hostname…`) and possibly one for the certificate.
 4. In the domain's own DNS (here the thepaliya.com zone on Cloudflare):
    - delete the `A 192.0.2.1` records for `@` and `www`;
-   - add `CNAME @ → stores.buildbrighten.in` and `CNAME www → stores.buildbrighten.in`, both
+   - add `CNAME @ → stores.pictocart.in` and `CNAME www → stores.pictocart.in`, both
      **DNS only (grey)**. Grey matters: orange would keep the traffic in the thepaliya.com zone;
    - add the TXT records shown in step 3.
 5. Back in Custom Hostnames, wait until both hostnames show **Active** for the hostname and the
@@ -123,14 +123,14 @@ npx wrangler login
 npx wrangler secret put EDGE_SHARED_SECRET     # paste the value from step 1
 npx wrangler deploy
 ```
-`wrangler.toml` routes `*/*` in the buildbrighten.in zone, which covers store subdomains and every
+`wrangler.toml` routes `*/*` in the pictocart.in zone, which covers store subdomains and every
 custom hostname. To connect another seller's domain: add it as a Custom Hostname (step 3) and
-have the seller CNAME it to `stores.buildbrighten.in`; no Worker change is needed. (The dashboard
+have the seller CNAME it to `stores.pictocart.in`; no Worker change is needed. (The dashboard
 can automate this later with `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID` and
-`CUSTOM_DOMAIN_CNAME_TARGET=stores.buildbrighten.in`.)
+`CUSTOM_DOMAIN_CNAME_TARGET=stores.pictocart.in`.)
 
 ### 5. Check
-- `https://the-paliya.buildbrighten.in` → the store.
+- `https://the-paliya.pictocart.in` → the store.
 - `https://thepaliya.com` → redirects to `https://www.thepaliya.com` → the store.
 - On a store, add to cart and log in once. If either shows "Invalid Server Actions request",
   Hostinger is overwriting `X-Forwarded-Host`; report it so the app can allow the store hosts.

@@ -1,27 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { decideRoute } from "@/lib/tenant/routing";
 
-const ROOT = "paliya.store";
+const ROOT = "pictocart.in";
 
 describe("decideRoute", () => {
   it("passes platform requests through", () => {
-    expect(decideRoute("paliya.store", "/dashboard", ROOT).action).toBe("next");
+    expect(decideRoute("pictocart.in", "/dashboard", ROOT).action).toBe("next");
   });
 
   it("blocks direct access to the internal storefront namespace from the platform host", () => {
-    expect(decideRoute("paliya.store", "/store/other.com/products/x", ROOT).action).toBe("not-found");
-    expect(decideRoute("paliya.store", "/store", ROOT).action).toBe("not-found");
+    expect(decideRoute("pictocart.in", "/store/other.com/products/x", ROOT).action).toBe("not-found");
+    expect(decideRoute("pictocart.in", "/store", ROOT).action).toBe("not-found");
   });
 
   it("does not block platform paths that merely start with the word store", () => {
-    expect(decideRoute("paliya.store", "/stores-we-love", ROOT).action).toBe("next");
+    expect(decideRoute("pictocart.in", "/stores-we-love", ROOT).action).toBe("next");
   });
 
   it("rewrites storefront subdomains into /store/[host]", () => {
-    expect(decideRoute("acme.paliya.store", "/", ROOT)).toMatchObject({ action: "rewrite", pathname: "/store/acme.paliya.store" });
-    expect(decideRoute("acme.paliya.store", "/products/red-kurta", ROOT)).toMatchObject({
+    expect(decideRoute("acme.pictocart.in", "/", ROOT)).toMatchObject({ action: "rewrite", pathname: "/store/acme.pictocart.in" });
+    expect(decideRoute("acme.pictocart.in", "/products/red-kurta", ROOT)).toMatchObject({
       action: "rewrite",
-      pathname: "/store/acme.paliya.store/products/red-kurta",
+      pathname: "/store/acme.pictocart.in/products/red-kurta",
     });
   });
 
@@ -33,22 +33,22 @@ describe("decideRoute", () => {
   });
 
   it("keeps a smuggled /store path inside the requesting tenant's namespace", () => {
-    expect(decideRoute("acme.paliya.store", "/store/victim.com", ROOT)).toMatchObject({
-      pathname: "/store/acme.paliya.store/store/victim.com",
+    expect(decideRoute("acme.pictocart.in", "/store/victim.com", ROOT)).toMatchObject({
+      pathname: "/store/acme.pictocart.in/store/victim.com",
     });
   });
 
   it("hides seller/platform routes on storefront hosts", () => {
-    expect(decideRoute("acme.paliya.store", "/dashboard", ROOT).action).toBe("not-found");
+    expect(decideRoute("acme.pictocart.in", "/dashboard", ROOT).action).toBe("not-found");
     expect(decideRoute("www.brand.in", "/admin/tenants", ROOT).action).toBe("not-found");
   });
 
   it("lets API and framework paths through on storefront hosts", () => {
-    expect(decideRoute("acme.paliya.store", "/api/cart", ROOT).action).toBe("next");
+    expect(decideRoute("acme.pictocart.in", "/api/cart", ROOT).action).toBe("next");
   });
 
   it("404s reserved and invalid hosts", () => {
-    expect(decideRoute("admin.paliya.store", "/", ROOT).action).toBe("not-found");
+    expect(decideRoute("admin.pictocart.in", "/", ROOT).action).toBe("not-found");
     expect(decideRoute(null, "/", ROOT).action).toBe("not-found");
     expect(decideRoute("127.0.0.1", "/", ROOT).action).toBe("not-found");
   });
@@ -64,7 +64,7 @@ describe("decideRoute", () => {
     });
 
     it("keeps the internal storefront namespace closed on the alias", () => {
-      expect(decideRoute("saas-ecom-puce.vercel.app", "/store/acme.paliya.store", ROOT, ALIASES).action).toBe("not-found");
+      expect(decideRoute("saas-ecom-puce.vercel.app", "/store/acme.pictocart.in", ROOT, ALIASES).action).toBe("not-found");
     });
 
     it("is the bug being fixed: without the alias the host is treated as a store domain", () => {
@@ -77,7 +77,7 @@ describe("decideRoute", () => {
     });
 
     it("leaves store subdomains and custom domains unchanged", () => {
-      expect(decideRoute("acme.paliya.store", "/", ROOT, ALIASES)).toMatchObject({ action: "rewrite", pathname: "/store/acme.paliya.store" });
+      expect(decideRoute("acme.pictocart.in", "/", ROOT, ALIASES)).toMatchObject({ action: "rewrite", pathname: "/store/acme.pictocart.in" });
       expect(decideRoute("www.brand.in", "/products/x", ROOT, ALIASES)).toMatchObject({ action: "rewrite", pathname: "/store/www.brand.in/products/x" });
       expect(decideRoute("www.brand.in", "/dashboard", ROOT, ALIASES).action).toBe("not-found");
     });

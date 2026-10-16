@@ -1,5 +1,5 @@
 /**
- * Marketing copy for the public Build Brighten site, kept out of the components so it can be
+ * Marketing copy for the public Pictocart site, kept out of the components so it can be
  * reviewed in one place. Every capability described here was checked against the codebase:
  *
  *   payments   src/features/payments (Razorpay, Cashfree, PayU on the seller's own account) + COD
@@ -55,7 +55,7 @@ export function signupHref(choice: { plan?: string | null; theme?: string | null
 export const HERO = {
   eyebrow: "E-commerce for Indian businesses",
   headline: "Your brand. Your store. Your next big beginning.",
-  body: "Create your online store, showcase your products, and manage your business with Build Brighten.",
+  body: "Create your online store, showcase your products, and manage your business with Pictocart.",
 };
 
 export type Benefit = { key: BenefitKey; title: string; body: string };

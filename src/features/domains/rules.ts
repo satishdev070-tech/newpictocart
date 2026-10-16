@@ -6,8 +6,8 @@ import { classifyHost, normalizeHost } from "@/lib/tenant/host";
  * seller UI, server actions and the cron job.
  */
 
-/** DNS TXT record proving ownership: `_paliya-verify.<hostname>` = domains.verification_token. */
-export const VERIFY_RECORD_PREFIX = "_paliya-verify";
+/** DNS TXT record proving ownership: `_pictocart-verify.<hostname>` = domains.verification_token. */
+export const VERIFY_RECORD_PREFIX = "_pictocart-verify";
 
 export function verificationRecordName(hostname: string): string {
   return `${VERIFY_RECORD_PREFIX}.${hostname}`;

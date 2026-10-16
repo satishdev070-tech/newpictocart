@@ -47,6 +47,7 @@ import {
 } from "./server/mutations";
 import { clearBrandImage, revalidatePublicConfig, uploadBrandImage } from "./server/public-config";
 import { BRAND_SLOTS } from "./public-config";
+import { resetLandingContent, revalidateLanding, saveLandingContent } from "@/features/marketing-site/server/landing";
 
 /**
  * Super-admin server actions: validate (zod) → authenticate + authorize (platform role
@@ -285,6 +286,38 @@ export async function clearBrandImageAction(_prev: ActionResult | null, fd: Form
     await clearBrandImage(ctx, slot);
     revalidatePublicConfig();
     revalidatePath("/admin/branding");
+  });
+}
+
+// ---- Landing page CMS ---------------------------------------------------------------
+
+/** Max size of the landing document as sent by the editor (it is ~15 KB with the defaults). */
+const MAX_LANDING_BYTES = 200_000;
+
+export async function saveLandingAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  return runAction("platform.landing.save", async () => {
+    const raw = fd.get("content");
+    if (typeof raw !== "string" || raw.length > MAX_LANDING_BYTES) throw new AppError("VALIDATION", { fieldErrors: { _form: ["The landing page content is missing or too large"] } });
+    let value: unknown;
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      throw new AppError("VALIDATION", { fieldErrors: { _form: ["The landing page content couldn't be read. Reload the page and try again."] } });
+    }
+    const ctx = await platformActor("platform.settings.manage");
+    await rateLimit("platform-landing", ctx.user.id, 30, 600);
+    await saveLandingContent(ctx, value);
+    revalidateLanding();
+    revalidatePath("/admin/landing");
+  });
+}
+
+export async function resetLandingAction(_prev: ActionResult | null, _fd: FormData): Promise<ActionResult> {
+  return runAction("platform.landing.reset", async () => {
+    const ctx = await platformActor("platform.settings.manage");
+    await resetLandingContent(ctx);
+    revalidateLanding();
+    revalidatePath("/admin/landing");
   });
 }
 

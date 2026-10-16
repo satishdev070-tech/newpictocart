@@ -48,7 +48,7 @@ export default async function SignInMethodsPage() {
             <li>Google Cloud Console → APIs &amp; Services → Credentials → Create OAuth client ID (Web application). Add the Supabase callback below as an authorised redirect URI.</li>
             <li>Configure the OAuth consent screen (app name, support email, logo, privacy policy) and publish it when you go live.</li>
             <li>Supabase → Authentication → Sign In / Providers → Google: enable it and paste the client ID and secret.</li>
-            <li>Supabase → Authentication → URL Configuration → Redirect URLs: add the URLs below, plus each custom store domain (e.g. https://thepaliya.com/**).</li>
+            <li>Supabase → Authentication → URL Configuration → Redirect URLs: add the URLs below, plus each custom store domain (e.g. https://yourbrand.com/**).</li>
             <li>Reload this page: the badge turns green and the buttons appear within 5 minutes, no deploy needed.</li>
           </ol>
           <ul className="space-y-2">

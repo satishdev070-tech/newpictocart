@@ -28,7 +28,7 @@ export default async function BrandingPage() {
   const footer = brandImageView(config.footerLogo);
   const favicon = brandImageView(config.favicon);
   const share = brandImageView(config.ogImage);
-  let siteHost = "buildbrighten.in";
+  let siteHost = "pictocart.in";
   try {
     siteHost = new URL(platformOrigin()).host.replace(/^www\./, "");
   } catch {
@@ -36,7 +36,7 @@ export default async function BrandingPage() {
   }
   return (
     <div className="space-y-4">
-      <PageHeader title="Branding & analytics" description="Logos, favicon, social share image and Google Analytics for the Build Brighten website, seller sign-in, onboarding, the seller dashboard and this console. Store owners set their own store logos in their dashboard. Files are public; every change is audited." />
+      <PageHeader title="Branding & analytics" description="Logos, favicon, social share image and Google Analytics for the Pictocart website, seller sign-in, onboarding, the seller dashboard and this console. Store owners set their own store logos in their dashboard. Files are public; every change is audited." />
 
       {!ready ? (
         <div role="alert" className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-small">

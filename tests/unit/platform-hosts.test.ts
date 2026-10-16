@@ -39,7 +39,7 @@ describe("platformHostAliases", () => {
 });
 
 describe("platform aliases in host classification", () => {
-  const ROOT = "paliya.store";
+  const ROOT = "pictocart.in";
   const aliases = platformHostAliases({ NEXT_PUBLIC_PLATFORM_URL: "https://saas-ecom-puce.vercel.app" });
 
   it("matches the alias exactly (case/port/trailing dot normalised)", () => {

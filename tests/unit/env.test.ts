@@ -4,7 +4,7 @@ import { EnvValidationError, parseEnv, serverEnvSchema } from "@/lib/env/schema"
 const valid = {
   NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co",
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_xxxxxxxxxxxxxxxxxxxx",
-  NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "paliya.store",
+  NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "pictocart.in",
   SUPABASE_SECRET_KEY: "sb_secret_xxxxxxxxxxxxxxxxxxxxxxxx",
   APP_SECRET: "a".repeat(40),
 };
@@ -30,7 +30,7 @@ describe("env validation", () => {
   });
 
   it("rejects a root domain with a scheme or port", () => {
-    expect(() => parseEnv(serverEnvSchema, { ...valid, NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "paliya.store:3000" })).toThrow();
+    expect(() => parseEnv(serverEnvSchema, { ...valid, NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "pictocart.in:3000" })).toThrow();
   });
 
   it("validates PLATFORM_HOST_ALIASES as comma-separated bare hostnames", () => {
@@ -41,12 +41,12 @@ describe("env validation", () => {
 
   it("reduces a pasted URL in NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN to the bare root domain", () => {
     const root = (v: string) => parseEnv(serverEnvSchema, { ...valid, NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: v }).NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN;
-    expect(root("https://paliya.store")).toBe("paliya.store");
-    expect(root("https://www.BuildBrighten.in/")).toBe("buildbrighten.in");
-    expect(root(" www.buildbrighten.in ")).toBe("buildbrighten.in");
-    expect(root("buildbrighten.in.")).toBe("buildbrighten.in");
+    expect(root("https://pictocart.in")).toBe("pictocart.in");
+    expect(root("https://www.Pictocart.in/")).toBe("pictocart.in");
+    expect(root(" www.pictocart.in ")).toBe("pictocart.in");
+    expect(root("pictocart.in.")).toBe("pictocart.in");
     expect(root("localhost")).toBe("localhost");
     expect(() => root("https://")).toThrow(EnvValidationError);
-    expect(() => root("https://buildbrighten.in:8443/")).toThrow(EnvValidationError);
+    expect(() => root("https://pictocart.in:8443/")).toThrow(EnvValidationError);
   });
 });

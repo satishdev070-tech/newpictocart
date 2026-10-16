@@ -16,10 +16,10 @@ async function route(env: Record<string, string>, host: string, path = "/") {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("proxy host routing (Vercel production alias)", () => {
-  const PROD = { NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "paliya.store", NEXT_PUBLIC_PLATFORM_URL: "https://saas-ecom-puce.vercel.app" };
+  const PROD = { NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "pictocart.in", NEXT_PUBLIC_PLATFORM_URL: "https://saas-ecom-puce.vercel.app" };
 
   it("reproduces the bug: the alias was rewritten into the storefront when not configured", async () => {
-    expect(await route({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "paliya.store" }, "saas-ecom-puce.vercel.app")).toBe("/store/saas-ecom-puce.vercel.app");
+    expect(await route({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "pictocart.in" }, "saas-ecom-puce.vercel.app")).toBe("/store/saas-ecom-puce.vercel.app");
   });
 
   it("serves / on the platform URL host as the platform homepage", async () => {
@@ -29,20 +29,20 @@ describe("proxy host routing (Vercel production alias)", () => {
   });
 
   it("accepts the alias through PLATFORM_HOST_ALIASES too", async () => {
-    expect(await route({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "paliya.store", PLATFORM_HOST_ALIASES: "saas-ecom-puce.vercel.app" }, "saas-ecom-puce.vercel.app")).toBe("next");
+    expect(await route({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "pictocart.in", PLATFORM_HOST_ALIASES: "saas-ecom-puce.vercel.app" }, "saas-ecom-puce.vercel.app")).toBe("next");
   });
 
   it("serves the Vercel production alias with no extra configuration", async () => {
-    expect(await route({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "paliya.store", VERCEL_PROJECT_PRODUCTION_URL: "saas-ecom-puce.vercel.app" }, "saas-ecom-puce.vercel.app")).toBe("next");
-    expect(await route({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "paliya.store", VERCEL_PROJECT_PRODUCTION_URL: "www.thepaliya.com" }, "www.thepaliya.com")).toBe("/store/www.thepaliya.com");
+    expect(await route({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "pictocart.in", VERCEL_PROJECT_PRODUCTION_URL: "saas-ecom-puce.vercel.app" }, "saas-ecom-puce.vercel.app")).toBe("next");
+    expect(await route({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "pictocart.in", VERCEL_PROJECT_PRODUCTION_URL: "www.thepaliya.com" }, "www.thepaliya.com")).toBe("/store/www.thepaliya.com");
   });
 
   it("keeps store hosts, unknown hosts and reserved hosts on their existing paths", async () => {
-    expect(await route(PROD, "acme.paliya.store")).toBe("/store/acme.paliya.store");
+    expect(await route(PROD, "acme.pictocart.in")).toBe("/store/acme.pictocart.in");
     expect(await route(PROD, "www.thepaliya.com", "/products/x")).toBe("/store/www.thepaliya.com/products/x");
     expect(await route(PROD, "other-project.vercel.app")).toBe("/store/other-project.vercel.app");
-    expect(await route(PROD, "admin.paliya.store")).toBe("/_unknown-host");
-    expect(await route(PROD, "saas-ecom-puce.vercel.app", "/store/acme.paliya.store")).toBe("/_unknown-host");
+    expect(await route(PROD, "admin.pictocart.in")).toBe("/_unknown-host");
+    expect(await route(PROD, "saas-ecom-puce.vercel.app", "/store/acme.pictocart.in")).toBe("/_unknown-host");
   });
 
   it("keeps local development working", async () => {
@@ -50,15 +50,15 @@ describe("proxy host routing (Vercel production alias)", () => {
     expect(await route({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "localhost" }, "acme.localhost:3000")).toBe("/store/acme.localhost");
   });
 
-  it("serves buildbrighten.in even when the root domain was pasted as a URL", async () => {
-    const env = { NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "https://www.buildbrighten.in/", NEXT_PUBLIC_PLATFORM_URL: "https://www.buildbrighten.in" };
-    expect(await route(env, "www.buildbrighten.in")).toBe("next");
-    expect(await route(env, "buildbrighten.in")).toBe("next");
-    expect(await route(env, "the-paliya-234-sample.buildbrighten.in")).toBe("/store/the-paliya-234-sample.buildbrighten.in");
-    expect(await route(env, "the-paliya-234-sample.buildbrighten.in", "/products/kurta")).toBe("/store/the-paliya-234-sample.buildbrighten.in/products/kurta");
-    expect(await route(env, "the-paliya-234-sample.buildbrighten.in", "/dashboard")).toBe("/_unknown-host");
+  it("serves pictocart.in even when the root domain was pasted as a URL", async () => {
+    const env = { NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "https://www.pictocart.in/", NEXT_PUBLIC_PLATFORM_URL: "https://www.pictocart.in" };
+    expect(await route(env, "www.pictocart.in")).toBe("next");
+    expect(await route(env, "pictocart.in")).toBe("next");
+    expect(await route(env, "the-paliya-234-sample.pictocart.in")).toBe("/store/the-paliya-234-sample.pictocart.in");
+    expect(await route(env, "the-paliya-234-sample.pictocart.in", "/products/kurta")).toBe("/store/the-paliya-234-sample.pictocart.in/products/kurta");
+    expect(await route(env, "the-paliya-234-sample.pictocart.in", "/dashboard")).toBe("/_unknown-host");
     // Two-level names are never stores (and a *.root wildcard certificate can't cover them).
-    expect(await route(env, "www.the-paliya-234-sample.buildbrighten.in")).toBe("/_unknown-host");
+    expect(await route(env, "www.the-paliya-234-sample.pictocart.in")).toBe("/_unknown-host");
   });
 });
 
