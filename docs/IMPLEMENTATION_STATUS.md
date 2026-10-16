@@ -442,3 +442,62 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   defaults per section (`src/features/marketing-site/landing.ts`, unit tested); saves are validated
   server-side, rate limited, audited and revalidate the site immediately.
 - Testimonials ship empty and hidden: add only real merchant quotes.
+
+## Home themes section + Unsplash category photos (2026-10-16)
+
+- Theme cards (`theme-card.tsx`): fixed 4:3 preview stage with the phone sized from the stage
+  height and pinned inside it, so it no longer overhangs the card; equal preview heights, clamped
+  tagline, full-width stacked buttons, hover lift / photo zoom (reduced-motion aware).
+- Card preview priority: captured screenshot → category photo → token mockup. `src/lib/unsplash.ts`
+  (`getCategoryImage` / `getCategoryImages`, reusable by other sections) searches Unsplash with
+  `UNSPLASH_ACCESS_KEY` (fetch-cached 1 day) and falls back to a curated `images.unsplash.com` photo
+  per category; cards show the required "Photo: X / Unsplash" credit. Unit tested (fallbacks).
+
+## Marketing header mega menu and footer (CMS-driven)
+
+- **Mega menu**: the header nav item named in `header.megaMenu.trigger` (default "Features") opens
+  a six-column panel (Sell, Source, Design, Channels, Operate, Grow) with tinted icon chips per
+  column, a bottom bar and a theme marketplace link. Small client component
+  (`components/mega-menu.tsx`); the rest of the header stays server-rendered. Opens on hover,
+  focus or click; Escape, tabbing out, outside click or navigation close it; `aria-expanded` on
+  the trigger. Three columns with a scrollable, height-capped panel at `lg`, six from `xl`. Phones
+  get an accordion of the same columns inside the mobile nav sheet. Menu links use `<Link prefetch>`.
+- **Footer** (`components/site-footer.tsx`): dark navy, CMS link columns with an optional
+  highlighted link (default "Investors"), divider, logo / copyright / share + social icons in
+  brand colours (Instagram, X, Facebook, YouTube, LinkedIn, WhatsApp, Pinterest, Telegram, Threads;
+  empty URL = hidden). **Share** popover (`components/share-button.tsx`) for the current page on
+  WhatsApp, Facebook, X, LinkedIn, Telegram, Pinterest, Email and copy link, plus the device
+  share sheet (Web Share API) where available. Floating WhatsApp button kept.
+- **CMS**: `header.megaMenu`, `footer.groups[].links[].highlight`, the extra social keys and
+  `footer.share` were added with zod `.default()`s, so documents saved before them still parse and
+  keep their nav and links (unit tested in `tests/unit/marketing-site/landing.test.ts`). Option
+  lists and defaults live in `src/features/marketing-site/chrome-content.ts`. Editing UI in
+  `/admin/landing` → Header & menu (mega menu columns/items, icon, colour) and Footer (highlight
+  flag, all socials, share toggle/message/networks).
+- Fixed: the mobile nav sheet was only a few pixels tall because the header's `backdrop-blur`
+  makes it the containing block for the sheet's `position: fixed`.
+- Not yet: the default footer links "Contact", "Support", "Refund Policy" and "Investors" point at
+  existing pages (no dedicated pages exist); set real URLs in the CMS. Social URLs ship empty.
+
+- **Home page redesign: hero, trust strip, categories, feature grid** (2026-10-16). Hero: CSS
+  `@starting-style` entrance and a browser-frame slideshow (`hero-slideshow.tsx`; cross-fade, dots
+  with a progress bar, pause on hover/focus/off-screen/hidden tab, pause button, no autoplay under
+  reduced motion). CMS `hero.slides` (image, alt, caption), `slideInterval` (2–20 s) and `autoplay`;
+  with no slides it falls back to `imageUrl`, then to rotating showcase-theme previews. Trust
+  chips are `{label, icon, color}` (plain-string chips from older saves get an icon and colour from
+  their name; under reduced motion the marquee becomes wrapped rows). Categories are `items`
+  `{label, icon, color, href, imageUrl}` shown as gradient icon tiles (older `chips` are converted).
+  "What & where to sell" cards get colour-coded icon chips per tag (`color` "auto" or a fixed
+  palette colour), a gradient hover border and a staggered scroll reveal (`reveal.tsx`, an
+  IntersectionObserver island). Palette: `ACCENT_COLORS` in `landing.ts` with classes in
+  `landing-icons.tsx`; 24 icons added. Editor: icon picker grid, colour swatches, slides list.
+  All new fields have zod defaults; back-compat is covered in `tests/unit/marketing-site/landing.test.ts`.
+
+## Panel theme and navigation speed: seller dashboard + super admin (2026-10-16)
+
+- **Theme.** Both panels render inside `.theme-panel` (added by `AppShell`): Pictocart orange on warm-neutral surfaces, soft tinted surfaces (`tint-peach|lavender|mint|sky|rose`, each with `-border` and `-ink`), semantic colours, light and dark. AA contrast: white on `--primary` (#cc4a0c) 4.6:1, `--accent` on `--accent-soft` 4.8:1, `--subtle` on the canvas 5.1:1; dark mode 6.8:1 / 7.5:1. Vivid `accent-strong` (#f97316) only for non-text marks. The console's cool-slate `.theme-console` is now used only by the console sign-in panel; the admin topbar shows an "Admin mode" marker instead.
+- **Type.** In panels the scale is one step larger (body 15/24, small 14/22, h1 26/34 …) via `--text-*-size` variables, and display/h1–h3 use Manrope 700 (`--font-heading`). Inter stays the UI font.
+- **Logo.** `PanelLogo` / `PanelMark` (`components/app-shell/panel-logo.tsx`) show the Pictocart logo (uploaded header logo first) linking to the panel home, on a white chip in dark mode; the square mark in the collapsed rail and the mobile topbar.
+- **Shell.** Seller nav regrouped as Dashboard · Catalog · Sales · Marketing · Storefront · Analytics · Settings. Multi-item groups are collapsible submenus (grid-rows animation, no measuring, `inert` when closed; the active group opens by default, choices saved per browser). Exactly one item is active (longest matching href). Breadcrumbs moved from the topbar into the content area; the topbar has the wide search, a light/dark toggle, notifications and account. Primitives: `StatCard` gained optional `tone` + `icon`, `Badge` a `brand` tone, `AppearanceQuickToggle`; cards/buttons are rounder.
+- **Speed.** 25 new `loading.tsx` boundaries (14 → 39) using shared skeletons (`components/app-shell/skeletons.tsx`), so every sidebar destination shows its fallback on click and is prefetched up to it. Clicking a nav item highlights it before the route commits (preview, dev mode: ~0.2 s to highlight vs ~1.2 s to commit, where it used to appear). Submenu links are prefetched on hover/focus of the group, and a `useLinkStatus` dot shows a pending navigation. Notification links in topbar popovers are now `next/link` (they did full page reloads). `getPlatformOverview` is `React.cache`d (the console layout and overview page ran the `platform_overview` RPC twice per load: now once); the dashboard layout reads cookies in parallel with alerts/trial info; the console layout no longer loads branding itself.
+- **Not verified here:** signed-in dashboard/admin pages (sign-in was not available to the session); visual QA used the real `AppShell` and primitives with mock data at 375 px and 1440 px, light and dark.

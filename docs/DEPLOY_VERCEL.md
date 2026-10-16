@@ -46,6 +46,7 @@ Secrets are never exposed to the browser: only `NEXT_PUBLIC_*` values are.
 | `PINTEREST_APP_ID`, `PINTEREST_APP_SECRET` | optional | Fallback for Admin → Social apps |
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | optional | Fallback for Admin → Social apps (Google Business) |
 | `GEMINI_API_KEY`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY` | optional | AI fallbacks for Admin → Social apps |
+| `UNSPLASH_ACCESS_KEY` | optional | Category photos on marketing theme cards (cached 1 day); blank = curated built-in photos |
 | `EDGE_SHARED_SECRET` | no (Cloudflare only) | Only for the Cloudflare Worker; leave unset on Vercel |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID`, `CUSTOM_DOMAIN_CNAME_TARGET` | no (Cloudflare only) | Ignored for new domains when the Vercel variables are set |
 
