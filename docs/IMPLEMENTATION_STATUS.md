@@ -537,7 +537,7 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
 - **Data** — migration `20261016003000_in_app_notifications.sql`: `notifications` (per recipient: scope tenant/platform,
   type, title, body, in-app link, data, dedupe key, read_at; RLS own rows while still a member; clients update `read_at`
   only) and `notification_preferences` (per-user muted types). Added to the `supabase_realtime` publication when present.
-  Types hand-added to `database.types.ts`. Design: ADR-035.
+  Types hand-added to `database.types.ts`. Design: ADR-036.
 - **Producers (DB triggers)** — seller: new order (COD at placement, online once paid), payment received / failed, order
   cancelled, returned/RTO, return requested, low stock / sold out, new review, new customer, abandoned cart recovered
   (only after an email/WhatsApp reminder), plan request decided, AI credits low (80 %) / used up, custom domain verified /
