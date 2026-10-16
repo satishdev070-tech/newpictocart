@@ -50,9 +50,11 @@ export default async function HomePage() {
     getCategoryImages(themes.map((t) => t.industry)),
   ]);
   const tokens = { themes: MARKETPLACE_THEMES.length };
+  // Hero fallback slideshow (when the CMS has no slides or image): the hero theme, then the showcase.
+  const heroThemes = [...(hero ? [hero] : []), ...themes.filter((t) => t.key !== hero?.key)].slice(0, 4);
 
   const sections: Record<SectionKey, () => ReactNode> = {
-    hero: () => <LandingHero content={content.hero} theme={hero} previewUrl={hero ? (previews.get(hero.key) ?? null) : null} tokens={tokens} />,
+    hero: () => <LandingHero content={content.hero} themes={heroThemes} tokens={tokens} />,
     trust: () => <TrustStrip content={content.trust} />,
     solutions: () => <Solutions content={content.solutions} />,
     steps: () => <Steps content={content.steps} />,

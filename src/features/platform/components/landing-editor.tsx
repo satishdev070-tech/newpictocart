@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- slide thumbnails are admin-provided URLs */
+
 import { useActionState, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, ExternalLink, Eye, EyeOff, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,15 +9,18 @@ import { FormMessage } from "@/components/ui/form";
 import { inputClassName } from "@/components/ui/field";
 import { cn } from "@/lib/cn";
 import {
+  ACCENT_COLORS,
   HIGHLIGHT_COLORS,
   LANDING_ICONS,
   SECTION_LABELS,
   STEP_VISUALS,
+  type AccentColor,
   type LandingContent,
   type LandingIcon,
   type SectionKey,
 } from "@/features/marketing-site/landing";
 import { MENU_ICONS, MENU_TONES, SHARE_LABELS, SHARE_NETWORKS, SOCIAL_KEYS, SOCIAL_LABELS, type MenuIcon, type MenuTone } from "@/features/marketing-site/chrome-content";
+import { ACCENT, LandingIconView, tagColor } from "@/features/marketing-site/components/landing-icons";
 import { resetLandingAction, saveLandingAction } from "../actions";
 
 /**
@@ -115,7 +120,22 @@ export function LandingEditor({ initial, defaults }: { initial: LandingContent; 
           {tab === "trust" ? (
             <SectionShell enabled={content.trust.enabled} onToggle={(enabled) => set("trust", { ...content.trust, enabled })}>
               <Text label="Title" value={content.trust.title} onChange={(title) => set("trust", { ...content.trust, title })} />
-              <Lines label="Category chips (scrolling)" value={content.trust.chips} onChange={(chips) => set("trust", { ...content.trust, chips })} />
+              <Repeater
+                label="Scrolling chips"
+                items={content.trust.chips}
+                max={30}
+                onChange={(chips) => set("trust", { ...content.trust, chips })}
+                newItem={() => ({ label: "New category", icon: "tag" as LandingIcon, color: "indigo" as AccentColor })}
+                itemTitle={(c) => c.label || "Chip"}
+                itemIcon={(c) => <IconBadge icon={c.icon} color={c.color} />}
+                render={(c, update) => (
+                  <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+                    <Text label="Label" value={c.label} onChange={(label) => update({ ...c, label })} max={40} />
+                    <IconPicker value={c.icon} onChange={(icon) => update({ ...c, icon })} />
+                    <ColorPicker value={c.color} onChange={(color) => update({ ...c, color })} className="sm:col-span-2" />
+                  </div>
+                )}
+              />
             </SectionShell>
           ) : null}
           {tab === "solutions" ? <SolutionsEditor value={content.solutions} onChange={(v) => set("solutions", v)} /> : null}
@@ -135,7 +155,25 @@ export function LandingEditor({ initial, defaults }: { initial: LandingContent; 
             <SectionShell enabled={content.categories.enabled} onToggle={(enabled) => set("categories", { ...content.categories, enabled })}>
               <Text label="Title" value={content.categories.title} onChange={(title) => set("categories", { ...content.categories, title })} highlight />
               <Area label="Text" value={content.categories.body} onChange={(body) => set("categories", { ...content.categories, body })} />
-              <Lines label="Categories" value={content.categories.chips} onChange={(chips) => set("categories", { ...content.categories, chips })} />
+              <Repeater
+                label="Categories"
+                items={content.categories.items}
+                max={30}
+                onChange={(items) => set("categories", { ...content.categories, items })}
+                newItem={() => ({ label: "New category", icon: "tag" as LandingIcon, color: "indigo" as AccentColor, href: "", imageUrl: "" })}
+                itemTitle={(c) => c.label || "Category"}
+                itemIcon={(c) => <IconBadge icon={c.icon} color={c.color} />}
+                render={(c, update) => (
+                  <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+                    <Text label="Label" value={c.label} onChange={(label) => update({ ...c, label })} max={40} />
+                    <IconPicker value={c.icon} onChange={(icon) => update({ ...c, icon })} />
+                    <ColorPicker value={c.color} onChange={(color) => update({ ...c, color })} className="sm:col-span-2" />
+                    <Text label="Link (optional)" value={c.href} onChange={(href) => update({ ...c, href })} hint="e.g. /themes?category=fashion. Empty = not clickable." />
+                    <span className="hidden sm:block" />
+                    <Text label="Image (optional)" value={c.imageUrl} onChange={(imageUrl) => update({ ...c, imageUrl })} hint="https:// link, shown above the label. Empty = coloured icon tile." className="sm:col-span-2" />
+                  </div>
+                )}
+              />
             </SectionShell>
           ) : null}
           {tab === "pricing" ? (
@@ -371,17 +409,46 @@ function HeroEditor({ value, onChange }: { value: LandingContent["hero"]; onChan
         newItem={() => ({ icon: "store" as LandingIcon, value: "", label: "" })}
         itemTitle={(s) => `${s.value} ${s.label}`.trim() || "Stat"}
         render={(s, update) => (
-          <div className="grid gap-3 sm:grid-cols-[160px_140px_1fr]">
-            <IconSelect value={s.icon} onChange={(icon) => update({ ...s, icon })} />
+          <div className="grid gap-3 sm:grid-cols-[auto_140px_1fr]">
+            <IconPicker value={s.icon} onChange={(icon) => update({ ...s, icon })} />
             <Text label="Value" value={s.value} onChange={(v) => update({ ...s, value: v })} hint="e.g. 59 or {themes}" />
             <Text label="Label" value={s.label} onChange={(label) => update({ ...s, label })} />
           </div>
         )}
       />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Text label="Hero image (optional)" value={value.imageUrl} onChange={(imageUrl) => onChange({ ...value, imageUrl })} hint="https:// link to a screenshot. Empty = live theme preview." />
-        <Text label="Image description (alt text)" value={value.imageAlt} onChange={(imageAlt) => onChange({ ...value, imageAlt })} />
-      </div>
+      <fieldset className="space-y-4 rounded-md border border-border p-4">
+        <legend className="px-1 text-small font-semibold">Browser-frame slideshow</legend>
+        <p className="text-caption text-muted">Images cross-fade inside the browser frame. With no slides, the single image below is shown; with neither, the showcase themes rotate.</p>
+        <Repeater
+          label="Slides"
+          items={value.slides}
+          max={8}
+          onChange={(slides) => onChange({ ...value, slides })}
+          newItem={() => ({ imageUrl: "", alt: "", caption: "" })}
+          itemTitle={(sl) => sl.caption || sl.alt || sl.imageUrl.split("/").pop() || "Slide"}
+          itemIcon={(sl) => (sl.imageUrl ? <img src={sl.imageUrl} alt="" className="h-7 w-11 rounded object-cover ring-1 ring-border" /> : null)}
+          render={(sl, update) => (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Text label="Image" value={sl.imageUrl} onChange={(imageUrl) => update({ ...sl, imageUrl })} hint="https:// link or /path. 16:10 screenshots fit best." className="sm:col-span-2" />
+              <Text label="Image description (alt text)" value={sl.alt} onChange={(alt) => update({ ...sl, alt })} max={120} />
+              <Text label="Caption (optional)" value={sl.caption} onChange={(caption) => update({ ...sl, caption })} max={80} hint="Shown under the frame." />
+            </div>
+          )}
+        />
+        <div className="flex flex-wrap items-end gap-6">
+          <Field label="Seconds per slide" hint="2 to 20.">
+            <input type="number" min={2} max={20} value={value.slideInterval} onChange={(e) => onChange({ ...value, slideInterval: Math.min(20, Math.max(2, Math.round(Number(e.target.value)) || 5)) })} className={cn(inputClassName, "w-28")} />
+          </Field>
+          <label className="mb-7 inline-flex items-center gap-2 text-small">
+            <input type="checkbox" checked={value.autoplay} onChange={(e) => onChange({ ...value, autoplay: e.target.checked })} className="size-4 accent-[var(--accent)]" />
+            Play automatically (pauses on hover; off for visitors who prefer reduced motion)
+          </label>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Text label="Single hero image (optional)" value={value.imageUrl} onChange={(imageUrl) => onChange({ ...value, imageUrl })} hint="Used only when there are no slides." />
+          <Text label="Image description (alt text)" value={value.imageAlt} onChange={(imageAlt) => onChange({ ...value, imageAlt })} />
+        </div>
+      </fieldset>
     </SectionShell>
   );
 }
@@ -395,13 +462,15 @@ function SolutionsEditor({ value, onChange }: { value: LandingContent["solutions
         items={value.items}
         max={16}
         onChange={(items) => onChange({ ...value, items })}
-        newItem={() => ({ icon: "sparkles" as LandingIcon, title: "New feature", tag: "", body: "", linkLabel: "Explore this feature", href: "/features", badge: "" })}
+        newItem={() => ({ icon: "sparkles" as LandingIcon, title: "New feature", tag: "", body: "", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" as const })}
         itemTitle={(c) => c.title || "Card"}
+        itemIcon={(c, i) => <IconBadge icon={c.icon} color={c.color === "auto" ? tagColor(c.tag, i) : c.color} />}
         render={(c, update) => (
           <div className="grid gap-3 sm:grid-cols-2">
-            <IconSelect value={c.icon} onChange={(icon) => update({ ...c, icon })} />
-            <Text label="Title" value={c.title} onChange={(title) => update({ ...c, title })} />
-            <Text label="Small tag" value={c.tag} onChange={(tag) => update({ ...c, tag })} hint="e.g. Design, Operate" />
+            <Text label="Title" value={c.title} onChange={(title) => update({ ...c, title })} className="sm:col-span-2" />
+            <IconPicker value={c.icon} onChange={(icon) => update({ ...c, icon })} />
+            <ColorPicker value={c.color} onChange={(color) => update({ ...c, color })} auto />
+            <Text label="Small tag" value={c.tag} onChange={(tag) => update({ ...c, tag })} hint="Source, Sell, Design, Channels, Operate or Grow pick a colour automatically." />
             <Text label="Corner badge" value={c.badge} onChange={(badge) => update({ ...c, badge })} hint="e.g. New. Empty = none." />
             <Area label="Text" value={c.body} onChange={(body) => update({ ...c, body })} className="sm:col-span-2" />
             <Text label="Link label" value={c.linkLabel} onChange={(linkLabel) => update({ ...c, linkLabel })} />
@@ -739,6 +808,79 @@ function IconSelect({ value, onChange }: { value: LandingIcon; onChange: (v: Lan
   );
 }
 
+/** Small coloured icon chip, as the landing page draws it (list thumbnails). */
+function IconBadge({ icon, color }: { icon: LandingIcon; color: AccentColor }) {
+  return (
+    <span className={cn("grid size-7 place-items-center rounded-full", ACCENT[color].chip)}>
+      <LandingIconView name={icon} className="size-3.5" />
+    </span>
+  );
+}
+
+/** Visual icon picker: the current icon opens a grid of every LANDING_ICONS entry. */
+function IconPicker({ value, onChange }: { value: LandingIcon; onChange: (v: LandingIcon) => void }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  return (
+    <div className="relative">
+      <p id={id} className="mb-1.5 block text-label">
+        Icon
+      </p>
+      <button type="button" aria-labelledby={id} aria-expanded={open} onClick={() => setOpen((o) => !o)} className={cn(inputClassName, "inline-flex w-auto min-w-40 items-center gap-2 text-left")}>
+        <LandingIconView name={value} className="size-4 shrink-0" />
+        <span className="flex-1 truncate">{value.replace(/-/g, " ")}</span>
+      </button>
+      {open ? (
+        <div role="group" aria-label="Choose an icon" className="absolute z-20 mt-1 grid w-72 grid-cols-6 gap-1 rounded-md border border-border bg-surface p-2 shadow-lg" onKeyDown={(e) => e.key === "Escape" && setOpen(false)}>
+          {LANDING_ICONS.map((name) => (
+            <button
+              key={name}
+              type="button"
+              title={name.replace(/-/g, " ")}
+              aria-label={name.replace(/-/g, " ")}
+              aria-pressed={name === value}
+              onClick={() => {
+                onChange(name);
+                setOpen(false);
+              }}
+              className={cn("grid size-10 place-items-center rounded-md hover:bg-surface-secondary", name === value && "bg-accent-soft text-accent ring-1 ring-accent")}
+            >
+              <LandingIconView name={name} className="size-4" />
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Swatch radio group over ACCENT_COLORS; `auto` adds a "match the tag" option. */
+function ColorPicker<C extends string>({ value, onChange, auto, className }: { value: C; onChange: (v: C) => void; auto?: boolean; className?: string }) {
+  const options = [...(auto ? ["auto"] : []), ...ACCENT_COLORS] as C[];
+  return (
+    <fieldset className={className}>
+      <legend className="mb-1.5 block text-label">Colour</legend>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((c) => (
+          <label key={c} title={c === "auto" ? "Match the tag" : c} className="cursor-pointer">
+            <input type="radio" className="peer sr-only" checked={value === c} onChange={() => onChange(c)} />
+            <span className="sr-only">{c === "auto" ? "Match the tag" : c}</span>
+            <span
+              aria-hidden
+              className={cn(
+                "grid h-8 min-w-8 place-items-center rounded-full ring-offset-2 ring-offset-surface peer-checked:ring-2 peer-checked:ring-foreground peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-[var(--focus)]",
+                c === "auto" ? "border border-dashed border-border-strong px-2.5 text-caption text-muted" : ACCENT[c as AccentColor].swatch,
+              )}
+            >
+              {c === "auto" ? "Auto" : null}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 function LinkFields({ value, onChange }: { value: Link; onChange: (v: Link) => void }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -773,6 +915,7 @@ function Repeater<T>({
   newItem,
   render,
   itemTitle,
+  itemIcon,
   max,
 }: {
   label: string;
@@ -781,6 +924,8 @@ function Repeater<T>({
   newItem: () => T;
   render: (item: T, update: (v: T) => void) => ReactNode;
   itemTitle: (item: T) => string;
+  /** Optional thumbnail before the title (icon chip, image). */
+  itemIcon?: (item: T, index: number) => ReactNode;
   max: number;
 }) {
   const [open, setOpen] = useState<number | null>(null);
@@ -817,6 +962,7 @@ function Repeater<T>({
           {items.map((item, i) => (
             <li key={i}>
               <div className="flex items-center gap-1 px-3 py-2">
+                {itemIcon ? <span className="mr-1.5 shrink-0">{itemIcon(item, i)}</span> : null}
                 <button type="button" onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i} className="flex-1 truncate rounded py-1 text-left text-small font-medium hover:text-accent">
                   {itemTitle(item)}
                 </button>
