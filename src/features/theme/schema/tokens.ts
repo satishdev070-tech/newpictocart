@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { UNSPLASH_CATEGORIES } from "@/lib/unsplash-categories";
 import { hexColor, imagePath, menuHandle, plainText } from "./primitives";
 
 /**
@@ -55,6 +56,11 @@ export const tokensSchema = z.object({
   sectionHeadingAlign: z.enum(["left", "center"]).default("left"),
   /** "refined": opt-in polish for the editorial sections (type scale, spacing, hover states). */
   finish: z.enum(["standard", "refined"]).default("standard"),
+  /**
+   * Stock photos (Unsplash) for image slots the seller hasn't filled: "auto" uses the store's
+   * category, a category name forces that category, "off" keeps plain placeholders.
+   */
+  imagery: z.enum(["auto", "off", ...UNSPLASH_CATEGORIES]).default("auto"),
 });
 export type ThemeTokens = z.infer<typeof tokensSchema>;
 

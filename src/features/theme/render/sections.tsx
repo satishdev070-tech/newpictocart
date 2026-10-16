@@ -21,128 +21,54 @@ import { DECOR_ARTWORKS } from "@/features/theme/sections/definitions";
 import { ReelVideo } from "@/features/storefront/components/reel-tile";
 import { assetUrl } from "@/lib/storage/assets";
 import { AnnouncementBar, Footer, Header, MegaMenu } from "./chrome";
+import { Cta, HeadingText, Intro, ViewAll, headingClass, hp, sourceArgs } from "./parts";
+import { HeroVariant, NewsletterVariant, PhotoCredit, ProductGridVariant, StoryVariant, TestimonialsVariant, TileLayout, cardSettings, stockFor } from "./variants";
+import { productPlaceholder } from "@/features/storefront/components/product-card";
+import type { CardRatio } from "@/features/theme/sections/variants";
 import type { RenderContext } from "./context";
 
 type P<T extends SectionType> = { s: SectionSettings<T>; ctx: RenderContext };
 
-type HeadingStyle = "default" | "condensed" | "italic";
-type IntroProps = { eyebrow?: string; heading?: string; subheading?: string; accent?: string; headingStyle?: HeadingStyle; note?: string; action?: ReactNode };
-
-/** Intro props from a section's shared heading settings. */
-function hp(s: { eyebrow: string; heading: string; subheading: string; headingAccent?: string; headingStyle?: HeadingStyle; headingNote?: string }): IntroProps {
-  return { eyebrow: s.eyebrow, heading: s.heading, subheading: s.subheading, accent: s.headingAccent, headingStyle: s.headingStyle, note: s.headingNote };
-}
-
-/** Heading text plus the optional italic accent words. */
-function HeadingText({ heading, accent }: { heading?: string; accent?: string }) {
-  return accent ? (
-    <>
-      {heading} <em className="sf-heading-accent">{accent}</em>
-    </>
-  ) : (
-    <>{heading}</>
-  );
-}
-
-const headingClass = (style: HeadingStyle | undefined, base: string) => (style === "condensed" ? "sf-heading sf-display-condensed text-4xl @[64rem]:text-5xl" : style === "italic" ? `${base} italic` : base);
-
-function Intro({ eyebrow, heading, subheading, accent, headingStyle, note, action }: IntroProps) {
-  if (!eyebrow && !heading && !subheading && !action && !note) return null;
-  return (
-    <div className="sf-intro mb-8 flex flex-col gap-2 @[48rem]:flex-row @[48rem]:items-end @[48rem]:justify-between">
-      <div className="max-w-2xl space-y-2">
-        {eyebrow ? <p className="sf-eyebrow">{eyebrow}</p> : null}
-        {heading ? <h2 className={headingClass(headingStyle, "sf-heading text-3xl @[64rem]:text-4xl")}>{accent ? <HeadingText heading={heading} accent={accent} /> : heading}</h2> : null}
-        {subheading ? <p className="sf-muted">{subheading}</p> : null}
-      </div>
-      {action}
-      {note ? <p className="sf-intro-note">{note}</p> : null}
-    </div>
-  );
-}
-
-function Cta({ label, href, className = "sf-btn" }: { label?: string; href?: string; className?: string }) {
-  if (!label || !href) return null;
-  return (
-    <Link href={href} className={className}>
-      {label}
-    </Link>
-  );
-}
-
-function ViewAll({ href }: { href?: string }) {
-  return href ? (
-    <Link href={href} className="sf-link text-sm">
-      View all →
-    </Link>
-  ) : null;
-}
-
-type ProductSourceSettings = SectionSettings<"ProductGrid">;
-function sourceArgs(s: Pick<ProductSourceSettings, "source" | "collectionId" | "categoryId" | "productIds" | "ruleTags" | "ruleProductTypes" | "ruleMaxPrice" | "ruleOnSale" | "limit">): ListArgs | null {
-  const base: ListArgs = { p_limit: s.limit, p_offset: 0, p_sort: "featured" };
-  switch (s.source) {
-    case "collection":
-      return s.collectionId ? { ...base, p_collection: s.collectionId, p_sort: "manual" } : null;
-    case "category":
-      return s.categoryId ? { ...base, p_category: s.categoryId } : null;
-    case "products":
-      return s.productIds.length ? { ...base, p_product_ids: s.productIds } : null;
-    case "rules":
-      return {
-        ...base,
-        ...(s.ruleTags.length ? { p_tags: s.ruleTags } : {}),
-        ...(s.ruleProductTypes.length ? { p_product_types: s.ruleProductTypes } : {}),
-        ...(s.ruleMaxPrice > 0 ? { p_max_price: s.ruleMaxPrice } : {}),
-        ...(s.ruleOnSale ? { p_on_sale: true } : {}),
-      };
-    case "newest":
-      return { ...base, p_sort: "newest" };
-    case "bestselling":
-      return { ...base, p_sort: "best_selling" };
-    case "featured":
-      return { ...base, p_featured: true };
-    case "sale":
-      return { ...base, p_on_sale: true };
-  }
-}
-
-async function Products({ ctx, args, layout, columns }: { ctx: RenderContext; args: ListArgs | null; layout: "grid" | "carousel"; columns?: number }) {
+async function Products({ ctx, args, layout, columns, cardRatio }: { ctx: RenderContext; args: ListArgs | null; layout: "grid" | "carousel"; columns?: number; cardRatio?: CardRatio }) {
   if (!args) return null;
   const { cards } = await listProducts(ctx.sf.tenant.tenantId, args);
   if (!cards.length) return <p className="sf-muted text-sm">Products will appear here soon.</p>;
+  const settings = cardSettings(ctx.sf.theme.productCard, cardRatio);
+  const stock = ctx.stockProducts ? ctx.stock : null;
   if (layout === "grid" && columns === 6) {
     return (
       <ul className="sf-grid-6 grid grid-cols-2 gap-x-4 gap-y-8 @[48rem]:grid-cols-3 @[64rem]:grid-cols-6">
         {cards.map((p) => (
           <li key={p.id}>
-            <ProductCard product={p} settings={ctx.sf.theme.productCard} />
+            <ProductCard product={p} settings={settings} placeholder={productPlaceholder(stock, p)} />
           </li>
         ))}
       </ul>
     );
   }
-  return layout === "carousel" ? <ProductRow products={cards} settings={ctx.sf.theme.productCard} /> : <Grid products={cards} settings={ctx.sf.theme.productCard} columns={columns} />;
+  return layout === "carousel" ? <ProductRow products={cards} settings={settings} stock={stock} /> : <Grid products={cards} settings={settings} columns={columns} stock={stock} />;
 }
 
-async function Hero({ s }: P<"Hero">) {
+async function Hero({ s, ctx }: P<"Hero">) {
+  if (s.variant !== "overlay") return <HeroVariant s={s} ctx={ctx} />;
+  const stock = (sl: (typeof s.slides)[number], i: number) => stockFor(ctx, sl.imagePath || sl.mobileImagePath, "hero", i);
   const banner = s.height === "banner";
   const h = s.height === "large" ? "min-h-[78svh]" : s.height === "medium" ? "min-h-[60svh]" : banner ? "" : "min-h-[44svh]";
   // Banner mode: the image keeps its own proportions (never cropped), so text designed into it stays visible.
   // Separate phone images use one <picture> (StoreArtImage): each device downloads only its own file.
   const bannerMedia = (sl: (typeof s.slides)[number], i: number) =>
     sl.mobileImagePath ? (
-      <StoreArtImage path={sl.imagePath} mobilePath={sl.mobileImagePath} alt={sl.alt} sizes="100vw" priority={i === 0} natural />
+      <StoreArtImage path={sl.imagePath} mobilePath={sl.mobileImagePath} alt={sl.alt} sizes="100vw" priority={i === 0} natural stock={stock(sl, i)} />
     ) : (
-      <StoreImage path={sl.imagePath} alt={sl.alt} sizes="100vw" priority={i === 0} natural />
+      <StoreImage path={sl.imagePath} alt={sl.alt} sizes="100vw" priority={i === 0} natural stock={stock(sl, i)} />
     );
   const media = (sl: (typeof s.slides)[number], i: number) =>
     banner ? (
       bannerMedia(sl, i)
     ) : sl.mobileImagePath ? (
-      <StoreArtImage path={sl.imagePath} mobilePath={sl.mobileImagePath} alt={sl.alt} sizes="100vw" priority={i === 0} />
+      <StoreArtImage path={sl.imagePath} mobilePath={sl.mobileImagePath} alt={sl.alt} sizes="100vw" priority={i === 0} stock={stock(sl, i)} />
     ) : (
-      <StoreImage path={sl.imagePath} alt={sl.alt} sizes="100vw" priority={i === 0} />
+      <StoreImage path={sl.imagePath} alt={sl.alt} sizes="100vw" priority={i === 0} stock={stock(sl, i)} />
     );
   return (
     <section className={s.counter ? "sf-hero-counter relative" : undefined}>
@@ -182,6 +108,7 @@ async function Hero({ s }: P<"Hero">) {
                   <Cta label={sl.ctaLabel} href={sl.ctaHref} className={sl.textTone === "light" && !banner ? "sf-btn sf-btn-light" : "sf-btn"} />
                 </div>
               </div>
+              <PhotoCredit img={stock(sl, i)} className="sf-photo-credit-on" />
             </div>
           ),
         )}
@@ -196,14 +123,14 @@ async function Hero({ s }: P<"Hero">) {
   );
 }
 
-function PromoBanner({ s }: P<"PromoBanner">) {
+function PromoBanner({ s, ctx }: P<"PromoBanner">) {
   const aspect = s.aspect === "wide" ? "aspect-[16/9]" : s.aspect === "banner" ? "aspect-[2/1]" : s.aspect === "square" ? "aspect-square" : "aspect-[3/4]";
   return (
     <section className="sf-container sf-section">
       <ul className={`grid gap-4 ${s.tiles.length > 1 ? "@[48rem]:grid-cols-2" : ""} ${s.tiles.length > 2 ? "@[64rem]:grid-cols-3" : ""}`}>
         {s.tiles.map((t, i) => (
           <li key={i} className={`relative overflow-hidden rounded-[var(--sf-radius-card)] ${aspect}`}>
-            <StoreImage path={t.imagePath} alt={t.alt} sizes={s.tiles.length > 1 ? "(min-width: 768px) 50vw, 100vw" : "100vw"} />
+            <StoreImage path={t.imagePath} alt={t.alt} sizes={s.tiles.length > 1 ? "(min-width: 768px) 50vw, 100vw" : "100vw"} stock={stockFor(ctx, t.imagePath, "tiles", i)} />
             {!t.heading && !t.text && !t.ctaLabel ? (
               // Image-only tile (text designed into the image): link the whole tile, no gradient.
               t.ctaHref ? <Link href={t.ctaHref} aria-label={t.alt || "Open"} className="absolute inset-0" /> : null
@@ -244,16 +171,17 @@ async function CategoryGrid({ s, ctx }: P<"CategoryGrid">) {
         }).slice(0, s.limit)
       : all.filter((c) => !c.parentId).slice(0, s.limit).map((c) => ({ href: paths.category(c.slug), label: c.name, imagePath: c.imagePath }));
   if (!tiles.length) return null;
+  if (s.variant !== "grid") return <TileLayout tiles={tiles} variant={s.variant} intro={hp(s)} ctx={ctx} />;
   if (s.shape === "arch") {
     return (
       <section className="sf-container sf-section">
         <Intro {...hp(s)} />
         <ul className={`sf-arch-grid grid grid-cols-3 gap-x-3 gap-y-5 @[48rem]:gap-x-6 ${DESKTOP_COLS[Math.min(tiles.length, 6)] ?? DESKTOP_COLS[6]}`}>
-          {tiles.map((t) => (
+          {tiles.map((t, i) => (
             <li key={t.href}>
               <Link href={t.href} className="group block text-center">
                 <div className="sf-arch relative aspect-[4/5] overflow-hidden">
-                  <StoreImage path={t.imagePath} alt="" sizes={`(min-width: 1024px) ${Math.round(100 / Math.min(tiles.length, 6))}vw, 50vw`} className="transition duration-500 group-hover:scale-105" />
+                  <StoreImage path={t.imagePath} alt="" sizes={`(min-width: 1024px) ${Math.round(100 / Math.min(tiles.length, 6))}vw, 50vw`} className="transition duration-500 group-hover:scale-105" stock={stockFor(ctx, t.imagePath, "tiles", i)} />
                 </div>
                 <p className="sf-heading mt-2 text-base leading-tight @[48rem]:mt-3 @[48rem]:text-lg">{t.label}</p>
               </Link>
@@ -268,11 +196,11 @@ async function CategoryGrid({ s, ctx }: P<"CategoryGrid">) {
     <section className="sf-container sf-section">
       <Intro {...hp(s)} />
       <ul className={`grid gap-4 ${s.shape === "circle" ? "grid-cols-3 @[48rem]:grid-cols-4 @[64rem]:grid-cols-6" : `grid-cols-2 ${DESKTOP_COLS[Math.min(tiles.length, 6)] ?? DESKTOP_COLS[6]}`}`}>
-        {tiles.map((t) => (
+        {tiles.map((t, i) => (
           <li key={t.href}>
             <Link href={t.href} className="group block text-center">
               <div className={`relative overflow-hidden ${aspect}`}>
-                <StoreImage path={t.imagePath} alt="" sizes={s.shape === "circle" ? "(min-width: 1024px) 16vw, 33vw" : `(min-width: 1024px) ${Math.round(100 / Math.min(tiles.length, 6))}vw, 50vw`} className="transition duration-500 group-hover:scale-105" />
+                <StoreImage path={t.imagePath} alt="" sizes={s.shape === "circle" ? "(min-width: 1024px) 16vw, 33vw" : `(min-width: 1024px) ${Math.round(100 / Math.min(tiles.length, 6))}vw, 50vw`} className="transition duration-500 group-hover:scale-105" stock={stockFor(ctx, t.imagePath, "tiles", i)} />
               </div>
               <p className="mt-2 text-sm font-medium">{t.label}</p>
             </Link>
@@ -289,18 +217,22 @@ async function CollectionGrid({ s, ctx }: P<"CollectionGrid">) {
   const labels = new Map(s.items.map((i) => [i.id, i]));
   const ordered = (ids ? ids.flatMap((id) => cols.filter((c) => c.id === id)) : cols).slice(0, s.limit);
   if (!ordered.length) return null;
+  if (s.layout !== "grid") {
+    const tiles = ordered.map((c) => ({ href: paths.collection(c.slug), label: labels.get(c.id)?.label || c.title, imagePath: labels.get(c.id)?.imagePath || c.imagePath, subtitle: labels.get(c.id)?.subtitle || "" }));
+    return <TileLayout tiles={tiles} variant={s.layout} intro={hp(s)} ctx={ctx} />;
+  }
   if (s.variant === "overlay") {
     return (
       <section className="sf-container sf-section">
         <Intro {...hp(s)} />
         <ul className={`grid grid-cols-2 gap-3 @[48rem]:gap-5 ${s.columns >= 4 ? "@[64rem]:grid-cols-4" : s.columns === 3 ? "@[64rem]:grid-cols-3" : ""}`}>
-          {ordered.map((c) => {
+          {ordered.map((c, i) => {
             const item = labels.get(c.id);
             const sub = item?.subtitle || "";
             return (
               <li key={c.id}>
                 <Link href={paths.collection(c.slug)} className="group sf-overlay-tile relative block aspect-[4/5] overflow-hidden rounded-[var(--sf-radius-card)] @[48rem]:aspect-[15/16]">
-                  <StoreImage path={item?.imagePath || c.imagePath} alt="" sizes="(min-width: 1024px) 25vw, 50vw" className="transition duration-700 group-hover:scale-105" />
+                  <StoreImage path={item?.imagePath || c.imagePath} alt="" sizes="(min-width: 1024px) 25vw, 50vw" className="transition duration-700 group-hover:scale-105" stock={stockFor(ctx, item?.imagePath || c.imagePath, "tiles", i)} />
                   <span className="sf-overlay-caption">
                     <span className="sf-heading block text-xl @[64rem]:text-2xl">{item?.label || c.title}</span>
                     {sub ? <span className="mt-1 block text-[0.62rem] font-medium uppercase tracking-[0.08em] @[64rem]:text-xs">{sub}</span> : null}
@@ -317,10 +249,10 @@ async function CollectionGrid({ s, ctx }: P<"CollectionGrid">) {
     <section className="sf-container sf-section">
       <Intro {...hp(s)} />
       <ul className={`grid grid-cols-2 gap-4 ${s.columns >= 4 ? "@[64rem]:grid-cols-4" : s.columns === 3 ? "@[64rem]:grid-cols-3" : ""}`}>
-        {ordered.map((c) => (
+        {ordered.map((c, i) => (
           <li key={c.id}>
             <Link href={paths.collection(c.slug)} className="group relative block aspect-[4/5] overflow-hidden rounded-[var(--sf-radius-card)]">
-              <StoreImage path={labels.get(c.id)?.imagePath || c.imagePath} alt="" sizes="(min-width: 1024px) 25vw, 50vw" className="transition duration-500 group-hover:scale-105" />
+              <StoreImage path={labels.get(c.id)?.imagePath || c.imagePath} alt="" sizes="(min-width: 1024px) 25vw, 50vw" className="transition duration-500 group-hover:scale-105" stock={stockFor(ctx, labels.get(c.id)?.imagePath || c.imagePath, "tiles", i)} />
               <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4 text-white">
                 <span className="sf-heading text-xl">{labels.get(c.id)?.label || c.title}</span>
               </span>
@@ -337,34 +269,39 @@ async function ProductCarouselSection({ s, ctx }: P<"ProductCarousel">) {
   return (
     <section className="sf-container sf-section">
       <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
-      <Products ctx={ctx} args={sourceArgs(s)} layout="carousel" />
+      <Products ctx={ctx} args={sourceArgs(s)} layout="carousel" cardRatio={s.cardRatio} />
     </section>
   );
 }
 
 async function ProductGridSection({ s, ctx }: P<"ProductGrid">) {
+  if (s.variant !== "grid") return <ProductGridVariant ctx={ctx} args={sourceArgs(s)} variant={s.variant} intro={{ ...hp(s), action: <ViewAll href={s.viewAllHref} /> }} cardRatio={s.cardRatio} columns={s.columns} />;
   return (
     <section className="sf-container sf-section">
       <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
-      <Products ctx={ctx} args={sourceArgs(s)} layout="grid" columns={s.columns} />
+      <Products ctx={ctx} args={sourceArgs(s)} layout="grid" columns={s.columns} cardRatio={s.cardRatio} />
     </section>
   );
 }
 
 async function Bestseller({ s, ctx }: P<"Bestseller">) {
+  const args: ListArgs = { p_sort: "best_selling", p_limit: s.limit, p_offset: 0 };
+  if (s.layout !== "carousel" && s.layout !== "grid") return <ProductGridVariant ctx={ctx} args={args} variant={s.layout} intro={{ ...hp(s), action: <ViewAll href={s.viewAllHref} /> }} cardRatio={s.cardRatio} />;
   return (
     <section className="sf-container sf-section">
       <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
-      <Products ctx={ctx} args={{ p_sort: "best_selling", p_limit: s.limit, p_offset: 0 }} layout={s.layout === "carousel" ? "carousel" : "grid"} />
+      <Products ctx={ctx} args={args} layout={s.layout === "carousel" ? "carousel" : "grid"} cardRatio={s.cardRatio} />
     </section>
   );
 }
 
 async function NewArrivals({ s, ctx }: P<"NewArrivals">) {
+  const args: ListArgs = { p_sort: "newest", p_limit: s.limit, p_offset: 0 };
+  if (s.layout !== "carousel" && s.layout !== "grid") return <ProductGridVariant ctx={ctx} args={args} variant={s.layout} intro={{ ...hp(s), action: <ViewAll href={s.viewAllHref} /> }} cardRatio={s.cardRatio} />;
   return (
     <section className="sf-container sf-section">
       <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
-      <Products ctx={ctx} args={{ p_sort: "newest", p_limit: s.limit, p_offset: 0 }} layout={s.layout === "carousel" ? "carousel" : "grid"} />
+      <Products ctx={ctx} args={args} layout={s.layout === "carousel" ? "carousel" : "grid"} cardRatio={s.cardRatio} />
     </section>
   );
 }
@@ -414,11 +351,34 @@ async function EditorialImageText({ s, ctx }: P<"EditorialImageText">) {
   }
   if (s.variant === "fullbleed") return <EditorialFullbleed s={s} ctx={ctx} heading={heading} body={body} href={href} imagePath={imagePath} />;
   if (s.variant === "journal") return <EditorialJournal s={s} heading={heading} body={body} href={href} imagePath={imagePath} />;
+  const stock = stockFor(ctx, imagePath, "story", 1);
+  if (s.variant === "overlap") {
+    return (
+      <section className={`sf-tone-${s.tone}`}>
+        <div className="sf-container sf-section">
+          <div className="relative grid @[64rem]:grid-cols-12 @[64rem]:items-center">
+            <div className={`relative aspect-[4/5] overflow-hidden rounded-[var(--sf-radius-card)] @[48rem]:aspect-[16/10] @[64rem]:col-span-8 @[64rem]:row-start-1 ${s.imagePosition === "right" ? "@[64rem]:col-start-5" : ""}`}>
+              <StoreImage path={imagePath} alt={s.alt} sizes="(min-width: 1024px) 66vw, 100vw" stock={stock} />
+              <PhotoCredit img={stock} className="sf-photo-credit-on" />
+            </div>
+            <div className={`sf-overlap-card relative z-10 mx-4 -mt-16 space-y-4 p-7 shadow-xl @[64rem]:col-span-5 @[64rem]:row-start-1 @[64rem]:mx-0 @[64rem]:mt-0 @[64rem]:p-12 ${s.imagePosition === "right" ? "@[64rem]:col-start-1" : "@[64rem]:col-start-8"}`}>
+              {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
+              {heading ? <h2 className="sf-heading text-3xl @[64rem]:text-4xl">{heading}</h2> : null}
+              {s.subheading ? <p className="text-lg">{s.subheading}</p> : null}
+              {body ? <p className="sf-muted whitespace-pre-line leading-relaxed">{body}</p> : null}
+              <Cta label={s.ctaLabel || (href ? "Read more" : "")} href={href} className="sf-btn sf-btn-outline" />
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className={`sf-tone-${s.tone}`}>
       <div className={`sf-container sf-section grid items-center gap-10 @[48rem]:grid-cols-2 ${s.imagePosition === "right" ? "@[48rem]:[&>*:first-child]:order-2" : ""}`}>
         <div className="relative aspect-[4/5] overflow-hidden rounded-[var(--sf-radius-card)]">
-          <StoreImage path={imagePath} alt={s.alt} sizes="(min-width: 768px) 50vw, 100vw" />
+          <StoreImage path={imagePath} alt={s.alt} sizes="(min-width: 768px) 50vw, 100vw" stock={stock} />
+          <PhotoCredit img={stock} className="sf-photo-credit-on" />
         </div>
         <div className="space-y-4">
           {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
@@ -485,9 +445,11 @@ function Lookbook({ s, ctx }: P<"Lookbook">) {
   );
 }
 
-function BrandStory({ s }: P<"BrandStory">) {
-  return (
-    <section className="sf-container sf-section grid items-center gap-10 @[48rem]:grid-cols-2">
+function BrandStory({ s, ctx }: P<"BrandStory">) {
+  if (s.variant !== "split") return <StoryVariant s={s} ctx={ctx} />;
+  const stock = stockFor(ctx, s.imagePath, "story", 0);
+  const grid = (
+    <section className={`sf-container sf-section grid items-center gap-10 @[48rem]:grid-cols-2 ${s.imagePosition === "left" ? "@[48rem]:[&>*:first-child]:order-2" : ""}`}>
       <div className="space-y-5">
         {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
         <h2 className="sf-heading text-3xl @[64rem]:text-5xl">{s.heading}</h2>
@@ -506,14 +468,18 @@ function BrandStory({ s }: P<"BrandStory">) {
         <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-outline" />
       </div>
       <div className="relative aspect-[4/5] overflow-hidden rounded-[var(--sf-radius-card)]">
-        <StoreImage path={s.imagePath} alt={s.alt} sizes="(min-width: 768px) 50vw, 100vw" />
+        <StoreImage path={s.imagePath} alt={s.alt} sizes="(min-width: 768px) 50vw, 100vw" stock={stock} />
+        <PhotoCredit img={stock} className="sf-photo-credit-on" />
       </div>
     </section>
   );
+  // "light" keeps the original transparent background.
+  return s.tone === "light" ? grid : <div className={`sf-tone-${s.tone}`}>{grid}</div>;
 }
 
-function Testimonials({ s }: P<"Testimonials">) {
+function Testimonials({ s, ctx }: P<"Testimonials">) {
   if (!s.items.length) return null;
+  if (s.variant !== "grid") return <TestimonialsVariant s={s} ctx={ctx} />;
   return (
     <section className="sf-surface">
       <div className="sf-container sf-section">
@@ -627,7 +593,8 @@ function SocialProof({ s, ctx }: P<"SocialProof">) {
   );
 }
 
-function Newsletter({ s }: P<"Newsletter">) {
+function Newsletter({ s, ctx }: P<"Newsletter">) {
+  if (s.variant !== "centered") return <NewsletterVariant s={s} ctx={ctx} />;
   return (
     <section className={`sf-tone-${s.tone}`}>
       <div className="sf-container sf-section mx-auto max-w-2xl space-y-4 text-center">
@@ -664,6 +631,26 @@ async function FAQ({ s, ctx }: P<"FAQ">) {
 const TRUST_GLYPHS: Record<string, string> = { truck: "🚚", return: "↺", cod: "₹", handmade: "✋", secure: "🔒", india: "🇮🇳", gift: "🎁", leaf: "🌿", sparkle: "✧" };
 
 function TrustBadges({ s }: P<"TrustBadges">) {
+  if (s.layout === "cards" || s.layout === "badges") {
+    const cards = s.layout === "cards";
+    return (
+      <section className={`sf-tone-${s.tone}`}>
+        <ul className={`sf-container grid grid-cols-2 gap-3 py-10 @[48rem]:gap-5 ${s.items.length >= 4 ? "@[64rem]:grid-cols-4" : "@[64rem]:grid-cols-3"}`}>
+          {s.items.map((t, i) => (
+            <li key={i} className={cards ? "sf-usp-card flex items-start gap-3 p-5" : "flex flex-col items-center gap-3 text-center"}>
+              <span aria-hidden className={cards ? "sf-usp-icon" : "sf-usp-badge"}>
+                {TRUST_GLYPHS[t.icon] ?? "✓"}
+              </span>
+              <span className="space-y-1">
+                <span className={`block font-medium ${cards ? "text-sm" : "sf-heading text-lg"}`}>{t.title}</span>
+                {t.text ? <span className="sf-muted block text-xs">{t.text}</span> : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
   if (s.layout === "line") {
     return (
       <section className={`sf-tone-${s.tone} sf-trust-line`}>
@@ -1290,12 +1277,15 @@ export function SectionList({ sections, ctx }: { sections: SectionInstance[]; ct
         const Render = REGISTRY[section.type] as Renderer<SectionType>;
         const cls = visibilityClass(section);
         const node = <Render s={section.settings as never} ctx={ctx} />;
+        // Per-section rhythm (sections/variants SECTION_SPACINGS); CSS adjusts the inner .sf-section padding.
+        const spacing = (section.settings as { spacing?: unknown }).spacing;
+        const sp = typeof spacing === "string" && spacing !== "default" ? spacing : undefined;
         return cls ? (
-          <div key={section.id} className={cls} data-section={section.type}>
+          <div key={section.id} className={cls} data-section={section.type} data-spacing={sp}>
             {node}
           </div>
         ) : (
-          <div key={section.id} className="contents" data-section={section.type}>
+          <div key={section.id} className="contents" data-section={section.type} data-spacing={sp}>
             {node}
           </div>
         );

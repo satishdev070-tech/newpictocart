@@ -128,7 +128,7 @@ export function applyThemePreset(current: ThemeConfig, preset: ThemePreset): unk
 
   const layoutHeader: SectionInstance[] = [
     mergeSection("AnnouncementBar" as SectionType, uid("announcement", 1), { tone: preset.announcementTone, mode: preset.announcementMode ?? "static" }, announcement),
-    mergeSection("Header" as SectionType, uid("header", 1), { layout: preset.headerLayout, showInlineMenu: preset.inlineMenu, menuStyle: preset.menuStyle ?? "bar" }, header),
+    mergeSection("Header" as SectionType, uid("header", 1), { layout: preset.headerLayout, showInlineMenu: preset.inlineMenu, menuStyle: preset.menuStyle ?? "bar", style: preset.headerStyle ?? "classic" }, header),
   ];
   // The inline menu only renders beside a left logo; a centred logo needs the menu bar below it.
   if ((!preset.inlineMenu || preset.headerLayout === "logo-center") && preset.menuStyle !== "drawer") {
@@ -142,7 +142,7 @@ export function applyThemePreset(current: ThemeConfig, preset: ThemePreset): unk
     tokens: { ...current.tokens, ...preset.tokens, colors: { ...current.tokens.colors, ...preset.tokens.colors } },
     header: { ...current.header, ...preset.header },
     productCard: { ...current.productCard, ...preset.productCard },
-    layout: { header: layoutHeader, footer: [mergeSection("Footer" as SectionType, uid("footer", 1), { tone: preset.footerTone, ...(preset.footerDecor ? { decor: preset.footerDecor } : {}) }, footer)] },
+    layout: { header: layoutHeader, footer: [mergeSection("Footer" as SectionType, uid("footer", 1), { tone: preset.footerTone, layout: preset.footerLayout ?? "columns", ...(preset.footerDecor ? { decor: preset.footerDecor } : {}) }, footer)] },
     templates: {
       // Unused named slots stay in the config, hidden, so the next theme switch still finds them.
       home: [...home, ...pool.unusedSlots().filter((x) => current.templates.home.includes(x)).map((x) => ({ ...x, visibility: { ...HIDDEN } }))],

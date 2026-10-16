@@ -2176,3 +2176,100 @@ a.sf-spot-add-square {
     opacity: 0;
   }
 }
+
+/* -----------------------------------------------------------------------------
+ * Layout variants (sections/variants.ts, render/variants.tsx). Pure CSS: no client JS.
+ * Unlayered on purpose, so a variant's look wins over the base component rules above.
+ * --------------------------------------------------------------------------- */
+
+/* Per-section spacing (SectionList sets data-spacing on the section wrapper). */
+[data-spacing="compact"] .sf-section { padding-block: calc(var(--sf-section-y) * 0.55); }
+[data-spacing="airy"] .sf-section { padding-block: calc(var(--sf-section-y) * 1.4); }
+[data-spacing="flush"] .sf-section { padding-block: 0; }
+@container (min-width: 48rem) {
+  [data-spacing="compact"] .sf-section { padding-block: calc(var(--sf-section-y-lg) * 0.55); }
+  [data-spacing="airy"] .sf-section { padding-block: calc(var(--sf-section-y-lg) * 1.4); }
+}
+
+/* Unsplash credit for stock photos. */
+.sf-photo-credit { margin: 0; font-size: 10px; line-height: 1.3; opacity: 0.75; }
+.sf-photo-credit a { text-decoration: underline; text-underline-offset: 2px; }
+.sf-photo-credit-on { position: absolute; right: 0.6rem; bottom: 0.45rem; z-index: 2; color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / 0.7); }
+.sf-photo-credit-top { top: 0.45rem; bottom: auto; }
+
+/* Hero: collage */
+.sf-hero-collage { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(0, 1fr)); gap: 0.75rem; aspect-ratio: 1 / 1; }
+.sf-hero-collage-1 { grid-column: 1 / 5; grid-row: 1 / 7; }
+.sf-hero-collage-2 { grid-column: 5 / 7; grid-row: 1 / 4; }
+.sf-hero-collage-3 { grid-column: 4 / 7; grid-row: 4 / 7; z-index: 1; outline: 6px solid var(--sf-bg); box-shadow: 0 18px 40px -20px rgb(0 0 0 / 0.45); }
+.sf-tone-muted .sf-hero-collage-3 { outline-color: var(--sf-surface); }
+.sf-tone-dark .sf-hero-collage-3 { outline-color: var(--sf-primary); }
+.sf-tone-accent .sf-hero-collage-3 { outline-color: var(--sf-secondary); }
+.sf-hero-collage-credit { position: absolute; left: 0; bottom: -1.4rem; }
+
+/* Hero: card carousel (CSS scroll-snap) */
+.sf-hero-cards { gap: 1rem; scroll-padding-inline: 1rem; }
+.sf-hero-card { width: 86%; aspect-ratio: 4 / 5; scroll-snap-align: center; }
+@container (min-width: 48rem) {
+  .sf-hero-cards { gap: 1.5rem; scroll-padding-inline: 2rem; }
+  .sf-hero-card { width: 72%; aspect-ratio: 16 / 8; }
+}
+
+/* Hero: framed */
+.sf-hero-frame-card { background: var(--sf-bg); color: var(--sf-text); border-radius: calc(var(--sf-radius-card) + 6px); }
+.sf-hero-frame-card .sf-eyebrow { color: var(--sf-muted) !important; }
+
+/* Rails */
+.sf-rail-item { scroll-snap-align: start; }
+
+/* Product list */
+.sf-product-list > li { border-bottom: 1px solid var(--sf-border); }
+.sf-list-go { display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; border: 1px solid var(--sf-border); border-radius: 999px; transition: background-color 150ms ease, color 150ms ease; }
+.sf-product-list a:hover .sf-list-go { background: var(--sf-primary); color: var(--sf-primary-fg); border-color: var(--sf-primary); }
+.sf-bigtile-price { padding: 0.35rem 0.8rem; border-radius: 999px; background: rgb(255 255 255 / 0.92); color: #141414; }
+
+/* Tiles: pills */
+.sf-pill-tile { display: inline-flex; align-items: center; gap: 0.6rem; padding: 0.3rem; border: 1px solid var(--sf-border); border-radius: 999px; background: var(--sf-bg); transition: border-color 150ms ease, transform 150ms ease; }
+.sf-pill-tile:hover { border-color: var(--sf-text); transform: translateY(-1px); }
+
+/* Story */
+.sf-story-collage-2 { outline: 6px solid var(--sf-bg); box-shadow: 0 18px 40px -22px rgb(0 0 0 / 0.5); }
+.sf-stat-big { border-top: 1px solid var(--sf-border); padding-top: 1rem; }
+
+/* Testimonials */
+.sf-quote-card { border: 1px solid var(--sf-border); border-radius: calc(var(--sf-radius-card) + 4px); background: var(--sf-bg); color: var(--sf-text); }
+.sf-avatar { display: inline-grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 999px; background: var(--sf-accent); color: var(--sf-accent-fg); font-size: 0.8rem; font-weight: 600; }
+
+/* Newsletter */
+.sf-newsletter-left form { margin-inline: 0; }
+.sf-newsletter-onphoto form { max-width: 28rem; }
+.sf-newsletter-onphoto .sf-input { background: #fff; color: #141414; border-color: #fff; }
+.sf-newsletter-onphoto .sf-btn { background: var(--sf-accent); border-color: var(--sf-accent); color: var(--sf-accent-fg); }
+
+/* Editorial: overlapping card */
+.sf-overlap-card { background: var(--sf-bg); color: var(--sf-text); border-radius: calc(var(--sf-radius-card) + 4px); }
+.sf-tone-light .sf-overlap-card { background: var(--sf-surface); }
+
+/* USP band: cards and badges */
+.sf-usp-card { border: 1px solid var(--sf-border); border-radius: calc(var(--sf-radius-card) + 4px); background: var(--sf-bg); color: var(--sf-text); }
+.sf-usp-icon { display: inline-grid; flex: none; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; background: color-mix(in srgb, var(--sf-accent) 14%, transparent); font-size: 1.1rem; }
+.sf-usp-badge { display: inline-grid; place-items: center; width: 4.5rem; height: 4.5rem; border-radius: 999px; background: var(--sf-accent); color: var(--sf-accent-fg); font-size: 1.75rem; box-shadow: 0 10px 24px -14px var(--sf-accent); }
+
+/* Header styles */
+.sf-header-style-bordered { border-bottom: 3px double var(--sf-text); }
+.sf-header-style-bordered > .sf-container { padding-block: 1rem; }
+.sf-header-style-inverted { background: var(--sf-primary); color: var(--sf-primary-fg); border-color: transparent; }
+.sf-header-style-inverted .sf-heading { color: var(--sf-primary-fg); }
+.sf-header-style-minimal { background: var(--sf-bg); border-bottom-color: transparent; }
+.sf-header-style-floating { background: transparent; border-bottom-color: transparent; padding: 0.6rem 0.75rem 0; }
+.sf-header-style-floating > .sf-container { background: var(--sf-bg); border: 1px solid var(--sf-border); border-radius: 999px; padding-inline: 1rem; box-shadow: 0 10px 30px -22px rgb(0 0 0 / 0.45); }
+.sf-header-style-editorial > .sf-container { padding-block: 1.1rem; }
+.sf-header-style-editorial .sf-heading { letter-spacing: 0.04em; }
+@container (min-width: 64rem) {
+  .sf-header-style-editorial > .sf-container { padding-block: 1.6rem; }
+  .sf-header-style-editorial a > .sf-heading { font-size: 2.4rem; }
+  .sf-header-style-floating > .sf-container { padding-inline: 1.5rem; }
+}
+
+/* Footer: statement wordmark */
+.sf-footer-wordmark { margin: 0; padding-inline: 0.5rem; overflow: hidden; white-space: nowrap; text-align: center; font-size: clamp(3rem, 15cqi, 14rem); line-height: 0.9; letter-spacing: -0.02em; opacity: 0.92; }

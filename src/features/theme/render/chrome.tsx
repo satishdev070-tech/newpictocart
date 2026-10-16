@@ -163,7 +163,7 @@ function HeaderLogoLeftNavCenter({ s, ctx }: { s: SectionSettings<"Header">; ctx
   const menu = ctx.menus[h.menuHandle]?.items ?? [];
   const popular = menu.filter((n) => n.href && !n.external).slice(0, 8).map((n) => ({ label: n.title, href: n.href! }));
   return (
-    <header className={`sf-header sf-header-lnc sf-surface sf-border z-40 border-b ${h.sticky ? "sticky top-0" : ""}`}>
+    <header className={`sf-header sf-header-lnc sf-header-style-${s.style} sf-surface sf-border z-40 border-b ${h.sticky ? "sticky top-0" : ""}`}>
       {h.sticky ? <HeaderScrollState /> : null}
       <div className="sf-container sf-header-lnc-row">
         <div className="flex items-center gap-1">
@@ -222,7 +222,7 @@ export function Header({ s, ctx }: { s: SectionSettings<"Header">; ctx: RenderCo
     </div>
   );
   return (
-    <header className={`sf-header sf-surface sf-border z-40 border-b ${h.sticky ? "sticky top-0" : ""}`}>
+    <header className={`sf-header sf-header-style-${s.style} sf-surface sf-border z-40 border-b ${h.sticky ? "sticky top-0" : ""}`}>
       {h.sticky ? <HeaderScrollState /> : null}
       <div className={`sf-container grid items-center gap-3 py-2.5 @[64rem]:py-3 ${s.layout === "logo-center" ? "grid-cols-[1fr_auto_1fr]" : "grid-cols-[auto_1fr_auto]"}`}>
         <div className="flex items-center gap-0.5">
@@ -385,6 +385,9 @@ export function Footer({ s, ctx }: { s: SectionSettings<"Footer">; ctx: RenderCo
           </div>
         </div>
       ) : null}
+      {s.layout === "centered" || s.layout === "minimal" ? (
+        <FooterCompact s={s} ctx={ctx} />
+      ) : (
       <div className="sf-container relative grid gap-10 py-14 @[48rem]:grid-cols-2 @[64rem]:grid-cols-[1.4fr_repeat(3,1fr)]">
         <div className="space-y-4">
           <p className="sf-heading text-3xl">{store.name}</p>
@@ -445,9 +448,15 @@ export function Footer({ s, ctx }: { s: SectionSettings<"Footer">; ctx: RenderCo
           </div>
         ) : null}
       </div>
+      )}
+      {s.layout === "statement" ? (
+        <p aria-hidden className="sf-footer-wordmark sf-heading">
+          {store.name}
+        </p>
+      ) : null}
       {ethnic ? <ChhatriSkyline /> : null}
       <div className="relative border-t border-current/15">
-        <div className="sf-container flex flex-col gap-3 py-5 text-xs @[48rem]:flex-row @[48rem]:items-center @[48rem]:justify-between">
+        <div className={`sf-container flex flex-col gap-3 py-5 text-xs @[48rem]:flex-row @[48rem]:items-center ${s.layout === "centered" ? "items-center @[48rem]:justify-center @[48rem]:gap-8" : "@[48rem]:justify-between"}`}>
           <p className="opacity-75">{s.copyright || `© ${year} ${store.name}. All rights reserved.`}</p>
           {s.showPaymentNote ? (
             <ul className="flex flex-wrap gap-1.5" aria-label="Payment methods">
@@ -461,5 +470,55 @@ export function Footer({ s, ctx }: { s: SectionSettings<"Footer">; ctx: RenderCo
         </div>
       </div>
     </footer>
+  );
+}
+
+/** Footer body for the "centered" and "minimal" layouts (menus inline instead of columns). */
+function FooterCompact({ s, ctx }: { s: SectionSettings<"Footer">; ctx: RenderContext }) {
+  const store = ctx.sf.store;
+  const links = s.menuHandles.flatMap((h) => ctx.menus[h]?.items ?? []);
+  const social = s.showSocial && store.social.length ? (
+    <ul className="flex flex-wrap justify-center gap-2">
+      {store.social.map((l) => (
+        <li key={l.url}>
+          <a href={l.url} rel="noopener noreferrer" target="_blank" className="sf-footer-social">
+            {l.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  ) : null;
+  const nav = links.length ? (
+    <nav aria-label="Footer">
+      <ul className={`flex flex-wrap gap-x-6 gap-y-2 text-sm ${s.layout === "centered" ? "justify-center" : ""}`}>
+        {links.map((n) => (
+          <li key={n.id}>
+            <MenuLink node={n} className="sf-footer-link" />
+          </li>
+        ))}
+      </ul>
+    </nav>
+  ) : null;
+  if (s.layout === "minimal") {
+    return (
+      <div className="sf-container relative flex flex-col gap-5 py-8 @[64rem]:flex-row @[64rem]:items-center @[64rem]:justify-between">
+        <p className="sf-heading text-2xl">{store.name}</p>
+        {nav}
+        {social}
+      </div>
+    );
+  }
+  return (
+    <div className="sf-container relative mx-auto flex max-w-3xl flex-col items-center gap-6 py-14 text-center">
+      <p className="sf-heading text-4xl">{store.name}</p>
+      {s.about || store.tagline ? <p className="max-w-md text-sm leading-relaxed opacity-80">{s.about || store.tagline}</p> : null}
+      {nav}
+      {s.showContact && (store.email || store.phone) ? (
+        <p className="text-sm opacity-80">
+          {[store.email, store.phone].filter(Boolean).join("  ·  ")}
+        </p>
+      ) : null}
+      {social}
+    </div>
   );
 }

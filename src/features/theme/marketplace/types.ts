@@ -1,4 +1,5 @@
 import type { IndustrySlug } from "@/features/stores/industries";
+import type { FooterLayout, HeaderStyle } from "../sections/variants";
 
 /** Visual direction of a theme (marketplace "Style" filter). */
 export const THEME_STYLES = ["minimal", "modern", "luxury", "editorial", "bold", "marketplace", "premium", "heritage", "conversion"] as const;
@@ -38,6 +39,12 @@ export type ThemePreset = {
   footerDecor?: "none" | "ethnic";
   collection?: HomeItem[];
   product?: HomeItem[];
+  /** Header bar look (../sections/variants HEADER_STYLES). Unset: from the industry's layout personality. */
+  headerStyle?: HeaderStyle;
+  /** Footer arrangement (FOOTER_LAYOUTS). Unset: from the industry's layout personality. */
+  footerLayout?: FooterLayout;
+  /** Layout family / stock-photo category, stamped by withLayout from the theme's industry. */
+  family?: string;
 };
 
 export type MarketplaceTheme = {

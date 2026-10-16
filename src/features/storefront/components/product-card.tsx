@@ -5,11 +5,16 @@ import { IMAGE_RATIOS } from "@/features/theme/schema/tokens";
 import { paths } from "@/features/storefront/urls";
 import { discountPercent } from "@/lib/money";
 import { Price, Stars } from "./price";
-import { StoreImage } from "./store-image";
+import { StoreImage, type ImageFallback } from "./store-image";
+import { pickStock, stockIndex, type StockSet } from "@/lib/unsplash-stock";
 import { CardQuickAdd, CardWishlist } from "./card-actions";
 import { Carousel } from "./carousel";
 
-export function ProductCard({ product, settings, priority = false }: { product: ProductCardData; settings: ProductCardSettings; priority?: boolean }) {
+/** Stock photo for a product without images (demo stores / Live Preview only; see RenderContext). */
+export const productPlaceholder = (stock: StockSet | null | undefined, product: Pick<ProductCardData, "id" | "imagePath">): ImageFallback | null =>
+  stock && !product.imagePath ? pickStock(stock, "products", stockIndex(product.id)) : null;
+
+export function ProductCard({ product, settings, priority = false, placeholder = null }: { product: ProductCardData; settings: ProductCardSettings; priority?: boolean; placeholder?: ImageFallback | null }) {
   const pct = discountPercent(product.priceMinor, product.compareAtMinor);
   const hasAlt = settings.secondImageOnHover && !!product.hoverImagePath;
   const pill = settings.badgeStyle === "pill";
@@ -30,7 +35,7 @@ export function ProductCard({ product, settings, priority = false }: { product: 
       {/* Media: the link, plus heart and quick add as siblings (never nested interactive elements). */}
       <div className={`sf-card-media relative overflow-hidden ${hasAlt ? "sf-has-alt" : ""}`} style={{ aspectRatio: IMAGE_RATIOS[settings.imageRatio] }}>
         <Link href={href} className="absolute inset-0" tabIndex={-1} aria-hidden data-track-item={trackItem}>
-          <StoreImage path={product.imagePath} alt={product.imageAlt || product.title} sizes="(min-width: 1024px) 25vw, 50vw" priority={priority} className="sf-img-main" />
+          <StoreImage path={product.imagePath} alt={product.imageAlt || product.title} sizes="(min-width: 1024px) 25vw, 50vw" priority={priority} className="sf-img-main" stock={placeholder} />
           {hasAlt ? <StoreImage path={product.hoverImagePath} alt="" sizes="(min-width: 1024px) 25vw, 50vw" className="sf-img-alt" /> : null}
         </Link>
         {badges.length ? (
@@ -75,24 +80,24 @@ export function ProductCard({ product, settings, priority = false }: { product: 
   );
 }
 
-export function ProductGrid({ products, settings, columns = 4, priorityCount = 0 }: { products: ProductCardData[]; settings: ProductCardSettings; columns?: number; priorityCount?: number }) {
+export function ProductGrid({ products, settings, columns = 4, priorityCount = 0, stock = null }: { products: ProductCardData[]; settings: ProductCardSettings; columns?: number; priorityCount?: number; stock?: StockSet | null }) {
   const cols = columns >= 4 ? "@[64rem]:grid-cols-4" : columns === 3 ? "@[64rem]:grid-cols-3" : "@[64rem]:grid-cols-2";
   return (
     <ul className={`grid grid-cols-2 gap-x-4 gap-y-8 @[48rem]:grid-cols-3 ${cols}`}>
       {products.map((p, i) => (
         <li key={p.id}>
-          <ProductCard product={p} settings={settings} priority={i < priorityCount} />
+          <ProductCard product={p} settings={settings} priority={i < priorityCount} placeholder={productPlaceholder(stock, p)} />
         </li>
       ))}
     </ul>
   );
 }
 
-export function ProductRow({ products, settings }: { products: ProductCardData[]; settings: ProductCardSettings }) {
+export function ProductRow({ products, settings, stock = null }: { products: ProductCardData[]; settings: ProductCardSettings; stock?: StockSet | null }) {
   return (
     <Carousel label="Products" itemClassName="w-[46%] @[48rem]:w-[31%] @[64rem]:w-[calc((100%-3.75rem)/4)]">
       {products.map((p) => (
-        <ProductCard key={p.id} product={p} settings={settings} />
+        <ProductCard key={p.id} product={p} settings={settings} placeholder={productPlaceholder(stock, p)} />
       ))}
     </Carousel>
   );
