@@ -42,11 +42,13 @@ export default async function HomePage() {
   const content = await getLandingContent();
   const themes = showcaseThemes(SHOWCASE_INDUSTRIES).slice(0, content.themes.count);
   const hero = findTheme(HERO_THEME) ?? themes[0];
-  const [plans, previews] = await Promise.all([getMarketingPlans(), livePreviewUrls([...themes, ...(hero ? [hero] : [])])]);
+  const [plans, previews] = await Promise.all([getMarketingPlans(), livePreviewUrls(themes)]);
   const tokens = { themes: MARKETPLACE_THEMES.length };
+  // Hero fallback slideshow (when the CMS has no slides or image): the hero theme, then the showcase.
+  const heroThemes = [...(hero ? [hero] : []), ...themes.filter((t) => t.key !== hero?.key)].slice(0, 4);
 
   const sections: Record<SectionKey, () => ReactNode> = {
-    hero: () => <LandingHero content={content.hero} theme={hero} previewUrl={hero ? (previews.get(hero.key) ?? null) : null} tokens={tokens} />,
+    hero: () => <LandingHero content={content.hero} themes={heroThemes} tokens={tokens} />,
     trust: () => <TrustStrip content={content.trust} />,
     solutions: () => <Solutions content={content.solutions} />,
     steps: () => <Steps content={content.steps} />,

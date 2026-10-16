@@ -442,3 +442,16 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   defaults per section (`src/features/marketing-site/landing.ts`, unit tested); saves are validated
   server-side, rate limited, audited and revalidate the site immediately.
 - Testimonials ship empty and hidden: add only real merchant quotes.
+- **Home page redesign: hero, trust strip, categories, feature grid** (2026-10-16). Hero: CSS
+  `@starting-style` entrance and a browser-frame slideshow (`hero-slideshow.tsx`; cross-fade, dots
+  with a progress bar, pause on hover/focus/off-screen/hidden tab, pause button, no autoplay under
+  reduced motion). CMS `hero.slides` (image, alt, caption), `slideInterval` (2–20 s) and `autoplay`;
+  with no slides it falls back to `imageUrl`, then to rotating showcase-theme previews. Trust
+  chips are `{label, icon, color}` (plain-string chips from older saves get an icon and colour from
+  their name; under reduced motion the marquee becomes wrapped rows). Categories are `items`
+  `{label, icon, color, href, imageUrl}` shown as gradient icon tiles (older `chips` are converted).
+  "What & where to sell" cards get colour-coded icon chips per tag (`color` "auto" or a fixed
+  palette colour), a gradient hover border and a staggered scroll reveal (`reveal.tsx`, an
+  IntersectionObserver island). Palette: `ACCENT_COLORS` in `landing.ts` with classes in
+  `landing-icons.tsx`; 24 icons added. Editor: icon picker grid, colour swatches, slides list.
+  All new fields have zod defaults; back-compat is covered in `tests/unit/marketing-site/landing.test.ts`.

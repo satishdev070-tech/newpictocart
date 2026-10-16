@@ -49,8 +49,36 @@ export const LANDING_ICONS = [
   "layout",
   "heart",
   "clock",
+  "shirt",
+  "cake",
+  "laptop",
+  "flower",
+  "scissors",
+  "dumbbell",
+  "sofa",
+  "gem",
+  "wrench",
+  "paw-print",
+  "pen-tool",
+  "leaf",
+  "toy-brick",
+  "pencil",
+  "gift",
+  "coffee",
+  "headphones",
+  "watch",
+  "shopping-bag",
+  "brush",
+  "baby",
+  "hammer",
+  "sprout",
+  "hand-heart",
 ] as const;
 export type LandingIcon = (typeof LANDING_ICONS)[number];
+
+/** Fixed palette for icon chips, category tiles and card accents (classes in components/landing-icons). */
+export const ACCENT_COLORS = ["purple", "green", "orange", "indigo", "pink", "teal", "blue", "amber", "rose"] as const;
+export type AccentColor = (typeof ACCENT_COLORS)[number];
 
 export const SECTION_KEYS = ["hero", "trust", "solutions", "steps", "faq", "features", "themes", "categories", "pricing", "testimonials", "cta"] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
@@ -90,7 +118,41 @@ const href = str(300).refine(isSafeHref, "Use a path like /pricing, #faq, or a f
 const imageUrl = str(500).refine((v) => v === "" || (v.startsWith("/") && !v.startsWith("//")) || /^https:\/\/[^\s]+$/i.test(v), "Use an https:// image link or a /path");
 
 const icon = z.enum(LANDING_ICONS);
+const color = z.enum(ACCENT_COLORS);
 const link = z.object({ label: str(60), href });
+
+/** Icon and colour picked for a category name, so older plain-text chips still look designed. */
+const LABEL_ICONS: [RegExp, LandingIcon, AccentColor][] = [
+  [/fashion|cloth|apparel|boutique/i, "shirt", "pink"],
+  [/food|bak|cake|sweet/i, "cake", "amber"],
+  [/electronic|gadget|mobile/i, "laptop", "blue"],
+  [/beauty|cosmetic|skin|salon/i, "flower", "rose"],
+  [/handcraft|handmade|craft/i, "scissors", "orange"],
+  [/book/i, "book-open", "indigo"],
+  [/fitness|gym|sport/i, "dumbbell", "teal"],
+  [/d[eé]cor|furniture|home/i, "sofa", "amber"],
+  [/jewel/i, "gem", "purple"],
+  [/service|repair/i, "wrench", "blue"],
+  [/pet/i, "paw-print", "orange"],
+  [/art|design/i, "pen-tool", "pink"],
+  [/organic|natural|farm/i, "leaf", "green"],
+  [/toy|kid/i, "toy-brick", "rose"],
+  [/stationer/i, "pencil", "indigo"],
+  [/gift/i, "gift", "purple"],
+  [/caf[eé]|coffee|tea/i, "coffee", "amber"],
+];
+
+export function chipFromLabel(label: string, index: number): { label: string; icon: LandingIcon; color: AccentColor } {
+  const match = LABEL_ICONS.find(([re]) => re.test(label));
+  return { label, icon: match?.[1] ?? "tag", color: match?.[2] ?? ACCENT_COLORS[index % ACCENT_COLORS.length]! };
+}
+
+const chipSchema = z.object({ label: str(40), icon, color });
+/** Chips are `{label, icon, color}`; documents saved before that stored plain strings. */
+const chips = z
+  .array(z.union([str(40), chipSchema]))
+  .max(30)
+  .transform((list) => list.map((c, i) => (typeof c === "string" ? chipFromLabel(c, i) : c)));
 
 export const heroSchema = z.object({
   enabled: z.boolean(),
@@ -104,16 +166,21 @@ export const heroSchema = z.object({
   stats: z.array(z.object({ icon, value: str(20), label: str(40) })).max(6),
   imageUrl,
   imageAlt: str(120),
+  /** Browser-frame slideshow. Empty = the single image above, or rotating theme previews. */
+  slides: z.array(z.object({ imageUrl, alt: str(120), caption: str(80) })).max(8).default([]),
+  slideInterval: z.number().int().min(2).max(20).default(5),
+  autoplay: z.boolean().default(true),
 });
 
-export const trustSchema = z.object({ enabled: z.boolean(), title: str(80), chips: z.array(str(40)).max(30) });
+export const trustSchema = z.object({ enabled: z.boolean(), title: str(80), chips });
 
 export const solutionsSchema = z.object({
   enabled: z.boolean(),
   badge: str(60),
   title: str(160),
   body: str(300),
-  items: z.array(z.object({ icon, title: str(60), tag: str(30), body: str(160), linkLabel: str(40), href, badge: str(16) })).max(16),
+  /** `color` "auto" picks the colour from the tag (Source, Sell, Design, Channels, Operate, Grow). */
+  items: z.array(z.object({ icon, title: str(60), tag: str(30), body: str(160), linkLabel: str(40), href, badge: str(16), color: z.enum(["auto", ...ACCENT_COLORS]).default("auto") })).max(16),
 });
 
 export const stepsSchema = z.object({
@@ -148,7 +215,15 @@ export const featuresSchema = z.object({
 
 export const themesSchema = z.object({ enabled: z.boolean(), badge: str(60), title: str(160), body: str(300), count: z.number().int().min(2).max(12), button: link });
 
-export const categoriesSchema = z.object({ enabled: z.boolean(), title: str(160), body: str(300), chips: z.array(str(40)).max(30) });
+const categoryItem = z.object({ label: str(40), icon, color, href, imageUrl });
+const categoriesObject = z.object({ enabled: z.boolean(), title: str(160), body: str(300), items: z.array(categoryItem).max(30) });
+/** Documents saved before `items` existed stored `chips: string[]`; those are converted. */
+export const categoriesSchema = z.preprocess((v) => {
+  if (!v || typeof v !== "object" || Array.isArray(v) || "items" in v) return v;
+  const { chips: old, ...rest } = v as Record<string, unknown>;
+  if (!Array.isArray(old)) return v;
+  return { ...rest, items: old.map((c, i) => (typeof c === "string" ? { ...chipFromLabel(c, i), href: "", imageUrl: "" } : c)) };
+}, categoriesObject);
 
 export const pricingSchema = z.object({ enabled: z.boolean(), badge: str(60), title: str(160), body: str(300), note: str(120), noteLink: link });
 
@@ -236,11 +311,14 @@ export const DEFAULT_LANDING: LandingContent = {
     ],
     imageUrl: "",
     imageAlt: "",
+    slides: [],
+    slideInterval: 5,
+    autoplay: true,
   },
   trust: {
     enabled: true,
     title: "Built for merchants across India",
-    chips: ["Fashion", "Food & Bakery", "Electronics", "Beauty", "Handcraft", "Books", "Fitness", "Home Décor", "Jewellery", "Services", "Pet Supplies", "Organic", "Toys", "Stationery"],
+    chips: ["Fashion", "Food & Bakery", "Electronics", "Beauty", "Handcraft", "Books", "Fitness", "Home Décor", "Jewellery", "Services", "Pet Supplies", "Organic", "Toys", "Stationery"].map(chipFromLabel),
   },
   solutions: {
     enabled: true,
@@ -248,18 +326,18 @@ export const DEFAULT_LANDING: LandingContent = {
     title: "Now {purple:what to sell} and {green:where to sell} — we have a solution for both.",
     body: "From your storefront to GST invoices, we ship every tool a modern Indian seller needs.",
     items: [
-      { icon: "palette", title: "Theme Marketplace", tag: "Design", body: "Ready-made themes for every category, edited visually", linkLabel: "Explore this feature", href: "/themes", badge: "" },
-      { icon: "message-circle", title: "WhatsApp & Social", tag: "Channels", body: "Order updates on WhatsApp and a social media planner", linkLabel: "Explore this feature", href: "/features", badge: "" },
-      { icon: "link", title: "Custom Domain + SSL", tag: "Design", body: "yourbrand.in with an automatically issued certificate", linkLabel: "Explore this feature", href: "/features", badge: "" },
-      { icon: "credit-card", title: "Razorpay / UPI / COD", tag: "Operate", body: "All payment modes, paid straight to your account", linkLabel: "Explore this feature", href: "/features", badge: "" },
-      { icon: "truck", title: "Shipping", tag: "Operate", body: "Your own rates and PIN code rules, or Delhivery / Shiprocket", linkLabel: "Explore this feature", href: "/features", badge: "" },
-      { icon: "file-text", title: "GST-Ready Invoices", tag: "Operate", body: "A GST invoice for every order, ready for your CA", linkLabel: "Explore this feature", href: "/features", badge: "" },
-      { icon: "ticket", title: "Coupons & Discounts", tag: "Operate", body: "Usage caps, minimum order and expiry rules", linkLabel: "Explore this feature", href: "/features", badge: "" },
-      { icon: "star", title: "Reviews & Ratings", tag: "Operate", body: "1–5 star reviews you approve before they appear", linkLabel: "Explore this feature", href: "/features", badge: "" },
-      { icon: "search", title: "SEO Tools", tag: "Channels", body: "Page titles, descriptions and an automatic sitemap", linkLabel: "Explore this feature", href: "/features", badge: "" },
-      { icon: "image", title: "Creative Studio", tag: "Grow", body: "Turn product photos into ready-to-post creatives", linkLabel: "Explore this feature", href: "/features", badge: "New" },
-      { icon: "bar-chart", title: "Analytics", tag: "Grow", body: "Visitors, orders, sales and conversion over time", linkLabel: "Explore this feature", href: "/features", badge: "" },
-      { icon: "users", title: "Team Access", tag: "Operate", body: "Invite staff with owner, manager or viewer roles", linkLabel: "Explore this feature", href: "/features", badge: "" },
+      { icon: "palette", title: "Theme Marketplace", tag: "Design", body: "Ready-made themes for every category, edited visually", linkLabel: "Explore this feature", href: "/themes", badge: "", color: "auto" },
+      { icon: "message-circle", title: "WhatsApp & Social", tag: "Channels", body: "Order updates on WhatsApp and a social media planner", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "link", title: "Custom Domain + SSL", tag: "Design", body: "yourbrand.in with an automatically issued certificate", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "credit-card", title: "Razorpay / UPI / COD", tag: "Operate", body: "All payment modes, paid straight to your account", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "truck", title: "Shipping", tag: "Operate", body: "Your own rates and PIN code rules, or Delhivery / Shiprocket", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "file-text", title: "GST-Ready Invoices", tag: "Operate", body: "A GST invoice for every order, ready for your CA", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "ticket", title: "Coupons & Discounts", tag: "Operate", body: "Usage caps, minimum order and expiry rules", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "star", title: "Reviews & Ratings", tag: "Operate", body: "1–5 star reviews you approve before they appear", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "search", title: "SEO Tools", tag: "Channels", body: "Page titles, descriptions and an automatic sitemap", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "image", title: "Creative Studio", tag: "Grow", body: "Turn product photos into ready-to-post creatives", linkLabel: "Explore this feature", href: "/features", badge: "New", color: "auto" },
+      { icon: "bar-chart", title: "Analytics", tag: "Grow", body: "Visitors, orders, sales and conversion over time", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "users", title: "Team Access", tag: "Operate", body: "Invite staff with owner, manager or viewer roles", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
     ],
   },
   steps: {
@@ -328,7 +406,7 @@ export const DEFAULT_LANDING: LandingContent = {
     enabled: true,
     title: "One Platform. Every Business.",
     body: "Whether you sell fashion, food, or handcraft — we've got the perfect tools and themes for you.",
-    chips: ["Fashion", "Food & Bakery", "Electronics", "Beauty", "Handcraft", "Books", "Fitness", "Home Décor", "Jewellery", "Services", "Pet Supplies", "Art & Design", "Organic", "Toys", "Stationery"],
+    items: ["Fashion", "Food & Bakery", "Electronics", "Beauty", "Handcraft", "Books", "Fitness", "Home Décor", "Jewellery", "Services", "Pet Supplies", "Art & Design", "Organic", "Toys", "Stationery"].map((label, i) => ({ ...chipFromLabel(label, i), href: "", imageUrl: "" })),
   },
   pricing: {
     enabled: true,

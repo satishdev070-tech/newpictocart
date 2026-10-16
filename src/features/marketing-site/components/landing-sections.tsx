@@ -6,8 +6,10 @@ import { cn } from "@/lib/cn";
 import type { MarketingPlan } from "../plans";
 import { fillTokens, type LandingContent, type StepVisual } from "../landing";
 import { ButtonLink, Container } from "./ui";
-import { Highlighted, LandingIconView } from "./landing-icons";
+import { ACCENT, Highlighted, LandingIconView, tagColor } from "./landing-icons";
 import { RotatingWords } from "./rotating-words";
+import { HeroSlideshow } from "./hero-slideshow";
+import { Reveal } from "./reveal";
 import { ThemeCard, ThemeDevicePreview } from "./theme-card";
 import { PricingTable } from "./pricing-table";
 
@@ -57,21 +59,25 @@ function TextLink({ href, children, className }: { href: string; children: React
 
 // ---- Hero ------------------------------------------------------------------------------
 
-export function LandingHero({ content, theme, previewUrl, tokens }: { content: LandingContent["hero"]; theme: MarketplaceTheme | undefined; previewUrl: string | null; tokens: Record<string, string | number> }) {
+/** Entrance: each block fades up once on first paint (CSS @starting-style, no JS). */
+const enter = (delay = "", from = "starting:translate-y-4", duration = "duration-700") => cn("transition-[opacity,translate] ease-out starting:opacity-0", from, duration, delay);
+
+export function LandingHero({ content, themes, tokens }: { content: LandingContent["hero"]; themes: MarketplaceTheme[]; tokens: Record<string, string | number> }) {
   const stats = content.stats.filter((s) => s.value && s.label);
   return (
     <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-brand-night text-white">
       <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_15%_10%,rgb(79_70_229/0.45),transparent_70%),radial-gradient(50%_60%_at_85%_80%,rgb(124_58_237/0.4),transparent_70%),radial-gradient(40%_40%_at_70%_20%,rgb(5_150_105/0.18),transparent_70%)]" />
       <div aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,rgb(255_255_255/0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgb(255_255_255/0.04)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]" />
+      <div aria-hidden className="absolute -top-24 left-1/3 -z-10 size-72 rounded-full bg-[#7c3aed]/25 blur-3xl motion-safe:animate-pulse [animation-duration:6s]" />
       <Container className="grid items-center gap-12 py-14 sm:py-20 lg:grid-cols-[1.05fr_1fr] lg:py-24">
         <div>
           {content.badge ? (
-            <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs font-medium text-white/85 backdrop-blur">
+            <p className={cn("inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs font-medium text-white/85 backdrop-blur", enter())}>
               <LandingIconView name="zap" className="size-3.5 text-[#34d399]" />
               {content.badge}
             </p>
           ) : null}
-          <h1 id="hero-title" className="mt-6 font-brand text-[2.6rem] font-extrabold leading-[1.05] tracking-tight sm:text-6xl lg:text-[3.8rem]">
+          <h1 id="hero-title" className={cn("mt-6 font-brand text-[2.6rem] font-extrabold leading-[1.05] tracking-tight sm:text-6xl lg:text-[3.8rem]", "transition-[translate] duration-700 ease-out starting:translate-y-3")}>
             <Highlighted text={content.titleLead} onDark />
             {content.rotatingWords.length ? (
               <>
@@ -82,24 +88,27 @@ export function LandingHero({ content, theme, previewUrl, tokens }: { content: L
               </>
             ) : null}
           </h1>
-          {content.body ? <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/75">{content.body}</p> : null}
-          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
+          {content.body ? <p className={cn("mt-6 max-w-xl text-lg leading-relaxed text-white/75", enter("delay-150"))}>{content.body}</p> : null}
+          <div className={cn("mt-8 flex flex-wrap items-center gap-x-6 gap-y-4", enter("delay-200"))}>
             {content.primaryCta.label ? (
-              <ButtonLink href={content.primaryCta.href || "/seller/register"} variant="cta" size="lg" className="rounded-xl" track={{ id: "create_store", location: "hero" }}>
+              <ButtonLink href={content.primaryCta.href || "/seller/register"} variant="cta" size="lg" className="rounded-xl shadow-[0_12px_30px_-10px_rgb(16_185_129/0.7)]" track={{ id: "create_store", location: "hero" }}>
                 {content.primaryCta.label} <ArrowRight aria-hidden className="size-4" />
               </ButtonLink>
             ) : null}
             {content.secondaryCta.label && content.secondaryCta.href ? (
-              <Link href={content.secondaryCta.href} className="inline-flex items-center gap-1 rounded text-sm font-medium text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
-                {content.secondaryCta.label} <ChevronRight aria-hidden className="size-4" />
+              <Link href={content.secondaryCta.href} className="group inline-flex items-center gap-1 rounded text-sm font-medium text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+                {content.secondaryCta.label} <ChevronRight aria-hidden className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
             ) : null}
           </div>
           {stats.length ? (
-            <ul className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-white/70">
+            <ul className={cn("mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-white/70", enter("delay-300"))}>
               {content.liveLabel ? (
                 <li className="inline-flex items-center gap-1.5 rounded-full border border-[#34d399]/40 bg-[#34d399]/10 px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-[#34d399]">
-                  <span className="size-1.5 animate-pulse rounded-full bg-[#34d399] motion-reduce:animate-none" aria-hidden />
+                  <span className="relative grid size-1.5 place-items-center" aria-hidden>
+                    <span className="absolute size-full rounded-full bg-[#34d399] motion-safe:animate-ping" />
+                    <span className="size-1.5 rounded-full bg-[#34d399]" />
+                  </span>
                   {content.liveLabel}
                 </li>
               ) : null}
@@ -114,60 +123,104 @@ export function LandingHero({ content, theme, previewUrl, tokens }: { content: L
             </ul>
           ) : null}
         </div>
-        <HeroVisual content={content} theme={theme} previewUrl={previewUrl} />
+        <div className={enter("delay-200", "starting:translate-x-8", "duration-1000")}>
+          <HeroVisual content={content} themes={themes} />
+        </div>
       </Container>
     </section>
   );
 }
 
-function HeroVisual({ content, theme, previewUrl }: { content: LandingContent["hero"]; theme: MarketplaceTheme | undefined; previewUrl: string | null }) {
-  if (content.imageUrl) {
+function BrowserFrame({ children }: { children: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#141235] shadow-[0_40px_80px_-30px_rgb(0_0_0/0.8)]">
+      <div className="flex items-center gap-1.5 border-b border-white/10 px-4 py-3" aria-hidden>
+        <span className="size-2.5 rounded-full bg-[#f87171]" />
+        <span className="size-2.5 rounded-full bg-[#fbbf24]" />
+        <span className="size-2.5 rounded-full bg-[#34d399]" />
+        <span className="ml-3 h-4 flex-1 rounded-full bg-white/10" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Right-hand visual, first match wins: CMS slides (a slideshow in a browser frame), the single
+ * hero image, then the showcase themes' previews (a slideshow when there are several).
+ */
+function HeroVisual({ content, themes }: { content: LandingContent["hero"]; themes: MarketplaceTheme[] }) {
+  const slides = content.slides.filter((s) => s.imageUrl);
+  const glow = (
+    <>
+      <div aria-hidden className="absolute -inset-6 -z-10 rounded-[40px] bg-brand/30 blur-3xl" />
+      <div aria-hidden className="absolute inset-x-6 top-6 bottom-20 -z-10 rotate-2 rounded-2xl bg-gradient-to-br from-[#7c3aed]/40 to-[#4f46e5]/20 ring-1 ring-white/10" />
+    </>
+  );
+  if (slides.length || content.imageUrl) {
+    const list = slides.length ? slides : [{ imageUrl: content.imageUrl, alt: content.imageAlt, caption: "" }];
     return (
       <figure className="relative">
-        <div aria-hidden className="absolute -inset-6 -z-10 rounded-[40px] bg-brand/30 blur-3xl" />
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#141235] shadow-[0_40px_80px_-30px_rgb(0_0_0/0.8)]">
-          <div className="flex items-center gap-1.5 border-b border-white/10 px-4 py-3" aria-hidden>
-            <span className="size-2.5 rounded-full bg-[#f87171]" />
-            <span className="size-2.5 rounded-full bg-[#fbbf24]" />
-            <span className="size-2.5 rounded-full bg-[#34d399]" />
-            <span className="ml-3 h-4 flex-1 rounded-full bg-white/10" />
-          </div>
-          <img src={content.imageUrl} alt={content.imageAlt} className="block w-full" loading="eager" />
-        </div>
+        {glow}
+        <HeroSlideshow
+          label="Store previews"
+          interval={content.slideInterval}
+          autoplay={content.autoplay}
+          captions={list.map((s) => s.caption)}
+          slides={[
+            ...list.map((s, i) => (
+              <BrowserFrame key={i}>
+                <img src={s.imageUrl} alt={s.alt} className="block aspect-[16/10] w-full object-cover object-top" loading={i === 0 ? "eager" : "lazy"} fetchPriority={i === 0 ? "high" : "auto"} decoding="async" />
+              </BrowserFrame>
+            )),
+          ]}
+        />
       </figure>
     );
   }
-  if (!theme) return null;
+  if (!themes.length) return null;
   return (
-    <figure className="relative pb-6 lg:pl-4">
-      <div aria-hidden className="absolute -inset-6 -z-10 rounded-[40px] bg-brand/25 blur-3xl" />
-      <div className="relative rounded-2xl bg-white/[0.03] p-2 ring-1 ring-white/10">
-        <ThemeDevicePreview theme={theme} previewUrl={previewUrl} size="large" eager live />
-      </div>
-      <figcaption className="mt-8 text-center text-sm text-white/60">
-        Shown: the{" "}
-        <Link href={`/themes/${theme.key}`} className="font-semibold text-white underline-offset-2 hover:underline">
-          {theme.name}
-        </Link>{" "}
-        theme with sample products.
-      </figcaption>
+    <figure className="relative pb-2 lg:pl-4">
+      {glow}
+      <HeroSlideshow
+        label="Theme previews"
+        interval={content.slideInterval}
+        autoplay={content.autoplay}
+        captions={themes.map((t) => `${t.name} theme, with sample products`)}
+        slides={themes.map((t, i) => (
+          <div key={t.key} className="relative rounded-2xl bg-white/[0.03] p-2 pb-10 ring-1 ring-white/10">
+            <ThemeDevicePreview theme={t} size="large" eager={i === 0} />
+          </div>
+        ))}
+      />
     </figure>
   );
 }
 
 // ---- Trust strip -------------------------------------------------------------------------
 
+/** Scroll-reveal for grid children (see Reveal): the li fades up, the card inside owns hover. */
+const revealItem = "transition-[opacity,translate] duration-700 ease-out group-data-[reveal=hidden]/reveal:translate-y-6 group-data-[reveal=hidden]/reveal:opacity-0";
+const revealDelay = (i: number) => ({ transitionDelay: `${Math.min(i, 11) * 55}ms` });
+
 export function TrustStrip({ content }: { content: LandingContent["trust"] }) {
-  if (!content.chips.length) return null;
-  const chips = content.chips;
+  const chips = content.chips.filter((c) => c.label);
+  if (!chips.length) return null;
   return (
     <section aria-label={content.title || "Business categories"} className="border-b border-border bg-white py-10">
       {content.title ? <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-subtle">{content.title}</p> : null}
-      <div className="group relative mt-6 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
-        <ul className="flex w-max gap-3 motion-safe:animate-[marquee_45s_linear_infinite] group-hover:[animation-play-state:paused]">
+      <div className="group relative mt-6 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)] motion-reduce:[mask-image:none]">
+        <ul className="flex w-max gap-3 px-1.5 py-1 motion-safe:animate-[marquee_50s_linear_infinite] group-hover:[animation-play-state:paused] motion-reduce:mx-auto motion-reduce:w-auto motion-reduce:max-w-5xl motion-reduce:flex-wrap motion-reduce:justify-center">
           {[...chips, ...chips].map((c, i) => (
-            <li key={`${c}-${i}`} aria-hidden={i >= chips.length} className="rounded-full border border-border bg-brand-canvas px-5 py-2 text-sm font-medium whitespace-nowrap text-brand-ink/80">
-              {c}
+            <li
+              key={`${c.label}-${i}`}
+              aria-hidden={i >= chips.length}
+              className={cn("inline-flex items-center gap-2.5 rounded-full border border-border bg-white py-1.5 pr-4 pl-1.5 text-sm font-medium whitespace-nowrap text-brand-ink/85 shadow-[0_1px_2px_rgb(15_23_42/0.05)] transition-colors hover:border-border-strong", i >= chips.length && "motion-reduce:hidden")}
+            >
+              <span className={cn("grid size-7 place-items-center rounded-full", ACCENT[c.color].chip)}>
+                <LandingIconView name={c.icon} className="size-3.5" />
+              </span>
+              {c.label}
             </li>
           ))}
         </ul>
@@ -180,32 +233,43 @@ export function TrustStrip({ content }: { content: LandingContent["trust"] }) {
 
 export function Solutions({ content }: { content: LandingContent["solutions"] }) {
   return (
-    <section id="solutions" aria-labelledby="solutions-title" className="scroll-mt-20 bg-gradient-to-b from-white to-brand-canvas/60 py-20 sm:py-24">
+    <section id="solutions" aria-labelledby="solutions-title" className="relative isolate scroll-mt-20 overflow-hidden bg-gradient-to-b from-white to-brand-canvas/60 py-20 sm:py-24">
+      <div aria-hidden className="absolute top-24 -left-32 -z-10 size-96 rounded-full bg-[#a78bfa]/15 blur-3xl" />
+      <div aria-hidden className="absolute -right-32 bottom-10 -z-10 size-96 rounded-full bg-[#34d399]/10 blur-3xl" />
       <Container>
         <Heading id="solutions-title" badge={content.badge} tone="purple" title={content.title} body={content.body} />
-        <ul className="mt-14 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
-          {content.items.map((item) => (
-            <li key={item.title} className="group relative flex flex-col rounded-2xl border border-border bg-white p-4 sm:p-5 transition-all hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-brand-card motion-reduce:hover:translate-y-0">
-              {item.badge ? <span className="absolute -top-2.5 right-4 rounded-full bg-brand-accent px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-white uppercase">{item.badge}</span> : null}
-              <div className="flex flex-col items-start gap-3 sm:flex-row">
-                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
-                  <LandingIconView name={item.icon} className="size-5" />
-                </span>
-                <div>
-                  <h3 className="font-brand text-[0.95rem] leading-snug font-bold text-brand-ink">{item.title}</h3>
-                  {item.tag ? <p className="mt-0.5 text-[10px] font-semibold tracking-[0.14em] text-subtle uppercase">{item.tag}</p> : null}
+        <Reveal as="ul" className="mt-14 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+          {content.items.map((item, i) => {
+            const tint = ACCENT[item.color === "auto" ? tagColor(item.tag, i) : item.color];
+            return (
+              <li key={item.title} className={revealItem} style={revealDelay(i)}>
+                <div className="group relative h-full rounded-2xl bg-border p-px transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_-24px_rgb(27_29_69/0.35)] motion-reduce:hover:translate-y-0">
+                  <span aria-hidden className={cn("absolute inset-0 rounded-2xl bg-gradient-to-br opacity-0 transition-opacity duration-300 group-hover:opacity-100", tint.ring)} />
+                  <div className="relative flex h-full flex-col overflow-hidden rounded-[15px] bg-white p-4 sm:p-5">
+                    <span aria-hidden className={cn("absolute -top-10 -right-10 size-28 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100", tint.glow)} />
+                    <div className="relative flex flex-col items-start gap-3 sm:flex-row">
+                      <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 motion-reduce:group-hover:transform-none", tint.chip)}>
+                        <LandingIconView name={item.icon} className="size-5" />
+                      </span>
+                      <div>
+                        <h3 className="font-brand text-[0.95rem] leading-snug font-bold text-brand-ink">{item.title}</h3>
+                        {item.tag ? <p className={cn("mt-0.5 text-[10px] font-bold tracking-[0.14em] uppercase", tint.text)}>{item.tag}</p> : null}
+                      </div>
+                    </div>
+                    <p className="relative mt-3 flex-1 text-xs leading-relaxed text-muted sm:mt-4 sm:text-sm">{item.body}</p>
+                    {item.linkLabel && item.href ? (
+                      <TextLink href={item.href} className="relative mt-4 text-xs after:absolute after:-inset-[200px] after:content-['']">
+                        {item.linkLabel} <ArrowRight aria-hidden className="size-3.5 transition-transform group-hover:translate-x-1" />
+                        <span className="sr-only">: {item.title}</span>
+                      </TextLink>
+                    ) : null}
+                  </div>
+                  {item.badge ? <span className="absolute -top-2.5 right-4 rounded-full bg-gradient-to-r from-brand-accent to-[#f43f5e] px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-white uppercase shadow-[0_6px_14px_-6px_rgb(234_88_12/0.8)]">{item.badge}</span> : null}
                 </div>
-              </div>
-              <p className="mt-3 flex-1 text-xs leading-relaxed text-muted sm:mt-4 sm:text-sm">{item.body}</p>
-              {item.linkLabel && item.href ? (
-                <TextLink href={item.href} className="mt-4 text-xs">
-                  {item.linkLabel} <ArrowRight aria-hidden className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-                  <span className="sr-only">: {item.title}</span>
-                </TextLink>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+              </li>
+            );
+          })}
+        </Reveal>
       </Container>
     </section>
   );
@@ -493,19 +557,70 @@ export function LandingThemes({ content, themes, previews }: { content: LandingC
 // ---- Categories --------------------------------------------------------------------------
 
 export function LandingCategories({ content }: { content: LandingContent["categories"] }) {
+  const items = content.items.filter((c) => c.label);
   return (
-    <section id="categories" aria-labelledby="categories-title" className="scroll-mt-20 bg-brand-canvas py-20 sm:py-24">
+    <section id="categories" aria-labelledby="categories-title" className="relative isolate scroll-mt-20 overflow-hidden bg-brand-canvas py-20 sm:py-24">
+      <div aria-hidden className="absolute -top-20 left-1/4 -z-10 size-80 rounded-full bg-[#f472b6]/12 blur-3xl" />
+      <div aria-hidden className="absolute right-1/4 -bottom-24 -z-10 size-80 rounded-full bg-[#60a5fa]/15 blur-3xl" />
       <Container>
         <Heading id="categories-title" badge="" tone="indigo" title={content.title} body={content.body} />
-        <ul className="mx-auto mt-10 flex max-w-4xl flex-wrap justify-center gap-3">
-          {content.chips.map((c) => (
-            <li key={c} className="rounded-full border border-border bg-white px-5 py-2 text-sm font-medium text-brand-ink/85 shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
-              {c}
+        <Reveal as="ul" className="mx-auto mt-12 grid max-w-6xl grid-cols-3 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-5">
+          {items.map((c, i) => (
+            <li key={`${c.label}-${i}`} className={revealItem} style={revealDelay(i)}>
+              <CategoryTile item={c} />
             </li>
           ))}
-        </ul>
+        </Reveal>
       </Container>
     </section>
+  );
+}
+
+function CategoryTile({ item }: { item: LandingContent["categories"]["items"][number] }) {
+  const tint = ACCENT[item.color];
+  const body = (
+    <>
+      {item.imageUrl ? (
+        <span className="relative block aspect-[4/3] w-full overflow-hidden rounded-xl">
+          <img src={item.imageUrl} alt="" loading="lazy" decoding="async" className="size-full object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:group-hover:scale-100" />
+          <span className={cn("absolute bottom-2 left-2 grid size-8 place-items-center rounded-lg bg-gradient-to-br text-white shadow-lg", tint.solid)}>
+            <LandingIconView name={item.icon} className="size-4" />
+          </span>
+        </span>
+      ) : (
+        <span className="relative grid size-14 place-items-center sm:size-16">
+          <span aria-hidden className={cn("absolute inset-0 rounded-2xl bg-gradient-to-br opacity-90 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6 motion-reduce:group-hover:transform-none", tint.solid)} />
+          <span aria-hidden className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_30%_25%,rgb(255_255_255/0.45),transparent_60%)]" />
+          <LandingIconView name={item.icon} className="relative size-6 text-white drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5 sm:size-7" />
+        </span>
+      )}
+      <span className="mt-3 text-center text-xs leading-snug font-semibold text-brand-ink sm:text-sm">{item.label}</span>
+    </>
+  );
+  const cls = cn(
+    "group relative flex h-full flex-col items-center overflow-hidden rounded-2xl border border-border bg-white p-3 transition-[translate,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-transparent hover:shadow-[0_20px_40px_-20px_rgb(27_29_69/0.35)] motion-reduce:hover:translate-y-0 sm:p-4",
+    !item.imageUrl && "justify-center py-5 sm:py-6",
+  );
+  const glow = <span aria-hidden className={cn("pointer-events-none absolute -bottom-12 left-1/2 size-24 -translate-x-1/2 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100", tint.glow)} />;
+  if (!item.href) {
+    return (
+      <div className={cls}>
+        {glow}
+        {body}
+      </div>
+    );
+  }
+  const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+  return isExternal(item.href) ? (
+    <a href={item.href} target="_blank" rel="noopener noreferrer" className={cn(cls, focus)}>
+      {glow}
+      {body}
+    </a>
+  ) : (
+    <Link href={item.href} className={cn(cls, focus)}>
+      {glow}
+      {body}
+    </Link>
   );
 }
 

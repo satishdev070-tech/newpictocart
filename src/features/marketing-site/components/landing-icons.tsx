@@ -31,9 +31,10 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { Baby, Brush, CakeSlice, Coffee, Dumbbell, Flower2, Gem, Gift, Hammer, HandHeart, Headphones, Laptop, Leaf, PawPrint, Pencil, PenTool, Scissors, Shirt, ShoppingBag, Sofa, Sprout, ToyBrick, Watch, Wrench } from "lucide-react";
 import type { SVGProps } from "react";
 import { cn } from "@/lib/cn";
-import type { HighlightColor, LandingIcon } from "../landing";
+import type { AccentColor, HighlightColor, LandingIcon } from "../landing";
 import { parseHighlights } from "../landing";
 
 export const LANDING_ICON_COMPONENTS: Record<LandingIcon, LucideIcon> = {
@@ -67,6 +68,30 @@ export const LANDING_ICON_COMPONENTS: Record<LandingIcon, LucideIcon> = {
   layout: LayoutTemplate,
   heart: Heart,
   clock: Clock,
+  shirt: Shirt,
+  cake: CakeSlice,
+  laptop: Laptop,
+  flower: Flower2,
+  scissors: Scissors,
+  dumbbell: Dumbbell,
+  sofa: Sofa,
+  gem: Gem,
+  wrench: Wrench,
+  "paw-print": PawPrint,
+  "pen-tool": PenTool,
+  leaf: Leaf,
+  "toy-brick": ToyBrick,
+  pencil: Pencil,
+  gift: Gift,
+  coffee: Coffee,
+  headphones: Headphones,
+  watch: Watch,
+  "shopping-bag": ShoppingBag,
+  brush: Brush,
+  baby: Baby,
+  hammer: Hammer,
+  sprout: Sprout,
+  "hand-heart": HandHeart,
 };
 
 export function LandingIconView({ name, className }: { name: LandingIcon; className?: string }) {
@@ -142,3 +167,29 @@ export const SocialIcons = {
     </svg>
   ),
 } as const;
+
+// ---- Accent palette (ACCENT_COLORS) ----------------------------------------------------
+
+/**
+ * Literal class strings per accent colour (Tailwind only sees whole class names).
+ * chip: tinted icon tile · text: eyebrow/link colour · solid: filled icon · ring: gradient border on
+ * hover · glow: soft blurred halo · swatch: editor colour picker.
+ */
+export const ACCENT: Record<AccentColor, { chip: string; text: string; solid: string; ring: string; glow: string; swatch: string }> = {
+  purple: { chip: "bg-[#f3eefe] text-[#7c3aed]", text: "text-[#7c3aed]", solid: "from-[#a78bfa] to-[#7c3aed]", ring: "from-[#c4b5fd] via-[#a78bfa] to-[#7c3aed]", glow: "bg-[#a78bfa]/30", swatch: "bg-[#7c3aed]" },
+  green: { chip: "bg-[#e7f8ef] text-[#059669]", text: "text-[#059669]", solid: "from-[#34d399] to-[#059669]", ring: "from-[#a7f3d0] via-[#34d399] to-[#059669]", glow: "bg-[#34d399]/30", swatch: "bg-[#059669]" },
+  orange: { chip: "bg-[#fff1e6] text-[#ea580c]", text: "text-[#ea580c]", solid: "from-[#fb923c] to-[#ea580c]", ring: "from-[#fed7aa] via-[#fb923c] to-[#ea580c]", glow: "bg-[#fb923c]/30", swatch: "bg-[#ea580c]" },
+  indigo: { chip: "bg-[#eef0ff] text-[#4f46e5]", text: "text-[#4f46e5]", solid: "from-[#818cf8] to-[#4f46e5]", ring: "from-[#c7d2fe] via-[#818cf8] to-[#4f46e5]", glow: "bg-[#818cf8]/30", swatch: "bg-[#4f46e5]" },
+  pink: { chip: "bg-[#fdeef8] text-[#db2777]", text: "text-[#db2777]", solid: "from-[#f472b6] to-[#db2777]", ring: "from-[#fbcfe8] via-[#f472b6] to-[#db2777]", glow: "bg-[#f472b6]/30", swatch: "bg-[#db2777]" },
+  teal: { chip: "bg-[#e6f8f7] text-[#0d9488]", text: "text-[#0d9488]", solid: "from-[#2dd4bf] to-[#0d9488]", ring: "from-[#99f6e4] via-[#2dd4bf] to-[#0d9488]", glow: "bg-[#2dd4bf]/30", swatch: "bg-[#0d9488]" },
+  blue: { chip: "bg-[#e8f1fe] text-[#2563eb]", text: "text-[#2563eb]", solid: "from-[#60a5fa] to-[#2563eb]", ring: "from-[#bfdbfe] via-[#60a5fa] to-[#2563eb]", glow: "bg-[#60a5fa]/30", swatch: "bg-[#2563eb]" },
+  amber: { chip: "bg-[#fef5e2] text-[#b45309]", text: "text-[#b45309]", solid: "from-[#fbbf24] to-[#d97706]", ring: "from-[#fde68a] via-[#fbbf24] to-[#d97706]", glow: "bg-[#fbbf24]/30", swatch: "bg-[#d97706]" },
+  rose: { chip: "bg-[#ffeef0] text-[#e11d48]", text: "text-[#e11d48]", solid: "from-[#fb7185] to-[#e11d48]", ring: "from-[#fecdd3] via-[#fb7185] to-[#e11d48]", glow: "bg-[#fb7185]/30", swatch: "bg-[#e11d48]" },
+};
+
+/** Colour for a feature card's category eyebrow (Source, Sell, Design, Channels, Operate, Grow). */
+const TAG_COLORS: Record<string, AccentColor> = { source: "teal", sell: "green", design: "purple", channels: "pink", operate: "indigo", grow: "orange" };
+export function tagColor(tag: string, fallbackIndex = 0): AccentColor {
+  const order: AccentColor[] = ["indigo", "purple", "teal", "pink", "orange", "blue", "green", "amber", "rose"];
+  return TAG_COLORS[tag.trim().toLowerCase()] ?? order[fallbackIndex % order.length]!;
+}
