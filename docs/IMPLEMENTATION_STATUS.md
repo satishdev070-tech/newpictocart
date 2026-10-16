@@ -452,3 +452,29 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   (`getCategoryImage` / `getCategoryImages`, reusable by other sections) searches Unsplash with
   `UNSPLASH_ACCESS_KEY` (fetch-cached 1 day) and falls back to a curated `images.unsplash.com` photo
   per category; cards show the required "Photo: X / Unsplash" credit. Unit tested (fallbacks).
+
+## Marketing header mega menu and footer (CMS-driven)
+
+- **Mega menu**: the header nav item named in `header.megaMenu.trigger` (default "Features") opens
+  a six-column panel (Sell, Source, Design, Channels, Operate, Grow) with tinted icon chips per
+  column, a bottom bar and a theme marketplace link. Small client component
+  (`components/mega-menu.tsx`); the rest of the header stays server-rendered. Opens on hover,
+  focus or click; Escape, tabbing out, outside click or navigation close it; `aria-expanded` on
+  the trigger. Three columns with a scrollable, height-capped panel at `lg`, six from `xl`. Phones
+  get an accordion of the same columns inside the mobile nav sheet. Menu links use `<Link prefetch>`.
+- **Footer** (`components/site-footer.tsx`): dark navy, CMS link columns with an optional
+  highlighted link (default "Investors"), divider, logo / copyright / share + social icons in
+  brand colours (Instagram, X, Facebook, YouTube, LinkedIn, WhatsApp, Pinterest, Telegram, Threads;
+  empty URL = hidden). **Share** popover (`components/share-button.tsx`) for the current page on
+  WhatsApp, Facebook, X, LinkedIn, Telegram, Pinterest, Email and copy link, plus the device
+  share sheet (Web Share API) where available. Floating WhatsApp button kept.
+- **CMS**: `header.megaMenu`, `footer.groups[].links[].highlight`, the extra social keys and
+  `footer.share` were added with zod `.default()`s, so documents saved before them still parse and
+  keep their nav and links (unit tested in `tests/unit/marketing-site/landing.test.ts`). Option
+  lists and defaults live in `src/features/marketing-site/chrome-content.ts`. Editing UI in
+  `/admin/landing` → Header & menu (mega menu columns/items, icon, colour) and Footer (highlight
+  flag, all socials, share toggle/message/networks).
+- Fixed: the mobile nav sheet was only a few pixels tall because the header's `backdrop-blur`
+  makes it the containing block for the sheet's `position: fixed`.
+- Not yet: the default footer links "Contact", "Support", "Refund Policy" and "Investors" point at
+  existing pages (no dedicated pages exist); set real URLs in the CMS. Social URLs ship empty.

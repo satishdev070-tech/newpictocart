@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_FOOTER_SHARE, DEFAULT_MEGA_MENU, MENU_ICONS, MENU_TONES, SHARE_NETWORKS, SOCIAL_KEYS, type SocialKey } from "./chrome-content";
 
 /**
  * Landing page CMS (super admin → Landing page). The whole home page, header navigation and
@@ -161,12 +162,53 @@ export const testimonialsSchema = z.object({
 
 export const ctaSchema = z.object({ enabled: z.boolean(), title: str(160), body: str(300), button: link, note: str(120) });
 
-export const headerSchema = z.object({ nav: z.array(link).max(8), loginLabel: str(30), loginHref: href, ctaLabel: str(40), ctaHref: href });
+// Header and footer fields added after the first release use .default(), so documents saved
+// before them still parse (and keep the admin's nav and links) instead of falling back whole.
+
+export const megaMenuSchema = z.object({
+  enabled: z.boolean(),
+  trigger: str(60),
+  columns: z
+    .array(
+      z.object({
+        title: str(30),
+        subtitle: str(80),
+        tone: z.enum(MENU_TONES),
+        items: z.array(z.object({ icon: z.enum(MENU_ICONS), title: str(60), body: str(120), href })).max(8),
+      }),
+    )
+    .max(6),
+  footerLead: str(60),
+  footerText: str(160),
+  footerLink: link,
+});
+
+export const headerSchema = z.object({
+  nav: z.array(link).max(8),
+  loginLabel: str(30),
+  loginHref: href,
+  ctaLabel: str(40),
+  ctaHref: href,
+  megaMenu: megaMenuSchema.default(() => structuredClone(DEFAULT_MEGA_MENU)),
+});
+
+const socialHref = href.default("");
 
 export const footerSchema = z.object({
   tagline: str(200),
-  groups: z.array(z.object({ title: str(40), links: z.array(link).max(10) })).max(5),
-  socials: z.object({ instagram: href, x: href, facebook: href, youtube: href, linkedin: href }),
+  groups: z.array(z.object({ title: str(40), links: z.array(link.extend({ highlight: z.boolean().default(false) })).max(10) })).max(5),
+  socials: z.object(Object.fromEntries(SOCIAL_KEYS.map((k) => [k, socialHref])) as Record<SocialKey, typeof socialHref>),
+  share: z
+    .object({
+      enabled: z.boolean(),
+      label: str(30),
+      text: str(200),
+      networks: z
+        .array(z.enum(SHARE_NETWORKS))
+        .max(SHARE_NETWORKS.length)
+        .refine((a) => new Set(a).size === a.length, "Each network can appear once"),
+    })
+    .default(() => structuredClone(DEFAULT_FOOTER_SHARE)),
   /** WhatsApp number for the floating chat button, digits with country code (e.g. 919876543210). */
   whatsapp: z.string().trim().regex(/^(\d{10,15})?$/, "Digits only, with country code, e.g. 919876543210"),
   whatsappMessage: str(200),
@@ -218,6 +260,7 @@ export const DEFAULT_LANDING: LandingContent = {
     loginHref: "/seller/login",
     ctaLabel: "Start Free",
     ctaHref: "/seller/register",
+    megaMenu: DEFAULT_MEGA_MENU,
   },
   order: [...SECTION_KEYS],
   hero: {
@@ -357,36 +400,40 @@ export const DEFAULT_LANDING: LandingContent = {
       {
         title: "Product",
         links: [
-          { label: "Features", href: "/features" },
-          { label: "Pricing", href: "/pricing" },
-          { label: "Themes", href: "/themes" },
-          { label: "Get Started", href: "/seller/register" },
+          { label: "Features", href: "/features", highlight: false },
+          { label: "Pricing", href: "/pricing", highlight: false },
+          { label: "Themes", href: "/themes", highlight: false },
+          { label: "Get Started", href: "/seller/register", highlight: false },
         ],
       },
       {
         title: "Company",
         links: [
-          { label: "How it works", href: "/how-it-works" },
-          { label: "Seller login", href: "/seller/login" },
+          { label: "About Us", href: "/how-it-works", highlight: false },
+          { label: "Contact", href: "/how-it-works#faq", highlight: false },
+          { label: "Support", href: "/how-it-works#faq", highlight: false },
         ],
       },
       {
         title: "Resources",
         links: [
-          { label: "Help Center", href: "/how-it-works" },
-          { label: "Pricing", href: "/pricing" },
-          { label: "Themes", href: "/themes" },
+          { label: "Help Center", href: "/how-it-works", highlight: false },
+          { label: "Pricing", href: "/pricing", highlight: false },
+          { label: "Themes", href: "/themes", highlight: false },
         ],
       },
       {
         title: "Legal",
         links: [
-          { label: "Privacy Policy", href: "/privacy" },
-          { label: "Terms of Service", href: "/terms" },
+          { label: "Privacy Policy", href: "/privacy", highlight: false },
+          { label: "Terms of Service", href: "/terms", highlight: false },
+          { label: "Refund Policy", href: "/terms", highlight: false },
+          { label: "Investors", href: "/pricing", highlight: true },
         ],
       },
     ],
-    socials: { instagram: "", x: "", facebook: "", youtube: "", linkedin: "" },
+    socials: { instagram: "", x: "", facebook: "", youtube: "", linkedin: "", whatsapp: "", pinterest: "", telegram: "", threads: "" },
+    share: DEFAULT_FOOTER_SHARE,
     whatsapp: "",
     whatsappMessage: "Hi Pictocart, I'd like to know more about creating my online store.",
     copyright: "Pictocart. All rights reserved.",

@@ -15,6 +15,7 @@ import {
   type LandingIcon,
   type SectionKey,
 } from "@/features/marketing-site/landing";
+import { MENU_ICONS, MENU_TONES, SHARE_LABELS, SHARE_NETWORKS, SOCIAL_KEYS, SOCIAL_LABELS, type MenuIcon, type MenuTone } from "@/features/marketing-site/chrome-content";
 import { resetLandingAction, saveLandingAction } from "../actions";
 
 /**
@@ -246,7 +247,107 @@ function HeaderEditor({ value, onChange }: { value: LandingContent["header"]; on
         <Text label="Button label" value={value.ctaLabel} onChange={(ctaLabel) => onChange({ ...value, ctaLabel })} />
         <Text label="Button link" value={value.ctaHref} onChange={(ctaHref) => onChange({ ...value, ctaHref })} />
       </div>
+      <MegaMenuEditor value={value.megaMenu} navLabels={value.nav.map((l) => l.label)} onChange={(megaMenu) => onChange({ ...value, megaMenu })} />
     </div>
+  );
+}
+
+type MegaMenuValue = LandingContent["header"]["megaMenu"];
+
+function MegaMenuEditor({ value, navLabels, onChange }: { value: MegaMenuValue; navLabels: string[]; onChange: (v: MegaMenuValue) => void }) {
+  const triggerId = useId();
+  const linked = navLabels.some((l) => l.trim().toLowerCase() === value.trigger.trim().toLowerCase());
+  return (
+    <fieldset className="space-y-4 rounded-md border border-border p-4">
+      <legend className="px-1 text-small font-semibold">Mega menu</legend>
+      <label className="flex items-center justify-between gap-4 rounded-md bg-surface-secondary px-4 py-3">
+        <span>
+          <span className="block text-small font-semibold">Show the mega menu</span>
+          <span className="block text-caption text-muted">On desktop the menu link opens a wide panel; on phones it becomes an accordion.</span>
+        </span>
+        <input type="checkbox" checked={value.enabled} onChange={(e) => onChange({ ...value, enabled: e.target.checked })} className="size-5 accent-[var(--accent)]" />
+      </label>
+      <div className={cn("space-y-4", !value.enabled && "opacity-60")}>
+        <Field id={triggerId} label="Opens from menu link" hint={linked ? undefined : "No menu link has this label, so the mega menu is not shown."}>
+          <select id={triggerId} value={linked ? value.trigger : ""} onChange={(e) => onChange({ ...value, trigger: e.target.value })} className={inputClassName}>
+            {linked ? null : <option value="">Choose a menu link</option>}
+            {navLabels.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Repeater
+          label="Columns"
+          items={value.columns}
+          max={6}
+          onChange={(columns) => onChange({ ...value, columns })}
+          newItem={() => ({ title: "New column", subtitle: "", tone: "indigo" as MenuTone, items: [] })}
+          itemTitle={(c) => c.title || "Column"}
+          render={(c, update) => (
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_160px]">
+                <Text label="Title" value={c.title} onChange={(title) => update({ ...c, title })} hint="Shown in capitals." />
+                <Text label="Subtitle" value={c.subtitle} onChange={(subtitle) => update({ ...c, subtitle })} />
+                <ToneSelect value={c.tone} onChange={(tone) => update({ ...c, tone })} />
+              </div>
+              <Repeater
+                label="Items"
+                items={c.items}
+                max={8}
+                onChange={(items) => update({ ...c, items })}
+                newItem={() => ({ icon: "sparkles" as MenuIcon, title: "New item", body: "", href: "/features" })}
+                itemTitle={(it) => it.title || "Item"}
+                render={(it, u) => (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <MenuIconSelect value={it.icon} onChange={(icon) => u({ ...it, icon })} />
+                    <Text label="Title" value={it.title} onChange={(title) => u({ ...it, title })} />
+                    <Text label="One-line description" value={it.body} onChange={(body) => u({ ...it, body })} max={120} />
+                    <Text label="Link" value={it.href} onChange={(href) => u({ ...it, href })} hint="/features, /themes or https://…" />
+                  </div>
+                )}
+              />
+            </div>
+          )}
+        />
+        <div className="grid gap-3 sm:grid-cols-[200px_1fr]">
+          <Text label="Bottom bar: bold start" value={value.footerLead} onChange={(footerLead) => onChange({ ...value, footerLead })} />
+          <Text label="Bottom bar: text" value={value.footerText} onChange={(footerText) => onChange({ ...value, footerText })} />
+        </div>
+        <LinkEditor label="Bottom bar link" value={value.footerLink} onChange={(footerLink) => onChange({ ...value, footerLink })} />
+      </div>
+    </fieldset>
+  );
+}
+
+function MenuIconSelect({ value, onChange }: { value: MenuIcon; onChange: (v: MenuIcon) => void }) {
+  const id = useId();
+  return (
+    <Field id={id} label="Icon">
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value as MenuIcon)} className={inputClassName}>
+        {MENU_ICONS.map((i) => (
+          <option key={i} value={i}>
+            {i.replace(/-/g, " ")}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
+function ToneSelect({ value, onChange }: { value: MenuTone; onChange: (v: MenuTone) => void }) {
+  const id = useId();
+  return (
+    <Field id={id} label="Colour">
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value as MenuTone)} className={inputClassName}>
+        {MENU_TONES.map((t) => (
+          <option key={t} value={t}>
+            {t[0]!.toUpperCase() + t.slice(1)}
+          </option>
+        ))}
+      </select>
+    </Field>
   );
 }
 
@@ -455,30 +556,81 @@ function TestimonialsEditor({ value, onChange }: { value: LandingContent["testim
   );
 }
 
+type FooterLink = LandingContent["footer"]["groups"][number]["links"][number];
+
 function FooterEditor({ value, onChange }: { value: LandingContent["footer"]; onChange: (v: LandingContent["footer"]) => void }) {
   const socials = value.socials;
+  const share = value.share;
   return (
     <div className="space-y-5">
-      <Area label="Tagline under the logo" value={value.tagline} onChange={(tagline) => onChange({ ...value, tagline })} />
+      <Area label="Tagline under the links" value={value.tagline} onChange={(tagline) => onChange({ ...value, tagline })} hint="Empty = hidden." />
       <Repeater
         label="Link columns"
         items={value.groups}
         max={5}
         onChange={(groups) => onChange({ ...value, groups })}
-        newItem={() => ({ title: "New column", links: [] as Link[] })}
+        newItem={() => ({ title: "New column", links: [] as FooterLink[] })}
         itemTitle={(g) => g.title || "Column"}
         render={(g, update) => (
           <div className="space-y-3">
             <Text label="Column title" value={g.title} onChange={(title) => update({ ...g, title })} />
-            <Repeater label="Links" items={g.links} max={10} onChange={(links) => update({ ...g, links })} newItem={() => ({ label: "New link", href: "/" })} itemTitle={(l) => l.label || "Link"} render={(l, u) => <LinkFields value={l} onChange={u} />} />
+            <Repeater
+              label="Links"
+              items={g.links}
+              max={10}
+              onChange={(links) => update({ ...g, links })}
+              newItem={() => ({ label: "New link", href: "/", highlight: false })}
+              itemTitle={(l) => (l.highlight ? `${l.label || "Link"} (highlighted)` : l.label || "Link")}
+              render={(l, u) => (
+                <div className="space-y-3">
+                  <LinkFields value={l} onChange={(v) => u({ ...l, ...v })} />
+                  <label className="flex items-center gap-2 text-small">
+                    <input type="checkbox" checked={l.highlight} onChange={(e) => u({ ...l, highlight: e.target.checked })} className="size-4 accent-[var(--accent)]" />
+                    Highlight this link (purple, bold), e.g. Investors
+                  </label>
+                </div>
+              )}
+            />
           </div>
         )}
       />
       <fieldset className="grid gap-3 rounded-md border border-border p-4 sm:grid-cols-2">
         <legend className="px-1 text-small font-semibold">Social links (empty = hidden)</legend>
-        {(["instagram", "x", "facebook", "youtube", "linkedin"] as const).map((k) => (
-          <Text key={k} label={k === "x" ? "X (Twitter)" : k[0]!.toUpperCase() + k.slice(1)} value={socials[k]} onChange={(v) => onChange({ ...value, socials: { ...socials, [k]: v } })} placeholder="https://" />
+        {SOCIAL_KEYS.map((k) => (
+          <Text key={k} label={SOCIAL_LABELS[k]} value={socials[k]} onChange={(v) => onChange({ ...value, socials: { ...socials, [k]: v } })} placeholder="https://" />
         ))}
+      </fieldset>
+      <fieldset className="space-y-3 rounded-md border border-border p-4">
+        <legend className="px-1 text-small font-semibold">Share button</legend>
+        <label className="flex items-center justify-between gap-4 rounded-md bg-surface-secondary px-4 py-3">
+          <span>
+            <span className="block text-small font-semibold">Show the share button</span>
+            <span className="block text-caption text-muted">Lets visitors share the page they&apos;re on. Phones also get their own share sheet.</span>
+          </span>
+          <input type="checkbox" checked={share.enabled} onChange={(e) => onChange({ ...value, share: { ...share, enabled: e.target.checked } })} className="size-5 accent-[var(--accent)]" />
+        </label>
+        <div className={cn("space-y-3", !share.enabled && "opacity-60")}>
+          <div className="grid gap-3 sm:grid-cols-[200px_1fr]">
+            <Text label="Button label" value={share.label} onChange={(label) => onChange({ ...value, share: { ...share, label } })} />
+            <Text label="Share message" value={share.text} onChange={(text) => onChange({ ...value, share: { ...share, text } })} hint="Sent with the link where the network allows it." max={200} />
+          </div>
+          <div>
+            <p className="mb-1.5 text-label">Share options</p>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {SHARE_NETWORKS.map((n) => (
+                <label key={n} className="flex items-center gap-2 text-small">
+                  <input
+                    type="checkbox"
+                    checked={share.networks.includes(n)}
+                    onChange={(e) => onChange({ ...value, share: { ...share, networks: SHARE_NETWORKS.filter((x) => (x === n ? e.target.checked : share.networks.includes(x))) } })}
+                    className="size-4 accent-[var(--accent)]"
+                  />
+                  {SHARE_LABELS[n]}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
       </fieldset>
       <fieldset className="grid gap-3 rounded-md border border-border p-4 sm:grid-cols-2">
         <legend className="px-1 text-small font-semibold">Floating WhatsApp button</legend>
