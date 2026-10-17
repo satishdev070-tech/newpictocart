@@ -80,6 +80,6 @@ export function assertRootFor(targetLabel: string, root: string): void {
   if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/.test(root)) throw new Error(`invalid root domain "${root}"`);
   const localRoot = root === "localhost" || root.endsWith(".localhost") || root.endsWith(".test");
   if (targetLabel.startsWith("REMOTE") && !targetLabel.includes("dry run") && localRoot) {
-    throw new Error(`Refusing a remote run with the local root domain "${root}": pass --root=<production root>, e.g. --root=pictocart.in`);
+    throw new Error(`Refusing a remote run with the local root domain "${root}": pass --root=<domain the stores should answer on>`);
   }
 }

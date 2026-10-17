@@ -48,7 +48,7 @@ describe("demo stores: remote-target guard", () => {
   it("requires a production root domain for remote runs", () => {
     expect(() => assertRootFor("REMOTE abc.supabase.co", "localhost")).toThrow(/--root/);
     expect(() => assertRootFor("REMOTE abc.supabase.co", "shop.test")).toThrow(/--root/);
-    expect(() => assertRootFor("REMOTE abc.supabase.co", "pictocart.in")).not.toThrow();
+    expect(() => assertRootFor("REMOTE abc.supabase.co", "stores.example.com")).not.toThrow();
     expect(() => assertRootFor("REMOTE abc.supabase.co (dry run: nothing is written)", "localhost")).not.toThrow();
     expect(() => assertRootFor("local 127.0.0.1:54321", "localhost")).not.toThrow();
     expect(() => assertRootFor("local 127.0.0.1:54321", "https://x.in/")).toThrow(/invalid root/);
@@ -56,7 +56,7 @@ describe("demo stores: remote-target guard", () => {
 
   it("parses options and rejects unknown ones", () => {
     expect(parseArgs(["--dry-run", "--category=beauty", "--slug=nuvi-skin,glam-gully", "--target=remote", "--yes"])).toEqual({ dryRun: true, remove: false, category: "beauty", slugs: ["nuvi-skin", "glam-gully"], target: "remote", yes: true, retheme: false, allowCuratedPhotos: false, refreshPhotos: false, root: null });
-    expect(parseArgs(["--root=Pictocart.in"]).root).toBe("pictocart.in");
+    expect(parseArgs(["--root=Stores.Example.com"]).root).toBe("stores.example.com");
     expect(parseArgs(["--allow-curated-photos"]).allowCuratedPhotos).toBe(true);
     expect(parseArgs(["--refresh-photos"]).refreshPhotos).toBe(true);
     expect(parseArgs([]).target).toBe("local");
