@@ -12,10 +12,12 @@ export type SeedOptions = {
   allowCuratedPhotos: boolean;
   /** Replace product photos that differ from the plan, and republish the theme. */
   refreshPhotos: boolean;
+  /** Platform root domain stores answer on (`<slug>.<root>`); null = NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN. */
+  root: string | null;
 };
 
 export function parseArgs(argv: readonly string[]): SeedOptions {
-  const opts: SeedOptions = { dryRun: false, remove: false, category: null, slugs: [], target: "local", yes: false, retheme: false, allowCuratedPhotos: false, refreshPhotos: false };
+  const opts: SeedOptions = { dryRun: false, remove: false, category: null, slugs: [], target: "local", yes: false, retheme: false, allowCuratedPhotos: false, refreshPhotos: false, root: null };
   for (const a of argv) {
     if (a === "--dry-run") opts.dryRun = true;
     else if (a === "--remove") opts.remove = true;
@@ -23,6 +25,7 @@ export function parseArgs(argv: readonly string[]): SeedOptions {
     else if (a === "--retheme") opts.retheme = true;
     else if (a === "--allow-curated-photos") opts.allowCuratedPhotos = true;
     else if (a === "--refresh-photos") opts.refreshPhotos = true;
+    else if (a.startsWith("--root=")) opts.root = a.slice("--root=".length).trim().toLowerCase() || null;
     else if (a.startsWith("--category=")) opts.category = a.slice("--category=".length).trim() || null;
     else if (a.startsWith("--slug=")) opts.slugs.push(...a.slice("--slug=".length).split(",").map((s) => s.trim()).filter(Boolean));
     else if (a.startsWith("--target=")) {
@@ -70,4 +73,13 @@ export function assertSafeTarget(url: string, opts: Pick<SeedOptions, "target" |
     throw new Error(`Refusing to write to the non-local Supabase project at ${host}. To seed it on purpose, pass --target=remote --yes (and run --dry-run first).`);
   }
   return `REMOTE ${host}`;
+}
+
+/** A remote run must use a real platform root: `<slug>.localhost` rows don't resolve in production. */
+export function assertRootFor(targetLabel: string, root: string): void {
+  if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/.test(root)) throw new Error(`invalid root domain "${root}"`);
+  const localRoot = root === "localhost" || root.endsWith(".localhost") || root.endsWith(".test");
+  if (targetLabel.startsWith("REMOTE") && !targetLabel.includes("dry run") && localRoot) {
+    throw new Error(`Refusing a remote run with the local root domain "${root}": pass --root=<production root>, e.g. --root=pictocart.in`);
+  }
 }
