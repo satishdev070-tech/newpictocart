@@ -4,7 +4,7 @@ import { findMarketplaceTheme } from "@/features/theme/marketplace/catalog";
 import { isShowcaseSlug } from "@/features/theme/marketplace/showcase";
 import { demoOwnerEmail, pickThemes, planAll, planStore, retailPrice, validatePlan, type StorePlan } from "../../scripts/demo/generate";
 import { DEMO_CATEGORIES } from "../../scripts/demo/data";
-import { assertSafeTarget, isLocalSupabaseUrl, parseArgs } from "../../scripts/demo/guard";
+import { assertRootFor, assertSafeTarget, isLocalSupabaseUrl, parseArgs } from "../../scripts/demo/guard";
 import { nth, photosFor, photoUrl } from "../../scripts/demo/photos";
 import { buildThemeConfig, type ThemeRefs } from "../../scripts/demo/theme";
 
@@ -45,8 +45,18 @@ describe("demo stores: remote-target guard", () => {
     expect(() => assertSafeTarget("", { target: "local", yes: false, dryRun: false })).toThrow(/not set/);
   });
 
+  it("requires a production root domain for remote runs", () => {
+    expect(() => assertRootFor("REMOTE abc.supabase.co", "localhost")).toThrow(/--root/);
+    expect(() => assertRootFor("REMOTE abc.supabase.co", "shop.test")).toThrow(/--root/);
+    expect(() => assertRootFor("REMOTE abc.supabase.co", "pictocart.in")).not.toThrow();
+    expect(() => assertRootFor("REMOTE abc.supabase.co (dry run: nothing is written)", "localhost")).not.toThrow();
+    expect(() => assertRootFor("local 127.0.0.1:54321", "localhost")).not.toThrow();
+    expect(() => assertRootFor("local 127.0.0.1:54321", "https://x.in/")).toThrow(/invalid root/);
+  });
+
   it("parses options and rejects unknown ones", () => {
-    expect(parseArgs(["--dry-run", "--category=beauty", "--slug=nuvi-skin,glam-gully", "--target=remote", "--yes"])).toEqual({ dryRun: true, remove: false, category: "beauty", slugs: ["nuvi-skin", "glam-gully"], target: "remote", yes: true, retheme: false, allowCuratedPhotos: false, refreshPhotos: false });
+    expect(parseArgs(["--dry-run", "--category=beauty", "--slug=nuvi-skin,glam-gully", "--target=remote", "--yes"])).toEqual({ dryRun: true, remove: false, category: "beauty", slugs: ["nuvi-skin", "glam-gully"], target: "remote", yes: true, retheme: false, allowCuratedPhotos: false, refreshPhotos: false, root: null });
+    expect(parseArgs(["--root=Pictocart.in"]).root).toBe("pictocart.in");
     expect(parseArgs(["--allow-curated-photos"]).allowCuratedPhotos).toBe(true);
     expect(parseArgs(["--refresh-photos"]).refreshPhotos).toBe(true);
     expect(parseArgs([]).target).toBe("local");

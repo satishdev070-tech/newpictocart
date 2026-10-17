@@ -6,12 +6,14 @@
  *   pnpm seed:demo-stores --dry-run                       # print the plan, write nothing
  *   pnpm seed:demo-stores [--category=<industry>] [--slug=a,b] [--retheme]
  *   pnpm seed:demo-stores --remove [--category=<industry>] [--slug=a,b]
- *   pnpm seed:demo-stores --target=remote --yes …         # REQUIRED for a non-local Supabase URL
+ *   pnpm seed:demo-stores --target=remote --yes --root=pictocart.in …   # REQUIRED for a non-local Supabase URL
  *
  * SAFETY
  *  - Writes only to a local Supabase (localhost / 127.0.0.1 / *.localhost / *.test) unless both
  *    --target=remote and --yes are passed (guard.ts). --dry-run never contacts Supabase.
  *  - --remove closes the stores (status 'cancelled', offline); see remove() for why it isn't a hard delete.
+ *  - Stores answer on `<slug>.<root>`: --root=<domain> (default NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN). A
+ *    remote run refuses a localhost root, since those subdomains don't exist in production.
  *  - Only slugs from ./data are touched. An existing tenant with such a slug is used only if it is
  *    store_type 'demo', owned by owner@<slug>.demo.test and not in PROTECTED_TENANT_IDS; otherwise
  *    that store is skipped. --remove applies the same checks before deleting anything.
@@ -35,7 +37,7 @@ import { findMarketplaceTheme } from "../../src/features/theme/marketplace/catal
 import { PROTECTED_TENANT_IDS } from "../../src/features/theme/marketplace/showcase";
 import { importedFilename } from "../../src/features/media/unsplash/photos";
 import { planAll, validatePlan, type ProductPlan, type StorePlan } from "./generate";
-import { assertSafeTarget, parseArgs } from "./guard";
+import { assertRootFor, assertSafeTarget, parseArgs } from "./guard";
 import { creditOf, loadCache, nth, photosFor, photoUrl, type DemoPhoto } from "./photos";
 import { buildThemeConfig, type ThemeRefs } from "./theme";
 
@@ -48,9 +50,10 @@ function env(name: string): string {
 const URL_ = env("NEXT_PUBLIC_SUPABASE_URL").replace(/\/$/, "");
 const SECRET = env("SUPABASE_SECRET_KEY");
 const PUBLISHABLE = env("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
-const ROOT = process.env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN || "localhost";
+const ROOT = (opts.root ?? process.env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN ?? "localhost").trim().toLowerCase() || "localhost";
 
 const targetLabel = assertSafeTarget(URL_, opts);
+assertRootFor(targetLabel, ROOT);
 let plans = planAll(opts.category ?? undefined);
 if (opts.slugs.length) plans = plans.filter((p) => opts.slugs.includes(p.slug));
 if (!plans.length) throw new Error("no demo stores match the filters");
@@ -169,6 +172,23 @@ async function ownerSession(p: StorePlan): Promise<{ token: string; userId: stri
   }
 }
 
+/**
+ * Storefronts resolve by exact verified hostname (ADR-005), so each store needs `<slug>.<root>`
+ * for the platform root it is served on. Adds it (verified) and makes it primary unless a custom
+ * domain is primary: the same steps as supabase/dev/move-platform-root.sql. Old rows are kept.
+ */
+async function ensureSubdomain(tenantId: string, slug: string) {
+  const host = `${slug}.${ROOT}`;
+  const doms = await sys<{ id: string; hostname: string; type: string; status: string; is_primary: boolean }[]>("GET", `domains?select=id,hostname,type,status,is_primary&tenant_id=eq.${tenantId}`);
+  let mine = doms.find((d) => d.hostname === host && d.status !== "removed");
+  if (!mine) [mine] = await sys<{ id: string; hostname: string; type: string; status: string; is_primary: boolean }[]>("POST", "domains", { tenant_id: tenantId, hostname: host, type: "platform_subdomain", status: "verified", verified_at: new Date().toISOString(), ssl_status: "not_applicable", is_primary: false });
+  const primary = doms.find((d) => d.is_primary);
+  if (mine && !mine.is_primary && (!primary || primary.type === "platform_subdomain")) {
+    if (primary) await sys("PATCH", `domains?id=eq.${primary.id}`, { is_primary: false });
+    await sys("PATCH", `domains?id=eq.${mine.id}`, { is_primary: true });
+  }
+}
+
 // ------------------------------------------------------------------ images
 
 type Img = { path: string; bytes: Buffer; width: number; height: number; photo: DemoPhoto; what: string };
@@ -259,6 +279,7 @@ async function seed(p: StorePlan) {
   const T = owner.token;
   const tenantId = existing?.id ?? (await http<string>("POST", "/rest/v1/rpc/create_tenant", { token: T, body: { p_name: p.name, p_slug: p.slug, p_root_domain: ROOT } }));
   const W = `tenant_id=eq.${tenantId}`;
+  await ensureSubdomain(tenantId, p.slug);
 
   // Platform-owned columns (secret key): live, demo-marked, in its category.
   const [plan] = await sys<{ id: string }[]>("GET", "plans?select=id&code=eq.growth");
@@ -444,7 +465,7 @@ async function seed(p: StorePlan) {
     else await own(T, "POST", "theme_versions", { tenant_id: tenantId, version: (versions[0]?.version ?? 0) + 1, status: "draft", label: p.themeName, theme_key: p.themeKey, config, created_by: owner.userId });
     await http("POST", "/rest/v1/rpc/publish_theme", { token: T, body: { p_tenant: tenantId, p_label: p.themeName } });
   }
-  console.log(`  ✓ ${p.products.length} products · ${credits.length} photos · http://${p.slug}.${ROOT}${ROOT === "localhost" ? ":3000" : ""}`);
+  console.log(`  ✓ ${p.products.length} products · ${credits.length} photos · ${ROOT === "localhost" ? "http" : "https"}://${p.slug}.${ROOT}${ROOT === "localhost" ? ":3000" : ""}`);
   return true;
 }
 
