@@ -211,7 +211,7 @@ export const CATEGORIES_5: CategoryDef[] = [
         ["Brass Dhoop Stand", 499, 599, "With ash catcher."],
         ["Loban Resin 100 g", 199, 0, "Traditional benzoin."],
       ] },
-      { slug: "pooja-thalis", name: "Thalis & Brassware", blurb: "Pooja thalis, kalash and bells.", q: "pooja thali brass", products: [
+      { slug: "pooja-thalis", name: "Thalis & Brassware", blurb: "Pooja thalis, kalash and bells.", q: "puja thali", products: [
         ["Brass Pooja Thali Set", 1499, 1799, "Thali, diya, bell and katori."],
         ["Copper Kalash", 699, 0, "Pure copper."],
         ["Brass Ghanti Bell", 599, 699, "Clear, long ring."],
@@ -266,7 +266,7 @@ export const CATEGORIES_5: CategoryDef[] = [
         ["MCB 32A Double Pole", 449, 549, "ISI-marked."],
         ["Emergency LED Bulb", 399, 0, "4-hour backup."],
       ] },
-      { slug: "safety", name: "Safety & Storage", blurb: "Gloves, goggles and tool boxes.", q: "toolbox storage", products: [
+      { slug: "safety", name: "Safety & Storage", blurb: "Gloves, goggles and tool boxes.", q: "tool box", products: [
         ["Tool Box 3-tier", 1299, 1599, "Cantilever trays."],
         ["Safety Goggles", 199, 0, "Anti-fog, scratch-resistant."],
         ["Work Gloves Pair", 249, 299, "Cut-resistant."],

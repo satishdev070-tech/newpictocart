@@ -101,7 +101,7 @@ export const CATEGORIES_6: CategoryDef[] = [
         ["Gooseneck Kettle", 1999, 2499, "Precise pouring."],
         ["Kulhad Set of 6", 399, 0, "Terracotta chai cups."],
       ] },
-      { slug: "gift-boxes", name: "Gift Boxes", blurb: "Tea and coffee gift sets.", q: "tea gift box", products: [
+      { slug: "gift-boxes", name: "Gift Boxes", blurb: "Tea and coffee gift sets.", q: "tea gift", products: [
         ["Tea Tasting Box of 6", 999, 1199, "Six estate teas."],
         ["Coffee Lovers Box", 1299, 0, "Three roasts and a filter."],
         ["Diwali Tea Hamper", 1799, 1999, "Teas, cookies and kulhads."],
@@ -124,7 +124,7 @@ export const CATEGORIES_6: CategoryDef[] = [
       { slug: "namkeen-nation", name: "Namkeen Nation", owner: "Jinal Patel", tagline: "Gujarati namkeen and healthy snacks", story: "Namkeen Nation makes Gujarati farsan and healthier snacks in Rajkot, with cold-pressed groundnut oil, no palm oil and lots of crunch.", since: 2016, street: "Yagnik Road, Near Jubilee Garden", city: "Rajkot", state: "Gujarat", pin: "360001" },
     ],
     departments: [
-      { slug: "mithai", name: "Mithai", blurb: "Peda, barfi and laddoos.", q: "indian sweets mithai", opt: { name: "Weight", values: ["250 g", "500 g"], scale: [1, 1.9] }, products: [
+      { slug: "mithai", name: "Mithai", blurb: "Peda, barfi and laddoos.", q: "indian sweets", opt: { name: "Weight", values: ["250 g", "500 g"], scale: [1, 1.9] }, products: [
         ["Mathura Peda", 299, 0, "Slow-cooked khoya peda."],
         ["Kaju Katli", 549, 599, "Cashew fudge with silver vark."],
         ["Motichoor Laddoo", 299, 0, "Pure ghee boondi laddoos."],
@@ -132,7 +132,7 @@ export const CATEGORIES_6: CategoryDef[] = [
         ["Milk Cake", 349, 0, "Grainy, caramelised kalakand."],
         ["Soan Papdi", 199, 229, "Flaky, melt-in-mouth."],
       ] },
-      { slug: "namkeen", name: "Namkeen", blurb: "Farsan, bhujia and mixtures.", q: "indian namkeen snacks bowl", opt: { name: "Weight", values: ["200 g", "400 g"], scale: [1, 1.85] }, products: [
+      { slug: "namkeen", name: "Namkeen", blurb: "Farsan, bhujia and mixtures.", q: "savory snacks bowl", opt: { name: "Weight", values: ["200 g", "400 g"], scale: [1, 1.85] }, products: [
         ["Bhavnagari Gathiya", 129, 149, "Soft, peppery gathiya."],
         ["Khatta Meetha Mixture", 119, 0, "Sweet, sour and spicy."],
         ["Sev Ratlami", 109, 129, "Clove-spiced sev."],
@@ -211,7 +211,7 @@ export const CATEGORIES_6: CategoryDef[] = [
         ["Mechanical Keyboard TKL", 3499, 3999, "Hot-swap switches."],
         ["Desk Mat XL", 799, 0, "Vegan leather, 90×40 cm."],
       ] },
-      { slug: "mounts", name: "Mounts & Stands", blurb: "Phone stands, car mounts and tripods.", q: "phone stand tripod", products: [
+      { slug: "mounts", name: "Mounts & Stands", blurb: "Phone stands, car mounts and tripods.", q: "phone tripod", products: [
         ["Adjustable Phone Stand", 399, 499, "Aluminium, foldable."],
         ["Car Vent Phone Mount", 499, 0, "One-hand release."],
         ["Selfie Stick Tripod", 899, 1099, "Bluetooth remote."],
@@ -258,7 +258,7 @@ export const CATEGORIES_6: CategoryDef[] = [
         ["Aloe Vera Gel", 199, 249, "Pure aloe, no colour."],
         ["Rose Rasayana Toner", 349, 0, "Rose and vetiver."],
       ] },
-      { slug: "immunity", name: "Immunity", blurb: "Chyawanprash, kadha and rasayanas.", q: "chyawanprash herbal jar", products: [
+      { slug: "immunity", name: "Immunity", blurb: "Chyawanprash, kadha and rasayanas.", q: "ayurvedic medicine jar", products: [
         ["Chyawanprash 500 g", 349, 399, "Classical recipe with 40 herbs."],
         ["Kadha Mix", 199, 0, "Tulsi, ginger and pepper."],
         ["Giloy Ghan Vati", 249, 299, "Giloy tablets."],
@@ -297,7 +297,7 @@ export const CATEGORIES_6: CategoryDef[] = [
         ["Microfibre Mop Refills", 199, 249, "Pack of 2."],
         ["Toilet Cleaner Pack of 3", 299, 349, "Thick liquid."],
       ] },
-      { slug: "kitchen-basics", name: "Kitchen Basics", blurb: "Everyday kitchen helpers.", q: "kitchen basics utensils", products: [
+      { slug: "kitchen-basics", name: "Kitchen Basics", blurb: "Everyday kitchen helpers.", q: "kitchen utensils", products: [
         ["Steel Water Bottles Set of 3", 699, 899, "1 L, leak-proof."],
         ["Non-stick Fry Pan", 799, 0, "24 cm, induction base."],
         ["Plastic Containers Set of 12", 499, 599, "Stackable, BPA-free."],

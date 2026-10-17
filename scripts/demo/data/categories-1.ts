@@ -32,7 +32,7 @@ export const CATEGORIES_1: CategoryDef[] = [
         ["Lavender Sharara Set", 4299, 5499, "Short kurta with tiered sharara and dupatta."],
         ["Olive Linen Co-ord Kurta Set", 3199, 0, "Linen kurta with matching tapered trousers."],
       ] },
-      { slug: "co-ords", name: "Co-ords", blurb: "Easy two-piece sets for work and weekends.", q: "linen co-ord set fashion", type: "co_ord_set", opt: APPAREL, products: [
+      { slug: "co-ords", name: "Co-ords", blurb: "Easy two-piece sets for work and weekends.", q: "linen outfit", type: "co_ord_set", opt: APPAREL, products: [
         ["Terracotta Cotton Co-ord", 2299, 2799, "Boxy shirt and drawstring pants."],
         ["Navy Stripe Co-ord Set", 2499, 0, "Yarn-dyed stripes, relaxed fit."],
         ["Sand Linen Co-ord", 2899, 3499, "Breathable linen, cropped shirt and wide pants."],
@@ -315,7 +315,7 @@ export const CATEGORIES_1: CategoryDef[] = [
         ["Virgin Coconut Oil", 249, 299, "Cold-pressed from fresh coconuts."],
         ["Sesame Oil Wood-pressed", 279, 0, "Gingelly oil for South Indian cooking."],
       ] },
-      { slug: "snacks", name: "Snacks & Namkeen", blurb: "Namkeen, biscuits and tea-time snacks.", q: "indian snacks namkeen", products: [
+      { slug: "snacks", name: "Snacks & Namkeen", blurb: "Namkeen, biscuits and tea-time snacks.", q: "indian snacks", products: [
         ["Aloo Bhujia 400 g", 99, 115, "Crispy, spicy potato bhujia."],
         ["Roasted Makhana Peri Peri", 149, 0, "Air-roasted fox nuts."],
         ["Khakhra Methi Pack of 4", 120, 140, "Thin Gujarati khakhras."],

@@ -195,7 +195,7 @@ export const CATEGORIES_2: CategoryDef[] = [
         ["Girls Lehenga Choli", 1499, 1999, "Twirly lehenga with dupatta."],
         ["Night Suit Set", 649, 0, "Soft cotton pyjamas."],
       ] },
-      { slug: "baby-care", name: "Baby Care", blurb: "Gentle bath, skin and massage care.", q: "baby care products", products: [
+      { slug: "baby-care", name: "Baby Care", blurb: "Gentle bath, skin and massage care.", q: "baby lotion", products: [
         ["Baby Massage Oil 200 ml", 299, 349, "Almond and coconut oil blend."],
         ["Tear-free Baby Wash", 249, 0, "pH-balanced head-to-toe wash."],
         ["Diaper Rash Cream", 199, 249, "Zinc oxide with calendula."],

@@ -605,7 +605,9 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   store has an `/pages/image-credits` page. Photos match the department, not the exact product.
 - **Safety** — refuses any non-local Supabase URL unless `--target=remote --yes`; only slugs from the data files; an
   existing tenant with such a slug is used only if it is `demo`, owned by `owner@<slug>.demo.test` and not protected
-  (The Paliya), otherwise skipped. Idempotent and resumable (keyed on store / product / category / collection slugs).
+  (The Paliya), otherwise skipped. A remote run also refuses while any photo search is uncached
+  (`--allow-curated-photos` overrides). Idempotent and resumable (keyed on store / product / category / collection
+  slugs); a store that hit a network error is finished by re-running (optionally `--slug=<slug>`).
 - **Run locally** — start a local stack (`supabase start`), then point the script at it:
   `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<local> SUPABASE_SECRET_KEY=<local> pnpm seed:demo-stores`
   (variables on the command line win over `.env.local`). Options: `--dry-run`, `--category=<industry>`,
@@ -620,8 +622,11 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   reopens them.
 - **Tested** — `tests/unit/demo-stores.test.ts` (target guard + CLI, data for every category, valid/unique plans, paise
   and MRP, store contents, distinct themes + layouts per category, theme config validity, photo cache/fallback). Seeded
-  all 72 stores into a local Supabase stack and checked storefronts at desktop and mobile widths; re-runs are
-  idempotent.
+  all 72 stores into a local Supabase stack (CLI stack on shifted ports) and checked storefronts (Kesari Threads,
+  Urban Dhaga, Tarang Audio, Chai Chaupal) at desktop and mobile widths: home, product page, variants, MRP/discount,
+  COD note, reviews, no horizontal scroll; re-runs are idempotent; `--remove` → 404, re-seed → live. That run used a
+  partial photo cache; the final cache (all 180 searches, 10+ photos each) was checked by resolving all 2,104 product
+  photo URLs, not by a second full local seed (Docker stopped during the session).
 - **Not done / follow-ups** — not run against the remote project (needs the owner's go-ahead); platform dashboard
   totals don't exclude `store_type = 'demo'` yet (the store list can filter by type); no Unsplash download-tracking
   ping for seeded photos; a hard purge of demo tenants would need a DB function that can bypass the audit-log guard.
