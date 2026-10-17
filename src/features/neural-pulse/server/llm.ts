@@ -81,7 +81,7 @@ async function callGemini(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt): 
     { "x-goog-api-key": p.apiKey },
     {
       systemInstruction: { parts: [{ text: prompt.system }] },
-      contents: [{ role: "user", parts: [{ text: prompt.user }] }],
+      contents: [{ role: "user", parts: [...(prompt.images ?? []).map((i) => ({ inlineData: { mimeType: i.mediaType, data: i.data } })), { text: prompt.user }] }],
       generationConfig: { responseMimeType: "application/json", temperature: 0.8, maxOutputTokens: 8192 },
     },
     TIMEOUT_MS.gemini,
@@ -126,7 +126,7 @@ async function callAnthropic(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt
       output_config: { effort: "low" },
       fallbacks: "default",
       system: prompt.system,
-      messages: [{ role: "user", content: prompt.user }],
+      messages: [{ role: "user", content: prompt.images?.length ? [...prompt.images.map((i) => ({ type: "image", source: { type: "base64", media_type: i.mediaType, data: i.data } })), { type: "text", text: prompt.user }] : prompt.user }],
     },
     TIMEOUT_MS.anthropic,
   )) as { content?: { type: string; text?: string }[]; stop_reason?: string; usage?: { input_tokens?: number; output_tokens?: number } };

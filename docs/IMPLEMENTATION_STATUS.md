@@ -1,6 +1,6 @@
 # Implementation Status
 
-_Last updated: 2026-10-16 (theme layout variants, per-category layouts, Unsplash theme imagery)_
+_Last updated: 2026-10-17 (Super Admin theme marketplace manager + AI "create theme from URL + screenshot")_
 
 ## Phase overview
 
@@ -572,3 +572,32 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   reminders, function grants), `tests/unit/notifications/inbox.test.ts` (catalog ↔ SQL producers, AI limit sync, link
   safety, relative time, server-resolved audience in actions, preferences).
 - **Not done** — migration not applied to the remote Supabase project; e-mail/WhatsApp copies of these alerts.
+
+## Super Admin theme manager + AI theme builder (2026-10-17, branch `claude/jovial-jang-80a4f6`)
+
+- **Super Admin → Themes** (`/admin/themes`, `platform.settings.manage`): every built-in theme plus custom themes (drafts
+  included) as a grid with search, Built-in / Custom / Drafts filter and category chips. Preview page (`/admin/themes/{key}`:
+  desktop + phone mockups, sample store with the theme's Unsplash photos and credits, Live Preview link on the category's
+  showcase store for published themes). Custom themes: Edit, Publish/Unpublish, Duplicate, Delete. Built-in: Duplicate & edit.
+- **Create new theme** (`/admin/themes/new`): name, category, reference https URL and/or up to 3 screenshots (PNG/JPEG/WebP,
+  ≤ 3.5 MB, magic-byte checked, not stored), plus an acknowledgement that only the look is recreated. Pipeline
+  (`src/features/theme/builder`): `fetch-guard.ts` (SSRF guard) → `extract.ts` (colours, fonts → allowed font keys, header,
+  section order; no page text) → `prompt.ts` → existing LLM client (`neural-pulse/server/llm.ts`, now with image parts;
+  Anthropic `claude-opus-5-5` by default) → `schema.ts` repair + strict validation, one regeneration on failure →
+  `images.ts` Unsplash fill via `getStockImages` (credits kept) → saved as a draft → editor.
+- **Theme editor** (`/admin/themes/{key}/edit`): details, colours/fonts/buttons/spacing, header/footer chrome, product card,
+  home sections (reorder, add, remove, layout variants from `sections/variants.ts`), photos with credits; live preview
+  (layout, phone, sample page). Save draft / Save & publish / Save & unpublish (server re-validates).
+- **Sellers**: published custom themes appear in `/dashboard/themes` (+ detail, apply, admin "New store" picker, Live Preview)
+  through `marketplace/registry.ts` (`getMarketplaceThemes`, `findAnyMarketplaceTheme`). The marketing site `/themes` still
+  lists built-in themes only (follow-up).
+- **Migration (pending, not applied to the remote project):** `20261016003100_custom_marketplace_themes.sql` adds `style`,
+  `source`, `source_url`, `created_by`, `published_at`, a 256 KB `config` cap and an index to `public.themes`. Until it is
+  applied, creating/saving custom themes fails; the seller catalogue just shows built-in themes (reads never throw).
+- Tests: `tests/unit/theme-builder/*` (fetch guard, extraction, repair/validation incl. every built-in theme duplicating
+  cleanly, pipeline retry, prompt, Unsplash fill), `tests/rls/custom-themes.test.ts` (drafts hidden, writes platform-only,
+  constraints). Script: `scripts/dev/theme-builder/run.mts <url> <industry> <name> [screenshots] [--no-ai]` runs the pipeline
+  without the app or DB writes.
+- **Not verified:** the live AI call (no Anthropic/Gemini/Groq key is configured in the dev project or env) and the signed-in
+  admin flow in the dev server (the migration isn't applied there). Verified against `https://www.allbirds.com/` with
+  `--no-ai`: guarded fetch + 3 stylesheets, summary, repair, validation and 13 Unsplash API photos with credits.

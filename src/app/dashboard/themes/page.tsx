@@ -5,7 +5,7 @@ import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
 import { PageHeader } from "@/components/ui/layout";
 import { getEntitlements } from "@/features/platform";
 import { getThemeKeys } from "@/features/theme/server/queries";
-import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { getMarketplaceThemes } from "@/features/theme/marketplace/registry";
 import { INDUSTRIES, isIndustry, industryShort } from "@/features/stores/industries";
 import { MarketplaceBrowser, type MarketplaceCard } from "@/features/theme/marketplace/components/marketplace-browser";
 import { getStoreIndustry, liveDemoOrigins } from "@/features/theme/marketplace/server";
@@ -16,16 +16,17 @@ export const metadata: Metadata = { title: "Theme marketplace" };
 export default async function ThemesPage({ searchParams }: PageProps<"/dashboard/themes">) {
   const ctx = await requireTenantPermission("theme.edit");
   const sp = await searchParams;
-  const demos = [...new Set(MARKETPLACE_THEMES.flatMap((t) => (t.demo ? [t.demo] : [])))];
+  const themes = await getMarketplaceThemes();
+  const demos = [...new Set(themes.flatMap((t) => (t.demo ? [t.demo] : [])))];
   const [keys, ent, own, live] = await Promise.all([getThemeKeys(ctx.tenantId), getEntitlements(ctx.tenantId), getStoreIndustry(ctx.tenantId), liveDemoOrigins(demos)]);
   const enabled = ent.isEnabled("theme_marketplace");
   const asked = typeof sp.industry === "string" && isIndustry(sp.industry) ? sp.industry : "";
 
   const counts = new Map<string, number>();
-  for (const t of MARKETPLACE_THEMES) counts.set(t.industry, (counts.get(t.industry) ?? 0) + 1);
+  for (const t of themes) counts.set(t.industry, (counts.get(t.industry) ?? 0) + 1);
   const industries = INDUSTRIES.filter((i) => counts.has(i.slug)).map((i) => ({ slug: i.slug, label: i.short, count: counts.get(i.slug)! }));
 
-  const cards: MarketplaceCard[] = MARKETPLACE_THEMES.map((t, order) => {
+  const cards: MarketplaceCard[] = themes.map((t, order) => {
     const demoHost = t.demo && live.has(t.demo) ? storeSubdomain(t.demo) : null;
     return {
       key: t.key,
@@ -47,7 +48,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/dashboard
     <div className="space-y-6">
       <PageHeader
         title="Theme marketplace"
-        description={`${MARKETPLACE_THEMES.length} themes across ${industries.length} industries. Live Preview opens a demo store in the theme; applying one creates a draft with your own text, images and products, and your live store only changes when you publish.`}
+        description={`${themes.length} themes across ${industries.length} industries. Live Preview opens a demo store in the theme; applying one creates a draft with your own text, images and products, and your live store only changes when you publish.`}
         actions={
           <Link href="/dashboard/theme" className="inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 text-small font-medium hover:bg-surface-secondary">
             Customize current theme

@@ -4,7 +4,7 @@ import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { STOCK_SLOTS, getStockSet, type StockImage, type StockSet } from "@/lib/unsplash";
 import { logger } from "@/lib/observability/logger";
 import type { Storefront } from "@/features/storefront/server/context";
-import { findMarketplaceTheme } from "../marketplace/catalog";
+import { findAnyMarketplaceTheme } from "../marketplace/registry";
 import { PROTECTED_TENANT_IDS, SHOWCASE_STORES } from "../marketplace/showcase";
 
 /** The store's category slug (stores.category_id → store_categories), cached per tenant. */
@@ -28,7 +28,7 @@ export async function stockCategoryFor(sf: Storefront): Promise<string | null> {
   if (pref === "off" || PROTECTED_TENANT_IDS.has(sf.tenant.tenantId.toLowerCase())) return null;
   if (pref !== "auto") return pref;
   if (sf.themePreview) {
-    const theme = findMarketplaceTheme(sf.themePreview.key);
+    const theme = await findAnyMarketplaceTheme(sf.themePreview.key);
     if (theme) return theme.industry;
   }
   const showcase = SHOWCASE_STORES[sf.tenant.slug];
@@ -52,7 +52,7 @@ export async function getStorefrontStock(sf: Storefront): Promise<StockSet | nul
  * the curated pool), flattened in slot order with credits. Null for an unknown theme key.
  */
 export async function getThemeUnsplashImages(themeKey: string): Promise<StockImage[] | null> {
-  const theme = findMarketplaceTheme(themeKey);
+  const theme = await findAnyMarketplaceTheme(themeKey);
   if (!theme) return null;
   const set = await getStockSet(theme.industry);
   return STOCK_SLOTS.flatMap((slot) => set[slot]);

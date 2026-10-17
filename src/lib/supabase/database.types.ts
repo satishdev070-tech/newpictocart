@@ -4367,6 +4367,7 @@ export type Database = {
           category: string
           config: Json
           created_at: string
+          created_by: string | null
           demo_host: string | null
           description: string | null
           features: string[]
@@ -4375,6 +4376,10 @@ export type Database = {
           name: string
           position: number
           preview_paths: string[]
+          published_at: string | null
+          source: string
+          source_url: string | null
+          style: string | null
           supported_sections: string[]
           tagline: string | null
           tags: string[]
@@ -4387,6 +4392,7 @@ export type Database = {
           category: string
           config: Json
           created_at?: string
+          created_by?: string | null
           demo_host?: string | null
           description?: string | null
           features?: string[]
@@ -4395,6 +4401,10 @@ export type Database = {
           name: string
           position?: number
           preview_paths?: string[]
+          published_at?: string | null
+          source?: string
+          source_url?: string | null
+          style?: string | null
           supported_sections?: string[]
           tagline?: string | null
           tags?: string[]
@@ -4407,6 +4417,7 @@ export type Database = {
           category?: string
           config?: Json
           created_at?: string
+          created_by?: string | null
           demo_host?: string | null
           description?: string | null
           features?: string[]
@@ -4415,6 +4426,10 @@ export type Database = {
           name?: string
           position?: number
           preview_paths?: string[]
+          published_at?: string | null
+          source?: string
+          source_url?: string | null
+          style?: string | null
           supported_sections?: string[]
           tagline?: string | null
           tags?: string[]

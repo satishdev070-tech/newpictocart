@@ -200,3 +200,18 @@ Time-based reminders (trial ending) and retention run in `notifications_run_remi
 `notifyPlatform()` → `notify_platform_event()` (service role, after the caller verified the event). Live updates use
 Supabase Realtime on the user's rows with a 60 s polling fallback. Chosen over a shared row + per-user read table (more
 complex RLS and Realtime filtering) and over app-level `emit()` calls (misses SQL-only paths such as `place_order`).
+
+## ADR-037 — Custom marketplace themes: AI from a reference, stored in `public.themes` · Proposed
+Super Admin → Themes creates marketplace themes from a reference URL and/or screenshots. The output is the existing
+marketplace **preset** (tokens + chrome + home composition with the layout-variant vocabulary), not a store ThemeConfig, so
+applying it reuses `applyThemePreset` and keeps each seller's content. Custom themes live in `public.themes` (migration 1500,
+extended by 3100): `config` holds the theme document, `active` = published; RLS already limits writes and drafts to
+`platform.settings.manage`. Built-in themes stay in code and always win a key clash. The reference page is fetched by an
+SSRF guard (https, port 443, public addresses checked inside the socket lookup, 3 checked redirects, 8 s / 1.5 MB caps) and
+reduced to a summary with no page text, logos or image URLs; screenshots go only to the AI request and are not stored. The
+model is told to recreate the look, never content; its JSON is repaired (unknown sections/settings dropped, values clamped,
+hero + product list guaranteed), strictly validated (zod + "applies to a store config"), regenerated once with the issues if
+still invalid, and every image slot is filled from Unsplash with credits. The existing LLM client gained optional image
+parts (Anthropic, Gemini; Groq stays text-only and is tried last when screenshots are attached). Rate limit: 6/hour,
+30/day per platform user. Chosen over a new table (the reserved one fits) and over storing reference screenshots (copyright,
+storage) or scraping reference images (never allowed).

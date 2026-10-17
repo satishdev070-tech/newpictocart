@@ -17,7 +17,7 @@ import { sendEmail, type EmailSendResult } from "@/lib/email/send";
 import { isIndustry } from "@/features/stores/industries";
 import { DEFAULT_THEME_CONFIG } from "@/features/theme/default-theme";
 import { parseThemeConfigStrict } from "@/features/theme/schema/config";
-import { findMarketplaceTheme } from "@/features/theme/marketplace/catalog";
+import { findAnyMarketplaceTheme } from "@/features/theme/marketplace/registry";
 import { applyThemePreset } from "@/features/theme/marketplace/apply";
 import { renderAdminPasswordResetEmail, renderPasswordChangedEmail, renderStoreCreatedEmail } from "@/features/notifications/email/account-templates";
 import type { EmailBrand } from "@/features/notifications/email/layout";
@@ -146,7 +146,7 @@ export async function createStoreAsAdmin(ctx: PlatformContext, input: AdminCreat
   // 4. Theme: preset applied onto the default config, as a draft or published straight away.
   let themeApplied: string | null = null;
   if (input.themeKey) {
-    const theme = findMarketplaceTheme(input.themeKey);
+    const theme = await findAnyMarketplaceTheme(input.themeKey);
     if (!theme) notes.push("Unknown theme; the default theme is used.");
     else {
       const parsed = parseThemeConfigStrict(applyThemePreset(structuredClone(DEFAULT_THEME_CONFIG), theme.preset));
