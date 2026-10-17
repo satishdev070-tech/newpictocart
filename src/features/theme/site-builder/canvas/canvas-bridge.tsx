@@ -113,11 +113,13 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
   // so the builder follows the page and re-sends unsaved edits for the new page's slots.
   useEffect(() => {
     if (window.parent === window) return;
-    setFramed(true);
     document.documentElement.dataset.builderCanvas = "";
-    setHover(null);
-    setSelected(null);
-    const t = window.setTimeout(() => post({ type: "ready", path: location.pathname + location.search, slots: pageSlots() }), 30);
+    const t = window.setTimeout(() => {
+      setFramed(true);
+      setHover(null);
+      setSelected(null);
+      post({ type: "ready", path: location.pathname + location.search, slots: pageSlots() });
+    }, 30);
     return () => clearTimeout(t);
   }, [post, pathname]);
 

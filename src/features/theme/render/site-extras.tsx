@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { assetUrl } from "@/lib/storage/assets";
 import { NewsletterForm } from "@/features/storefront/components/islands";
 import type { Embeds, Popup } from "@/features/theme/schema/site";
@@ -81,7 +81,7 @@ export function SiteExtras({ popups: initialPopups, embeds, whatsapp }: { popups
   const [open, setOpen] = useState<string | null>(null);
   // The builder canvas sends the popup being edited (unsaved) with the open event.
   const [draftPopup, setDraftPopup] = useState<Popup | null>(null);
-  const popups = draftPopup ? [draftPopup, ...initialPopups.filter((p) => p.id !== draftPopup.id)] : initialPopups;
+  const popups = useMemo(() => (draftPopup ? [draftPopup, ...initialPopups.filter((p) => p.id !== draftPopup.id)] : initialPopups), [draftPopup, initialPopups]);
   const [showTop, setShowTop] = useState(false);
 
   // Automatic triggers (never inside the builder canvas, which opens popups explicitly).
