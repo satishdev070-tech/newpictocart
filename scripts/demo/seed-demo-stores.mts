@@ -154,11 +154,17 @@ async function ownerSession(p: StorePlan): Promise<{ token: string; userId: stri
   } catch (e) {
     if (!/422|already/i.test(String(e))) throw e;
   }
-  const link = await http<{ properties?: { hashed_token?: string }; hashed_token?: string }>("POST", "/auth/v1/admin/generate_link", { body: { type: "magiclink", email: p.owner.email } });
-  const res = await fetch(`${URL_}/auth/v1/verify`, { method: "POST", headers: { apikey: PUBLISHABLE, "Content-Type": "application/json" }, body: JSON.stringify({ type: "magiclink", token_hash: link.properties?.hashed_token ?? link.hashed_token }) });
-  const j = (await res.json()) as { access_token?: string; user?: { id: string } };
-  if (!j.access_token || !j.user) throw new Error(`session failed for ${p.owner.email}`);
-  return { token: j.access_token, userId: j.user.id };
+  // Supabase Auth rate-limits token verification per IP: back off and retry instead of failing the store.
+  for (let attempt = 1; ; attempt++) {
+    const link = await http<{ properties?: { hashed_token?: string }; hashed_token?: string }>("POST", "/auth/v1/admin/generate_link", { body: { type: "magiclink", email: p.owner.email } });
+    const res = await fetch(`${URL_}/auth/v1/verify`, { method: "POST", headers: { apikey: PUBLISHABLE, "Content-Type": "application/json" }, body: JSON.stringify({ type: "magiclink", token_hash: link.properties?.hashed_token ?? link.hashed_token }) });
+    const j = (await res.json().catch(() => ({}))) as { access_token?: string; user?: { id: string }; msg?: string; error_description?: string };
+    if (j.access_token && j.user) return { token: j.access_token, userId: j.user.id };
+    if (attempt >= 8) throw new Error(`session failed for ${p.owner.email}: HTTP ${res.status} ${j.msg ?? j.error_description ?? ""}`);
+    const wait = Math.min(attempt * 30, 180);
+    console.log(`  sign-in for ${p.owner.email} refused (HTTP ${res.status} ${j.msg ?? j.error_description ?? ""}); retrying in ${wait}s`);
+    await new Promise((r) => setTimeout(r, wait * 1000));
+  }
 }
 
 // ------------------------------------------------------------------ images
