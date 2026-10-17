@@ -26,7 +26,7 @@ export type HistoryAction =
   | { type: "apply"; config: ThemeConfig; coalesce?: string; now?: number }
   | { type: "undo" }
   | { type: "redo" }
-  /** After a successful save: the present becomes the saved baseline (history kept). */
+  /** After a successful save: `config` (the document that was sent) becomes the saved baseline. Edits made meanwhile stay. */
   | { type: "saved"; config?: ThemeConfig }
   /** Replace everything (e.g. reload after a conflict). */
   | { type: "reset"; config: ThemeConfig };
@@ -55,8 +55,7 @@ export function historyReducer(state: HistoryState, action: HistoryAction): Hist
       return { ...state, past: [...state.past, state.present].slice(-HISTORY_LIMIT), present: next, future: rest, lastKey: null };
     }
     case "saved": {
-      const config = action.config ?? state.present;
-      return { ...state, present: config, saved: config, lastKey: null };
+      return { ...state, saved: action.config ?? state.present, lastKey: null };
     }
     case "reset":
       return initHistory(action.config);

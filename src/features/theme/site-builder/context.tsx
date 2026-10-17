@@ -55,8 +55,8 @@ export type BuilderApi = BuilderData & {
   canUndo: boolean;
   canRedo: boolean;
   dirty: boolean;
-  /** Call after a successful draft save. */
-  markSaved: (updatedAt: string) => void;
+  /** Call after a successful draft save with the document that was sent. */
+  markSaved: (updatedAt: string, savedConfig?: ThemeConfig) => void;
   baseUpdatedAt: string;
   pages: BuilderPage[];
   page: BuilderPage;
@@ -105,9 +105,9 @@ export function BuilderProvider({ data, children }: { data: BuilderData; childre
     canUndo: canUndo(hist),
     canRedo: canRedo(hist),
     dirty: isDirty(hist),
-    markSaved: (updatedAt) => {
+    markSaved: (updatedAt, savedConfig) => {
       setBase(updatedAt);
-      dispatch({ type: "saved" });
+      dispatch({ type: "saved", config: savedConfig });
     },
     baseUpdatedAt,
     pages,

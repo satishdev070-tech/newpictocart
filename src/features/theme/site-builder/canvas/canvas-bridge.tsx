@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { usePathname } from "next/navigation";
 import { renderCanvasAction } from "../canvas-actions";
 import { CANVAS_TAG, parseHostMessage, type CanvasMessage, type SectionAction } from "../protocol";
 import { listKeyOf } from "../slots";
@@ -107,12 +108,18 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
     [platformOrigin],
   );
 
+  const pathname = usePathname();
+  // "ready" on first load and after every in-canvas navigation (client-side links keep this mounted),
+  // so the builder follows the page and re-sends unsaved edits for the new page's slots.
   useEffect(() => {
     if (window.parent === window) return;
     setFramed(true);
     document.documentElement.dataset.builderCanvas = "";
-    post({ type: "ready", path: location.pathname + location.search, slots: pageSlots() });
-  }, [post]);
+    setHover(null);
+    setSelected(null);
+    const t = window.setTimeout(() => post({ type: "ready", path: location.pathname + location.search, slots: pageSlots() }), 30);
+    return () => clearTimeout(t);
+  }, [post, pathname]);
 
   // Messages from the builder.
   useEffect(() => {
