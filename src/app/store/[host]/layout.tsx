@@ -10,6 +10,8 @@ import { ThemeTokensStyle } from "@/features/theme/tokens-style";
 import { ThemeSlot } from "@/features/theme/render/slot";
 import { CanvasBridge } from "@/features/theme/site-builder/canvas/canvas-bridge";
 import { platformOrigin } from "@/lib/platform/urls";
+import { SiteExtras } from "@/features/theme/render/site-extras";
+import { whatsappUrl } from "@/features/storefront/store-profile";
 import { getRenderContext } from "@/features/theme/render/load";
 import { Suspense } from "react";
 import { getTrackingConfig } from "@/features/tracking/server/config";
@@ -108,6 +110,9 @@ export default async function StorefrontLayout({ children, params }: LayoutProps
         {children}
       </main>
       <ThemeSlot slot="layout.footer" sections={ctx.sf.theme.layout.footer} ctx={ctx} />
+      {ctx.sf.theme.popups.length || ctx.sf.theme.embeds.whatsapp.enabled || ctx.sf.theme.embeds.backToTop.enabled || ctx.sf.preview ? (
+        <SiteExtras popups={ctx.sf.theme.popups} embeds={ctx.sf.theme.embeds} whatsapp={whatsappUrl(ctx.sf.store.whatsapp)} />
+      ) : null}
       {ctx.sf.preview ? <CanvasBridge platformOrigin={platformOrigin()} /> : null}
       {tracking ? (
         <Suspense fallback={null}>

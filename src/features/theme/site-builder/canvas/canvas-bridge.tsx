@@ -5,6 +5,7 @@ import { renderCanvasAction } from "../canvas-actions";
 import { CANVAS_TAG, parseHostMessage, type CanvasMessage, type SectionAction } from "../protocol";
 import { listKeyOf } from "../slots";
 import { setSlotOverrides } from "./store";
+import { popupSchema, type Popup } from "../../schema/site";
 
 /**
  * The storefront half of the site builder. Mounted by the store layout in theme preview only, and
@@ -95,6 +96,8 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const latestRev = useRef(0);
+  const latestPopups = useRef<Popup[]>([]);
+  const openPopup = useRef<string | null>(null);
   const styleEl = useRef<HTMLStyleElement | null>(null);
 
   const post = useCallback(
@@ -132,11 +135,23 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
         return;
       }
       if (msg.type === "popup") {
-        window.dispatchEvent(new CustomEvent("pc:popup", { detail: { id: msg.popupId, force: true } }));
+        openPopup.current = msg.popupId;
+        const popup = latestPopups.current.find((p) => p.id === msg.popupId);
+        window.dispatchEvent(new CustomEvent("pc:popup", { detail: { id: msg.popupId, popup } }));
         return;
       }
       // theme
       latestRev.current = msg.rev;
+      try {
+        const popups = (JSON.parse(msg.config) as { popups?: unknown }).popups;
+        // Display only; the storefront renders popup fields as text (see render/site-extras.tsx).
+        const parsed = Array.isArray(popups) ? popups.map((p) => popupSchema.safeParse(p)).filter((r) => r.success).map((r) => r.data) : [];
+        latestPopups.current = parsed;
+        const live = parsed.find((p) => p.id === openPopup.current);
+        if (live) window.dispatchEvent(new CustomEvent("pc:popup", { detail: { id: live.id, popup: live } }));
+      } catch {
+        latestPopups.current = [];
+      }
       const slots = pageSlots().filter((s) => msg.changedLists === "all" || msg.changedLists.includes(listKeyOf(s) ?? ""));
       setBusy(true);
       try {
