@@ -3,13 +3,16 @@ import Link from "next/link";
 import { can, requireTenant } from "@/lib/tenant/membership";
 import { formatMoney } from "@/lib/money";
 import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
-import { Card, PageHeader } from "@/components/ui/layout";
+import type { ReactNode } from "react";
+import { IndianRupee, Package, Receipt, ShoppingBag, Users } from "lucide-react";
+import { Card, PageHeader, StatCard, type StatTone } from "@/components/ui/layout";
 import { getDashboardHome, type HomeKpis, type SetupStep } from "@/features/analytics/home";
 import { RevenueChart } from "@/features/analytics/components/revenue-chart";
 import { StatusBadge } from "@/features/orders-admin/components/status-badge";
 import { orderNumberLabel } from "@/features/orders-admin/format";
 import { getLaunchStatusForMember } from "@/features/stores/launch";
 import { PreviewStoreButton, PublishStoreButton } from "@/features/stores/components/launch-controls";
+import { RecentActivityCard } from "@/features/notifications/inbox/components/recent-activity-card";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -22,42 +25,43 @@ function greeting(now = new Date()): string {
 
 function Change({ value }: { value: number | null }) {
   if (value === null) return <span className="text-muted">No prior data</span>;
-  const tone = value > 0 ? "text-success" : value < 0 ? "text-error" : "text-muted";
+  const tone = value > 0 ? "bg-success/10 text-success" : value < 0 ? "bg-error/10 text-error" : "bg-surface-secondary text-muted";
   return (
-    <span className={tone}>
-      {value > 0 ? "▲" : value < 0 ? "▼" : ""} {Math.abs(value)}% <span className="text-muted">vs previous 30 days</span>
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 tabular-nums ${tone}`}>
+      {value > 0 ? "▲ " : value < 0 ? "▼ " : ""}
+      {Math.abs(value)}%<span className="sr-only"> vs previous 30 days</span>
     </span>
   );
 }
 
+const KPI_ICON = { strokeWidth: 1.75, "aria-hidden": true } as const;
+
 function KpiStrip({ kpis, customers, products, allProducts }: { kpis: HomeKpis | null; customers: number | null; products: number; allProducts: number }) {
-  const items: { label: string; value: string; note?: React.ReactNode }[] = [];
+  const items: { label: string; value: string; tone: StatTone; icon: ReactNode; hint?: ReactNode; trend?: ReactNode }[] = [];
   if (kpis) {
-    items.push({ label: "Revenue", value: formatMoney(kpis.revenueMinor), note: <Change value={kpis.revenueChange} /> });
-    items.push({ label: "Orders", value: String(kpis.orders), note: <Change value={kpis.ordersChange} /> });
-    items.push({ label: "Average order", value: kpis.orders ? formatMoney(kpis.aovMinor) : "—" });
+    items.push({ label: "Revenue", value: formatMoney(kpis.revenueMinor), tone: "mint", icon: <IndianRupee {...KPI_ICON} />, trend: <Change value={kpis.revenueChange} />, hint: "Last 30 days" });
+    items.push({ label: "Orders", value: String(kpis.orders), tone: "lavender", icon: <ShoppingBag {...KPI_ICON} />, trend: <Change value={kpis.ordersChange} />, hint: "Last 30 days" });
+    items.push({ label: "Average order", value: kpis.orders ? formatMoney(kpis.aovMinor) : "—", tone: "peach", icon: <Receipt {...KPI_ICON} />, hint: "Per order, last 30 days" });
   }
-  if (customers !== null) items.push({ label: "Customers", value: String(customers), note: <span className="text-muted">All time</span> });
+  if (customers !== null) items.push({ label: "Customers", value: String(customers), tone: "sky", icon: <Users {...KPI_ICON} />, hint: "All time" });
   // Total catalogue first: "Active" alone hid drafts and looked like products were missing.
   items.push({
     label: "Products",
     value: String(allProducts),
-    note: (
-      <Link href="/dashboard/products" className="text-muted hover:text-foreground hover:underline">
+    tone: "rose",
+    icon: <Package {...KPI_ICON} />,
+    hint: (
+      <Link href="/dashboard/products" className="hover:text-foreground hover:underline">
         {products} live{allProducts > products ? ` · ${allProducts - products} draft` : ""} · View all
       </Link>
     ),
   });
   return (
-    <dl className="grid grid-cols-2 overflow-hidden rounded-lg border border-border bg-surface sm:grid-cols-3 lg:grid-cols-5">
+    <section aria-label="Key numbers" className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {items.map((i) => (
-        <div key={i.label} className="border-b border-r border-border p-4 last:border-r-0 sm:[&:nth-child(3n)]:border-r-0 lg:border-b-0 lg:[&:nth-child(3n)]:border-r">
-          <dt className="text-xs font-medium text-muted">{i.label}</dt>
-          <dd className="mt-1 text-xl font-semibold tabular-nums">{i.value}</dd>
-          {i.note ? <dd className="mt-1 text-xs">{i.note}</dd> : null}
-        </div>
+        <StatCard key={i.label} tone={i.tone} icon={i.icon} label={i.label} value={i.value} hint={i.hint} trend={i.trend} />
       ))}
-    </dl>
+    </section>
   );
 }
 
@@ -159,6 +163,8 @@ export default async function DashboardHome() {
         </div>
 
         <div className="space-y-6">
+          <RecentActivityCard audience={{ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId }} href="/dashboard/notifications" />
+
           {home.counts.toFulfil !== null || home.lowStock ? (
             <Card title="Needs attention">
               <ul className="space-y-3 text-sm">

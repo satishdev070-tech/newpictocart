@@ -12,6 +12,7 @@ Every page calls `requirePlatform(permission)`, and RLS / SQL functions enforce 
 | Domains, plans, feature flags | `/admin/domains`, `/admin/plans`, `/admin/flags` | tenants.read / plans.manage / flags.manage |
 | Store integrations (status only) | `/admin/integrations` | platform.settings.manage |
 | Platform health (env presence, booleans only) | `/admin/health` | platform.settings.manage |
+| Themes: marketplace catalogue, AI "create from URL + screenshot", editor, publish | `/admin/themes` | platform.settings.manage |
 | Usage, audit log, platform users, settings | `/admin/usage`, `/admin/audit`, `/admin/users`, `/admin/settings` | respective permissions |
 
 Bootstrap and the store directory are covered in [SUPER_ADMIN_SETUP.md](SUPER_ADMIN_SETUP.md).

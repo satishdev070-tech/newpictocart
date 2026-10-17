@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Check, ExternalLink } from "lucide-react";
+import { ArrowLeft, Check, Eye } from "lucide-react";
 import { buildMarketingMetadata } from "@/features/marketing-site/seo";
 import { siteOrigin } from "@/features/marketing-site/site";
-import { findTheme, themesHref } from "@/features/marketing-site/themes";
+import { findTheme, themePreviewHref, themesHref } from "@/features/marketing-site/themes";
 import { livePreviewUrls } from "@/features/marketing-site/server/themes";
 import { ThemeDevicePreview } from "@/features/marketing-site/components/theme-card";
 import { ButtonLink, Container } from "@/features/marketing-site/components/ui";
@@ -40,7 +40,7 @@ export default async function ThemeDetailPage({ params }: PageProps<"/themes/[ke
           <div className="mt-8 grid items-start gap-12 lg:grid-cols-[1.25fr_1fr]">
             <div className="pb-8">
               <ThemeDevicePreview theme={t} previewUrl={previewUrl} size="large" eager live />
-              <p className="mt-12 text-sm text-muted">{previewUrl ? "Select Live preview to open the theme on a demo store at desktop and phone size, with sample products." : "Preview drawn from the theme's own colours, fonts and layout."} Your text, images and products replace the samples.</p>
+              <p className="mt-12 text-sm text-muted">{previewUrl ? "Select Live preview to try the theme on a demo store, or Preview Theme for the full-size preview." : "Preview drawn from the theme's own colours, fonts and layout. Select Preview Theme for a full-size sample store."} Your text, images and products replace the samples.</p>
             </div>
             <div>
               <div className="flex flex-wrap gap-2 text-xs font-semibold">
@@ -56,12 +56,9 @@ export default async function ThemeDetailPage({ params }: PageProps<"/themes/[ke
                 <ButtonLink href={`/themes/${t.key}/use`} prefetch={false} size="lg" track={{ id: `use_${t.key}`, location: "theme_detail" }}>
                   Use This Theme
                 </ButtonLink>
-                {previewUrl ? (
-                  <ButtonLink href={previewUrl} external variant="secondary" size="lg" track={{ event: "theme_preview", id: t.key, location: "theme_detail" }}>
-                    Preview on a demo store <ExternalLink aria-hidden className="size-4" />
-                    <span className="sr-only">(opens in a new tab)</span>
-                  </ButtonLink>
-                ) : null}
+                <ButtonLink href={themePreviewHref(t.key)} variant="secondary" size="lg" track={{ event: "theme_preview", id: t.key, location: "theme_detail" }}>
+                  <Eye aria-hidden className="size-4" /> Preview Theme
+                </ButtonLink>
               </div>
               <p className="mt-3 text-sm text-muted">Using a theme creates a draft for your store. Nothing goes live until you publish.</p>
 

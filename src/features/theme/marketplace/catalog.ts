@@ -1,5 +1,6 @@
 import presets from "./presets.json";
 import type { MarketplaceTheme, ThemePreset } from "./types";
+import { withLayout } from "../layouts/apply-layout";
 import { ELECTRONICS_THEMES } from "./themes/electronics";
 import { BEAUTY_THEMES } from "./themes/beauty";
 import { FURNITURE_THEMES } from "./themes/furniture";
@@ -92,7 +93,23 @@ const ORIGINAL_THEMES: MarketplaceTheme[] = [
   },
 ];
 
-export const MARKETPLACE_THEMES: readonly MarketplaceTheme[] = [...FASHION_THEMES, ...ORIGINAL_THEMES, ...ELECTRONICS_THEMES, ...BEAUTY_THEMES, ...FURNITURE_THEMES, ...GROCERY_THEMES, ...JEWELLERY_THEMES, ...FOOTWEAR_THEMES, ...HEALTH_THEMES, ...SPORTS_THEMES, ...KIDS_THEMES, ...BOOKS_THEMES, ...PETS_THEMES, ...AUTOMOTIVE_THEMES, ...SMART_HOME_THEMES, ...BAGS_THEMES, ...WATCHES_THEMES, ...ORGANIC_THEMES, ...GOURMET_THEMES, ...EXTENDED_THEMES, ...GENERAL_THEMES];
+const RAW_THEMES: MarketplaceTheme[] = [...FASHION_THEMES, ...ORIGINAL_THEMES, ...ELECTRONICS_THEMES, ...BEAUTY_THEMES, ...FURNITURE_THEMES, ...GROCERY_THEMES, ...JEWELLERY_THEMES, ...FOOTWEAR_THEMES, ...HEALTH_THEMES, ...SPORTS_THEMES, ...KIDS_THEMES, ...BOOKS_THEMES, ...PETS_THEMES, ...AUTOMOTIVE_THEMES, ...SMART_HOME_THEMES, ...BAGS_THEMES, ...WATCHES_THEMES, ...ORGANIC_THEMES, ...GOURMET_THEMES, ...EXTENDED_THEMES, ...GENERAL_THEMES];
+
+/**
+ * Every theme gets its layout (section variants, header style, footer layout) from its industry's
+ * layout personality, by its position among that industry's themes (layouts/apply-layout.ts), so
+ * themes look structurally different across and within categories. Explicit preset values win.
+ */
+function withLayouts(themes: MarketplaceTheme[]): MarketplaceTheme[] {
+  const seen = new Map<string, number>();
+  return themes.map((t) => {
+    const n = seen.get(t.industry) ?? 0;
+    seen.set(t.industry, n + 1);
+    return { ...t, preset: withLayout(t.preset, t.industry, n) };
+  });
+}
+
+export const MARKETPLACE_THEMES: readonly MarketplaceTheme[] = withLayouts(RAW_THEMES);
 
 export function findMarketplaceTheme(key: string): MarketplaceTheme | null {
   return MARKETPLACE_THEMES.find((t) => t.key === key) ?? null;

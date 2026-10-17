@@ -59,7 +59,12 @@ type FieldBase = {
 export type EditorField =
   | (FieldBase & { kind: "text"; maxLength: number; multiline?: boolean; placeholder?: string })
   | (FieldBase & { kind: "number"; min: number; max: number; step?: number })
-  | (FieldBase & { kind: "select"; options: readonly { value: string; label: string }[] })
+  | (FieldBase & {
+      kind: "select";
+      options: readonly { value: string; label: string; hint?: string }[];
+      /** "variants": shown as a grid of layout cards (with a small diagram) instead of a dropdown. */
+      display?: "variants";
+    })
   | (FieldBase & { kind: "toggle" })
   | (FieldBase & { kind: "color" })
   | (FieldBase & { kind: "image" })

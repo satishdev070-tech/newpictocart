@@ -176,3 +176,42 @@ or the store's `/account/auth/callback`, both accept `token_hash`), only for hos
 host; anything else falls back to `/auth/confirm`), brand it (store name/logo for shoppers, platform for sellers) and send it
 through `sendEmail()` (Resend, `email_log`, idempotency). If the email can't be sent we return an error to Supabase so the
 user sees a failure rather than waiting for a mail that never comes.
+
+## ADR-035 — Unsplash photos in the media library are imported copies · Accepted
+The media picker hands callers storage paths (`tenant/{id}/media/…`), and every image field resolves them with
+`assetUrl()`, which only accepts store paths. So a seller's "use this Unsplash photo" imports a copy (≤ 2000 px JPEG from
+images.unsplash.com) into the store's own library with the member's session (Storage + `media_assets` RLS, no admin client),
+instead of teaching every consumer about external URLs. The Unsplash License allows this. API-guideline duties are kept:
+browsing hotlinks images.unsplash.com thumbnails with "Photo by X on Unsplash" links (UTM), each import or super-admin "Copy URL"
+calls the photo's `download_location`, the photo is looked up by id server-side (never a URL from the browser), and the credit
+goes into the copy's alt text and file name. The API key stays server-side; searches go through Next's fetch cache and a
+per-store rate limit (the API's demo tier is 50 requests/hour).
+
+## ADR-036 — In-app notifications: per-recipient rows written by DB triggers · Accepted
+The bell (seller dashboard + super admin console) reads `public.notifications`, one row per recipient. Producers are
+`AFTER` triggers on the tables where events already happen (orders, returns, inventory_levels, reviews, customers, carts,
+domains, ai_generations, plan_requests, profiles, tenants, stores), fanning out through `app.notify_tenant` /
+`app.notify_platform` to members whose role (system or custom) grants the event's permission, minus the actor and users who
+muted the type. Triggers catch every code path (storefront RPCs, verified webhooks, dashboard actions) without the
+secret-key client, and each producer swallows its own errors so a notification can never roll back the business write.
+Rows are deduped by `(user_id, dedupe_key)`. RLS: own rows only, while still a member; clients may update `read_at` only.
+Time-based reminders (trial ending) and retention run in `notifications_run_reminders()` from the notifications cron
+(service role). Platform events without a table yet (APK requests, disputes, payout failures) go through
+`notifyPlatform()` → `notify_platform_event()` (service role, after the caller verified the event). Live updates use
+Supabase Realtime on the user's rows with a 60 s polling fallback. Chosen over a shared row + per-user read table (more
+complex RLS and Realtime filtering) and over app-level `emit()` calls (misses SQL-only paths such as `place_order`).
+
+## ADR-037 — Custom marketplace themes: AI from a reference, stored in `public.themes` · Proposed
+Super Admin → Themes creates marketplace themes from a reference URL and/or screenshots. The output is the existing
+marketplace **preset** (tokens + chrome + home composition with the layout-variant vocabulary), not a store ThemeConfig, so
+applying it reuses `applyThemePreset` and keeps each seller's content. Custom themes live in `public.themes` (migration 1500,
+extended by 3100): `config` holds the theme document, `active` = published; RLS already limits writes and drafts to
+`platform.settings.manage`. Built-in themes stay in code and always win a key clash. The reference page is fetched by an
+SSRF guard (https, port 443, public addresses checked inside the socket lookup, 3 checked redirects, 8 s / 1.5 MB caps) and
+reduced to a summary with no page text, logos or image URLs; screenshots go only to the AI request and are not stored. The
+model is told to recreate the look, never content; its JSON is repaired (unknown sections/settings dropped, values clamped,
+hero + product list guaranteed), strictly validated (zod + "applies to a store config"), regenerated once with the issues if
+still invalid, and every image slot is filled from Unsplash with credits. The existing LLM client gained optional image
+parts (Anthropic, Gemini; Groq stays text-only and is tried last when screenshots are attached). Rate limit: 6/hour,
+30/day per platform user. Chosen over a new table (the reserved one fits) and over storing reference screenshots (copyright,
+storage) or scraping reference images (never allowed).

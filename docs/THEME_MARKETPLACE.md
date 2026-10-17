@@ -62,6 +62,27 @@ name maps to one section family per industry.
 - In the dashboard, **Live preview** opens a dialog with Desktop (1280 px, scaled) and Mobile
   (390 px) frames. It is shown only when the demo store exists and is open.
 
+## Marketing site previews (pictocart.in)
+
+- **Preview Theme** on the home page cards, `/themes` and `/themes/[key]` opens `/themes/[key]/preview`, which works for
+  every theme: it frames a live demo store with the theme applied in memory when one is up, otherwise it renders a
+  **sample store** server-side from the theme preset (colours, fonts, header layout, hero, product card, spacing, footer)
+  with the industry's Unsplash photos (credited). Desktop / Phone switch; the phone frame is 390 px.
+- The demo store for a theme is its own `demo`, else its industry's showcase store, else `sabkuch`, else any live showcase
+  store (`previewDemoCandidates`): Live Preview applies any theme on any showcase tenant.
+- Card images: captured screenshot (`public/theme-previews`, listed in `theme-previews.json`) first, then the category's
+  Unsplash photo (`src/lib/unsplash.ts`), then the token mockup.
+- **Why previews were not real (2026-10-16):** none of the showcase demo stores existed (the connected Supabase project and
+  `*.pictocart.in` both 404 for `kaya-studio`, `dewbloom`, `sabkuch`, `chinar`), so no live preview URL was produced and the
+  screenshot manifest stayed empty. The sample store now covers that case.
+- **Regenerate screenshots / enable live previews:**
+  1. Build the demo stores (writes only to those demo tenants):
+     `pnpm exec tsx --env-file=.env.local scripts/dev/showcase/run.mts kaya-studio voltnest dewbloom … sabkuch`
+     (original fashion demos: `scripts/dev/demo-stores/run.mts`).
+  2. Capture: `pnpm themes:capture --root pictocart.in` (production), or `pnpm themes:capture --root localhost --port 3000`
+     against a local `pnpm dev`; `--only key1,key2` for a subset. Or GitHub → Actions → "Capture theme previews".
+  3. Commit `public/theme-previews/*.webp` and `src/features/marketing-site/theme-previews.json`.
+
 ## Marketplace UI
 
 Industry chips with counts, style filter, search (name, tagline, style, best-for) and sort
@@ -109,8 +130,18 @@ Tests: `tests/unit/theme-marketplace.test.ts` applies every theme to a store con
 the config validates, the brand tokens switch, hero and announcement content survive, and no
 foreign asset paths appear.
 
-The `themes` table (migration 1500) is reserved for platform-published themes beyond the built-in
-catalogue (RLS: readable when active; writes need `platform.settings.manage`).
+The `themes` table (migration 1500, extended by 3100) holds **custom themes** made in Super Admin → Themes (AI from a
+reference URL/screenshot, or duplicates of any theme). `active` = published; RLS: readable when active, drafts and writes
+need `platform.settings.manage`. Published custom themes join the seller catalogue through `marketplace/registry.ts`.
+
+## Custom themes: AI "create from URL + screenshot" (Super Admin)
+
+`/admin/themes/new` → `src/features/theme/builder`: SSRF-guarded fetch (https only, public addresses checked at connect
+time, 3 redirects, 8 s / 1.5 MB) → design summary (colours, fonts mapped to our font keys, header shape, section order; no
+page text, logos or image URLs) → AI (screenshots as image parts) → preset in the Variant API above → repair + strict zod
+validation + "applies to a store config", one regeneration on failure → Unsplash photos for every image slot with credits →
+draft → editor (`/admin/themes/{key}/edit`) → publish. Only the look is recreated; the UI says so and asks the admin to
+confirm. See ADR-037.
 
 ## Sections and options added with Jaipur Boutique (available to every theme)
 
@@ -129,3 +160,85 @@ Category tiles in portrait/square shape now fill the row (one column per tile, u
 
 The Jaipur Boutique layout takes its structure from a common Dawn-based storefront pattern. No third-party code, images, logos or copy were used. Applying it keeps the store's own banners, products and text.
 `scripts/dev/import-thepaliya/theme-boutique.mts` applies it to the-paliya and fills every section with that store's content.
+
+## Layout variants and per-category layouts (2026-10-16)
+
+Themes used to differ only in colours, fonts and section order, so every theme still rendered the same
+skeleton (announcement → logo row → dark full-bleed hero → product grid). Each core section now has
+several genuinely different layouts, every category has its own layout personality, and empty image
+slots show relevant Unsplash photos.
+
+### Variant API (how a theme declares its layout)
+
+Variants are ordinary section settings, so they are saved in the theme document, editable in the
+theme editor (as a grid of layout cards with a small diagram) and carried across a theme switch by
+`applyThemePreset` (they are enum "style" settings). Vocabulary: `src/features/theme/sections/variants.ts`.
+The FIRST value of each list is the default and renders exactly as before, so theme documents saved
+earlier keep their look (zod defaults; tested in `tests/unit/theme-layouts.test.ts`).
+
+| Section | Setting | Values |
+|---|---|---|
+| Hero | `variant` | `overlay` (old look), `split`, `collage`, `minimal`, `band`, `cards`, `framed`; plus `mediaRatio`, `panelTone` |
+| ProductGrid | `variant` | `grid` (old), `masonry`, `lookbook`, `rail`, `bigtile`, `list`; plus `cardRatio`, `spacing` |
+| Bestseller / NewArrivals | `layout` | `carousel`, `grid`, and every ProductGrid variant |
+| ProductCarousel | `cardRatio`, `spacing` | |
+| CategoryGrid | `variant` | `grid` (old, uses `shape`), `mosaic`, `rail`, `index`, `pills` |
+| CollectionGrid | `layout` | `grid` (old), `mosaic`, `rail` |
+| BrandStory | `variant` | `split` (old), `centered`, `overlay`, `band`, `collage`; plus `imagePosition`, `tone` |
+| EditorialImageText | `variant` | `split`, `fullbleed`, `journal`, `overlap` (new) |
+| Testimonials | `variant` | `grid` (old), `spotlight`, `cards`, `marquee`, `wall`; plus `tone` |
+| Newsletter | `variant` | `centered` (old), `split`, `banner`, `card`, `inline`; plus `imagePath` |
+| TrustBadges (USP band) | `layout` | `grid`, `marquee`, `line`, `cards`, `badges` |
+| Header | `style` | `classic` (old), `bordered`, `inverted`, `floating`, `minimal`, `editorial` |
+| Footer | `layout` | `columns` (old), `centered`, `minimal`, `statement` |
+| most content sections | `spacing` | `default`, `compact`, `airy`, `flush` (SectionList sets `data-spacing`) |
+
+In a marketplace preset a theme pins values in its items, e.g. `["Hero", { variant: "split" }, "hero"]`,
+and the chrome with `preset.headerStyle` / `preset.footerLayout`. Anything left unset is filled by the
+layout personality.
+
+### Layout personalities (per category)
+
+`src/features/theme/layouts/personalities.ts` defines one personality per layout family (the 16 photo
+categories: fashion, food, jewellery, beauty, furniture, electronics, handicrafts, books, fitness, toys,
+stationery, pets, organic, art, services, general; every store industry maps onto one via
+`layoutFamily()`). A personality lists, in order of preference, the hero / product / category /
+collection / story / editorial / testimonial / newsletter / USP variants, hero panel tones, header
+styles, footer layouts and spacing that suit the category, plus a `signature` home page for a new store
+(`signatureComposition(industry)`).
+
+`withLayout(preset, industry, index)` (`layouts/apply-layout.ts`) gives the n-th theme of an industry the
+n-th entry of every list (wrapping; the second grid on a page steps one further), never overriding a
+value the preset sets. The catalogue applies it to every theme (`MARKETPLACE_THEMES`), so themes in one
+category get different hero / products / header / footer combinations (tested: all themes of each
+industry have distinct `layoutSummary()`s), and categories differ because their lists differ.
+Banner/counter heroes and 5–6 column grids keep their classic layout. `preset.family` records the
+family (used by the mockups for photos).
+
+### Stock imagery (Unsplash)
+
+- `src/lib/unsplash-stock.ts` (pure): a curated pool of real Unsplash photos with photographer credits,
+  per category and slot (`hero`, `story`, `tiles`, `products`), picked from Unsplash search for
+  `STOCK_QUERIES` (e.g. food: "bakery croissant", jewellery: "gold necklace", furniture: "sofa living room").
+- `src/lib/unsplash.ts` (server): `getStockImages(category, slot)` / `getStockSet(category)` use the Search
+  API when `UNSPLASH_ACCESS_KEY` is set (one cached request per slot per day), else the curated pool.
+  Existing exports are unchanged; the pure category list moved to `src/lib/unsplash-categories.ts` and is
+  re-exported.
+- Theme token `imagery`: `auto` (default: the store's category; Live Preview uses the previewed theme's
+  industry, showcase stores their industry), a category name, or `off`. Editable under Design in the editor.
+- The storefront (`theme/server/imagery.ts` → `RenderContext.stock`) fills ONLY empty image slots: hero
+  slides, category/collection tiles, promo tiles, brand story, editorial, newsletter photos. Product
+  photo placeholders are filled only on showcase stores and in Live Preview (`ctx.stockProducts`), never on
+  real stores. The protected live store (The Paliya) never gets stock photos.
+- Large stock photos carry a visible "Photo: Name / Unsplash" credit (`PhotoCredit`).
+- For the Media Library and previews: `themeUnsplashImages(theme)` (`layouts/imagery.ts`, pure, sync) and
+  `getThemeUnsplashImages(themeKey)` (`theme/server/imagery.ts`, async, API-fresh) return the photos a theme
+  uses, with slot, alt text and credit.
+- `ThemeMockup` (marketplace cards, onboarding, dashboard) now draws the theme's hero variant, product
+  layout, header style and footer layout with its category's photos.
+
+### Performance
+
+All variants are server components: rails and card carousels use CSS scroll-snap, strips use CSS
+animation, so no variant adds client JavaScript. Images go through `next/image` with `sizes`; the image
+loader adds `w=` to images.unsplash.com URLs so Unsplash's CDN serves each width.

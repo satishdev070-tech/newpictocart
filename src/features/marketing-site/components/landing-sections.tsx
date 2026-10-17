@@ -530,16 +530,16 @@ function FeatureCard({ icon, title, body }: LandingContent["features"]["items"][
 
 // ---- Themes ------------------------------------------------------------------------------
 
-export function LandingThemes({ content, themes, previews, images }: { content: LandingContent["themes"]; themes: MarketplaceTheme[]; previews: Map<string, string>; images?: Map<string, CategoryImage> }) {
+export function LandingThemes({ content, themes, images }: { content: LandingContent["themes"]; themes: MarketplaceTheme[]; images?: Map<string, CategoryImage> }) {
   if (!themes.length) return null;
   return (
     <section id="themes" aria-labelledby="themes-title" className="scroll-mt-20 bg-white py-20 sm:py-24">
       <Container>
         <Heading id="themes-title" badge={content.badge} tone="green" title={content.title} body={content.body} />
-        <ul className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {themes.map((t) => (
             <li key={t.key} className="h-full">
-              <ThemeCard theme={t} previewUrl={previews.get(t.key) ?? null} image={images?.get(t.industry) ?? null} location="home_themes" />
+              <ThemeCard theme={t} image={images?.get(t.industry) ?? null} location="home_themes" />
             </li>
           ))}
         </ul>

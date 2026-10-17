@@ -1,5 +1,9 @@
 import "server-only";
 import { logger } from "@/lib/observability/logger";
+import { UNSPLASH_CATEGORIES, toUnsplashCategory, type UnsplashCategory } from "./unsplash-categories";
+import { STOCK_QUERIES, STOCK_SLOTS, curatedStock, stockPhotoUrl, type StockImage, type StockSet, type StockSlot } from "./unsplash-stock";
+
+export { UNSPLASH_CATEGORIES, toUnsplashCategory, type UnsplashCategory };
 
 /**
  * Category photos from Unsplash for marketing sections (theme cards, business categories, ...).
@@ -10,26 +14,6 @@ import { logger } from "@/lib/observability/logger";
  * callers always get an image. Photos are hotlinked from images.unsplash.com as the API
  * guidelines require, and must be shown with the returned credit ("Photo: X / Unsplash").
  */
-
-export const UNSPLASH_CATEGORIES = [
-  "fashion",
-  "food",
-  "jewellery",
-  "beauty",
-  "furniture",
-  "electronics",
-  "handicrafts",
-  "books",
-  "fitness",
-  "toys",
-  "stationery",
-  "pets",
-  "organic",
-  "art",
-  "services",
-  "general",
-] as const;
-export type UnsplashCategory = (typeof UNSPLASH_CATEGORIES)[number];
 
 export type CategoryImage = {
   /** images.unsplash.com URL, already cropped/sized for a card (800x500, auto format). */
@@ -87,46 +71,6 @@ const FALLBACK: Record<UnsplashCategory, { id: string; alt: string }> = {
   general: { id: "photo-1441986300917-64674bd600d8", alt: "Inside a modern retail store" },
 };
 
-/** Store industries (src/features/stores/industries.ts) and common aliases -> photo category. */
-const ALIASES: Record<string, UnsplashCategory> = {
-  clothing: "fashion",
-  footwear: "fashion",
-  bags: "fashion",
-  eyewear: "fashion",
-  gourmet: "food",
-  bakery: "food",
-  grocery: "organic",
-  sweets: "food",
-  beverages: "food",
-  kitchen: "food",
-  jewelry: "jewellery",
-  watches: "jewellery",
-  fragrances: "beauty",
-  health: "beauty",
-  ayurveda: "organic",
-  "home-decor": "furniture",
-  "home-textiles": "furniture",
-  "smart-home": "electronics",
-  "mobile-accessories": "electronics",
-  automotive: "electronics",
-  tools: "electronics",
-  pooja: "handicrafts",
-  gifts: "handicrafts",
-  sports: "fitness",
-  kids: "toys",
-  pet: "pets",
-  plants: "organic",
-  music: "art",
-  service: "services",
-};
-
-/** Maps a category, store industry slug or alias to a known photo category ("general" if unknown). */
-export function toUnsplashCategory(category: string): UnsplashCategory {
-  const key = category.trim().toLowerCase().replace(/[\s_&]+/g, "-");
-  if ((UNSPLASH_CATEGORIES as readonly string[]).includes(key)) return key as UnsplashCategory;
-  return ALIASES[key] ?? "general";
-}
-
 /** The curated static photo for a category. PURE. */
 export function fallbackCategoryImage(category: string): CategoryImage {
   const photo = FALLBACK[toUnsplashCategory(category)];
@@ -178,4 +122,72 @@ export async function getCategoryImages(categories: readonly string[]): Promise<
   const unique = [...new Set(categories)];
   const images = await Promise.all(unique.map((c) => getCategoryImage(c)));
   return new Map(unique.map((c, i) => [c, images[i]!]));
+}
+
+// ---- Media library helpers (appended; see src/features/media/unsplash) -------------------------
+
+/** Search terms used for a category's photo, so the media library can find the same photo. */
+export function unsplashCategoryQuery(category: string): string {
+  return QUERIES[toUnsplashCategory(category)];
+}
+
+/** The curated fallback photos (images.unsplash.com ids like "photo-…"), keyed by category. PURE. */
+export function curatedUnsplashPhotos(): { category: UnsplashCategory; id: string; alt: string }[] {
+  return UNSPLASH_CATEGORIES.map((category) => ({ category, ...FALLBACK[category] }));
+}
+
+// -----------------------------------------------------------------------------
+// Theme imagery: several photos per category and image slot (hero, story, tiles, products).
+// -----------------------------------------------------------------------------
+export { STOCK_SLOTS, curatedStock, curatedStockSet, pickStock, stockCredits, type StockImage, type StockSet, type StockSlot } from "./unsplash-stock";
+
+const ORIENTATION: Record<StockSlot, string> = { hero: "landscape", story: "portrait", tiles: "squarish", products: "squarish" };
+
+/**
+ * Photos for one category slot: the Search API (one cached request per slot per day) when
+ * UNSPLASH_ACCESS_KEY is set and returns enough results, otherwise the curated pool. Never throws.
+ */
+export async function getStockImages(category: string, slot: StockSlot, count = 4): Promise<StockImage[]> {
+  const cat = toUnsplashCategory(category);
+  const curated = curatedStock(cat, slot);
+  const key = process.env.UNSPLASH_ACCESS_KEY?.trim();
+  if (!key) return curated.slice(0, count);
+  try {
+    const params = new URLSearchParams({ query: STOCK_QUERIES[cat][slot], per_page: String(Math.max(count, 4)), orientation: ORIENTATION[slot], content_filter: "high" });
+    const res = await fetch(`https://api.unsplash.com/search/photos?${params}`, {
+      headers: { Authorization: `Client-ID ${key}`, "Accept-Version": "v1" },
+      signal: AbortSignal.timeout(4000),
+      next: { revalidate: REVALIDATE_SECONDS, tags: ["unsplash"] },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const found: StockImage[] = [];
+    for (const photo of ((await res.json()) as SearchResponse).results ?? []) {
+      const raw = photo.urls?.raw;
+      const m = raw?.match(/^https:\/\/images\.unsplash\.com\/(photo-[\w-]+)/);
+      if (!m) continue;
+      const name = photo.user?.name;
+      const profile = photo.user?.links?.html;
+      found.push({
+        id: m[1]!,
+        url: stockPhotoUrl(m[1]!),
+        alt: photo.alt_description || photo.description || curated[0]?.alt || "",
+        photographer: name && profile ? { name, url: withUtm(profile) } : null,
+        unsplashUrl: UNSPLASH_HOME,
+        slot,
+        category: cat,
+        source: "api",
+      });
+    }
+    return found.length >= Math.min(count, 2) ? found.slice(0, count) : curated.slice(0, count);
+  } catch (error) {
+    logger.warn("unsplash.stock_failed", { category: cat, slot, error: error instanceof Error ? error.message : "unknown" });
+    return curated.slice(0, count);
+  }
+}
+
+/** Every slot for a category (what a theme fills empty image slots with). Never throws. */
+export async function getStockSet(category: string): Promise<StockSet> {
+  const cat = toUnsplashCategory(category);
+  const [hero, story, tiles, products] = await Promise.all(STOCK_SLOTS.map((slot) => getStockImages(cat, slot)));
+  return { category: cat, hero: hero!, story: story!, tiles: tiles!, products: products! };
 }

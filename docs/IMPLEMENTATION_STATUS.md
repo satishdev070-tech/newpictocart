@@ -1,6 +1,6 @@
 # Implementation Status
 
-_Last updated: 2026-10-11 (online payments fix + transactions, super-admin store control, auth email via Resend, 16 more industries)_
+_Last updated: 2026-10-17 (Super Admin theme marketplace manager + AI "create theme from URL + screenshot")_
 
 ## Phase overview
 
@@ -443,6 +443,25 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   server-side, rate limited, audited and revalidate the site immediately.
 - Testimonials ship empty and hidden: add only real merchant quotes.
 
+## Theme layout variants, per-category layouts, Unsplash theme imagery (2026-10-16)
+
+- Every core section has several layouts as editable settings (hero ×7, product grid ×6, category tiles ×5,
+  story ×5, testimonials ×5, newsletter ×5, USP band ×5, header styles ×6, footer layouts ×4, per-section
+  spacing and product image shape). Defaults reproduce the old look, so saved themes render unchanged.
+  Details and the variant API: `docs/THEME_MARKETPLACE.md` → "Layout variants".
+- Each category has a layout personality (`src/features/theme/layouts/personalities.ts`); all marketplace
+  themes get their variants, header style and footer layout from it by position, so themes look different
+  across and within categories. `signatureComposition(industry)` gives a new store's default home page.
+- Theme editor: variant fields are a grid of layout cards with diagrams; Design has "Stock photos".
+- Empty image slots use curated / API Unsplash photos for the store's category, with credits
+  (`src/lib/unsplash-stock.ts`, `getStockSet`, `themeUnsplashImages`, `getThemeUnsplashImages`). Product
+  placeholders only on demo stores and Live Preview.
+- Marketplace mockups draw each theme's real layout with category photos.
+- No migration. Tests: `tests/unit/theme-layouts.test.ts`.
+- Verified: `pnpm check` green (66 files / 784 tests, build OK). Visual check at 1280px and 375px of furniture,
+  bakery, jewellery, electronics, books, beauty and pets themes, using a temporary page that renders the real section
+  components with sample data (the local dev database has no showcase stores). Not yet checked on real showcase stores.
+
 ## Home themes section + Unsplash category photos (2026-10-16)
 
 - Theme cards (`theme-card.tsx`): fixed 4:3 preview stage with the phone sized from the stage
@@ -501,3 +520,84 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
 - **Shell.** Seller nav regrouped as Dashboard · Catalog · Sales · Marketing · Storefront · Analytics · Settings. Multi-item groups are collapsible submenus (grid-rows animation, no measuring, `inert` when closed; the active group opens by default, choices saved per browser). Exactly one item is active (longest matching href). Breadcrumbs moved from the topbar into the content area; the topbar has the wide search, a light/dark toggle, notifications and account. Primitives: `StatCard` gained optional `tone` + `icon`, `Badge` a `brand` tone, `AppearanceQuickToggle`; cards/buttons are rounder.
 - **Speed.** 25 new `loading.tsx` boundaries (14 → 39) using shared skeletons (`components/app-shell/skeletons.tsx`), so every sidebar destination shows its fallback on click and is prefetched up to it. Clicking a nav item highlights it before the route commits (preview, dev mode: ~0.2 s to highlight vs ~1.2 s to commit, where it used to appear). Submenu links are prefetched on hover/focus of the group, and a `useLinkStatus` dot shows a pending navigation. Notification links in topbar popovers are now `next/link` (they did full page reloads). `getPlatformOverview` is `React.cache`d (the console layout and overview page ran the `platform_overview` RPC twice per load: now once); the dashboard layout reads cookies in parallel with alerts/trial info; the console layout no longer loads branding itself.
 - **Not verified here:** signed-in dashboard/admin pages (sign-in was not available to the session); visual QA used the real `AppShell` and primitives with mock data at 375 px and 1440 px, light and dark.
+
+## Theme previews on the marketing site + Unsplash in the media library (2026-10-16)
+
+- **Home themes section:** two rows of four by default, one theme per industry (fashion, gourmet, jewellery, beauty,
+  furniture, electronics, handicrafts, general; then grocery, footwear, kids, watches up to the max of 12), 4/2/1 columns.
+  CMS field `themes.limit` (2–12, default 8). Back-compat: documents saved with the old `themes.count` still validate; a
+  stored `count` of 4 (the old default) now means the new default, any other value is kept (`themesShown`).
+- **Preview Theme** (home cards, `/themes`, `/themes/[key]`) → `/themes/[key]/preview` (noindex): the live demo store in a
+  Desktop/Phone frame when any showcase demo store is up (theme's own demo first, then its industry's, then any:
+  `previewDemoCandidates`), otherwise a server-rendered sample store from the theme preset with Unsplash photos.
+  Root cause of "no real preview": the showcase demo stores were never built on the connected project or on pictocart.in,
+  so no live URL and no screenshots existed. `/themes` cards now show the category photo too.
+- **Capture script** (`scripts/themes/capture-previews.mts`): uses the same demo fallback, works against a local dev
+  server (`--root localhost --port 3000`); not run here because no demo store is up. How to regenerate:
+  docs/THEME_MARKETPLACE.md → "Marketing site previews".
+- **Media library Unsplash tab** (dashboard Media page, media picker, new super-admin `/admin/media`): theme/category
+  photos + Unsplash search, attribution, import-on-insert with the download endpoint triggered (ADR-035, MEDIA_LIBRARY_AUDIT.md).
+- **Not verified here:** the signed-in Media pages and picker (seed accounts exist only for a local Supabase; this
+  worktree uses the cloud project), and a real live preview / screenshot capture (no demo store is up). Checked in the dev
+  server: home grid (8 cards, 4 columns, photos, preview links), `/themes` cards, preview page desktop + phone.
+- Note: the configured `UNSPLASH_ACCESS_KEY` is a demo-tier key (50 requests/hour); apply for production (5000/hour)
+  before launch. Responses are cached, but a cold cache needs ~20 requests.
+
+## Panel sidebar toggle and tinted KPI cards (2026-10-16)
+
+- **Sidebar.** Fixed: the collapsed rail let the nav overflow (`overflow-visible`), pushing the footer's Collapse/Expand button off screen, so the sidebar looked stuck as an icon rail. The toggle now sits at the top of the sidebar in both states (aria-label + tooltip) and the nav scrolls inside (`min-h-0`). The preference lives in a cookie per panel (`pc_sidebar_seller` / `pc_sidebar_admin`); `AppShell` is now a server wrapper that reads it, so the first paint has the right width. Expanded: logo, labels, submenus with chevrons, active group auto-opens, ↑/↓/Home/End move focus, →/← open/close a submenu. Collapsed: Pictocart mark, one icon per section with tooltips, sections with children open a flyout submenu on hover or click (Enter/→ opens and focuses the first link, ↑/↓ inside, Esc/← closes and returns focus). Tooltips and flyouts are `position: fixed` so the scrollable rail never clips them. Mobile drawer unchanged apart from a surface background.
+- **Navigation.** Seller nav gained an **Accounts** group (Customers, Team, Roles & permissions, Plan & billing) and now links every settings/content page that was only reachable from the Settings sub-nav (Checkout, Taxes, Notifications, Security, SEO, Domains, Store locations, Redirects). Admin groups have their own icons. `tests/unit/dashboard/app-shell-nav.test.ts` checks every nav href has a page, icons/labels, active-item and group resolution, breadcrumbs, flyout clamping and the cookie parser.
+- **KPI cards.** `StatCard` tones (mint, lavender, peach, sky, rose, + new amber, teal tokens for light and dark) render a soft diagonal gradient, matching border, an icon chip in the tint's ink, an overline label, and a hover lift (off under reduced motion); optional `trend` chip. The admin overview's 8 KPIs and the seller dashboard's KPI strip use it (the bespoke `Kpi` / bordered strip are gone).
+- **Not verified here:** signed-in pages. Sign-in would send the super-admin password to the hosted Supabase project, so the session rendered the real `AppShell`, nav configs and `StatCard`s in a temporary unauthenticated harness route (removed before commit) and checked expanded, collapsed (+flyout, tooltip) and mobile drawer at 1440 px / 390 px in light and dark, plus keyboard flows and cookie persistence with headless Chrome.
+
+
+## In-app notifications: bell, pages, producers (2026-10-16)
+
+- **Data** — migration `20261016003000_in_app_notifications.sql`: `notifications` (per recipient: scope tenant/platform,
+  type, title, body, in-app link, data, dedupe key, read_at; RLS own rows while still a member; clients update `read_at`
+  only) and `notification_preferences` (per-user muted types). Added to the `supabase_realtime` publication when present.
+  Types hand-added to `database.types.ts`. Design: ADR-036.
+- **Producers (DB triggers)** — seller: new order (COD at placement, online once paid), payment received / failed, order
+  cancelled, returned/RTO, return requested, low stock / sold out, new review, new customer, abandoned cart recovered
+  (only after an email/WhatsApp reminder), plan request decided, AI credits low (80 %) / used up, custom domain verified /
+  failed, SSL active / failed. Platform: new sign-up, new store, store published, plan request. Cron
+  (`/api/cron/notifications`): trial ends in ≤3 days (deduped per store and day) + retention (read > 90 days, any > 180).
+- **Reserved, no producer yet** — APK requests, disputes, failed platform payments/payouts: those flows/tables don't
+  exist. Types, icons and `notifyPlatform()` (`src/features/notifications/inbox/server.ts`) are ready for them.
+- **UI** — `features/notifications/inbox/**`: header bell with unread badge + popover (icon per type, relative time,
+  mark read on click, mark all as read, keeps the "needs attention" counters, link to the page), `/dashboard/notifications`
+  and `/admin/notifications` (all/unread + group filters, pagination, mark unread, per-type in-app preferences at
+  `?tab=preferences`), "Recent activity" card on the dashboard home. Live via Supabase Realtime + 60 s polling fallback.
+- **Tests** — `tests/rls/notifications.test.ts` (RLS, producers, recipients by permission, mutes, dedupe, cart recovery,
+  reminders, function grants), `tests/unit/notifications/inbox.test.ts` (catalog ↔ SQL producers, AI limit sync, link
+  safety, relative time, server-resolved audience in actions, preferences).
+- **Not done** — migration not applied to the remote Supabase project; e-mail/WhatsApp copies of these alerts.
+
+## Super Admin theme manager + AI theme builder (2026-10-17, branch `claude/jovial-jang-80a4f6`)
+
+- **Super Admin → Themes** (`/admin/themes`, `platform.settings.manage`): every built-in theme plus custom themes (drafts
+  included) as a grid with search, Built-in / Custom / Drafts filter and category chips. Preview page (`/admin/themes/{key}`:
+  desktop + phone mockups, sample store with the theme's Unsplash photos and credits, Live Preview link on the category's
+  showcase store for published themes). Custom themes: Edit, Publish/Unpublish, Duplicate, Delete. Built-in: Duplicate & edit.
+- **Create new theme** (`/admin/themes/new`): name, category, reference https URL and/or up to 3 screenshots (PNG/JPEG/WebP,
+  ≤ 3.5 MB, magic-byte checked, not stored), plus an acknowledgement that only the look is recreated. Pipeline
+  (`src/features/theme/builder`): `fetch-guard.ts` (SSRF guard) → `extract.ts` (colours, fonts → allowed font keys, header,
+  section order; no page text) → `prompt.ts` → existing LLM client (`neural-pulse/server/llm.ts`, now with image parts;
+  Anthropic `claude-opus-5-5` by default) → `schema.ts` repair + strict validation, one regeneration on failure →
+  `images.ts` Unsplash fill via `getStockImages` (credits kept) → saved as a draft → editor.
+- **Theme editor** (`/admin/themes/{key}/edit`): details, colours/fonts/buttons/spacing, header/footer chrome, product card,
+  home sections (reorder, add, remove, layout variants from `sections/variants.ts`), photos with credits; live preview
+  (layout, phone, sample page). Save draft / Save & publish / Save & unpublish (server re-validates).
+- **Sellers**: published custom themes appear in `/dashboard/themes` (+ detail, apply, admin "New store" picker, Live Preview)
+  through `marketplace/registry.ts` (`getMarketplaceThemes`, `findAnyMarketplaceTheme`). The marketing site `/themes` still
+  lists built-in themes only (follow-up).
+- **Migration (pending, not applied to the remote project):** `20261016003100_custom_marketplace_themes.sql` adds `style`,
+  `source`, `source_url`, `created_by`, `published_at`, a 256 KB `config` cap and an index to `public.themes`. Until it is
+  applied, creating/saving custom themes fails; the seller catalogue just shows built-in themes (reads never throw).
+- Tests: `tests/unit/theme-builder/*` (fetch guard, extraction, repair/validation incl. every built-in theme duplicating
+  cleanly, pipeline retry, prompt, Unsplash fill), `tests/rls/custom-themes.test.ts` (drafts hidden, writes platform-only,
+  constraints). Script: `scripts/dev/theme-builder/run.mts <url> <industry> <name> [screenshots] [--no-ai]` runs the pipeline
+  without the app or DB writes.
+- **Not verified:** the live AI call (no Anthropic/Gemini/Groq key is configured in the dev project or env) and the signed-in
+  admin flow in the dev server (the migration isn't applied there). Verified against `https://www.allbirds.com/` with
+  `--no-ai`: guarded fetch + 3 stylesheets, summary, repair, validation and 13 Unsplash API photos with credits.

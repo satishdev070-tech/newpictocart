@@ -5,7 +5,7 @@ import { publicEnv } from "@/lib/env/public";
 import { listPlans } from "@/features/platform/server/queries";
 import { AdminCreateStoreForm } from "@/features/platform/components/store-admin-forms";
 import { INDUSTRIES } from "@/features/stores/industries";
-import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { getMarketplaceThemes } from "@/features/theme/marketplace/registry";
 import { THEME_STYLE_LABELS } from "@/features/theme/marketplace/types";
 import { Card, PageHeader } from "@/components/ui/layout";
 
@@ -15,7 +15,7 @@ export default async function NewTenantPage() {
   const ctx = await requirePlatform("platform.tenants.manage");
   const plans = (await listPlans()).filter((p) => p.active).map((p) => ({ value: p.id, label: p.name }));
   const industries = INDUSTRIES.map((i) => ({ value: i.slug, label: i.name }));
-  const themes = MARKETPLACE_THEMES.map((t) => ({ key: t.key, name: t.name, industry: t.industry, style: THEME_STYLE_LABELS[t.style] }));
+  const themes = (await getMarketplaceThemes()).map((t) => ({ key: t.key, name: t.name, industry: t.industry, style: THEME_STYLE_LABELS[t.style] }));
   return (
     <div>
       <PageHeader

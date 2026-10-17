@@ -6,8 +6,12 @@
  *
  *   pnpm themes:capture                       # all themes, demo stores on NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN
  *   pnpm themes:capture --root pictocart.in --only heritage-kashmir,luxury-indian
+ *   pnpm themes:capture --root localhost --port 3000   # a local `pnpm dev` with the demo stores built
  *
- * Needs network access to the live demo stores and a Chromium for Playwright
+ * Each theme is shot on its own demo store, or, when that store isn't up, on the next showcase
+ * store that is (same order as the site's Live Preview: previewDemoCandidates). The demo stores
+ * must exist first: `pnpm exec tsx --env-file=.env.local scripts/dev/showcase/run.mts <slug …>`
+ * (see docs/THEME_MARKETPLACE.md). Needs a Chromium for Playwright
  * (`pnpm exec playwright install chromium` once, or CHROMIUM_PATH=/path/to/chrome). Commit the
  * output and deploy.
  */
@@ -16,13 +20,17 @@ import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
 import sharp from "sharp";
 import { MARKETPLACE_THEMES } from "../../src/features/theme/marketplace/catalog";
+import { previewDemoCandidates } from "../../src/features/marketing-site/themes";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > -1 ? process.argv[i + 1] : undefined;
 };
 const root = arg("root") ?? process.env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN;
-if (!root || root === "localhost") throw new Error("Pass --root <platform root domain>, e.g. --root pictocart.in");
+if (!root) throw new Error("Pass --root <platform root domain>, e.g. --root pictocart.in (or --root localhost --port 3000)");
+const port = arg("port") ?? "3000";
+const storeUrl = (slug: string, key: string) =>
+  root === "localhost" ? `http://${slug}.localhost:${port}/?sf_theme=${encodeURIComponent(key)}` : `https://${slug}.${root}/?sf_theme=${encodeURIComponent(key)}`;
 const only = new Set((arg("only") ?? "").split(",").filter(Boolean));
 const outDir = resolve("public/theme-previews");
 const manifestPath = resolve("src/features/marketing-site/theme-previews.json");
@@ -36,11 +44,30 @@ const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as { desktop: 
 await mkdir(outDir, { recursive: true });
 // CHROMIUM_PATH: use an existing Chrome/Chromium instead of Playwright's download.
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
-const themes = MARKETPLACE_THEMES.filter((t) => t.demo && (only.size === 0 || only.has(t.key)));
+const themes = MARKETPLACE_THEMES.filter((t) => only.size === 0 || only.has(t.key));
 let ok = 0;
 
+// Which demo stores are up (checked once each, lazily).
+const up = new Map<string, boolean>();
+async function isUp(slug: string): Promise<boolean> {
+  if (!up.has(slug)) {
+    const res = await fetch(storeUrl(slug, "exit"), { redirect: "follow", signal: AbortSignal.timeout(20_000) }).catch(() => null);
+    up.set(slug, !!res?.ok);
+  }
+  return up.get(slug)!;
+}
+async function demoFor(t: (typeof themes)[number]): Promise<string | null> {
+  for (const slug of previewDemoCandidates(t)) if (await isUp(slug)) return slug;
+  return null;
+}
+
 for (const t of themes) {
-  const url = `https://${t.demo}.${root}/?sf_theme=${encodeURIComponent(t.key)}`;
+  const demo = await demoFor(t);
+  if (!demo) {
+    console.warn(`✗ ${t.key}: no demo store is up (build one with scripts/dev/showcase/run.mts)`);
+    continue;
+  }
+  const url = storeUrl(demo, t.key);
   for (const [device, cfg] of Object.entries(DEVICES) as [keyof typeof DEVICES, (typeof DEVICES)[keyof typeof DEVICES]][]) {
     const ctx = await browser.newContext({ viewport: cfg.viewport, deviceScaleFactor: cfg.scale, isMobile: device === "phone", hasTouch: device === "phone" });
     const page = await ctx.newPage();

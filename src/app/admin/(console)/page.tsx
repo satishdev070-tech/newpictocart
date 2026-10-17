@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Activity, HardDrive, Package, Plus, ShoppingBag, Store, TrendingUp, Users } from "lucide-react";
+import { Activity, HardDrive, IndianRupee, Package, Plus, ShoppingBag, Store, TrendingUp, Users } from "lucide-react";
 import { requirePlatform } from "@/lib/platform/access";
 import { getPlatformDashboard, getPlatformOverview, getSignupSeries, listAuditLogs, topTenantsThisMonth } from "@/features/platform/server/queries";
-import { Card, PageHeader } from "@/components/ui/layout";
+import { Card, PageHeader, StatCard } from "@/components/ui/layout";
 import { buttonClass } from "@/components/ui/button";
 import { BarList, ColumnChart } from "@/features/platform/components/charts";
 import { formatMoney, toMinor } from "@/lib/money";
@@ -15,19 +15,6 @@ export const metadata: Metadata = { title: "Overview" };
 const monthFmt = new Intl.DateTimeFormat("en-IN", { month: "short", timeZone: "UTC" });
 const timeFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
 const compactMoney = (paise: number) => (paise >= 10_000_000 ? `₹${(paise / 10_000_000).toFixed(1)}L` : formatMoney(paise));
-
-function Kpi({ icon: Icon, label, value, hint }: { icon: typeof Store; label: string; value: string | number; hint?: string }) {
-  return (
-    <div className="rounded-lg border border-border bg-surface p-4 shadow-xs">
-      <div className="flex items-center justify-between">
-        <p className="text-small text-muted">{label}</p>
-        <Icon aria-hidden className="size-4 text-subtle" strokeWidth={1.75} />
-      </div>
-      <p className="mt-2 text-h1 tabular-nums">{value}</p>
-      {hint ? <p className="mt-0.5 text-caption text-muted">{hint}</p> : null}
-    </div>
-  );
-}
 
 export default async function AdminHome() {
   const ctx = await requirePlatform("platform.tenants.read");
@@ -66,14 +53,14 @@ export default async function AdminHome() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi icon={Store} label="Total stores" value={o.totalTenants} hint={`${o.new30d} new in 30 days`} />
-        <Kpi icon={Activity} label="Active stores" value={o.statusCounts.active} hint={`${o.statusCounts.suspended} suspended`} />
-        <Kpi icon={Package} label="Trial stores" value={o.statusCounts.trial} hint={`${o.trialsEnding7d} ending in 7 days`} />
-        <Kpi icon={TrendingUp} label="GMV this month" value={compactMoney(o.monthGmvMinor)} hint="Paid + COD, excl. cancelled" />
-        <Kpi icon={ShoppingBag} label="Orders this month" value={o.monthOrders} hint={`${d.orders_all_time} all time`} />
-        <Kpi icon={TrendingUp} label="Platform GMV (6 months)" value={compactMoney(gmv6)} />
-        <Kpi icon={Users} label="Users" value={d.users_total} hint={`${d.sellers} sellers · ${d.customers} customers · ${d.staff} staff`} />
-        <Kpi icon={HardDrive} label="Media storage" value={formatBytes(d.storage_bytes)} hint={`${d.storage_files} files`} />
+        <StatCard tone="mint" icon={<Store aria-hidden strokeWidth={1.75} />} label="Total stores" value={o.totalTenants} hint={`${o.new30d} new in 30 days`} />
+        <StatCard tone="lavender" icon={<Activity aria-hidden strokeWidth={1.75} />} label="Active stores" value={o.statusCounts.active} hint={`${o.statusCounts.suspended} suspended`} />
+        <StatCard tone="peach" icon={<Package aria-hidden strokeWidth={1.75} />} label="Trial stores" value={o.statusCounts.trial} hint={`${o.trialsEnding7d} ending in 7 days`} />
+        <StatCard tone="rose" icon={<TrendingUp aria-hidden strokeWidth={1.75} />} label="GMV this month" value={compactMoney(o.monthGmvMinor)} hint="Paid + COD, excl. cancelled" />
+        <StatCard tone="sky" icon={<ShoppingBag aria-hidden strokeWidth={1.75} />} label="Orders this month" value={o.monthOrders} hint={`${d.orders_all_time} all time`} />
+        <StatCard tone="amber" icon={<IndianRupee aria-hidden strokeWidth={1.75} />} label="Platform GMV (6 months)" value={compactMoney(gmv6)} hint="Last 6 months" />
+        <StatCard tone="teal" icon={<Users aria-hidden strokeWidth={1.75} />} label="Users" value={d.users_total} hint={`${d.sellers} sellers · ${d.customers} customers · ${d.staff} staff`} />
+        <StatCard tone="mint" icon={<HardDrive aria-hidden strokeWidth={1.75} />} label="Media storage" value={formatBytes(d.storage_bytes)} hint={`${d.storage_files} files`} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

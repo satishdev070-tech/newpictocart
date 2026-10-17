@@ -1,5 +1,6 @@
 import { MARKETPLACE_THEMES, type MarketplaceTheme } from "@/features/theme/marketplace/catalog";
 import { INDUSTRIES, isIndustry, industryShort, type IndustrySlug } from "@/features/stores/industries";
+import { INDUSTRY_SHOWCASE, SHOWCASE_STORES } from "@/features/theme/marketplace/showcase";
 
 /**
  * Public view of the theme marketplace catalogue (pure, unit tested). The catalogue is code, not
@@ -74,3 +75,25 @@ export function themesHref(q: Partial<ThemeQuery>): string {
   if (q.page && q.page > 1) qs.set("page", String(q.page));
   return qs.size ? `/themes?${qs}` : "/themes";
 }
+
+/** Industries in the home page theme showcase, in order: one theme each (first `count` are shown). */
+export const SHOWCASE_INDUSTRIES = ["fashion", "gourmet", "jewellery", "beauty", "furniture", "electronics", "handicrafts", "general", "grocery", "footwear", "kids", "watches"] as const;
+
+/**
+ * Demo (showcase) stores that can show `theme` live, best first: its own demo, then its
+ * industry's showcase store, then the general store, then every other showcase store. Live
+ * Preview applies any theme in memory on any showcase store, so a theme still gets a real preview
+ * when its own demo store hasn't been built yet. PURE.
+ */
+export function previewDemoCandidates(theme: Pick<MarketplaceTheme, "demo" | "industry">): string[] {
+  const first = [theme.demo, INDUSTRY_SHOWCASE[theme.industry], INDUSTRY_SHOWCASE.general].filter((s): s is string => !!s);
+  return [...new Set([...first, ...Object.keys(SHOWCASE_STORES)])];
+}
+
+/** The best live demo store for `theme`, or null when none of the candidates is live. PURE. */
+export function pickPreviewDemo(theme: Pick<MarketplaceTheme, "demo" | "industry">, live: ReadonlySet<string>): string | null {
+  return previewDemoCandidates(theme).find((s) => live.has(s)) ?? null;
+}
+
+/** On-site preview page of a theme (works for every theme: live demo store or sample store). */
+export const themePreviewHref = (key: string) => `/themes/${key}/preview`;

@@ -5,6 +5,8 @@ import { getMenus } from "@/features/storefront/server/content";
 import { getCartCount } from "@/features/cart/queries";
 import { getStoreCustomer } from "@/features/customer-account/session";
 import type { ThemeConfig } from "@/features/theme/schema/config";
+import { canPreviewThemes } from "@/features/theme/marketplace/showcase";
+import { getStorefrontStock } from "@/features/theme/server/imagery";
 import type { RenderContext } from "./context";
 
 /** Menu handles referenced anywhere in the theme (header setting, MegaMenu, Footer). */
@@ -21,10 +23,12 @@ export function menuHandles(theme: ThemeConfig): string[] {
 /** Per-request storefront render context shared by the store layout and pages (memoised). */
 export const getRenderContext = cache(async (host: string): Promise<RenderContext> => {
   const sf = await requireStorefront(host);
-  const [menus, cartCount, customer] = await Promise.all([
+  const [menus, cartCount, customer, stock] = await Promise.all([
     getMenus(sf.tenant.tenantId, menuHandles(sf.theme).join(",")),
     getCartCount(sf.tenant.tenantId),
     getStoreCustomer(sf.tenant.tenantId),
+    getStorefrontStock(sf),
   ]);
-  return { sf, menus, cartCount, signedIn: Boolean(customer) };
+  const stockProducts = Boolean(stock) && (Boolean(sf.themePreview) || canPreviewThemes(sf.tenant));
+  return { sf, menus, cartCount, signedIn: Boolean(customer), stock, stockProducts };
 });

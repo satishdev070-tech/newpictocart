@@ -5,9 +5,12 @@ import { Images, Search, X } from "lucide-react";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { listMediaAction } from "../actions";
+import { importUnsplashAction, listUnsplashAction } from "../unsplash-actions";
+import type { UnsplashPhoto } from "../unsplash/photos";
 import type { MediaItem } from "../server/media";
 import { Dropzone, MediaGrid, UploadQueue } from "./media-ui";
 import { useMediaUploads } from "./use-media-uploads";
+import { UnsplashBrowser, actionError } from "./unsplash-browser";
 
 type Props = {
   /** Called with the chosen image(s). */
@@ -21,11 +24,15 @@ type Props = {
   title?: string;
 };
 
-/** "Select from media library" dialog with in-place upload. Reads through listMediaAction (RLS). */
+/**
+ * "Select from media library" dialog with in-place upload and an Unsplash tab. Reads through
+ * listMediaAction (RLS). Chosen Unsplash photos are imported into the library first (with the
+ * credit in their alt text), so callers always receive ordinary media items.
+ */
 export function MediaPicker({ onSelect, multiple = false, folder = "general", triggerLabel = "Choose image", triggerVariant = "secondary", triggerSize = "sm", title }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  const [tab, setTab] = useState<"library" | "upload">("library");
+  const [tab, setTab] = useState<"library" | "unsplash" | "upload">("library");
   const [items, setItems] = useState<MediaItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -33,6 +40,8 @@ export function MediaPicker({ onSelect, multiple = false, folder = "general", tr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Map<string, MediaItem>>(new Map());
+  const [unsplash, setUnsplash] = useState<Map<string, UnsplashPhoto>>(new Map());
+  const [importing, setImporting] = useState(false);
 
   const load = useCallback(async (term: string, p: number) => {
     setLoading(true);
@@ -65,12 +74,15 @@ export function MediaPicker({ onSelect, multiple = false, folder = "general", tr
 
   const openPicker = () => {
     setSelected(new Map());
+    setUnsplash(new Map());
+    setError(null);
     setTab("library");
     ref.current?.showModal();
     setPage(1);
     void load(q, 1);
   };
-  const toggle = (m: MediaItem) =>
+  const toggle = (m: MediaItem) => {
+    if (!multiple) setUnsplash(new Map());
     setSelected((s) => {
       if (!multiple) return s.has(m.id) ? new Map() : new Map([[m.id, m]]);
       const next = new Map(s);
@@ -78,8 +90,42 @@ export function MediaPicker({ onSelect, multiple = false, folder = "general", tr
       else next.set(m.id, m);
       return next;
     });
-  const confirm = () => {
-    onSelect([...selected.values()]);
+  };
+  const toggleUnsplash = (p: UnsplashPhoto) => {
+    if (!multiple) setSelected(new Map());
+    setUnsplash((s) => {
+      if (!multiple) return s.has(p.id) ? new Map() : new Map([[p.id, p]]);
+      const next = new Map(s);
+      if (next.has(p.id)) next.delete(p.id);
+      else next.set(p.id, p);
+      return next;
+    });
+  };
+  const count = selected.size + unsplash.size;
+  const confirm = async () => {
+    const chosen = [...selected.values()];
+    if (unsplash.size) {
+      setImporting(true);
+      setError(null);
+      for (const p of unsplash.values()) {
+        const r = await importUnsplashAction({ id: p.id, folder });
+        if (!r.ok) {
+          setImporting(false);
+          return setError(actionError(r));
+        }
+        chosen.push(r.data.item);
+        // Keep each imported photo as a library selection, so a retry after a failure doesn't import it twice.
+        const item = r.data.item;
+        setSelected((s) => new Map(s).set(item.id, item));
+        setUnsplash((s) => {
+          const next = new Map(s);
+          next.delete(p.id);
+          return next;
+        });
+      }
+      setImporting(false);
+    }
+    onSelect(multiple ? chosen : chosen.slice(-1));
     ref.current?.close();
   };
 
@@ -95,7 +141,7 @@ export function MediaPicker({ onSelect, multiple = false, folder = "general", tr
               {title ?? (multiple ? "Choose images" : "Choose an image")}
             </h2>
             <div role="tablist" aria-label="Source" className="ml-2 inline-flex rounded-md bg-surface-secondary p-0.5">
-              {(["library", "upload"] as const).map((t) => (
+              {(["library", "unsplash", "upload"] as const).map((t) => (
                 <button
                   key={t}
                   role="tab"
@@ -104,7 +150,7 @@ export function MediaPicker({ onSelect, multiple = false, folder = "general", tr
                   onClick={() => setTab(t)}
                   className={cn("rounded-[5px] px-3 py-1 text-small font-medium", tab === t ? "bg-surface shadow-xs" : "text-muted hover:text-foreground")}
                 >
-                  {t === "library" ? "Media library" : "Upload new"}
+                  {t === "library" ? "Media library" : t === "unsplash" ? "Unsplash" : "Upload new"}
                 </button>
               ))}
             </div>
@@ -114,7 +160,12 @@ export function MediaPicker({ onSelect, multiple = false, folder = "general", tr
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
-            {tab === "upload" ? (
+            {tab === "unsplash" ? (
+              <div className="space-y-3">
+                <UnsplashBrowser load={listUnsplashAction} selected={new Set(unsplash.keys())} onToggle={toggleUnsplash} />
+                {error ? <p className="text-small text-error">{error}</p> : null}
+              </div>
+            ) : tab === "upload" ? (
               <div className="space-y-4">
                 <Dropzone onFiles={uploads.addFiles} multiple={multiple} />
                 <UploadQueue tasks={uploads.tasks} onCancel={uploads.cancel} onRetry={uploads.retry} onDismiss={uploads.dismiss} />
@@ -175,13 +226,16 @@ export function MediaPicker({ onSelect, multiple = false, folder = "general", tr
           </div>
 
           <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-3">
-            <p className="text-small text-muted">{selected.size ? `${selected.size} selected` : multiple ? "Select one or more images" : "Select an image"}</p>
+            <p className="text-small text-muted">
+              {count ? `${count} selected` : multiple ? "Select one or more images" : "Select an image"}
+              {unsplash.size ? " · Unsplash photos are added to your library" : ""}
+            </p>
             <div className="flex gap-2">
               <Button variant="secondary" onClick={() => ref.current?.close()}>
                 Cancel
               </Button>
-              <Button onClick={confirm} disabled={!selected.size}>
-                {multiple ? `Add ${selected.size || ""} ${selected.size === 1 ? "image" : "images"}`.replace("  ", " ") : "Use image"}
+              <Button onClick={() => void confirm()} disabled={!count} pending={importing}>
+                {multiple ? `Add ${count || ""} ${count === 1 ? "image" : "images"}`.replace("  ", " ") : "Use image"}
               </Button>
             </div>
           </div>

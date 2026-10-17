@@ -13,7 +13,7 @@ import { resolveThemeConfig, type ThemeConfig, type ThemeIssue } from "../schema
 import { PREVIEW_COOKIE } from "../preview";
 import { verifyPreviewToken } from "./preview";
 import { THEME_PREVIEW_HEADER } from "@/lib/tenant/routing";
-import { findMarketplaceTheme } from "../marketplace/catalog";
+import { findAnyMarketplaceTheme } from "../marketplace/registry";
 import { applyThemePreset } from "../marketplace/apply";
 import { canPreviewThemes } from "../marketplace/showcase";
 
@@ -93,7 +93,7 @@ export const getStorefrontTheme = cache(async (tenantId: string, slug = ""): Pro
   }
   const published = await getPublishedThemeConfig(tenantId);
   const key = (await headers()).get(THEME_PREVIEW_HEADER);
-  const theme = key && canPreviewThemes({ tenantId, slug }) ? findMarketplaceTheme(key) : undefined;
+  const theme = key && canPreviewThemes({ tenantId, slug }) ? await findAnyMarketplaceTheme(key) : undefined;
   if (theme) {
     const { config, issues } = resolveThemeConfig(applyThemePreset(published, theme.preset));
     if (issues.length) logger.warn("theme.live_preview_issues", { tenantId, key, issues: issues.slice(0, 5) });

@@ -7,7 +7,7 @@ import { mapDbError } from "@/lib/supabase/errors";
 import { getEntitlements } from "@/features/platform";
 import { assetsBelongToTenant, parseThemeConfigStrict } from "../schema/config";
 import { getThemeEditorData } from "./queries";
-import { findMarketplaceTheme } from "../marketplace/catalog";
+import { findAnyMarketplaceTheme } from "../marketplace/registry";
 import { applyThemePreset } from "../marketplace/apply";
 
 /*
@@ -19,7 +19,7 @@ import { applyThemePreset } from "../marketplace/apply";
 export async function applyMarketplaceThemeToDraft(ctx: TenantContext, key: string) {
   const ent = await getEntitlements(ctx.tenantId);
   if (!ent.isEnabled("theme_marketplace")) throw new AppError("FORBIDDEN", { message: "The theme marketplace isn't available on your plan." });
-  const theme = findMarketplaceTheme(key);
+  const theme = await findAnyMarketplaceTheme(key);
   if (!theme) throw new AppError("NOT_FOUND");
 
   const data = await getThemeEditorData(ctx.tenantId);
