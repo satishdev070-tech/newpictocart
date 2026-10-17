@@ -10,16 +10,19 @@ export type SeedOptions = {
   retheme: boolean;
   /** Seed even when some department photo searches aren't cached (uses the generic curated pool). */
   allowCuratedPhotos: boolean;
+  /** Replace product photos that differ from the plan, and republish the theme. */
+  refreshPhotos: boolean;
 };
 
 export function parseArgs(argv: readonly string[]): SeedOptions {
-  const opts: SeedOptions = { dryRun: false, remove: false, category: null, slugs: [], target: "local", yes: false, retheme: false, allowCuratedPhotos: false };
+  const opts: SeedOptions = { dryRun: false, remove: false, category: null, slugs: [], target: "local", yes: false, retheme: false, allowCuratedPhotos: false, refreshPhotos: false };
   for (const a of argv) {
     if (a === "--dry-run") opts.dryRun = true;
     else if (a === "--remove") opts.remove = true;
     else if (a === "--yes") opts.yes = true;
     else if (a === "--retheme") opts.retheme = true;
     else if (a === "--allow-curated-photos") opts.allowCuratedPhotos = true;
+    else if (a === "--refresh-photos") opts.refreshPhotos = true;
     else if (a.startsWith("--category=")) opts.category = a.slice("--category=".length).trim() || null;
     else if (a.startsWith("--slug=")) opts.slugs.push(...a.slice("--slug=".length).split(",").map((s) => s.trim()).filter(Boolean));
     else if (a.startsWith("--target=")) {

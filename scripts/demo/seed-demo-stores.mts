@@ -15,6 +15,8 @@
  *  - Only slugs from ./data are touched. An existing tenant with such a slug is used only if it is
  *    store_type 'demo', owned by owner@<slug>.demo.test and not in PROTECTED_TENANT_IDS; otherwise
  *    that store is skipped. --remove applies the same checks before deleting anything.
+ *  - --refresh-photos replaces product photos that differ from the plan (and republishes the theme
+ *    with the current banners) for the selected stores; otherwise existing photos are kept.
  *  - Idempotent: keyed on the store slug and product/category/collection slugs; a re-run fills
  *    gaps (e.g. a run that stopped) and leaves existing rows alone. --retheme publishes a freshly
  *    built theme (the previous version stays in the theme history).
@@ -304,23 +306,28 @@ async function seed(p: StorePlan) {
   const best = p.products.map((x, i) => (x.collections.includes("bestsellers") ? productIds[i]! : null)).filter((x): x is string => !!x);
   await http("POST", "/rest/v1/rpc/set_collection_products", { token: T, body: { p_collection: colId.bestsellers, p_product_ids: best } });
 
-  // Product photos (only for products without media).
-  const withMedia = new Set((await own<{ product_id: string }[]>(T, "GET", `product_media?select=product_id,storage_path&${W}&position=eq.0`)).map((m) => m.product_id));
+  // Product photos: products without media get them; with --refresh-photos, products whose photos
+  // differ from the plan (e.g. seeded before a search was cached) get theirs replaced.
+  const media = await own<{ id: string; product_id: string; storage_path: string; position: number }[]>(T, "GET", `product_media?select=id,product_id,storage_path,position&${W}&order=position`);
+  const haveAssets = new Set((await own<{ storage_path: string }[]>(T, "GET", `media_assets?select=storage_path&${W}`)).map((a) => a.storage_path));
   const fronts: string[] = new Array(p.products.length).fill("");
-  const known = await own<{ product_id: string; storage_path: string }[]>(T, "GET", `product_media?select=product_id,storage_path&${W}&position=eq.0`);
   const credits: Img[] = [];
   const assets: Record<string, unknown>[] = [];
+  const tag = (id: string) => `-${id.replace(/^photo-/, "").slice(0, 10)}.webp`;
   await pool(p.products, 5, async (pr, i) => {
     const photos = photosFor(cache, pr.photo.q, p.industry);
     const picks = [nth(photos, pr.photo.picks[0]), nth(photos, pr.photo.picks[1])].filter((x, k, a) => a.findIndex((y) => y.id === x.id) === k);
-    if (withMedia.has(productIds[i]!)) {
-      fronts[i] = known.find((k) => k.product_id === productIds[i])!.storage_path;
+    const mine = media.filter((m) => m.product_id === productIds[i]);
+    const current = mine.length >= picks.length && picks.every((ph, k) => mine[k]?.storage_path.endsWith(tag(ph.id)));
+    if (mine.length && (current || !opts.refreshPhotos)) {
+      fronts[i] = mine[0]!.storage_path;
       return;
     }
     const imgs = await Promise.all(picks.map((ph, k) => fetchPhoto(tenantId, "products", `${pr.slug}-${k + 1}`, ph, 1200, 1500, k === 0 ? pr.title : `${pr.title}, another view`)));
     for (const img of imgs) await upload(T, img.path, img.bytes, "image/webp");
+    if (mine.length) await own(T, "DELETE", `product_media?${W}&product_id=eq.${productIds[i]}`);
     await own(T, "POST", "product_media", imgs.map((img, k) => ({ tenant_id: tenantId, product_id: productIds[i], storage_path: img.path, alt_text: img.what, width: img.width, height: img.height, position: k, media_type: "image" })));
-    imgs.forEach((img) => assets.push(assetRow(tenantId, img, "products", owner.userId)));
+    imgs.filter((img) => !haveAssets.has(img.path)).forEach((img) => assets.push(assetRow(tenantId, img, "products", owner.userId)));
     credits.push(...imgs);
     fronts[i] = imgs[0]!.path;
   });
@@ -338,7 +345,6 @@ async function seed(p: StorePlan) {
     ["promo1", nth(dep(3), 16 + w), 1400, 1000, p.categories[3]!.name],
     ["promo2", nth(dep(4), 14 + w), 1400, 1000, "Deals"],
   ];
-  const haveAssets = new Set((await own<{ storage_path: string }[]>(T, "GET", `media_assets?select=storage_path&${W}`)).map((a) => a.storage_path));
   const images = {} as ThemeRefs["images"];
   await pool(bannerSpecs, 4, async ([key, photo, bw, bh, what]) => {
     const img = await fetchPhoto(tenantId, "theme", key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`), photo, bw, bh, what);
@@ -417,6 +423,8 @@ async function seed(p: StorePlan) {
   ];
   const havePages = new Set((await own<{ slug: string }[]>(T, "GET", `pages?select=slug&${W}`)).map((x) => x.slug));
   const addPages = pages.filter((x) => !havePages.has(x.slug));
+  const credit = pages.find((x) => x.slug === "image-credits")!;
+  if (opts.refreshPhotos && havePages.has("image-credits")) await own(T, "PATCH", `pages?${W}&slug=eq.image-credits`, { body: credit.body.map(para) });
   if (addPages.length) await own(T, "POST", "pages", addPages.map((x) => ({ tenant_id: tenantId, title: x.title, slug: x.slug, kind: x.kind, status: "published", published_at: now, body: x.body.map(para) })));
   if (!(await own<unknown[]>(T, "GET", `faqs?select=id&${W}&limit=1`)).length) await own(T, "POST", "faqs", p.faqs.map(([question, answer], i) => ({ tenant_id: tenantId, question, answer, position: i + 1 })));
   if (!(await own<unknown[]>(T, "GET", `reviews?select=id&${W}&limit=1`)).length) {
@@ -429,7 +437,7 @@ async function seed(p: StorePlan) {
   // Theme: store content + marketplace preset (applyThemePreset), saved as the draft and
   // published with publish_theme, the same steps as "Apply & publish" in the theme marketplace.
   const versions = await own<{ id: string; status: string; version: number }[]>(T, "GET", `theme_versions?select=id,status,version&${W}&order=version.desc`);
-  if (!versions.some((v) => v.status === "published") || opts.retheme) {
+  if (!versions.some((v) => v.status === "published") || opts.retheme || opts.refreshPhotos) {
     const config = buildThemeConfig(p, { categoryIds: catId, collectionIds: colId, productIds, fronts, categoryImages, collectionImages, images });
     const draft = versions.find((v) => v.status === "draft");
     if (draft) await own(T, "PATCH", `theme_versions?id=eq.${draft.id}&status=eq.draft`, { config, theme_key: p.themeKey, label: p.themeName });

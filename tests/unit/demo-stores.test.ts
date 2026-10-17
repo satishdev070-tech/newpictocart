@@ -46,8 +46,9 @@ describe("demo stores: remote-target guard", () => {
   });
 
   it("parses options and rejects unknown ones", () => {
-    expect(parseArgs(["--dry-run", "--category=beauty", "--slug=nuvi-skin,glam-gully", "--target=remote", "--yes"])).toEqual({ dryRun: true, remove: false, category: "beauty", slugs: ["nuvi-skin", "glam-gully"], target: "remote", yes: true, retheme: false, allowCuratedPhotos: false });
+    expect(parseArgs(["--dry-run", "--category=beauty", "--slug=nuvi-skin,glam-gully", "--target=remote", "--yes"])).toEqual({ dryRun: true, remove: false, category: "beauty", slugs: ["nuvi-skin", "glam-gully"], target: "remote", yes: true, retheme: false, allowCuratedPhotos: false, refreshPhotos: false });
     expect(parseArgs(["--allow-curated-photos"]).allowCuratedPhotos).toBe(true);
+    expect(parseArgs(["--refresh-photos"]).refreshPhotos).toBe(true);
     expect(parseArgs([]).target).toBe("local");
     expect(() => parseArgs(["--target=prod"])).toThrow();
     expect(() => parseArgs(["--force"])).toThrow(/unknown option/);
