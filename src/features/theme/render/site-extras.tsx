@@ -77,7 +77,15 @@ function PopupView({ popup, onClose }: { popup: Popup; onClose: () => void }) {
   );
 }
 
-export function SiteExtras({ popups: initialPopups, embeds, whatsapp }: { popups: Popup[]; embeds: Embeds; whatsapp: string | null }) {
+export function SiteExtras({ popups: initialPopups, embeds: initialEmbeds, whatsapp }: { popups: Popup[]; embeds: Embeds; whatsapp: string | null }) {
+  // The builder canvas sends the unsaved embed settings (validated by the bridge).
+  const [draftEmbeds, setDraftEmbeds] = useState<Embeds | null>(null);
+  const embeds = draftEmbeds ?? initialEmbeds;
+  useEffect(() => {
+    const on = (e: Event) => setDraftEmbeds((e as CustomEvent<Embeds>).detail);
+    window.addEventListener("pc:embeds", on);
+    return () => window.removeEventListener("pc:embeds", on);
+  }, []);
   const [open, setOpen] = useState<string | null>(null);
   // The builder canvas sends the popup being edited (unsaved) with the open event.
   const [draftPopup, setDraftPopup] = useState<Popup | null>(null);

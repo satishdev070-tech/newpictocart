@@ -139,7 +139,7 @@ export function TopBar() {
   const versions = b.history.filter((h) => h.status !== "draft");
 
   return (
-    <header className="relative flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
+    <header className="relative flex h-14 shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-surface px-3 [scrollbar-width:none]">
       <Link
         href="/dashboard"
         onClick={(e) => {
@@ -164,9 +164,9 @@ export function TopBar() {
         </p>
       </div>
 
-      <label className="ml-1 flex min-w-0 items-center gap-1.5 text-small">
+      <label className="ml-1 flex shrink-0 items-center gap-1.5 text-small">
         <span className="hidden text-muted sm:inline">Pages:</span>
-        <select aria-label="Page" value={b.page.key} onChange={(e) => b.setPageKey(e.target.value)} className={cn(input, "h-8 w-44 py-0 text-small")}>
+        <select aria-label="Page" value={b.page.key} onChange={(e) => b.setPageKey(e.target.value)} className={cn(input, "h-8 w-36 shrink-0 py-0 text-small md:w-44")}>
           {GROUP_ORDER.map((g) => {
             const items = b.pages.filter((p) => p.group === g);
             return items.length ? (
@@ -182,7 +182,7 @@ export function TopBar() {
         </select>
       </label>
 
-      <div className="flex items-center gap-0.5 border-l border-border pl-2">
+      <div className="flex shrink-0 items-center gap-0.5 border-l border-border pl-2">
         <IconButton label="Undo (Ctrl/⌘ Z)" onClick={b.undo} disabled={!b.canUndo}>
           <Undo2 />
         </IconButton>
@@ -191,7 +191,7 @@ export function TopBar() {
         </IconButton>
       </div>
 
-      <div role="group" aria-label="Device" className="mx-auto flex items-center rounded-lg border border-border p-0.5">
+      <div role="group" aria-label="Device" className="mx-auto flex shrink-0 items-center rounded-lg border border-border p-0.5">
         {(
           [
             ["desktop", "Desktop", Monitor],
@@ -212,7 +212,7 @@ export function TopBar() {
         ))}
       </div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1.5">
         {b.issues.length ? (
           <span title={`${b.issues.length} stored setting(s) were invalid and will be dropped on save:\n${b.issues.slice(0, 5).join("\n")}`} className="text-warning [&_svg]:size-4">
             <AlertTriangle aria-label="Some stored settings are invalid" />
@@ -258,7 +258,7 @@ export function TopBar() {
         </Popover>
 
         <Button variant="secondary" size="sm" onClick={openPreview} pending={previewing} title={b.dirty ? "Preview shows your saved draft. Save to preview your latest changes." : "Open the saved draft in a new tab"}>
-          <ExternalLink aria-hidden /> Preview
+          <ExternalLink aria-hidden /> <span className="hidden md:inline">Preview</span>
         </Button>
         <Button variant={conflict ? "danger" : "secondary"} size="sm" onClick={() => save(conflict)} pending={saving} disabled={!b.dirty && !saveErr}>
           {conflict ? "Save anyway" : "Save draft"}

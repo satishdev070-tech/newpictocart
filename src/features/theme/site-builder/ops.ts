@@ -182,20 +182,23 @@ export function slugify(title: string): string {
   );
 }
 
-/** A free page handle based on `base` (base, base-2, base-3 …). */
-export function uniqueHandle(config: ThemeConfig, base: string, exceptId?: string): string {
-  const taken = new Set(config.pages.filter((p) => p.id !== exceptId).map((p) => p.handle));
+/**
+ * A free page handle based on `base` (base, base-2, base-3 …). `reserved` = slugs already used by
+ * the store's content pages: a theme page with the same handle would hide that page.
+ */
+export function uniqueHandle(config: ThemeConfig, base: string, exceptId?: string, reserved: readonly string[] = []): string {
+  const taken = new Set([...config.pages.filter((p) => p.id !== exceptId).map((p) => p.handle), ...reserved]);
   const root = slugify(base);
   if (!taken.has(root) && !["home", "index", "new", "edit", "preview"].includes(root)) return root;
   for (let n = 2; n < 1000; n++) if (!taken.has(`${root}-${n}`)) return `${root}-${n}`;
   return `${root}-${Date.now() % 100000}`;
 }
 
-export function addPage(config: ThemeConfig, title: string, sections: Omit<SectionInstance, "id">[] = []): { config: ThemeConfig; page: ThemePage | null } {
+export function addPage(config: ThemeConfig, title: string, sections: Omit<SectionInstance, "id">[] = [], reserved: readonly string[] = []): { config: ThemeConfig; page: ThemePage | null } {
   if (config.pages.length >= MAX_THEME_PAGES) return { config, page: null };
   const page: ThemePage = {
     id: newId("p"),
-    handle: uniqueHandle(config, title),
+    handle: uniqueHandle(config, title, undefined, reserved),
     title: title.trim().slice(0, 80) || "New page",
     seoTitle: "",
     seoDescription: "",
@@ -204,18 +207,18 @@ export function addPage(config: ThemeConfig, title: string, sections: Omit<Secti
   return { config: { ...config, pages: [...config.pages, page] }, page };
 }
 
-export function updatePageMeta(config: ThemeConfig, id: string, patch: Partial<Omit<PageMeta, "id">>): ThemeConfig {
-  return { ...config, pages: config.pages.map((p) => (p.id === id ? { ...p, ...patch, ...(patch.handle !== undefined ? { handle: uniqueHandle(config, patch.handle, id) } : {}) } : p)) };
+export function updatePageMeta(config: ThemeConfig, id: string, patch: Partial<Omit<PageMeta, "id">>, reserved: readonly string[] = []): ThemeConfig {
+  return { ...config, pages: config.pages.map((p) => (p.id === id ? { ...p, ...patch, ...(patch.handle !== undefined ? { handle: uniqueHandle(config, patch.handle, id, reserved) } : {}) } : p)) };
 }
 
 export function removePage(config: ThemeConfig, id: string): ThemeConfig {
   return { ...config, pages: config.pages.filter((p) => p.id !== id) };
 }
 
-export function duplicatePage(config: ThemeConfig, id: string): { config: ThemeConfig; page: ThemePage | null } {
+export function duplicatePage(config: ThemeConfig, id: string, reserved: readonly string[] = []): { config: ThemeConfig; page: ThemePage | null } {
   const src = config.pages.find((p) => p.id === id);
   if (!src) return { config, page: null };
-  return addPage(config, `${src.title} copy`, src.sections.map(({ id: _id, ...rest }) => structuredClone(rest)));
+  return addPage(config, `${src.title} copy`, src.sections.map(({ id: _id, ...rest }) => structuredClone(rest)), reserved);
 }
 
 export function newPopup(name = "New popup"): Popup {

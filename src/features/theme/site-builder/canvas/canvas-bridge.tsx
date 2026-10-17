@@ -6,7 +6,7 @@ import { renderCanvasAction } from "../canvas-actions";
 import { CANVAS_TAG, parseHostMessage, type CanvasMessage, type SectionAction } from "../protocol";
 import { listKeyOf } from "../slots";
 import { setSlotOverrides } from "./store";
-import { popupSchema, type Popup } from "../../schema/site";
+import { embedsSchema, popupSchema, type Popup } from "../../schema/site";
 
 /**
  * The storefront half of the site builder. Mounted by the store layout in theme preview only, and
@@ -152,7 +152,10 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
       // theme
       latestRev.current = msg.rev;
       try {
-        const popups = (JSON.parse(msg.config) as { popups?: unknown }).popups;
+        const doc = JSON.parse(msg.config) as { popups?: unknown; embeds?: unknown };
+        const popups = doc.popups;
+        const embeds = embedsSchema.safeParse(doc.embeds ?? {});
+        if (embeds.success) window.dispatchEvent(new CustomEvent("pc:embeds", { detail: embeds.data }));
         // Display only; the storefront renders popup fields as text (see render/site-extras.tsx).
         const parsed = Array.isArray(popups) ? popups.map((p) => popupSchema.safeParse(p)).filter((r) => r.success).map((r) => r.data) : [];
         latestPopups.current = parsed;
@@ -161,7 +164,7 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
       } catch {
         latestPopups.current = [];
       }
-      const slots = pageSlots().filter((s) => msg.changedLists === "all" || msg.changedLists.includes(listKeyOf(s) ?? ""));
+      const slots = pageSlots().filter((s) => msg.changedLists === "all" || (s.startsWith("handle.") ? msg.changedLists.some((l) => l.startsWith("pages.")) : msg.changedLists.includes(listKeyOf(s) ?? "")));
       setBusy(true);
       try {
         const r = await renderCanvasAction({ config: msg.config, slots });

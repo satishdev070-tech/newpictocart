@@ -14,7 +14,7 @@ import { MAX_CONFIG_BYTES, resolveThemeConfig } from "@/features/theme/schema/co
 import { getRenderContext, loadThemeMenus } from "@/features/theme/render/load";
 import { SectionList } from "@/features/theme/render/sections";
 import { themeCss } from "@/features/theme/tokens-style";
-import { slotSections, SLOT_KEY_RE } from "./slots";
+import { slotList, slotSections, SLOT_KEY_RE } from "./slots";
 
 const renderSchema = z.object({
   config: z.string().min(2).max(MAX_CONFIG_BYTES * 2),
@@ -48,7 +48,8 @@ export async function renderCanvasAction(input: { config: string; slots: string[
     const out: Record<string, ReactNode> = {};
     for (const slot of slots) {
       const sections = slotSections(config, slot);
-      if (sections) out[slot] = <SectionList sections={sections} ctx={ctx} slot={slot} />;
+      // Handle slots (an unsaved page) report their page list so canvas selections address it.
+      if (sections) out[slot] = <SectionList sections={sections} ctx={ctx} slot={slot.startsWith("handle.") ? (slotList(config, slot) ?? slot) : slot} />;
     }
     return { slots: out, css: themeCss(config.tokens) };
   });

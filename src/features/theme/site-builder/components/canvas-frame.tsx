@@ -329,8 +329,9 @@ export function CanvasFrame() {
           <p className="grid h-full place-items-center text-small text-error">This store has no valid address.</p>
         ) : src && size.w ? (
           <div
-            className={cn("absolute left-1/2 top-0 origin-top", mobile && "mt-6 rounded-[2.25rem] border border-border-strong bg-foreground/90 shadow-xl")}
-            style={{ padding: bezel, transform: `translateX(-50%) scale(${scale})` }}
+            className={cn("absolute top-0", scale < 1 ? "left-1/2 origin-top" : "inset-x-0 mx-auto w-fit", mobile && "mt-6 rounded-[2.25rem] border border-border-strong bg-foreground/90 shadow-xl")}
+            // No transform at 100%: sharper text, and pointer/devtools hit-testing stays exact.
+            style={{ padding: bezel, transform: scale < 1 ? `translateX(-50%) scale(${scale})` : undefined }}
           >
             <iframe
               key={loads}

@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 import { pageMetaSchema, MAX_POPUPS, MAX_THEME_PAGES } from "@/features/theme/schema/site";
 import type { SectionInstance, SectionType } from "@/features/theme/sections/types";
 import { useBuilder } from "../../context";
-import { addPage, duplicatePage, newPopup, removePage, slugify, updatePageMeta, upsertPopup } from "../../ops";
+import { addPage, duplicatePage, newPopup, removePage, slugify, uniqueHandle, updatePageMeta, upsertPopup } from "../../ops";
 import { BLANK_TEMPLATE, PAGE_TEMPLATES, type PageTemplate } from "../../page-templates";
 import { PAGE_GROUP_LABELS, type BuilderPage, type PageGroup } from "../../pages";
 import { Dialog, FieldRow, IconButton, PanelFrame, Row, input, useReorder } from "../ui";
@@ -154,7 +154,8 @@ function PageSettingsDialog({ page, onClose }: { page: BuilderPage; onClose: () 
 }
 
 function ThemePageSettings({ pageId, onClose }: { pageId: string; onClose: () => void }) {
-  const { config, apply, setPageKey, page: current } = useBuilder();
+  const { config, apply, setPageKey, page: current, pageSources } = useBuilder();
+  const reserved = pageSources.contentPages.map((p) => p.slug);
   const src = config.pages.find((p) => p.id === pageId)!;
   const [title, setTitle] = useState(src.title);
   const [handle, setHandle] = useState(src.handle);
@@ -173,11 +174,11 @@ function ThemePageSettings({ pageId, onClose }: { pageId: string; onClose: () =>
       return setErrors(next);
     }
     const { id: _id, ...patch } = r.data;
-    apply((c) => updatePageMeta(c, src.id, patch));
+    apply((c) => updatePageMeta(c, src.id, patch, reserved));
     onClose();
   };
   const duplicate = () => {
-    const r = duplicatePage(config, src.id);
+    const r = duplicatePage(config, src.id, reserved);
     if (!r.page) return;
     apply(r.config);
     setPageKey(`theme:${r.page.id}`);
@@ -279,13 +280,13 @@ function TemplateGrid({ onPick }: { onPick: (t: PageTemplate) => void }) {
 }
 
 function NamePage({ template, onBack, onDone }: { template: PageTemplate; onBack: () => void; onDone: () => void }) {
-  const { config, apply, setPageKey } = useBuilder();
+  const { config, apply, setPageKey, pageSources } = useBuilder();
   const [title, setTitle] = useState(template.key === "blank" ? "New page" : template.label);
   const [error, setError] = useState("");
   const id = useId();
   const create = () => {
     if (!title.trim()) return setError("Give the page a title");
-    const r = addPage(config, title, structuredClone(template.sections));
+    const r = addPage(config, title, structuredClone(template.sections), pageSources.contentPages.map((p) => p.slug));
     if (!r.page) return setError(`A theme can have at most ${MAX_THEME_PAGES} pages`);
     apply(r.config);
     setPageKey(`theme:${r.page.id}`);
@@ -299,7 +300,7 @@ function NamePage({ template, onBack, onDone }: { template: PageTemplate; onBack
         create();
       }}
     >
-      <FieldRow label="Page title" htmlFor={id} hint={`Address: /pages/${slugify(title)} (made unique if it is taken)`}>
+      <FieldRow label="Page title" htmlFor={id} hint={`Address: /pages/${uniqueHandle(config, title, undefined, pageSources.contentPages.map((p) => p.slug))}`}>
         <input id={id} className={input} value={title} maxLength={80} autoFocus onChange={(e) => {
             setTitle(e.target.value);
             setError("");

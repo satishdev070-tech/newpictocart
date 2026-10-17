@@ -10,17 +10,19 @@ import { splitAtPageContent } from "@/features/theme/render/split";
  *   templates.<key>                             a whole template (home, or a template without PageContent)
  *   templates.<key>.before | .after             the parts of a template around the page's own content
  *   pages.<pageId>                              a site-builder page
+ *   handle.<handle>                             /pages/<handle> in the preview when the server had no
+ *                                               such theme page yet (an unsaved new page)
  *
  * A slot belongs to one section LIST (the slot key without .before/.after); the builder edits the
  * list and the canvas re-renders every slot of that list.
  */
 
-export const SLOT_KEY_RE = /^(layout\.(header|footer)|templates\.[a-zA-Z]{2,20}(\.(before|after))?|pages\.[a-z0-9][a-z0-9-]{2,39})$/;
+export const SLOT_KEY_RE = /^(layout\.(header|footer)|templates\.[a-zA-Z]{2,20}(\.(before|after))?|pages\.[a-z0-9][a-z0-9-]{2,39}|handle\.[a-z0-9][a-z0-9-]{0,59})$/;
 
 export type ListKey = `layout.${LayoutKey}` | `templates.${TemplateKey}` | `pages.${string}`;
 
 export function listKeyOf(slot: string): ListKey | null {
-  if (!SLOT_KEY_RE.test(slot)) return null;
+  if (!SLOT_KEY_RE.test(slot) || slot.startsWith("handle.")) return null;
   return slot.replace(/\.(before|after)$/, "") as ListKey;
 }
 
@@ -47,9 +49,18 @@ export function groupOfList(key: ListKey): SectionGroup {
   return name as SectionGroup;
 }
 
+/** The list a slot's sections belong to (handle slots resolve to their page), or null. */
+export function slotList(config: ThemeConfig, slot: string): ListKey | null {
+  if (slot.startsWith("handle.") && SLOT_KEY_RE.test(slot)) {
+    const page = config.pages.find((p) => p.handle === slot.slice(7));
+    return page ? `pages.${page.id}` : null;
+  }
+  return listKeyOf(slot);
+}
+
 /** The sections a slot renders, or null for an unknown slot. */
 export function slotSections(config: ThemeConfig, slot: string): SectionInstance[] | null {
-  const key = listKeyOf(slot);
+  const key = slotList(config, slot);
   if (!key) return null;
   const list = getList(config, key);
   if (!list) return null;
