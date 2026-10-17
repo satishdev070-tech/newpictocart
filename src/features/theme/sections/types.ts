@@ -41,8 +41,12 @@ export const SECTION_TYPES = [
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
-/** Where a section may be placed. */
-export const SECTION_GROUPS = ["header", "footer", "home", "collection", "product"] as const;
+/**
+ * Where a section may be placed. The site-builder templates (collectionList … account) and custom
+ * pages ("custom") accept every section allowed on the home page, plus the PageContent marker on
+ * templates (see config.ts groupAllows), so definitions only list the original five groups.
+ */
+export const SECTION_GROUPS = ["header", "footer", "home", "collection", "product", "collectionList", "page", "blog", "search", "cart", "account", "custom"] as const;
 export type SectionGroup = (typeof SECTION_GROUPS)[number];
 
 /** Editor-side pickers are populated from the tenant's catalog/content. */
@@ -89,9 +93,14 @@ export type SectionDefinition<S extends z.ZodType = z.ZodType> = {
 
 export type SectionVisibility = { desktop: boolean; mobile: boolean };
 
+/** Per-section colour overrides from the builder's colour (droplet) panel; empty = theme colours. */
+export type SectionStyle = { background: string; text: string; accent: string };
+
 export type SectionInstance<T = Record<string, unknown>> = {
   id: string;
   type: SectionType;
   settings: T;
   visibility: SectionVisibility;
+  /** Only present when at least one colour is set. */
+  style?: SectionStyle;
 };

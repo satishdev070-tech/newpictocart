@@ -1,6 +1,6 @@
 # Implementation Status
 
-_Last updated: 2026-10-17 (Super Admin theme marketplace manager + AI "create theme from URL + screenshot")_
+_Last updated: 2026-10-17 (seller site builder: full-screen visual theme editor)_
 
 ## Phase overview
 
@@ -668,3 +668,45 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
 - **Not verified:** the live AI call (no Anthropic/Gemini/Groq key is configured in the dev project or env) and the signed-in
   admin flow in the dev server (the migration isn't applied there). Verified against `https://www.allbirds.com/` with
   `--no-ai`: guarded fetch + 3 stylesheets, summary, repair, validation and 13 Unsplash API photos with credits.
+
+## Seller site builder: full-screen visual theme editor (2026-10-17, branch `claude/zen-wilson-bf8a17`)
+
+Dashboard → Storefront → Theme editor is now a full-screen visual builder (design: `docs/THEME_BUILDER.md`).
+
+- **Chrome:** back, store name + saved state, "Pages:" switcher (Pages / eCommerce / Members area / Popups),
+  undo/redo (buttons + ⌘Z / ⇧⌘Z), desktop/mobile canvas, Preview (saved draft, new tab), Save draft (conflict →
+  "Save anyway"), Publish with version note, version history with Restore.
+- **Left rail:** Pages (groups, gear settings, Add page: blank + 10 templates with wireframe thumbnails), Menus
+  (header/footer, drag to reorder, sub-items, "Update menu" dialog with None / Home / Pages / Products /
+  Collections / Blog posts / Blog category / Web address / Popup, target, anchor, name, advanced), Theme settings
+  (preset tokens, palettes + custom colours, H1–H6 / paragraph / small type scale, buttons & layout, header,
+  product cards), Embed apps (WhatsApp button, back to top, links to analytics/SEO), Layers (page tree, eye,
+  drag, duplicate/delete), Popup editor.
+- **Canvas:** the real storefront in an iframe; hover/select outlines and a toolbar (Edit, Change design,
+  settings, colours, up/down, ⋮ duplicate/hide/delete), "+" and "Add with AI" above/below sections. Edit =
+  Section data with a managed item list (add, drag, edit, copy, delete) and an item editor with toggled groups and
+  Update; Change design uses the existing layout variants. Unsaved edits re-render through
+  `renderCanvasAction` (storefront server action, preview-cookie authorised), so the canvas is the storefront's
+  own renderer. Product, collection, cart, search, account, blog and content pages have templates around their
+  own content (PageContent marker).
+- **Theme document (no migration, back-compatible defaults):** templates `collectionList, page, blog, search,
+  cart, account`; `pages[]` (site-builder pages at /pages/<handle>, take precedence over a content page with the
+  same slug; new handles avoid existing content-page slugs); `popups[]`; `menus` (theme copies replace the
+  database menu with that handle, so menu edits follow draft → publish); `embeds`; `tokens.typography`;
+  per-section `style` colour overrides.
+- **Add with AI:** `generateSectionAction` (theme.edit, 30/day per store, platform Gemini/Groq providers);
+  output is sanitised to the section schema, images blanked (stock photos fill them).
+- **Preview cookie** is now `SameSite=None; Secure; Partitioned` (localhost over http included): a store on a
+  custom domain (or `*.localhost` in dev) is cross-site to the platform, where the old Lax cookie never reached
+  the editor iframe. Dev store links follow the port in `NEXT_PUBLIC_PLATFORM_URL`.
+- Tests: `tests/unit/site-builder-{schema,pages,sections,theme}.test.ts` (schema + back-compat, link resolution,
+  protocol, undo reducer, ops, templates, palettes, typography CSS, AI sanitiser).
+- Verified: `pnpm check` green. Dev server (port 3001) on demo store `nook-living` via super admin "Log in as
+  store": canvas select → section panel, item edit + Update (live), undo, Change design, palette, menu edit (live
+  in header), page switching (Product details renders real product with unsaved edits), Layers, Add section,
+  Add with AI (FAQ generated + inserted), Add page (About template, unsaved page previews), popup on canvas, embed
+  toggles, mobile view, Save draft (storefront draft render matches), Publish (v4, original content restored first).
+- Not done / limits: hover outlines can't be exercised by the in-app test browser inside a scaled (desktop,
+  < 1280px canvas) frame, so desktop clicks were tested at 1400px; the builder is desktop-first (narrow screens
+  scroll the top bar); list items have no "hide" flag (the ⋮ menu offers Edit / Copy / Delete); the item editor's
+  local copy can go stale if the same item changes elsewhere while it is open.

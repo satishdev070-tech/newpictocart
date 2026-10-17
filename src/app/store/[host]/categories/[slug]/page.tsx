@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getRenderContext } from "@/features/theme/render/load";
-import { SectionList, splitAtPageContent } from "@/features/theme/render/sections";
+import { splitAtPageContent } from "@/features/theme/render/sections";
+import { ThemeSlot } from "@/features/theme/render/slot";
 import { getCategoryBySlug, getListingFacets, listProducts } from "@/features/storefront/server/catalog";
 import { redirectOrNotFound } from "@/features/storefront/server/redirects";
 import { LISTING_PAGE_SIZE, parseListingParams, toListingRpcArgs } from "@/features/storefront/filters";
@@ -43,7 +44,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps<"
   const [sectionsBefore, sectionsAfter] = splitAtPageContent(ctx.sf.theme.templates.collection);
   return (
     <>
-      <SectionList sections={sectionsBefore} ctx={ctx} />
+      <ThemeSlot slot="templates.collection.before" sections={sectionsBefore} ctx={ctx} />
       <div className="sf-container sf-section space-y-6">
         <Breadcrumbs primaryHost={ctx.sf.tenant.primaryHost} items={[{ name: "Home", path: "/" }, ...trail.map((c) => ({ name: c.name, path: paths.category(c.slug) }))]} />
         <header className="max-w-2xl space-y-2">
@@ -63,7 +64,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps<"
         ) : null}
         <ListingView basePath={paths.category(category.slug)} filters={filters} facets={facets} products={cards} total={total} pageSize={LISTING_PAGE_SIZE} cardSettings={ctx.sf.theme.productCard} />
       </div>
-      <SectionList sections={sectionsAfter} ctx={ctx} />
+      <ThemeSlot slot="templates.collection.after" sections={sectionsAfter} ctx={ctx} />
     </>
   );
 }

@@ -4,14 +4,17 @@ import { getRenderContext } from "@/features/theme/render/load";
 import { getCollections } from "@/features/storefront/server/catalog";
 import { paths } from "@/features/storefront/urls";
 import { StoreImage } from "@/features/storefront/components/store-image";
+import { TemplateFrame } from "@/features/theme/render/slot";
 
 export const metadata: Metadata = { title: "Collections" };
 
 export default async function CollectionsIndex({ params }: PageProps<"/store/[host]/collections">) {
   const { host } = await params;
-  const { sf } = await getRenderContext(host);
+  const ctx = await getRenderContext(host);
+  const { sf } = ctx;
   const collections = await getCollections(sf.tenant.tenantId, { limit: 60 });
   return (
+    <TemplateFrame template="collectionList" ctx={ctx}>
     <div className="sf-container sf-section">
       <h1 className="sf-heading mb-8 text-4xl">Collections</h1>
       {collections.length ? (
@@ -31,5 +34,6 @@ export default async function CollectionsIndex({ params }: PageProps<"/store/[ho
         <p className="sf-muted">No collections yet.</p>
       )}
     </div>
+    </TemplateFrame>
   );
 }

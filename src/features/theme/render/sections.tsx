@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { useId, type ReactNode } from "react";
+import { useId, type CSSProperties, type ReactNode } from "react";
 import type { SectionSettings } from "@/features/theme/sections/definitions";
 import type { SectionInstance, SectionType } from "@/features/theme/sections/types";
 import { isSectionHidden } from "@/features/theme/schema/config";
-import { parseVideoUrl } from "@/features/theme/schema/primitives";
+import { HEX_COLOR_RE, parseVideoUrl } from "@/features/theme/schema/primitives";
+import { readableOn } from "@/features/theme/tokens-style";
 import { getAllCategories, getCollections, getProductBySlug, getProductCards, getProductRefs, listProducts, type ListArgs, type ProductCardData } from "@/features/storefront/server/catalog";
 import { getBlogPostById, getFaqs, getLatestReviews, getPageById, getReviewSummary } from "@/features/storefront/server/content";
 import { ReviewCard, ReviewSummary } from "@/features/storefront/components/review-card";
@@ -1268,8 +1269,29 @@ function visibilityClass(section: SectionInstance): string {
   return "";
 }
 
-/** Renders an ordered list of theme sections (layout group or page template). */
-export function SectionList({ sections, ctx }: { sections: SectionInstance[]; ctx: RenderContext }) {
+/** Inline CSS variables for a section's colour overrides (validated hex only; see config.ts). */
+function sectionStyleVars(style: SectionInstance["style"]): CSSProperties | undefined {
+  if (!style) return undefined;
+  const v: Record<string, string> = {};
+  const bg = HEX_COLOR_RE.test(style.background) ? style.background : "";
+  const text = HEX_COLOR_RE.test(style.text) ? style.text : "";
+  const accent = HEX_COLOR_RE.test(style.accent) ? style.accent : "";
+  if (bg) Object.assign(v, { "--sf-bg": bg, backgroundColor: bg });
+  if (text) Object.assign(v, { "--sf-text": text, color: text });
+  if (bg || text) {
+    const t = text || "var(--sf-text)";
+    const b = bg || "var(--sf-bg)";
+    Object.assign(v, { "--sf-muted": `color-mix(in srgb, ${t} 62%, ${b})`, "--sf-surface": `color-mix(in srgb, ${t} 4%, ${b})` });
+  }
+  if (accent) Object.assign(v, { "--sf-accent": accent, "--sf-accent-fg": readableOn(accent) });
+  return Object.keys(v).length ? (v as CSSProperties) : undefined;
+}
+
+/**
+ * Renders a list of sections. `slot` is set only in the theme preview (site builder canvas): each
+ * wrapper then carries data attributes the canvas uses to outline and select sections.
+ */
+export function SectionList({ sections, ctx, slot }: { sections: SectionInstance[]; ctx: RenderContext; slot?: string }) {
   return (
     <>
       {sections.map((section) => {
@@ -1280,12 +1302,10 @@ export function SectionList({ sections, ctx }: { sections: SectionInstance[]; ct
         // Per-section rhythm (sections/variants SECTION_SPACINGS); CSS adjusts the inner .sf-section padding.
         const spacing = (section.settings as { spacing?: unknown }).spacing;
         const sp = typeof spacing === "string" && spacing !== "default" ? spacing : undefined;
-        return cls ? (
-          <div key={section.id} className={cls} data-section={section.type} data-spacing={sp}>
-            {node}
-          </div>
-        ) : (
-          <div key={section.id} className="contents" data-section={section.type} data-spacing={sp}>
+        const style = sectionStyleVars(section.style);
+        const builder = slot ? { "data-section-id": section.id, "data-builder-slot-item": slot } : {};
+        return (
+          <div key={section.id} id={`s-${section.id}`} className={cls || (style ? "flow-root" : "contents")} style={style} data-section={section.type} data-spacing={sp} {...builder}>
             {node}
           </div>
         );

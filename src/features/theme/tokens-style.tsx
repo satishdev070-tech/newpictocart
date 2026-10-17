@@ -1,5 +1,6 @@
 import { FONT_STACKS, type ThemeTokens } from "./schema/tokens";
 import { HEX_COLOR_RE } from "./schema/primitives";
+import { TYPE_LEVELS, type TypeLevel, type Typography } from "./schema/site";
 
 /**
  * Theme tokens -> CSS custom properties, scoped to the storefront root ([data-sf-root]).
@@ -70,13 +71,49 @@ export function themeCssVariables(tokens: ThemeTokens): Record<`--sf-${string}`,
   };
 }
 
+const LEVEL_SELECTOR: Record<TypeLevel, string> = {
+  h1: "h1",
+  h2: "h2",
+  h3: "h3",
+  h4: "h4",
+  h5: "h5",
+  h6: "h6",
+  p: "p",
+  small: "small,.text-xs,.text-sm",
+};
+
+/**
+ * Site builder type scale. Only levels the seller changed emit CSS (numbers and enumerations only).
+ * Unlayered, so it wins over the layered utility classes the sections use; phones get 80%.
+ */
+export function typographyCss(t: Typography | undefined, selector = "[data-sf-root]"): string {
+  if (!t) return "";
+  let desktop = "";
+  let mobile = "";
+  for (const level of TYPE_LEVELS) {
+    const s = t[level];
+    if (!s) continue;
+    const decl: string[] = [];
+    if (Number.isInteger(s.size) && s.size > 0) decl.push(`font-size:${s.size}px`);
+    if (/^[3-8]00$/.test(s.weight)) decl.push(`font-weight:${s.weight}`);
+    if (s.font === "heading") decl.push("font-family:var(--sf-font-heading)");
+    if (s.font === "body") decl.push("font-family:var(--sf-font-body)");
+    if (Number.isInteger(s.lineHeight) && s.lineHeight > 0) decl.push(`line-height:${(s.lineHeight / 100).toFixed(2)}`);
+    if (!decl.length) continue;
+    const sel = LEVEL_SELECTOR[level].split(",").map((x) => `${selector} ${x}`).join(",");
+    desktop += `${sel}{${decl.join(";")}}`;
+    if (s.size > 0) mobile += `${sel}{font-size:${Math.max(12, Math.round(s.size * 0.8))}px}`;
+  }
+  return desktop + (mobile ? `@media (max-width:767px){${mobile}}` : "");
+}
+
 /** CSS text for the tokens; exported for tests. */
 export function themeCss(tokens: ThemeTokens, selector = "[data-sf-root]"): string {
   const vars = themeCssVariables(tokens);
   const body = Object.entries(vars)
     .map(([k, v]) => `${k}:${v};`)
     .join("");
-  return `${selector}{${body}}`;
+  return `${selector}{${body}}${typographyCss(tokens.typography, selector)}`;
 }
 
 /**
