@@ -613,7 +613,16 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   (variables on the command line win over `.env.local`). Options: `--dry-run`, `--category=<industry>`,
   `--slug=a,b`, `--retheme` (publish a freshly built theme). Storefronts: `http://<slug>.localhost:3000`.
 - **Run on the live project (owner approval needed)** — `pnpm seed:demo-stores --dry-run`, then
-  `pnpm seed:demo-stores --target=remote --yes` (optionally `--category=<industry>` first).
+  `pnpm seed:demo-stores --target=remote --yes --root=pictocart.in` (optionally `--category=<industry>` first).
+  `--root` gives each store a verified `<slug>.<root>` subdomain and makes it primary (storefronts resolve by exact
+  hostname); a remote run refuses a localhost root. `--refresh-photos` replaces product photos that differ from the
+  plan. Owner sign-in retries when Supabase Auth rate-limits; a store that fails on a network error is finished by
+  re-running with `--slug=<slug>`.
+- **Live status (2026-10-17)** — all 72 stores are seeded on project `ugbjlpdhktrlkyuijkfc` (active, demo, live,
+  15 products, 2,162 product photos matching the plan, published theme). Only `kesari-threads` has its
+  `kesari-threads.pictocart.in` subdomain so far; the other 71 have `<slug>.localhost` only until the `--root` run.
+  `*.pictocart.in` currently returns Vercel `DEPLOYMENT_NOT_FOUND`: the wildcard domain isn't attached to the Vercel
+  project, so no store subdomain resolves in production yet (including the real store on this project).
 - **Verify** — Super admin → Stores, filter type "Demo" (72 stores with categories); open a few `https://<slug>.<root>`
   storefronts; `pnpm exec vitest run tests/unit/demo-stores.test.ts`.
 - **Remove** — `pnpm seed:demo-stores --remove [--category=…] [--slug=…] [--target=remote --yes]` closes the stores the
