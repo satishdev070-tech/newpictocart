@@ -38,7 +38,7 @@ export const CATEGORIES_4: CategoryDef[] = [
         ["Cashew Butter Cookies", 379, 429, "Goan cashews."],
         ["Coconut Macaroons", 329, 0, "Crisp outside, chewy inside."],
       ] },
-      { slug: "chocolates", name: "Chocolates", blurb: "Bean-to-bar chocolate and truffles.", q: "chocolate bars artisan", products: [
+      { slug: "chocolates", name: "Chocolates", blurb: "Bean-to-bar chocolate and truffles.", q: "chocolate bar", products: [
         ["70% Dark Chocolate Bar", 299, 349, "Single-origin Kerala cacao."],
         ["Assorted Truffles Box of 9", 699, 0, "Nine handmade truffles."],
         ["Masala Chai Milk Chocolate", 279, 0, "Spiced milk chocolate."],
@@ -132,7 +132,7 @@ export const CATEGORIES_4: CategoryDef[] = [
         ["Citrus Bloom Eau de Parfum", 1699, 0, "Bergamot and neroli."],
         ["Sandalwood Silk Eau de Parfum", 2499, 2999, "Mysore sandalwood and iris."],
       ] },
-      { slug: "attars", name: "Attars", blurb: "Alcohol-free attars and ittars.", q: "attar perfume oil", opt: { name: "Size", values: ["6 ml", "12 ml"], scale: [1, 1.8] }, products: [
+      { slug: "attars", name: "Attars", blurb: "Alcohol-free attars and ittars.", q: "perfume oil bottle", opt: { name: "Size", values: ["6 ml", "12 ml"], scale: [1, 1.8] }, products: [
         ["Gulab Rose Attar", 699, 0, "Kannauj rose on sandalwood."],
         ["Mitti Attar", 799, 899, "Baked earth, the smell of first rain."],
         ["Shamama Attar", 999, 0, "Warm herbal blend."],
