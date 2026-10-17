@@ -7,7 +7,7 @@ import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
 import { Badge, Card, PageHeader } from "@/components/ui/layout";
 import { getEntitlements } from "@/features/platform";
 import { getThemeKeys } from "@/features/theme/server/queries";
-import { findMarketplaceTheme } from "@/features/theme/marketplace/catalog";
+import { findAnyMarketplaceTheme } from "@/features/theme/marketplace/registry";
 import { ThemeMockup } from "@/features/theme/marketplace/mockup";
 import { ApplyThemeButton } from "@/features/theme/marketplace/apply-button";
 import { FONT_STACKS, type FontKey } from "@/features/theme/schema/tokens";
@@ -18,13 +18,13 @@ import { livePreviewUrl } from "@/features/theme/marketplace/live-preview";
 import { LivePreviewButton } from "@/features/theme/marketplace/components/preview-dialog";
 
 export async function generateMetadata({ params }: PageProps<"/dashboard/themes/[key]">): Promise<Metadata> {
-  const t = findMarketplaceTheme((await params).key);
+  const t = await findAnyMarketplaceTheme((await params).key);
   return { title: t ? `${t.name} theme` : "Theme" };
 }
 
 export default async function ThemeDetailPage({ params }: PageProps<"/dashboard/themes/[key]">) {
   const ctx = await requireTenantPermission("theme.edit");
-  const t = findMarketplaceTheme((await params).key);
+  const t = await findAnyMarketplaceTheme((await params).key);
   if (!t) notFound();
   const [keys, ent, demos] = await Promise.all([getThemeKeys(ctx.tenantId), getEntitlements(ctx.tenantId), liveDemoOrigins(t.demo ? [t.demo] : [])]);
   const live = keys.published === t.key;

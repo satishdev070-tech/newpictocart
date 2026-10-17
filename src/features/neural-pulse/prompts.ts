@@ -11,7 +11,9 @@ export type ProductBrief = { title: string; priceMinor: number | null; category:
 export type KeyDateBrief = { title: string; onDate: string; kind: string };
 export type StoreBrief = { name: string; tagline: string | null; description: string | null; storeCategory: string | null; categories: string[] };
 export type PromptContext = { store: StoreBrief; brand: BrandProfile; products: ProductBrief[]; dates: KeyDateBrief[]; today: string };
-export type Prompt = { system: string; user: string };
+/** Optional images (theme builder screenshots) go to vision-capable providers only; Groq gets the text. */
+export type PromptImage = { mediaType: "image/png" | "image/jpeg" | "image/webp"; data: string };
+export type Prompt = { system: string; user: string; images?: PromptImage[] };
 
 /** Collapses whitespace, strips control characters and angle brackets (so data can't close our tags), caps length. */
 export function clean(value: string | null | undefined, max: number): string {

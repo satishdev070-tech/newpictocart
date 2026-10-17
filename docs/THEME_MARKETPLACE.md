@@ -130,8 +130,18 @@ Tests: `tests/unit/theme-marketplace.test.ts` applies every theme to a store con
 the config validates, the brand tokens switch, hero and announcement content survive, and no
 foreign asset paths appear.
 
-The `themes` table (migration 1500) is reserved for platform-published themes beyond the built-in
-catalogue (RLS: readable when active; writes need `platform.settings.manage`).
+The `themes` table (migration 1500, extended by 3100) holds **custom themes** made in Super Admin → Themes (AI from a
+reference URL/screenshot, or duplicates of any theme). `active` = published; RLS: readable when active, drafts and writes
+need `platform.settings.manage`. Published custom themes join the seller catalogue through `marketplace/registry.ts`.
+
+## Custom themes: AI "create from URL + screenshot" (Super Admin)
+
+`/admin/themes/new` → `src/features/theme/builder`: SSRF-guarded fetch (https only, public addresses checked at connect
+time, 3 redirects, 8 s / 1.5 MB) → design summary (colours, fonts mapped to our font keys, header shape, section order; no
+page text, logos or image URLs) → AI (screenshots as image parts) → preset in the Variant API above → repair + strict zod
+validation + "applies to a store config", one regeneration on failure → Unsplash photos for every image slot with credits →
+draft → editor (`/admin/themes/{key}/edit`) → publish. Only the look is recreated; the UI says so and asks the admin to
+confirm. See ADR-037.
 
 ## Sections and options added with Jaipur Boutique (available to every theme)
 
