@@ -17,6 +17,7 @@ import { setSlotOverrides } from "./store";
  *    Actions are posted to the builder, which owns the theme and the undo history.
  */
 
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 type Box = { top: number; left: number; width: number; height: number };
 type Target = { id: string; slot: string; pageContent: boolean };
 
@@ -97,7 +98,7 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
   const styleEl = useRef<HTMLStyleElement | null>(null);
 
   const post = useCallback(
-    (msg: Omit<CanvasMessage, "tag">) => {
+    (msg: DistributiveOmit<CanvasMessage, "tag">) => {
       window.parent.postMessage({ ...msg, tag: CANVAS_TAG }, platformOrigin);
     },
     [platformOrigin],

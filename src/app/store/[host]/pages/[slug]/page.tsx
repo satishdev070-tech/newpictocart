@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: PageProps<"/store/[host]/page
   const { host, slug } = await params;
   const { sf } = await getRenderContext(host);
   const built = sf.theme.pages.find((p) => p.handle === slug);
-  if (built) return buildPageMetadata({ primaryHost: sf.tenant.primaryHost, path: paths.page(built.handle), title: built.seoTitle || built.title, description: built.seoDescription || null, siteName: sf.store.name, noindex: sf.preview });
+  if (built) return buildPageMetadata({ primaryHost: sf.tenant.primaryHost, path: paths.page(built.handle), title: built.seoTitle || built.title, description: built.seoDescription || undefined, siteName: sf.store.name, noindex: sf.preview });
   const page = await getPageBySlug(sf.tenant.tenantId, slug);
   if (!page) return {};
   return buildPageMetadata({ primaryHost: sf.tenant.primaryHost, path: paths.page(page.slug), title: page.seo.title || page.title, description: page.seo.description, siteName: sf.store.name, noindex: page.seo.noindex });
