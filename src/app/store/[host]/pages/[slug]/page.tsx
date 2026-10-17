@@ -6,10 +6,13 @@ import { buildPageMetadata } from "@/features/storefront/seo";
 import { paths } from "@/features/storefront/urls";
 import { ContentBlocks } from "@/features/storefront/components/content-blocks";
 import { Breadcrumbs } from "@/features/storefront/components/breadcrumbs";
+import { TemplateFrame, ThemeSlot } from "@/features/theme/render/slot";
 
 export async function generateMetadata({ params }: PageProps<"/store/[host]/pages/[slug]">): Promise<Metadata> {
   const { host, slug } = await params;
   const { sf } = await getRenderContext(host);
+  const built = sf.theme.pages.find((p) => p.handle === slug);
+  if (built) return buildPageMetadata({ primaryHost: sf.tenant.primaryHost, path: paths.page(built.handle), title: built.seoTitle || built.title, description: built.seoDescription || null, siteName: sf.store.name, noindex: sf.preview });
   const page = await getPageBySlug(sf.tenant.tenantId, slug);
   if (!page) return {};
   return buildPageMetadata({ primaryHost: sf.tenant.primaryHost, path: paths.page(page.slug), title: page.seo.title || page.title, description: page.seo.description, siteName: sf.store.name, noindex: page.seo.noindex });
@@ -17,14 +20,27 @@ export async function generateMetadata({ params }: PageProps<"/store/[host]/page
 
 export default async function StorePage({ params }: PageProps<"/store/[host]/pages/[slug]">) {
   const { host, slug } = await params;
-  const { sf } = await getRenderContext(host);
+  const ctx = await getRenderContext(host);
+  const { sf } = ctx;
+  // Pages built in the site builder (theme document) take precedence over content pages.
+  const built = sf.theme.pages.find((p) => p.handle === slug);
+  if (built) {
+    return (
+      <>
+        <h1 className="sr-only">{built.title}</h1>
+        <ThemeSlot slot={`pages.${built.id}`} sections={built.sections} ctx={ctx} />
+      </>
+    );
+  }
   const page = await getPageBySlug(sf.tenant.tenantId, slug);
   if (!page) return redirectOrNotFound(sf.tenant.tenantId, paths.page(slug));
   return (
-    <article className="sf-container sf-section mx-auto max-w-3xl space-y-6">
-      <Breadcrumbs primaryHost={sf.tenant.primaryHost} items={[{ name: "Home", path: "/" }, { name: page.title, path: paths.page(page.slug) }]} />
-      <h1 className="sf-heading text-4xl">{page.title}</h1>
-      <ContentBlocks blocks={page.blocks} />
-    </article>
+    <TemplateFrame template="page" ctx={ctx}>
+      <article className="sf-container sf-section mx-auto max-w-3xl space-y-6">
+        <Breadcrumbs primaryHost={sf.tenant.primaryHost} items={[{ name: "Home", path: "/" }, { name: page.title, path: paths.page(page.slug) }]} />
+        <h1 className="sf-heading text-4xl">{page.title}</h1>
+        <ContentBlocks blocks={page.blocks} />
+      </article>
+    </TemplateFrame>
   );
 }

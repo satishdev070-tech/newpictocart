@@ -11,7 +11,7 @@ import { requireStoreTenant } from "@/features/cart/context";
 import { PREVIEW_COOKIE } from "@/features/theme/preview";
 import { verifyPreviewToken } from "@/features/theme/server/preview";
 import { MAX_CONFIG_BYTES, resolveThemeConfig } from "@/features/theme/schema/config";
-import { getRenderContext } from "@/features/theme/render/load";
+import { getRenderContext, loadThemeMenus } from "@/features/theme/render/load";
 import { SectionList } from "@/features/theme/render/sections";
 import { themeCss } from "@/features/theme/tokens-style";
 import { slotSections, SLOT_KEY_RE } from "./slots";
@@ -44,7 +44,7 @@ export async function renderCanvasAction(input: { config: string; slots: string[
     const { config } = resolveThemeConfig(parsed);
     const host = (await getRequestHost())!;
     const base = await getRenderContext(host);
-    const ctx = { ...base, sf: { ...base.sf, theme: config } };
+    const ctx = { ...base, sf: { ...base.sf, theme: config }, menus: await loadThemeMenus(tenant.tenantId, config) };
     const out: Record<string, ReactNode> = {};
     for (const slot of slots) {
       const sections = slotSections(config, slot);

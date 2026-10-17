@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { after } from "next/server";
 import Link from "next/link";
 import { getRenderContext } from "@/features/theme/render/load";
-import { SectionList, splitAtPageContent } from "@/features/theme/render/sections";
+import { splitAtPageContent } from "@/features/theme/render/sections";
+import { ThemeSlot } from "@/features/theme/render/slot";
 import { categoryTrail, getAllCategories, getProductBySlug, listProducts } from "@/features/storefront/server/catalog";
 import { getProductReviews } from "@/features/storefront/server/content";
 import { redirectOrNotFound } from "@/features/storefront/server/redirects";
@@ -90,7 +91,7 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
   const [sectionsBefore, sectionsAfter] = splitAtPageContent(sf.theme.templates.product);
   return (
     <>
-      <SectionList sections={sectionsBefore} ctx={ctx} />
+      <ThemeSlot slot="templates.product.before" sections={sectionsBefore} ctx={ctx} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(ld) }} />
       <TrackEvent
         name="view_item"
@@ -226,7 +227,7 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
         </section>
       ) : null}
       <RecentlyViewed current={{ slug: p.slug, title: p.title }} />
-      <SectionList sections={sectionsAfter} ctx={ctx} />
+      <ThemeSlot slot="templates.product.after" sections={sectionsAfter} ctx={ctx} />
     </>
   );
 }
