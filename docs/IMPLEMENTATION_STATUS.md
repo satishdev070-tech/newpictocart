@@ -573,6 +573,59 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   safety, relative time, server-resolved audience in actions, preferences).
 - **Not done** — migration not applied to the remote Supabase project; e-mail/WhatsApp copies of these alerts.
 
+## Demo stores: 2 live stores per category (2026-10-17)
+
+- **What** — `pnpm seed:demo-stores` creates 72 demo storefronts (2 for each of the 36 store categories in
+  `src/features/stores/industries.ts`), each live with: an invented Indian brand (name, slug, owner, story, tagline,
+  address, phone, `hello@<slug>.example`), wordmark logo + favicon in the theme colours, 5 categories, 4 collections
+  (bestsellers, new arrivals, deals, gifts), 15 products with variants (sizes, shades, pack sizes…), prices in integer
+  paise with MRPs, stock, HSN and SEO, Unsplash product photos and banners, menus, About / shipping / returns / contact /
+  privacy / terms / image-credits pages, FAQs, 5 sample reviews, three shipping rates (standard, free over a threshold,
+  metro express by PIN prefix), COD and GST (`tax_settings`) settings, and a published marketplace theme. The two stores
+  of a category use two different themes with different layout variant sets (hero / product layout / header style /
+  footer layout; `pickThemes()`), e.g. fashion: Runway Editorial vs Fashion Marketplace.
+- **Code** — `scripts/demo/`: `data/*.ts` (36 categories × 2 brands × 5 departments × 6 products; store A sells the
+  even products, store B the odd ones), `generate.ts` (pure plan: brand, catalogue, shipping, GST, reviews, theme pick),
+  `theme.ts` (store content for every section the theme uses → real `applyThemePreset` → `parseThemeConfigStrict`),
+  `photos.ts` + `data/unsplash-cache.json` (Unsplash search results per department), `guard.ts` (CLI + target guard),
+  `seed-demo-stores.mts` (runner), `fetch-photos.mts` (fills the photo cache).
+- **Real code paths** — tenant data is written as the demo owner under RLS with the dashboard's RPCs/tables:
+  `create_tenant`, `save_product` (via `productInputSchema` / `toSaveProductPayload`), `set_collection_products`,
+  storage uploads, a theme draft + `publish_theme`. The secret key is used only for auth admin (owner account, magic-link
+  session), platform columns (`status`, `plan_id`, `store_type`, `category_id`, `launch_status`), sample reviews (no
+  owner insert policy; written with `source = 'sample'`, migration 1700) and `--remove`.
+- **Demo marking (no migration)** — `tenants.store_type = 'demo'` (migration 1800) + category set; owners are
+  `owner@<slug>.demo.test` (undeliverable) with a random password that is never printed or stored and
+  `app_metadata.demo_store = true`. Super admins can still open a store with "Log in as store".
+- **Photos** — Unsplash's demo key allows 50 searches/hour, so `pnpm seed:demo-stores:photos --wait` fills
+  `scripts/demo/data/unsplash-cache.json` (180 searches, ~4 h) and the seeder only reads the cache: seeding makes no
+  Unsplash API calls. A department without cached results uses the curated pool in `src/lib/unsplash-stock.ts`.
+  Photos are downloaded from images.unsplash.com, converted to WebP and stored in `store-assets`; each media-library item
+  keeps the credit in its alt text and file name (same convention as the Media Library's Unsplash import) and every
+  store has an `/pages/image-credits` page. Photos match the department, not the exact product.
+- **Safety** — refuses any non-local Supabase URL unless `--target=remote --yes`; only slugs from the data files; an
+  existing tenant with such a slug is used only if it is `demo`, owned by `owner@<slug>.demo.test` and not protected
+  (The Paliya), otherwise skipped. Idempotent and resumable (keyed on store / product / category / collection slugs).
+- **Run locally** — start a local stack (`supabase start`), then point the script at it:
+  `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<local> SUPABASE_SECRET_KEY=<local> pnpm seed:demo-stores`
+  (variables on the command line win over `.env.local`). Options: `--dry-run`, `--category=<industry>`,
+  `--slug=a,b`, `--retheme` (publish a freshly built theme). Storefronts: `http://<slug>.localhost:3000`.
+- **Run on the live project (owner approval needed)** — `pnpm seed:demo-stores --dry-run`, then
+  `pnpm seed:demo-stores --target=remote --yes` (optionally `--category=<industry>` first).
+- **Verify** — Super admin → Stores, filter type "Demo" (72 stores with categories); open a few `https://<slug>.<root>`
+  storefronts; `pnpm exec vitest run tests/unit/demo-stores.test.ts`.
+- **Remove** — `pnpm seed:demo-stores --remove [--category=…] [--slug=…] [--target=remote --yes]` closes the stores the
+  way the platform closes stores (`status = 'cancelled'`: storefront 404s, `launch_status = 'draft'`). It is not a hard
+  delete: tenants cascade into the append-only `audit_logs`, so the platform has no delete path. Re-running the seeder
+  reopens them.
+- **Tested** — `tests/unit/demo-stores.test.ts` (target guard + CLI, data for every category, valid/unique plans, paise
+  and MRP, store contents, distinct themes + layouts per category, theme config validity, photo cache/fallback). Seeded
+  all 72 stores into a local Supabase stack and checked storefronts at desktop and mobile widths; re-runs are
+  idempotent.
+- **Not done / follow-ups** — not run against the remote project (needs the owner's go-ahead); platform dashboard
+  totals don't exclude `store_type = 'demo'` yet (the store list can filter by type); no Unsplash download-tracking
+  ping for seeded photos; a hard purge of demo tenants would need a DB function that can bypass the audit-log guard.
+
 ## Super Admin theme manager + AI theme builder (2026-10-17, branch `claude/jovial-jang-80a4f6`)
 
 - **Super Admin → Themes** (`/admin/themes`, `platform.settings.manage`): every built-in theme plus custom themes (drafts
