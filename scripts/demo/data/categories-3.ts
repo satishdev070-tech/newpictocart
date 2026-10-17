@@ -22,7 +22,7 @@ export const CATEGORIES_3: CategoryDef[] = [
         ["Neck Rest Cushion Pair", 899, 0, "Memory foam neck support."],
         ["Car Sunshade Set of 4", 999, 1299, "Magnetic window shades."],
       ] },
-      { slug: "car-electronics", name: "Car Electronics", blurb: "Dashcams, chargers and inflators.", q: "dashcam car dashboard", products: [
+      { slug: "car-electronics", name: "Car Electronics", blurb: "Dashcams, chargers and inflators.", q: "car dashboard", products: [
         ["Full HD Dashcam with Night Vision", 3999, 5499, "1080p, loop recording, G-sensor."],
         ["Tyre Inflator Digital", 2499, 2999, "Auto cut-off at set pressure."],
         ["Bluetooth FM Transmitter", 899, 0, "Hands-free calls and USB charging."],
@@ -289,7 +289,7 @@ export const CATEGORIES_3: CategoryDef[] = [
       { slug: "vanya-naturals", name: "Vanya Naturals", owner: "Lalita Negi", tagline: "Wild-harvested Himalayan goodness", story: "Vanya Naturals sources wild honey, herbs and pink salt from village co-operatives in Uttarakhand's hills, and turns some of it into natural soaps and oils in our Dehradun workshop.", since: 2018, street: "34 Rajpur Road", city: "Dehradun", state: "Uttarakhand", pin: "248001" },
     ],
     departments: [
-      { slug: "millets", name: "Millets & Grains", blurb: "Millets, red rice and ancient grains.", q: "millet grains organic", opt: { name: "Pack", values: ["500 g", "1 kg"], scale: [1, 1.85] }, products: [
+      { slug: "millets", name: "Millets & Grains", blurb: "Millets, red rice and ancient grains.", q: "millet", opt: { name: "Pack", values: ["500 g", "1 kg"], scale: [1, 1.85] }, products: [
         ["Organic Foxtail Millet", 129, 149, "Quick-cooking, gluten-free."],
         ["Organic Ragi Flour", 99, 0, "Stone-ground finger millet."],
         ["Organic Red Rice", 149, 169, "Unpolished, high-fibre."],
@@ -321,7 +321,7 @@ export const CATEGORIES_3: CategoryDef[] = [
         ["Organic Masoor Dal", 119, 139, "Red lentils."],
         ["Pumpkin Seeds", 249, 299, "Raw, unsalted."],
       ] },
-      { slug: "salts-spices", name: "Salts & Spices", blurb: "Rock salts and single-origin spices.", q: "himalayan salt spices", products: [
+      { slug: "salts-spices", name: "Salts & Spices", blurb: "Rock salts and single-origin spices.", q: "pink salt", products: [
         ["Himalayan Pink Salt 1 kg", 149, 169, "Unrefined crystals."],
         ["Organic Turmeric 200 g", 129, 0, "High-curcumin Lakadong."],
         ["Black Salt Kala Namak", 79, 99, "Smoky, for chaats."],
