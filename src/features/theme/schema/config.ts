@@ -1,15 +1,22 @@
 import { z } from "zod";
 import { SECTION_DEFINITIONS, getSectionDefinition } from "../sections/definitions";
 import { SECTION_TYPES, type SectionGroup, type SectionInstance, type SectionType } from "../sections/types";
-import { SECTION_ID_RE, STORAGE_PATH_RE } from "./primitives";
+import { HEX_COLOR_RE, SECTION_ID_RE, STORAGE_PATH_RE } from "./primitives";
 import { headerSettingsSchema, productCardSchema, tokensSchema, type HeaderSettings, type ProductCardSettings, type ThemeTokens } from "./tokens";
+import { themeMenusSchema, type ThemeMenu } from "./links";
+import { MAX_POPUPS, MAX_THEME_PAGES, RESERVED_PAGE_HANDLES, embedsSchema, pageMetaSchema, popupSchema, type Embeds, type PageMeta, type Popup } from "./site";
 
 /**
  * Theme config = the JSON stored in theme_versions.config.
  *
  *   { schemaVersion, tokens, header, productCard,
  *     layout:    { header: Section[], footer: Section[] },      rendered by store/[host]/layout.tsx
- *     templates: { home: Section[], collection: Section[], product: Section[] } }
+ *     templates: { home, collection, product,                  original three
+ *                  collectionList, page, blog, search, cart, account },   site builder (default [])
+ *     pages:     [{ id, handle, title, seo…, sections }],      site-builder pages at /pages/<handle>
+ *     popups:    Popup[], menus: { [handle]: ThemeMenu }, embeds }
+ *
+ * Every site-builder key defaults to "nothing", so themes saved before it render unchanged.
  *
  * Two parsers:
  *  - parseThemeConfigStrict(): used on SAVE. Any invalid section -> VALIDATION error with a path.
@@ -20,7 +27,7 @@ export const THEME_SCHEMA_VERSION = 1;
 export const MAX_SECTIONS_PER_GROUP = 40;
 export const MAX_CONFIG_BYTES = 256 * 1024;
 
-export const TEMPLATE_KEYS = ["home", "collection", "product"] as const;
+export const TEMPLATE_KEYS = ["home", "collection", "product", "collectionList", "page", "blog", "search", "cart", "account"] as const;
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 export const LAYOUT_KEYS = ["header", "footer"] as const;
 export type LayoutKey = (typeof LAYOUT_KEYS)[number];
@@ -28,12 +35,18 @@ export type LayoutKey = (typeof LAYOUT_KEYS)[number];
 export const visibilitySchema = z.object({ desktop: z.boolean().default(true), mobile: z.boolean().default(true) });
 
 /** Envelope only; settings are validated against the section's own schema afterwards. */
+const styleColor = z.string().trim().refine((v) => v === "" || HEX_COLOR_RE.test(v), "Use a colour like #1c1917").transform((v) => v.toLowerCase()).default("");
+const sectionStyleSchema = z.object({ background: styleColor, text: styleColor, accent: styleColor }).prefault({});
+
 const sectionEnvelope = z.object({
   id: z.string().regex(SECTION_ID_RE, "Invalid section id"),
   type: z.enum(SECTION_TYPES),
   settings: z.record(z.string(), z.unknown()).default({}),
   visibility: visibilitySchema.prefault({}),
+  style: sectionStyleSchema.optional(),
 });
+
+export type ThemePage = PageMeta & { sections: SectionInstance[] };
 
 export type ThemeConfig = {
   schemaVersion: number;
@@ -42,12 +55,24 @@ export type ThemeConfig = {
   productCard: ProductCardSettings;
   layout: Record<LayoutKey, SectionInstance[]>;
   templates: Record<TemplateKey, SectionInstance[]>;
+  pages: ThemePage[];
+  popups: Popup[];
+  /** Theme copies of menus by handle; they replace the database menu with the same handle. */
+  menus: Record<string, ThemeMenu>;
+  embeds: Embeds;
 };
 
 export type ThemeIssue = { path: string; message: string };
 
-function groupAllows(type: SectionType, group: SectionGroup): boolean {
-  return (SECTION_DEFINITIONS[type].groups as readonly SectionGroup[]).includes(group);
+/** Site-builder templates and pages: anything allowed on the home page (+ the PageContent marker on templates). */
+const HOME_LIKE: readonly SectionGroup[] = ["collectionList", "page", "blog", "search", "cart", "account", "custom"];
+
+export function groupAllows(type: SectionType, group: SectionGroup): boolean {
+  const groups = SECTION_DEFINITIONS[type].groups as readonly SectionGroup[];
+  if (groups.includes(group)) return true;
+  if (!HOME_LIKE.includes(group)) return false;
+  if (type === "PageContent") return group !== "custom";
+  return groups.includes("home");
 }
 
 function formatIssues(prefix: string, error: z.ZodError): ThemeIssue[] {
@@ -92,8 +117,61 @@ function parseSectionList(raw: unknown, group: SectionGroup, path: string, issue
     }
     seenIds.add(id);
     if (def.singleton) seenSingletons.add(type);
-    out.push({ id, type, settings: parsed.data as Record<string, unknown>, visibility });
+    const style = env.data.style && (env.data.style.background || env.data.style.text || env.data.style.accent) ? env.data.style : undefined;
+    out.push({ id, type, settings: parsed.data as Record<string, unknown>, visibility, ...(style ? { style } : {}) });
   });
+  return out;
+}
+
+function parsePages(raw: unknown, issues: ThemeIssue[]): ThemePage[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    issues.push({ path: "pages", message: "Expected a list of pages" });
+    return [];
+  }
+  if (raw.length > MAX_THEME_PAGES) issues.push({ path: "pages", message: `At most ${MAX_THEME_PAGES} pages` });
+  const out: ThemePage[] = [];
+  const handles = new Set<string>();
+  const ids = new Set<string>();
+  raw.slice(0, MAX_THEME_PAGES).forEach((item, index) => {
+    const at = `pages.${index}`;
+    const meta = pageMetaSchema.safeParse(item);
+    if (!meta.success) {
+      issues.push(...formatIssues(at, meta.error));
+      return;
+    }
+    if (RESERVED_PAGE_HANDLES.has(meta.data.handle) || handles.has(meta.data.handle)) {
+      issues.push({ path: `${at}.handle`, message: "Another page already uses this address" });
+      return;
+    }
+    if (ids.has(meta.data.id)) {
+      issues.push({ path: `${at}.id`, message: "Duplicate page id" });
+      return;
+    }
+    handles.add(meta.data.handle);
+    ids.add(meta.data.id);
+    const sections = parseSectionList((item as { sections?: unknown }).sections, "custom", `${at}.sections`, issues);
+    out.push({ ...meta.data, sections });
+  });
+  return out;
+}
+
+function parsePopups(raw: unknown, issues: ThemeIssue[]): Popup[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) {
+    issues.push({ path: "popups", message: "Expected a list of popups" });
+    return [];
+  }
+  const out: Popup[] = [];
+  const ids = new Set<string>();
+  raw.slice(0, MAX_POPUPS).forEach((item, index) => {
+    const r = popupSchema.safeParse(item);
+    if (!r.success) return void issues.push(...formatIssues(`popups.${index}`, r.error));
+    if (ids.has(r.data.id)) return void issues.push({ path: `popups.${index}.id`, message: "Duplicate popup id" });
+    ids.add(r.data.id);
+    out.push(r.data);
+  });
+  if (raw.length > MAX_POPUPS) issues.push({ path: "popups", message: `At most ${MAX_POPUPS} popups` });
   return out;
 }
 
@@ -110,21 +188,22 @@ function parseAll(raw: unknown): { config: ThemeConfig; issues: ThemeIssue[] } {
   if (raw !== undefined && obj !== raw) issues.push({ path: "", message: "Theme config must be an object" });
   const layoutRaw = (obj.layout && typeof obj.layout === "object" ? obj.layout : {}) as Record<string, unknown>;
   const templatesRaw = (obj.templates && typeof obj.templates === "object" ? obj.templates : {}) as Record<string, unknown>;
+  const templates = Object.fromEntries(TEMPLATE_KEYS.map((k) => [k, parseSectionList(templatesRaw[k], k, `templates.${k}`, issues)])) as Record<TemplateKey, SectionInstance[]>;
+  const header = parseSectionList(layoutRaw.header, "header", "layout.header", issues);
+  const footer = parseSectionList(layoutRaw.footer, "footer", "layout.footer", issues);
   const config: ThemeConfig = {
     schemaVersion: THEME_SCHEMA_VERSION,
     tokens: parseObject(tokensSchema, obj.tokens, "tokens", issues),
     header: parseObject(headerSettingsSchema, obj.header, "header", issues),
     productCard: parseObject(productCardSchema, obj.productCard, "productCard", issues),
-    layout: {
-      header: parseSectionList(layoutRaw.header, "header", "layout.header", issues),
-      footer: parseSectionList(layoutRaw.footer, "footer", "layout.footer", issues),
-    },
-    templates: {
-      home: parseSectionList(templatesRaw.home, "home", "templates.home", issues),
-      collection: parseSectionList(templatesRaw.collection, "collection", "templates.collection", issues),
-      product: parseSectionList(templatesRaw.product, "product", "templates.product", issues),
-    },
+    layout: { header, footer },
+    templates,
+    pages: [],
+    popups: parsePopups(obj.popups, issues),
+    menus: parseObject(themeMenusSchema, obj.menus, "menus", issues),
+    embeds: parseObject(embedsSchema, obj.embeds, "embeds", issues),
   };
+  config.pages = parsePages(obj.pages, issues);
   return { config, issues };
 }
 

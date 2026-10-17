@@ -7,7 +7,9 @@ import { assetUrl } from "@/lib/storage/assets";
 import { canonicalUrl } from "@/features/storefront/urls";
 import { toDescription } from "@/features/storefront/seo";
 import { ThemeTokensStyle } from "@/features/theme/tokens-style";
-import { SectionList } from "@/features/theme/render/sections";
+import { ThemeSlot } from "@/features/theme/render/slot";
+import { CanvasBridge } from "@/features/theme/site-builder/canvas/canvas-bridge";
+import { platformOrigin } from "@/lib/platform/urls";
 import { getRenderContext } from "@/features/theme/render/load";
 import { Suspense } from "react";
 import { getTrackingConfig } from "@/features/tracking/server/config";
@@ -100,12 +102,13 @@ export default async function StorefrontLayout({ children, params }: LayoutProps
         </div>
       ) : null}
       <FestiveTop c={festive} />
-      <SectionList sections={ctx.sf.theme.layout.header} ctx={ctx} />
+      <ThemeSlot slot="layout.header" sections={ctx.sf.theme.layout.header} ctx={ctx} />
       <FestiveBelowHeader c={festive} />
       <main id="main" className="flex-1">
         {children}
       </main>
-      <SectionList sections={ctx.sf.theme.layout.footer} ctx={ctx} />
+      <ThemeSlot slot="layout.footer" sections={ctx.sf.theme.layout.footer} ctx={ctx} />
+      {ctx.sf.preview ? <CanvasBridge platformOrigin={platformOrigin()} /> : null}
       {tracking ? (
         <Suspense fallback={null}>
           <TrackingTags config={tracking} />

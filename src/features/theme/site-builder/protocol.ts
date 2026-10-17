@@ -1,0 +1,83 @@
+/**
+ * postMessage protocol between the site builder (dashboard, platform origin) and the canvas
+ * (the storefront in an iframe, store origin). Pure.
+ *
+ * Both sides check `event.origin` (the builder: the store origin it framed; the canvas: the platform
+ * origin) and `event.source` (the builder: its own iframe; the canvas: window.parent). Messages carry
+ * no secrets: the canvas renders through renderCanvasAction, which re-validates the theme and is
+ * authorised by the preview cookie, and the builder only applies edits it can validate itself.
+ */
+
+export const HOST_TAG = "pc-builder-host" as const;
+export const CANVAS_TAG = "pc-builder-canvas" as const;
+
+/** Toolbar / menu actions on a section. */
+export const SECTION_ACTIONS = ["edit", "design", "settings", "colors", "up", "down", "duplicate", "hide", "delete"] as const;
+export type SectionAction = (typeof SECTION_ACTIONS)[number];
+
+export type HostMessage =
+  /** Theme to render (JSON string, already validated by the builder) and the selected section. */
+  | { tag: typeof HOST_TAG; type: "theme"; rev: number; config: string; changedLists: string[] | "all" }
+  | { tag: typeof HOST_TAG; type: "select"; sectionId: string | null }
+  /** Popup to show open on the canvas (null closes it). */
+  | { tag: typeof HOST_TAG; type: "popup"; popupId: string | null }
+  | { tag: typeof HOST_TAG; type: "scrollTo"; sectionId: string };
+
+export type CanvasMessage =
+  | { tag: typeof CANVAS_TAG; type: "ready"; path: string; slots: string[] }
+  | { tag: typeof CANVAS_TAG; type: "rendered"; rev: number; ok: boolean; error?: string }
+  | { tag: typeof CANVAS_TAG; type: "select"; slot: string; sectionId: string }
+  | { tag: typeof CANVAS_TAG; type: "action"; slot: string; sectionId: string; action: SectionAction }
+  /** "+" (or "Add with AI") at a position: insert relative to `sectionId` (null = start of slot). */
+  | { tag: typeof CANVAS_TAG; type: "insert"; slot: string; sectionId: string | null; where: "before" | "after"; ai: boolean };
+
+const SECTION_ID = /^[a-z0-9][a-z0-9-]{2,39}$/;
+const SLOT = /^[a-zA-Z0-9.-]{3,60}$/;
+
+function isObj(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+/** Validates a message received by the BUILDER from the canvas. */
+export function parseCanvasMessage(data: unknown): CanvasMessage | null {
+  if (!isObj(data) || data.tag !== CANVAS_TAG) return null;
+  const slot = typeof data.slot === "string" && SLOT.test(data.slot) ? data.slot : null;
+  const sectionId = typeof data.sectionId === "string" && SECTION_ID.test(data.sectionId) ? data.sectionId : null;
+  switch (data.type) {
+    case "ready":
+      return typeof data.path === "string" && Array.isArray(data.slots)
+        ? { tag: CANVAS_TAG, type: "ready", path: data.path.slice(0, 300), slots: data.slots.filter((s): s is string => typeof s === "string" && SLOT.test(s)).slice(0, 12) }
+        : null;
+    case "rendered":
+      return typeof data.rev === "number" ? { tag: CANVAS_TAG, type: "rendered", rev: data.rev, ok: data.ok === true, ...(typeof data.error === "string" ? { error: data.error.slice(0, 200) } : {}) } : null;
+    case "select":
+      return slot && sectionId ? { tag: CANVAS_TAG, type: "select", slot, sectionId } : null;
+    case "action":
+      return slot && sectionId && (SECTION_ACTIONS as readonly unknown[]).includes(data.action) ? { tag: CANVAS_TAG, type: "action", slot, sectionId, action: data.action as SectionAction } : null;
+    case "insert":
+      return slot && (data.where === "before" || data.where === "after")
+        ? { tag: CANVAS_TAG, type: "insert", slot, sectionId: data.sectionId === null ? null : sectionId, where: data.where, ai: data.ai === true }
+        : null;
+    default:
+      return null;
+  }
+}
+
+/** Validates a message received by the CANVAS from the builder. */
+export function parseHostMessage(data: unknown): HostMessage | null {
+  if (!isObj(data) || data.tag !== HOST_TAG) return null;
+  switch (data.type) {
+    case "theme":
+      return typeof data.rev === "number" && typeof data.config === "string" && (data.changedLists === "all" || Array.isArray(data.changedLists))
+        ? { tag: HOST_TAG, type: "theme", rev: data.rev, config: data.config, changedLists: data.changedLists === "all" ? "all" : (data.changedLists as unknown[]).filter((s): s is string => typeof s === "string").slice(0, 20) }
+        : null;
+    case "select":
+      return { tag: HOST_TAG, type: "select", sectionId: typeof data.sectionId === "string" && SECTION_ID.test(data.sectionId) ? data.sectionId : null };
+    case "popup":
+      return { tag: HOST_TAG, type: "popup", popupId: typeof data.popupId === "string" && SECTION_ID.test(data.popupId) ? data.popupId : null };
+    case "scrollTo":
+      return typeof data.sectionId === "string" && SECTION_ID.test(data.sectionId) ? { tag: HOST_TAG, type: "scrollTo", sectionId: data.sectionId } : null;
+    default:
+      return null;
+  }
+}

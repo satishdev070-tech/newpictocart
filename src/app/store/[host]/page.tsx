@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { after } from "next/server";
 import { getRenderContext } from "@/features/theme/render/load";
-import { SectionList } from "@/features/theme/render/sections";
+import { ThemeSlot } from "@/features/theme/render/slot";
 import { buildPageMetadata, jsonLdString, toDescription, websiteJsonLd } from "@/features/storefront/seo";
 import { canonicalUrl } from "@/features/storefront/urls";
 import { assetUrl } from "@/lib/storage/assets";
@@ -42,7 +42,7 @@ export default async function StorefrontHome({ params }: PageProps<"/store/[host
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(org) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(websiteJsonLd(sf.tenant.primaryHost, sf.store.name)) }} />
       <h1 className="sr-only">{sf.store.name}</h1>
-      <SectionList sections={sf.theme.templates.home} ctx={ctx} />
+      <ThemeSlot slot="templates.home" sections={sf.theme.templates.home} ctx={ctx} />
     </>
   );
 }
