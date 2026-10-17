@@ -6,7 +6,7 @@
  *   pnpm seed:demo-stores --dry-run                       # print the plan, write nothing
  *   pnpm seed:demo-stores [--category=<industry>] [--slug=a,b] [--retheme]
  *   pnpm seed:demo-stores --remove [--category=<industry>] [--slug=a,b]
- *   pnpm seed:demo-stores --target=remote --yes --root=pictocart.in …   # REQUIRED for a non-local Supabase URL
+ *   pnpm seed:demo-stores --target=remote --yes --root=<domain> …   # REQUIRED for a non-local Supabase URL
  *
  * SAFETY
  *  - Writes only to a local Supabase (localhost / 127.0.0.1 / *.localhost / *.test) unless both
