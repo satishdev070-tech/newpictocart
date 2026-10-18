@@ -9,6 +9,8 @@ import type { ThemeVersionSummary, EditorPickers } from "@/features/theme/server
 import { SECTION_DEFINITIONS, defaultSettings } from "@/features/theme/sections/definitions";
 import { FONT_STACKS, BUTTON_SHAPES, BUTTON_VARIANTS, CARD_RADII, CONTAINER_WIDTHS, SPACING_SCALES } from "@/features/theme/schema/tokens";
 import { assetUrl } from "@/lib/storage/assets";
+import { IconGlyph } from "@/lib/icons/icon-glyph";
+import { parseIconValue } from "@/lib/icons/names";
 import { UNSPLASH_CATEGORIES } from "@/lib/unsplash-categories";
 import { Button } from "@/components/ui/button";
 import { inputClassName as input } from "@/components/ui/field";
@@ -220,18 +222,23 @@ function Field({ field, value, onChange, pickers }: { field: EditorField; value:
       );
     case "image": {
       const url = assetUrl(String(value ?? ""));
+      const icon = parseIconValue(String(value ?? ""));
       return (
         <div>
           {label}
           <div className="flex items-center gap-2">
-            {url ? (
+            {icon ? (
+              <div className="grid size-12 place-items-center rounded-md bg-accent-soft text-accent ring-1 ring-border">
+                <IconGlyph name={icon} className="size-6" />
+              </div>
+            ) : url ? (
               // eslint-disable-next-line @next/next/no-img-element -- editor thumbnail
               <img src={url} alt="" className="size-12 rounded-md object-cover ring-1 ring-border" />
             ) : (
               <div className="size-12 rounded-md bg-surface-secondary ring-1 ring-border" />
             )}
-            <MediaPicker folder="theme" triggerLabel={url ? "Change" : "Choose image"} onSelect={([m]) => m && onChange(m.path)} />
-            {url ? (
+            <MediaPicker folder="theme" triggerLabel={url || icon ? "Change" : "Choose image"} onSelect={([m]) => m && onChange(m.path)} onSelectIcon={onChange} />
+            {url || icon ? (
               <button type="button" className="text-xs text-muted" onClick={() => onChange("")}>
                 Remove
               </button>

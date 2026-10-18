@@ -1,0 +1,407 @@
+/*
+ * Section designs, group a (render/designs-a.tsx, components/hero-stage.tsx): Hero slideshows,
+ * PromoBanner, CategoryGrid, FAQ, Instagram and Footer layouts. Same conventions as storefront.css:
+ * theme tokens only (--sf-*), CONTAINER queries on .sf-root, and no motion under
+ * prefers-reduced-motion.
+ */
+@layer components {
+  /* ---------- Hero slideshow stage (HeroStage) ---------- */
+  .sf-stage {
+    position: relative;
+  }
+  .sf-stage-slides {
+    display: grid;
+  }
+  .sf-stage-slide {
+    grid-area: 1 / 1;
+    min-width: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 900ms ease, visibility 0s linear 900ms;
+  }
+  .sf-stage-slide.is-active {
+    z-index: 1;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 900ms ease, visibility 0s;
+  }
+  .sf-stage-kenburns .sf-stage-slide img {
+    transform-origin: 60% 40%;
+  }
+  .sf-stage-kenburns .sf-stage-slide.is-active img {
+    animation: sf-kenburns 12s ease-out both;
+  }
+  @keyframes sf-kenburns {
+    from {
+      transform: scale(1);
+    }
+    to {
+      transform: scale(1.12);
+    }
+  }
+  .sf-stage-card {
+    border-radius: calc(var(--sf-radius-card) + 6px);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .sf-stage-card-dark {
+    background: rgb(0 0 0 / 0.35);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);
+  }
+  .sf-stage-card-light {
+    background: color-mix(in srgb, var(--sf-bg) 82%, transparent);
+    color: var(--sf-text);
+  }
+  .sf-stage-count {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Navigation bar: arrows, thumbnails / numbers / dots, pause. */
+  .sf-stage-nav {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+  .sf-stage-below .sf-stage-nav {
+    justify-content: center;
+    background: var(--sf-bg);
+    color: var(--sf-text);
+  }
+  .sf-stage-overlay .sf-stage-nav {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0.75rem;
+    justify-content: center;
+    color: #ffffff;
+  }
+  .sf-stage-panel .sf-stage-nav {
+    padding-inline: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+  .sf-stage-items {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0.25rem;
+  }
+  .sf-stage-items::-webkit-scrollbar {
+    display: none;
+  }
+  .sf-stage-arrow {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    background: transparent;
+    color: inherit;
+    opacity: 0.8;
+    transition: opacity 150ms ease, background-color 150ms ease;
+  }
+  .sf-stage-arrow:hover {
+    opacity: 1;
+  }
+  .sf-stage-overlay .sf-stage-arrow {
+    border-color: transparent;
+    background: rgb(0 0 0 / 0.35);
+  }
+  .sf-stage-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: inherit;
+  }
+  .sf-stage-thumb {
+    position: relative;
+    display: block;
+    width: 3.5rem;
+    height: 2.5rem;
+    overflow: hidden;
+    border-radius: calc(var(--sf-radius-card) * 0.5);
+    opacity: 0.55;
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    transition: opacity 200ms ease, outline-color 200ms ease;
+  }
+  .sf-stage-item.is-active .sf-stage-thumb {
+    opacity: 1;
+    outline-color: var(--sf-accent);
+  }
+  .sf-stage-item:hover .sf-stage-thumb {
+    opacity: 1;
+  }
+  .sf-stage-num {
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.55;
+  }
+  .sf-stage-item.is-active .sf-stage-num {
+    opacity: 1;
+  }
+  .sf-stage-bar {
+    position: relative;
+    display: block;
+    width: 2rem;
+    height: 2px;
+    overflow: hidden;
+    background: color-mix(in srgb, currentColor 25%, transparent);
+  }
+  .sf-stage-item.is-active .sf-stage-bar {
+    width: 3.5rem;
+    background: color-mix(in srgb, currentColor 30%, transparent);
+  }
+  .sf-stage-dot {
+    display: block;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.45;
+    transition: width 200ms ease, opacity 200ms ease;
+  }
+  .sf-stage-item.is-active .sf-stage-dot {
+    width: 1.5rem;
+    opacity: 1;
+  }
+  /* The autoplay timer is the progress animation (animationend advances the slide). */
+  .sf-stage-timer {
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    display: block;
+    width: 100%;
+    background: currentColor;
+    transform-origin: left center;
+    animation-name: sf-stage-progress;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+  }
+  .sf-stage-line {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 2;
+    display: block;
+    height: 2px;
+    color: var(--sf-accent);
+  }
+  .sf-stage-below .sf-stage-line {
+    position: relative;
+  }
+  @keyframes sf-stage-progress {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  @container (min-width: 48rem) {
+    .sf-stage-panel .sf-stage-nav {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 0;
+      width: calc(5 / 12 * 100%);
+      padding-inline: 2.5rem;
+      padding-bottom: 0;
+    }
+    .sf-stage-panel.sf-stage-panel-end .sf-stage-nav {
+      left: auto;
+      right: 0;
+    }
+    .sf-stage-thumb {
+      width: 4.5rem;
+      height: 3rem;
+    }
+  }
+  @container (min-width: 64rem) {
+    .sf-stage-panel .sf-stage-nav {
+      padding-inline: 4rem;
+    }
+  }
+
+  /* ---------- Promo banner ---------- */
+  .sf-promo-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    background: var(--sf-accent);
+    color: var(--sf-accent-fg);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .sf-promo-strip-badge {
+    flex: none;
+    font-size: 2rem;
+    line-height: 1;
+  }
+  .sf-promo-card {
+    border-radius: calc(var(--sf-radius-card) + 4px);
+    box-shadow: 0 24px 50px -30px rgb(0 0 0 / 0.45);
+  }
+  .sf-tone-light .sf-promo-card {
+    background: var(--sf-surface);
+  }
+  @container (min-width: 64rem) {
+    .sf-promo-strip-badge {
+      font-size: 2.6rem;
+    }
+  }
+
+  /* ---------- Category tiles ---------- */
+  .sf-cat-circle > span:first-child {
+    box-shadow: 0 0 0 2px var(--sf-bg), 0 0 0 3px var(--sf-border);
+    transition: box-shadow 200ms ease;
+  }
+  .sf-cat-circle:hover > span:first-child,
+  .sf-cat-circle:focus-visible > span:first-child {
+    box-shadow: 0 0 0 2px var(--sf-bg), 0 0 0 4px var(--sf-accent);
+  }
+  .sf-cat-arrow {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.9);
+    color: #111111;
+    transition: transform 200ms ease;
+  }
+  .group:hover .sf-cat-arrow {
+    transform: translateX(3px);
+  }
+  .sf-cat-banner {
+    border: 1px solid var(--sf-border);
+    border-radius: var(--sf-radius-card);
+    background: var(--sf-bg);
+    transition: border-color 200ms ease, background-color 200ms ease;
+  }
+  .sf-cat-banner:hover {
+    border-color: var(--sf-text);
+    background: var(--sf-surface);
+  }
+
+  /* ---------- FAQ ---------- */
+  .sf-faq-card {
+    border: 1px solid var(--sf-border);
+    border-radius: calc(var(--sf-radius-card) + 4px);
+    background: var(--sf-surface);
+  }
+  .sf-faq-num {
+    font-family: var(--sf-font-heading);
+    font-size: 1.6rem;
+    line-height: 1;
+    color: var(--sf-accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .sf-faq-bubble {
+    width: fit-content;
+    max-width: 85%;
+    padding: 0.8rem 1.1rem;
+    border-radius: 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+  .sf-faq-q {
+    border-bottom-left-radius: 0.35rem;
+    background: var(--sf-surface);
+    border: 1px solid var(--sf-border);
+    font-weight: 500;
+  }
+  .sf-faq-a {
+    margin-left: auto;
+    border-bottom-right-radius: 0.35rem;
+    background: color-mix(in srgb, var(--sf-accent) 14%, var(--sf-bg));
+  }
+
+  /* ---------- Instagram ---------- */
+  .sf-ig-follow-card {
+    border: 1px solid var(--sf-border);
+    border-radius: calc(var(--sf-radius-card) + 4px);
+    background: var(--sf-surface);
+  }
+  @container (min-width: 48rem) {
+    .sf-ig-collage > .sf-ig-collage-item:nth-child(4n + 3),
+    .sf-ig-collage > .sf-ig-collage-item:nth-child(4n + 4) {
+      margin-top: 2rem;
+    }
+  }
+
+  /* ---------- Footer ---------- */
+  .sf-footer-panel {
+    border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+    border-radius: calc(var(--sf-radius-card) + 6px);
+    background: color-mix(in srgb, currentColor 5%, transparent);
+  }
+  .sf-footer-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3.75rem;
+    height: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+    border-radius: calc(var(--sf-radius-card) + 4px);
+    transition: background-color 150ms ease, border-color 150ms ease;
+  }
+  .sf-footer-badge:hover {
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    border-color: color-mix(in srgb, currentColor 35%, transparent);
+  }
+  .sf-footer-badge-icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.8rem;
+    background: var(--sf-accent);
+    color: var(--sf-accent-fg);
+  }
+  .sf-footer-art img {
+    max-height: 16rem;
+    object-fit: contain;
+  }
+  .sf-footer-art-default {
+    display: block;
+    width: 100%;
+    height: 7rem;
+    color: currentColor;
+  }
+  @container (min-width: 64rem) {
+    .sf-footer-art-default {
+      height: 10rem;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-stage-slide,
+  .sf-stage-slide.is-active {
+    transition: none;
+  }
+  .sf-stage-kenburns .sf-stage-slide.is-active img {
+    animation: none;
+  }
+  /* No timer animation = no autoplay (HeroStage also checks the media query). */
+  .sf-stage-timer {
+    animation: none;
+    transform: scaleX(1);
+  }
+}

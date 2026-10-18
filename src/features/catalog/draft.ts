@@ -1,4 +1,5 @@
-import { PRODUCT_STATUSES, PRODUCT_TYPES, type ProductStatus, type ProductType } from "./constants";
+import { PRODUCT_STATUSES, type ProductStatus } from "./constants";
+import { PRODUCT_TYPE_KEY_RE, effectiveProductType } from "./product-types";
 import { dbMoneyToMinor, minorToInput } from "./format";
 import type { ProductDraft } from "./types";
 import type { OptionDraft, VariantDraft } from "./variants";
@@ -107,7 +108,8 @@ export function dbToDraft(p: DbProduct, options: DbOption[], values: DbOptionVal
     slug: p.slug,
     description: p.description ?? "",
     shortDescription: p.short_description ?? "",
-    productType: (PRODUCT_TYPES as readonly string[]).includes(p.product_type) ? (p.product_type as ProductType) : "other",
+    // Any well-formed key (old fashion keys, catalogue keys, store types); pre-migration fallback in attributes._type.
+    productType: PRODUCT_TYPE_KEY_RE.test(effectiveProductType(p.product_type, p.attributes)) ? effectiveProductType(p.product_type, p.attributes) : "other",
     brand: p.brand ?? "",
     categoryId: p.category_id,
     sizeChartId: p.size_chart_id,

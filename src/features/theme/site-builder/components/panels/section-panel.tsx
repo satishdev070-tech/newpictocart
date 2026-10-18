@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Check, GripVertical, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, Check, GripVertical, ListPlus, Pencil, Plus } from "lucide-react";
 import { SECTION_DEFINITIONS, defaultSettings } from "@/features/theme/sections/definitions";
 import type { EditorField, SectionDefinition, SectionInstance } from "@/features/theme/sections/types";
 import type { EditorPickers } from "@/features/theme/server/queries";
@@ -12,7 +12,7 @@ import { useBuilder, type SectionRef, type SectionTab } from "../../context";
 import { copyItem, findSection, moveItem, removeItem, setSectionSettings, setSectionStyle, updateItems, updateSection } from "../../ops";
 import { blankItem, clearGroup, groupHasContent, itemGroups, itemHideField, itemLabel, primaryListField, sectionTabs, visibleFields, type ItemGroup, type ListField } from "../../field-groups";
 import { Field, VariantPicker } from "../fields";
-import { ColorInput, IconButton, MoreMenu, PanelFrame, Row, Toggle, useReorder } from "../ui";
+import { ColorInput, EmptyState, IconButton, MoreMenu, PanelFrame, Row, Toggle, useReorder } from "../ui";
 
 /**
  * Section panel (left column): Edit (section data + Manage list), Change design (layout variants),
@@ -51,7 +51,7 @@ export function SectionPanel() {
   if (!section) {
     return (
       <PanelFrame title="Section" onClose={() => b.setPanel(null)}>
-        <p className="text-small text-muted">This section is no longer on the page. It may have been removed or undone.</p>
+        <EmptyState title="Section not found">This section is no longer on the page. It may have been removed or undone.</EmptyState>
       </PanelFrame>
     );
   }
@@ -98,7 +98,7 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
   if (section.type === "PageContent") {
     return (
       <PanelFrame title={def.label} onClose={close}>
-        <p className="rounded-lg border border-dashed border-border bg-surface-secondary p-3 text-small text-muted">This is where the page&apos;s own content appears. Move it up or down to place sections around it.</p>
+        <EmptyState title="Page content">This is where the page&apos;s own content appears. Move it up or down to place sections around it.</EmptyState>
       </PanelFrame>
     );
   }
@@ -107,19 +107,24 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
 
   return (
     <PanelFrame title={def.label} subtitle={def.description} onClose={close}>
-      <div role="tablist" aria-label="Section panel" className="sticky -top-3 z-10 -mx-3 -mt-3 mb-3 flex gap-1 overflow-x-auto border-b border-border bg-surface px-2 pt-1.5">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
-            className={cn("shrink-0 border-b-2 px-2 py-1.5 text-xs font-medium transition", tab === t.id ? "border-accent text-accent" : "border-transparent text-muted hover:text-foreground")}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="sticky -top-3 z-10 -mx-3 -mt-3 mb-4 border-b border-border bg-surface/95 px-3 py-2 backdrop-blur">
+        <div role="tablist" aria-label="Section panel" className="flex gap-0.5 overflow-x-auto rounded-xl bg-surface-secondary p-1 [scrollbar-width:none]">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+              className={cn(
+                "flex-1 shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
+                tab === t.id ? "bg-surface text-accent shadow-[0_1px_3px_rgba(0,0,0,0.12)]" : "text-muted hover:text-foreground",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === "edit" ? (
@@ -127,11 +132,11 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
           {list ? <ManageList field={list} section={section} sectionRef={sectionRef} def={def} pickers={b.pickers} /> : null}
           {contentFields.length ? (
             <section className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Section data</h3>
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Section data</h3>
               {renderFields(contentFields)}
             </section>
           ) : null}
-          {!list && !contentFields.length ? <p className="text-small text-muted">This section has no content to edit. Try Change design, Settings or Colours.</p> : null}
+          {!list && !contentFields.length ? <EmptyState title="Nothing to edit here">This section has no content to edit. Try Change design, Settings or Colours.</EmptyState> : null}
         </div>
       ) : null}
 
@@ -142,7 +147,7 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
               f.kind === "select" ? <VariantPicker key={f.key} field={f} value={String(values[f.key] ?? "")} onChange={(v) => setField(f.key, v)} hideLegend={tabs.design.length === 1} /> : null,
             )
           ) : (
-            <p className="text-small text-muted">This section has one design.</p>
+            <EmptyState title="One design">This section has a single layout. Use Settings and Colours to restyle it.</EmptyState>
           )}
         </div>
       ) : null}
@@ -151,7 +156,7 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
         <div role="tabpanel" className="space-y-5">
           {tabs.settings.length ? renderFields(tabs.settings) : null}
           <section className="space-y-2.5 border-t border-border pt-3 first:border-t-0 first:pt-0">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Visibility</h3>
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Visibility</h3>
             {(["desktop", "mobile"] as const).map((d) => (
               <Toggle
                 key={d}
@@ -167,7 +172,7 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
       {tab === "colors" ? (
         <div role="tabpanel" className="space-y-5">
           <section className="space-y-2.5">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Section colours</h3>
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Section colours</h3>
             <p className="text-xs text-muted">Leave empty to use the theme colours.</p>
             {(
               [
@@ -187,7 +192,7 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
           </section>
           {tabs.colors.length ? (
             <section className="space-y-3 border-t border-border pt-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Section tones</h3>
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Section tones</h3>
               {renderFields(tabs.colors)}
             </section>
           ) : null}
@@ -278,10 +283,15 @@ function ManageList({ field, section, sectionRef, def, pickers }: { field: ListF
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-          {field.label} <span className="font-normal normal-case">({items.length}/{field.max})</span>
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+          {field.label} <span className="ml-0.5 rounded-full bg-surface-secondary px-1.5 py-0.5 font-medium normal-case tracking-normal">{items.length}/{field.max}</span>
         </h3>
-        <button type="button" onClick={add} disabled={items.length >= field.max} className="inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground hover:opacity-90 disabled:opacity-40">
+        <button
+          type="button"
+          onClick={add}
+          disabled={items.length >= field.max}
+          className="inline-flex h-7 items-center gap-1 rounded-full bg-accent px-3 text-xs font-semibold text-accent-foreground shadow-xs transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:pointer-events-none disabled:opacity-40"
+        >
           <Plus className="size-3.5" aria-hidden /> Add {field.itemLabel.toLowerCase()}
         </button>
       </div>
@@ -298,7 +308,7 @@ function ManageList({ field, section, sectionRef, def, pickers }: { field: ListF
                   <span {...handle} className={handleClass}>
                     <GripVertical className="size-4" aria-hidden />
                   </span>
-                  <button type="button" onClick={() => setEditing({ index: i, draft: structuredClone(it), isNew: false })} className={cn("min-w-0 flex-1 truncate text-left", hidden && "line-through")}>
+                  <button type="button" onClick={() => setEditing({ index: i, draft: structuredClone(it), isNew: false })} className={cn("min-w-0 flex-1 truncate py-1 text-left font-medium", hidden && "line-through")}>
                     {label}
                   </button>
                   <IconButton label={`Edit ${label}`} onClick={() => setEditing({ index: i, draft: structuredClone(it), isNew: false })}>
@@ -319,7 +329,15 @@ function ManageList({ field, section, sectionRef, def, pickers }: { field: ListF
           })}
         </ol>
       ) : (
-        <p className="rounded-lg border border-dashed border-border p-3 text-center text-xs text-muted">No {field.label.toLowerCase()} yet.</p>
+        <EmptyState
+          icon={<ListPlus />}
+          title={`No ${field.label.toLowerCase()} yet`}
+          action={
+            <button type="button" onClick={add} className="text-xs font-semibold text-accent hover:underline">
+              Add the first {field.itemLabel.toLowerCase()}
+            </button>
+          }
+        />
       )}
       {min > 0 ? <p className="text-xs text-muted">Keep at least {min}.</p> : null}
       {error ? (
@@ -383,17 +401,17 @@ function ItemEditor({
 
   return (
     <section className="space-y-3" aria-label={`Edit ${field.itemLabel.toLowerCase()}`}>
-      <div className="flex items-center gap-2">
+      <div className="-mx-1 flex items-center gap-1.5">
         <IconButton label={`Back to ${field.label.toLowerCase()}`} onClick={onBack}>
           <ArrowLeft />
         </IconButton>
         <h3 className="min-w-0 flex-1 truncate text-small font-semibold">{title}</h3>
       </div>
       {groups.map((g) => (
-        <div key={g.id} className="rounded-lg border border-border bg-surface p-2.5">
-          {g.toggle ? <Toggle label={g.label} checked={!!on[g.id]} onChange={(v) => toggleGroup(g, v)} /> : <p className="text-small font-medium">{g.label}</p>}
+        <div key={g.id} className={cn("rounded-xl border bg-surface p-3 transition-colors", on[g.id] ? "border-border" : "border-dashed border-border")}>
+          {g.toggle ? <Toggle label={g.label} checked={!!on[g.id]} onChange={(v) => toggleGroup(g, v)} /> : <p className="text-small font-semibold">{g.label}</p>}
           {on[g.id] ? (
-            <div className="mt-2.5 space-y-3">
+            <div className="mt-3 space-y-3 border-t border-border pt-3">
               {visibleFields(g.fields, draft).map((f) => (
                 <Field key={f.key} field={f} value={draft[f.key]} pickers={pickers} error={errors[f.key]} onChange={(v) => set(f.key, v)} />
               ))}
@@ -406,20 +424,24 @@ function ItemEditor({
           {form}
         </p>
       ) : null}
-      <div className="flex items-center gap-2">
-        <Button size="sm" onClick={update} disabled={!changed && !Object.keys(errors).length}>
-          {isNew ? `Add ${field.itemLabel.toLowerCase()}` : "Update"}
-        </Button>
-        <Button size="sm" variant="secondary" onClick={onBack}>
-          {saved || !changed ? "Done" : "Cancel"}
-        </Button>
+      <p className="text-xs text-muted">Changes show on the page after {isNew ? `“Add ${field.itemLabel.toLowerCase()}”` : "“Update”"}.</p>
+      {/* Pinned to the bottom of the panel while the item scrolls. */}
+      <div className="sticky -bottom-3 z-10 -mx-3 -mb-3 space-y-2 border-t border-border bg-surface/95 px-3 py-3 shadow-[0_-6px_16px_-10px_rgba(0,0,0,0.18)] backdrop-blur">
+        <div className="flex items-center gap-2">
+          <Button variant="accent" size="lg" className="flex-1" onClick={update} disabled={!changed && !Object.keys(errors).length}>
+            {saved && !changed ? <Check aria-hidden /> : null}
+            {isNew ? `Add ${field.itemLabel.toLowerCase()}` : saved && !changed ? "Updated" : "Update"}
+          </Button>
+          <Button size="lg" variant="secondary" onClick={onBack}>
+            {saved || !changed ? "Done" : "Cancel"}
+          </Button>
+        </div>
         {saved ? (
-          <span role="status" className="inline-flex items-center gap-1 text-xs text-success">
-            <Check className="size-3.5" aria-hidden /> Updated
-          </span>
+          <p role="status" className="sr-only">
+            Updated
+          </p>
         ) : null}
       </div>
-      <p className="text-xs text-muted">Changes show on the page after {isNew ? `“Add ${field.itemLabel.toLowerCase()}”` : "“Update”"}.</p>
     </section>
   );
 }

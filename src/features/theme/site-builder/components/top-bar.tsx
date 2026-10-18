@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, ExternalLink, History, Monitor, Redo2, Smartphone, Undo2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronDown, ExternalLink, FileText, History, Monitor, Redo2, Smartphone, Undo2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import type { PublicError } from "@/lib/errors";
@@ -139,7 +139,8 @@ export function TopBar() {
   const versions = b.history.filter((h) => h.status !== "draft");
 
   return (
-    <header className="relative flex h-14 shrink-0 items-center gap-2 overflow-x-auto border-b border-border bg-surface px-3 [scrollbar-width:none]">
+    // No overflow clipping on the bar: the history popover and notices hang below it.
+    <header className="relative z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
       <Link
         href="/dashboard"
         onClick={(e) => {
@@ -165,21 +166,32 @@ export function TopBar() {
       </div>
 
       <label className="ml-1 flex shrink-0 items-center gap-1.5 text-small">
-        <span className="hidden text-muted sm:inline">Pages:</span>
-        <select aria-label="Page" value={b.page.key} onChange={(e) => b.setPageKey(e.target.value)} className={cn(input, "h-8 w-36 shrink-0 py-0 text-small md:w-44")}>
-          {GROUP_ORDER.map((g) => {
-            const items = b.pages.filter((p) => p.group === g);
-            return items.length ? (
-              <optgroup key={g} label={PAGE_GROUP_LABELS[g]}>
-                {items.map((p) => (
-                  <option key={p.key} value={p.key}>
-                    {p.label}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null;
-          })}
-        </select>
+        <span className="hidden text-xs font-medium text-muted xl:inline">Page</span>
+        <span className="relative block w-40 shrink-0 xl:w-48">
+          <FileText aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted" />
+          {/* Explicit line-height / padding: the shared input's py-2 clipped the text at h-8 in some browsers. */}
+          <select
+            aria-label="Page"
+            title={b.page.label}
+            value={b.page.key}
+            onChange={(e) => b.setPageKey(e.target.value)}
+            className={cn(input, "h-8 w-full min-w-0 cursor-pointer appearance-none truncate rounded-lg !py-0 pl-8 pr-7 text-small font-medium leading-[30px]")}
+          >
+            {GROUP_ORDER.map((g) => {
+              const items = b.pages.filter((p) => p.group === g);
+              return items.length ? (
+                <optgroup key={g} label={PAGE_GROUP_LABELS[g]}>
+                  {items.map((p) => (
+                    <option key={p.key} value={p.key}>
+                      {p.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null;
+            })}
+          </select>
+          <ChevronDown aria-hidden className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-muted" />
+        </span>
       </label>
 
       <div className="flex shrink-0 items-center gap-0.5 border-l border-border pl-2">
@@ -191,7 +203,7 @@ export function TopBar() {
         </IconButton>
       </div>
 
-      <div role="group" aria-label="Device" className="mx-auto flex shrink-0 items-center rounded-lg border border-border p-0.5">
+      <div role="group" aria-label="Device" className="mx-auto flex shrink-0 items-center gap-0.5 rounded-xl bg-surface-secondary p-1">
         {(
           [
             ["desktop", "Desktop", Monitor],
@@ -205,7 +217,10 @@ export function TopBar() {
             aria-label={label}
             title={label}
             onClick={() => b.setDevice(d)}
-            className={cn("grid h-7 w-9 place-items-center rounded-md [&_svg]:size-4", b.device === d ? "bg-accent-soft text-accent" : "text-muted hover:text-foreground")}
+            className={cn(
+              "grid h-7 w-10 place-items-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 [&_svg]:size-4",
+              b.device === d ? "bg-surface text-accent shadow-[0_1px_3px_rgba(0,0,0,0.12)]" : "text-muted hover:text-foreground",
+            )}
           >
             <Icon aria-hidden />
           </button>
@@ -260,8 +275,13 @@ export function TopBar() {
         <Button variant="secondary" size="sm" onClick={openPreview} pending={previewing} title={b.dirty ? "Preview shows your saved draft. Save to preview your latest changes." : "Open the saved draft in a new tab"}>
           <ExternalLink aria-hidden /> <span className="hidden md:inline">Preview</span>
         </Button>
-        <Button variant={conflict ? "danger" : "secondary"} size="sm" onClick={() => save(conflict)} pending={saving} disabled={!b.dirty && !saveErr}>
-          {conflict ? "Save anyway" : "Save draft"}
+        <Button variant={conflict ? "danger" : "secondary"} size="sm" onClick={() => save(conflict)} pending={saving} disabled={!b.dirty && !saveErr} title={b.dirty ? "Save your changes as a draft" : "All changes saved"}>
+          {b.dirty && !saving && !conflict ? <span aria-hidden className="size-1.5 rounded-full bg-accent-strong lg:hidden" /> : null}
+          {conflict ? "Save anyway" : (
+            <>
+              Save<span className="hidden xl:inline">&nbsp;draft</span>
+            </>
+          )}
         </Button>
         {b.canPublish ? (
           <Button variant="accent" size="sm" onClick={() => setPublishOpen(true)} disabled={b.dirty || publishing} title={b.dirty ? "Save your draft before publishing" : "Publish the saved draft"}>

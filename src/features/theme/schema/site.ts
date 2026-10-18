@@ -55,8 +55,21 @@ export const pageMetaSchema = z.object({
   title: plainText(80).pipe(z.string().min(1, "Give the page a title")),
   seoTitle: plainText(70).default(""),
   seoDescription: plainText(160).default(""),
+  /** Image shown when the page is shared (Open Graph); empty = the store's default. */
+  socialImagePath: imagePath.default(""),
+  /** Hide from search engines (robots noindex). */
+  noindex: z.boolean().default(false),
 });
 export type PageMeta = z.infer<typeof pageMetaSchema>;
+
+/** Seller-chosen titles for built-in pages (Pages panel → Rename); empty = the default title. */
+export const BUILTIN_TITLE_KEYS = ["blog", "contact", "faq"] as const;
+export type BuiltinTitleKey = (typeof BUILTIN_TITLE_KEYS)[number];
+export const BUILTIN_TITLE_DEFAULTS: Record<BuiltinTitleKey, string> = { blog: "Journal", contact: "Contact us", faq: "Frequently asked questions" };
+export const builtinTitlesSchema = z
+  .object({ blog: plainText(60).default(""), contact: plainText(60).default(""), faq: plainText(60).default("") })
+  .prefault({});
+export type BuiltinTitles = z.infer<typeof builtinTitlesSchema>;
 
 /** Page handles the storefront already uses for its own routes (a theme page can't take them). */
 export const RESERVED_PAGE_HANDLES = new Set(["home", "index", "new", "edit", "preview"]);

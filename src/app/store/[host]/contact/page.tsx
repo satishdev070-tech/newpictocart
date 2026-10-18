@@ -4,8 +4,13 @@ import { getRenderContext } from "@/features/theme/render/load";
 import { getPagesByKind } from "@/features/storefront/server/content";
 import { formatAddress, telHref, whatsappUrl } from "@/features/storefront/store-profile";
 import { paths } from "@/features/storefront/urls";
+import { BUILTIN_TITLE_DEFAULTS } from "@/features/theme/schema/site";
 
-export const metadata: Metadata = { title: "Contact us" };
+export async function generateMetadata({ params }: PageProps<"/store/[host]/contact">): Promise<Metadata> {
+  const { host } = await params;
+  const { sf } = await getRenderContext(host);
+  return { title: sf.theme.builtinTitles.contact || BUILTIN_TITLE_DEFAULTS.contact };
+}
 
 export default async function ContactPage({ params }: PageProps<"/store/[host]/contact">) {
   const { host } = await params;
@@ -16,7 +21,7 @@ export default async function ContactPage({ params }: PageProps<"/store/[host]/c
   const address = formatAddress(s.address);
   return (
     <div className="sf-container sf-section mx-auto max-w-3xl space-y-8">
-      <h1 className="sf-heading text-4xl">Contact us</h1>
+      <h1 className="sf-heading text-4xl">{sf.theme.builtinTitles.contact || BUILTIN_TITLE_DEFAULTS.contact}</h1>
       <dl className="grid gap-6 @[48rem]:grid-cols-2">
         {s.email ? (
           <div>

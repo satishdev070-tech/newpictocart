@@ -1,42 +1,15 @@
 /** Catalog enumerations mirrored from the database CHECK constraints (0300 catalog). Pure module. */
+import { DEFAULT_PRODUCT_TYPES, LEGACY_PRODUCT_TYPES, typePluralLabel } from "@/features/catalog/product-types";
 
-export const PRODUCT_TYPES = [
-  "kurta",
-  "kurta_set",
-  "suit",
-  "co_ord_set",
-  "dress",
-  "saree",
-  "lehenga",
-  "top",
-  "shirt",
-  "bottom",
-  "dupatta",
-  "nightwear",
-  "accessory",
-  "other",
-] as const;
-export type ProductType = (typeof PRODUCT_TYPES)[number];
+/** @deprecated legacy fashion keys; product types are a catalogue now (features/catalog/product-types). */
+export const PRODUCT_TYPES = LEGACY_PRODUCT_TYPES;
+export type ProductType = string;
 
-export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
-  kurta: "Kurtas",
-  kurta_set: "Kurta sets",
-  suit: "Suit sets",
-  co_ord_set: "Co-ord sets",
-  dress: "Dresses",
-  saree: "Sarees",
-  lehenga: "Lehengas",
-  top: "Tops",
-  shirt: "Shirts",
-  bottom: "Bottoms",
-  dupatta: "Dupattas",
-  nightwear: "Nightwear",
-  accessory: "Accessories",
-  other: "Other",
-};
+/** Plural labels for the default catalogue (listing filters, "Type" on the product page). */
+export const PRODUCT_TYPE_LABELS: Record<string, string> = Object.fromEntries(DEFAULT_PRODUCT_TYPES.map((t) => [t.key, t.plural]));
 
 export function productTypeLabel(t: string): string {
-  return (PRODUCT_TYPE_LABELS as Record<string, string>)[t] ?? t.replace(/_/g, " ");
+  return typePluralLabel(t);
 }
 
 export const SORT_OPTIONS = [

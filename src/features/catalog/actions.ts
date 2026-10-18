@@ -10,7 +10,6 @@ import { AppError } from "@/lib/errors";
 import { assertPermission, can, requireTenant } from "@/lib/tenant/membership";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { audit } from "@/lib/audit";
-import type { Json } from "@/lib/supabase/database.types";
 import {
   bulkProductSchema,
   categorySchema,
@@ -25,13 +24,16 @@ import {
   sizeChartSchema,
   toSaveProductPayload,
 } from "./schemas";
-import { assertProductCapacity, bulkUpdateProducts, deleteProduct, setProductCollections } from "./server/products";
+import { assertProductCapacity, bulkUpdateProducts, callSaveProduct, deleteProduct, setProductCollections } from "./server/products";
 import { addProductImage, attachLibraryImages, deleteProductImage, removeStoredFiles, reorderProductImages, updateProductImage, uploadCatalogImage } from "./server/media";
 import { deleteCategory, saveCategory } from "./server/categories";
 import { deleteCollection, previewRules, saveCollection } from "./server/collections";
 import { deleteSizeChart, saveSizeChart } from "./server/size-charts";
 import { applyImport, previewImport } from "./server/import";
 import { catalogDbError } from "./server/db-errors";
+import { MAX_MEDIA_PER_PRODUCT } from "./constants";
+import { productTypeKeySchema, type ProductTypeDef } from "./product-types";
+import { createStoreProductType } from "./server/product-types";
 import { collectionRulesSchema } from "./collection-rules";
 import { adjustStockSchema, setStockSchema, thresholdSchema } from "@/features/inventory/schemas";
 import { adjustStock, setLowStockThreshold, setStock } from "@/features/inventory/server/inventory";
@@ -63,7 +65,7 @@ export async function saveProductAction(_prev: ActionResult<{ id: string }> | nu
       if (current?.status !== "active") throw new AppError("FORBIDDEN", { message: "You don't have permission to publish products. Save it as a draft instead.", fieldErrors: { status: ["Needs publish permission"] } });
     }
     const payload = toSaveProductPayload(input, { allowInitialStock: can(ctx, "inventory.write") });
-    const { data: id, error } = await supabase.rpc("save_product", { p_tenant: ctx.tenantId, p_payload: payload as unknown as Json });
+    const { data: id, error } = await callSaveProduct(supabase, ctx.tenantId, payload);
     if (error || !id) throw catalogDbError(error, { op: "save_product" });
     await setProductCollections(ctx.tenantId, id, env.collectionIds);
     await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: input.id ? "product.updated" : "product.created", entityType: "product", entityId: id, metadata: { status: input.status } });
@@ -101,6 +103,20 @@ export async function deleteProductAction(_prev: ActionResult | null, fd: FormDa
   return result;
 }
 
+/** Seller adds a store-only product type from the product form (template copied from `baseKey`). */
+export async function createProductTypeAction(input: { label: string; baseKey?: string | null }): Promise<ActionResult<ProductTypeDef>> {
+  return runAction("catalog.createProductType", async () => {
+    const ctx = await writer();
+    const v = parseInput(
+      z.object({ label: z.string().trim().min(2, "Enter a name").max(60, "Use at most 60 characters"), baseKey: z.preprocess((x) => (x ? x : null), productTypeKeySchema.nullable()) }),
+      input,
+    );
+    const def = await createStoreProductType(ctx.tenantId, ctx.user.id, { label: v.label, baseKey: v.baseKey });
+    await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "product_type.created", entityType: "product_type", entityId: def.key, metadata: { label: def.label } });
+    return def;
+  });
+}
+
 // ------------------------------------------------------------------- media
 
 export async function uploadProductImageAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
@@ -115,12 +131,14 @@ export async function uploadProductImageAction(_prev: ActionResult | null, fd: F
   return result;
 }
 
-export async function attachProductMediaAction(productId: string, paths: string[]): Promise<ActionResult<{ added: number }>> {
+export async function attachProductMediaAction(productId: string, paths: string[]): Promise<ActionResult<{ added: number; skipped: number }>> {
   const result = await runAction("catalog.attachImages", async () => {
     const ctx = await writer();
-    const v = parseInput(z.object({ productId: z.uuid(), paths: z.array(z.string().max(300)).min(1).max(20) }), { productId, paths });
-    const added = await attachLibraryImages(ctx.tenantId, v.productId, v.paths);
-    return { added };
+    const v = parseInput(
+      z.object({ productId: z.uuid(), paths: z.array(z.string().max(300)).min(1, "Choose at least one image").max(MAX_MEDIA_PER_PRODUCT, `Choose at most ${MAX_MEDIA_PER_PRODUCT} images`) }),
+      { productId, paths },
+    );
+    return attachLibraryImages(ctx.tenantId, v.productId, v.paths);
   });
   if (result.ok) refresh();
   return result;

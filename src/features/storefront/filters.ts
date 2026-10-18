@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { PRODUCT_TYPES, type ListingSort } from "./constants";
+import type { ListingSort } from "./constants";
+import { productTypeKeySchema } from "@/features/catalog/product-types";
 
 /**
  * Listing filters from URL searchParams (collections, categories, search). Parsed leniently:
@@ -42,7 +43,7 @@ export const listingParamsSchema = z.object({
   availability: z.preprocess(first, z.enum(["in_stock"]).optional().catch(undefined)),
   min: intInRange(0, 10_000_000),
   max: intInRange(0, 10_000_000),
-  type: many(z.enum(PRODUCT_TYPES), PRODUCT_TYPES.length),
+  type: many(productTypeKeySchema, 20),
   size: many(facetValue, 20),
   colour: many(facetValue, 20),
   fabric: many(facetValue, 20),

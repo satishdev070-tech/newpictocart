@@ -23,4 +23,21 @@ export const barlowCondensed = localFont({ src: [{ path: "../../node_modules/@fo
 export const bodoniExt = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/bodoni-moda/files/bodoni-moda-latin-ext-wght-normal.woff2", weight: "400 900" }], variable: "--font-bodoni-ext", display: "swap", preload: false, adjustFontFallback: false });
 export const jostExt = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/jost/files/jost-latin-ext-wght-normal.woff2", weight: "100 900" }], variable: "--font-jost-ext", display: "swap", preload: false, adjustFontFallback: false });
 
-export const storefrontFontVariables = [cormorant, playfair, bodoni, bodoniExt, marcellus, manrope, jost, jostExt, spaceGrotesk, dmSans, barlowCondensed].map((f) => f.variable).join(" ");
+// Site-builder font picker additions. Upright files only (italic is synthesised; theme copy rarely
+// sets it) and only the weights the typography scale uses for static families. Like the fonts
+// above, nothing downloads unless the store's theme references the variable.
+export const asapSharp = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/asap-sharp/files/asap-sharp-latin-wght-normal.woff2", weight: "100 900" }], variable: "--font-asap-sharp", display: "swap", preload: false });
+export const openSans = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/open-sans/files/open-sans-latin-wght-normal.woff2", weight: "300 800" }], variable: "--font-open-sans", display: "swap", preload: false });
+export const arimo = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/arimo/files/arimo-latin-wght-normal.woff2", weight: "400 700" }], variable: "--font-arimo", display: "swap", preload: false });
+export const robotoCondensed = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/roboto-condensed/files/roboto-condensed-latin-wght-normal.woff2", weight: "100 900" }], variable: "--font-roboto-condensed", display: "swap", preload: false });
+export const roboto = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/roboto/files/roboto-latin-wght-normal.woff2", weight: "100 900" }], variable: "--font-roboto", display: "swap", preload: false });
+export const isometra = localFont({ src: [{ path: "../../node_modules/@fontsource/isometra/files/isometra-latin-400-normal.woff2", weight: "400" }], variable: "--font-isometra", display: "swap", preload: false });
+export const rubik = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/rubik/files/rubik-latin-wght-normal.woff2", weight: "300 900" }], variable: "--font-rubik", display: "swap", preload: false });
+export const outfit = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/outfit/files/outfit-latin-wght-normal.woff2", weight: "100 900" }], variable: "--font-outfit", display: "swap", preload: false });
+export const poppins = localFont({ src: [{ path: "../../node_modules/@fontsource/poppins/files/poppins-latin-400-normal.woff2", weight: "400" }, { path: "../../node_modules/@fontsource/poppins/files/poppins-latin-500-normal.woff2", weight: "500" }, { path: "../../node_modules/@fontsource/poppins/files/poppins-latin-600-normal.woff2", weight: "600" }, { path: "../../node_modules/@fontsource/poppins/files/poppins-latin-700-normal.woff2", weight: "700" }], variable: "--font-poppins", display: "swap", preload: false });
+export const montserrat = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2", weight: "100 900" }], variable: "--font-montserrat", display: "swap", preload: false });
+
+export const storefrontFontVariables = [
+  cormorant, playfair, bodoni, bodoniExt, marcellus, manrope, jost, jostExt, spaceGrotesk, dmSans, barlowCondensed,
+  asapSharp, openSans, arimo, robotoCondensed, roboto, isometra, rubik, outfit, poppins, montserrat,
+].map((f) => f.variable).join(" ");

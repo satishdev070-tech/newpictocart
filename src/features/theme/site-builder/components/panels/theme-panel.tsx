@@ -7,7 +7,8 @@ import { cn } from "@/lib/cn";
 import { assetUrl } from "@/lib/storage/assets";
 import { MediaPicker } from "@/features/media/components/media-picker";
 import type { ThemeConfig } from "@/features/theme/schema/config";
-import { BUTTON_SHAPES, BUTTON_VARIANTS, CARD_RADII, CONTAINER_WIDTHS, FONT_KEYS, FONT_STACKS, SPACING_SCALES, type HeaderSettings, type ProductCardSettings, type ThemeTokens } from "@/features/theme/schema/tokens";
+import { BUTTON_SHAPES, BUTTON_VARIANTS, CARD_RADII, CONTAINER_WIDTHS, FONT_KEYS, FONT_STACKS, LOGO_LIMITS, SPACING_SCALES, type FontKey, type HeaderSettings, type LogoPosition, type MobileLogoPosition, type ProductCardSettings, type ThemeTokens } from "@/features/theme/schema/tokens";
+import { AUTO_LOGO_HEIGHT } from "@/features/theme/render/logo-layout";
 import { DEFAULT_TYPE_SIZES, TYPE_FONTS, TYPE_LEVELS, TYPE_LEVEL_LABELS, TYPE_WEIGHTS, type TypeLevel, type TypeStyle } from "@/features/theme/schema/site";
 import type { MarketplaceTheme } from "@/features/theme/marketplace/types";
 import { UNSPLASH_CATEGORIES } from "@/lib/unsplash-categories";
@@ -278,7 +279,68 @@ function ColorsTab() {
 // Font styles
 // -----------------------------------------------------------------------------
 
-const FONT_OPTIONS = FONT_KEYS.map((k) => [k, FONT_STACKS[k].label] as const);
+const fontName = (k: FontKey) => FONT_STACKS[k].label.split(" (")[0];
+const fontHint = (k: FontKey) => FONT_STACKS[k].label.match(/\(([^)]+)\)/)?.[1] ?? "";
+
+/**
+ * Font select with a live sample of every option, rendered in that font (a native <select> can't
+ * style its options). The list opens inline so the panel's scroll area never clips it. The font
+ * files are the storefront's self-hosted ones (app/storefront-fonts.ts), declared on every page,
+ * so each one downloads only when its sample is shown.
+ */
+function FontPicker({ label, value, sample, onChange }: { label: string; value: FontKey; sample: string; onChange: (v: FontKey) => void }) {
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="space-y-1">
+      <span id={`${id}-label`} className="block text-xs font-medium">
+        {label}
+      </span>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={`${id}-list`}
+        aria-labelledby={`${id}-label ${id}-value`}
+        onClick={() => setOpen((o) => !o)}
+        className={cn("flex w-full items-center gap-2 rounded-lg border bg-surface px-3 py-2 text-left", open ? "border-accent" : "border-border hover:border-border-strong")}
+      >
+        <span id={`${id}-value`} className="min-w-0 flex-1">
+          <span className="block truncate text-base leading-tight" style={{ fontFamily: FONT_STACKS[value].stack }}>
+            {fontName(value)}
+          </span>
+          <span className="block truncate text-xs text-muted" style={{ fontFamily: FONT_STACKS[value].stack }}>
+            {sample}
+          </span>
+        </span>
+        <ChevronRight className={cn("size-4 shrink-0 text-muted transition-transform", open && "rotate-90")} />
+      </button>
+      {open ? (
+        <ul id={`${id}-list`} aria-labelledby={`${id}-label`} className="max-h-72 space-y-0.5 overflow-y-auto rounded-lg border border-border bg-surface p-1">
+          {FONT_KEYS.map((k) => (
+            <li key={k}>
+              <button
+                type="button"
+                aria-pressed={k === value}
+                onClick={() => {
+                  onChange(k);
+                  setOpen(false);
+                }}
+                className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left", k === value ? "bg-accent-soft text-accent" : "hover:bg-surface-secondary")}
+              >
+                <span className="min-w-0 flex-1" style={{ fontFamily: FONT_STACKS[k].stack }}>
+                  <span className="block truncate text-[15px] leading-tight">{fontName(k)}</span>
+                  <span className="block truncate text-xs opacity-70">{sample}</span>
+                </span>
+                <span className="shrink-0 text-[10px] text-muted">{fontHint(k)}</span>
+                {k === value ? <Check className="size-3.5 shrink-0" /> : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 const DEFAULT_STYLE: TypeStyle = { size: 0, weight: "default", font: "default", lineHeight: 0 };
 const isHeading = (l: TypeLevel) => l.startsWith("h");
 
@@ -297,8 +359,8 @@ function FontsTab() {
   return (
     <div className="space-y-4">
       <Group title="Fonts">
-        <Select label="Heading font" value={t.headingFont} options={FONT_OPTIONS} onChange={(v) => setToken("headingFont", v)} />
-        <Select label="Body font" value={t.bodyFont} options={FONT_OPTIONS} onChange={(v) => setToken("bodyFont", v)} />
+        <FontPicker label="Heading font" value={t.headingFont} sample="Handcrafted with love" onChange={(v) => setToken("headingFont", v)} />
+        <FontPicker label="Body font" value={t.bodyFont} sample="Free shipping on orders over ₹999" onChange={(v) => setToken("bodyFont", v)} />
         <Select label="Heading case" value={t.headingCase} options={[["normal", "As typed"], ["uppercase", "UPPERCASE"]] as const} onChange={(v) => setToken("headingCase", v)} />
       </Group>
       <Group title="Text styles">
@@ -424,6 +486,89 @@ const HEADER_TOGGLES: [keyof HeaderSettings & ("showSearch" | "showAccount" | "s
   ["bottomNav", "App-style bottom bar on phones"],
 ];
 
+/** px slider with readout; 0 = auto (slider shows autoValue, the size the storefront uses today). */
+function SizeSlider({ label, value, autoValue, autoLabel = "Auto", limits, onChange }: { label: string; value: number; autoValue: number; autoLabel?: string; limits: { min: number; max: number }; onChange: (v: number) => void }) {
+  const id = useId();
+  const shown = Math.max(limits.min, Math.min(limits.max, value || autoValue));
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <label htmlFor={id} className="text-xs font-medium">
+          {label}
+        </label>
+        <span className="flex items-center gap-2 text-xs tabular-nums">
+          {value ? (
+            <>
+              <span className="font-medium">{value}px</span>
+              <button type="button" className="text-accent hover:underline" onClick={() => onChange(0)}>
+                Auto
+              </button>
+            </>
+          ) : (
+            <span className="text-muted">{autoLabel}</span>
+          )}
+        </span>
+      </div>
+      <input id={id} type="range" min={limits.min} max={limits.max} step={2} value={shown} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-accent" />
+    </div>
+  );
+}
+
+/** Small header diagrams for the position buttons: logo = filled block, menu = thin lines. */
+function PosIcon({ kind }: { kind: "auto" | "left" | "center" | "center-stacked" | "right" }) {
+  const logo = (x: number, y = 5) => <rect x={x} y={y} width="8" height="4" rx="1" fill="currentColor" />;
+  const line = (x: number, w: number, y = 7) => <rect x={x} y={y - 0.5} width={w} height="1" rx="0.5" fill="currentColor" opacity="0.55" />;
+  return (
+    <svg viewBox="0 0 28 14" width="28" height="14" aria-hidden className="shrink-0">
+      <rect x="0.5" y="0.5" width="27" height="13" rx="2" fill="none" stroke="currentColor" opacity="0.35" />
+      {kind === "auto" ? <text x="14" y="10" textAnchor="middle" fontSize="7" fill="currentColor">A</text> : null}
+      {kind === "left" ? <>{logo(3)}{line(14, 11)}</> : null}
+      {kind === "right" ? <>{line(3, 11)}{logo(17)}</> : null}
+      {kind === "center" ? <>{line(2, 7)}{logo(10)}{line(19, 7)}</> : null}
+      {kind === "center-stacked" ? <>{logo(10, 2.5)}{line(6, 16, 10.5)}</> : null}
+    </svg>
+  );
+}
+
+const DESKTOP_POSITIONS = [
+  ["auto", "Auto"],
+  ["left", "Left"],
+  ["center", "Centre"],
+  ["center-stacked", "Centre above"],
+  ["right", "Right"],
+] as const satisfies readonly (readonly [LogoPosition, string])[];
+const MOBILE_POSITIONS = [
+  ["auto", "Auto"],
+  ["left", "Left"],
+  ["center", "Centre"],
+] as const satisfies readonly (readonly [MobileLogoPosition, string])[];
+
+function Segmented<T extends LogoPosition>({ label, value, options, onChange }: { label: string; value: T; options: readonly (readonly [T, string])[]; onChange: (v: T) => void }) {
+  return (
+    <div className="space-y-1" role="radiogroup" aria-label={`Logo position: ${label}`}>
+      <span className="block text-xs font-medium">{label}</span>
+      <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+        {options.map(([v, l]) => (
+          <button
+            key={v}
+            type="button"
+            role="radio"
+            aria-checked={value === v}
+            onClick={() => onChange(v)}
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-md border px-1 py-1.5 text-[11px] leading-tight",
+              value === v ? "border-accent bg-accent-soft text-accent" : "border-border bg-surface text-muted hover:border-border-strong hover:text-foreground",
+            )}
+          >
+            <PosIcon kind={v} />
+            <span className="w-full truncate text-center">{l}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HeaderTab() {
   const { config, setHeader } = useThemeSetters();
   const { pickers } = useBuilder();
@@ -448,11 +593,52 @@ function HeaderTab() {
           ) : null}
         </div>
         {logo ? <TextInput label="Logo alt text" value={h.logoAlt} maxLength={120} onChange={(v) => setHeader("logoAlt", v)} placeholder="Your store name" /> : null}
-        <FieldRow label={`Logo width (${h.logoMaxWidth}px)`}>
-          <input type="range" min={60} max={320} step={4} value={h.logoMaxWidth} onChange={(e) => setHeader("logoMaxWidth", Number(e.target.value))} className="w-full accent-accent" aria-label="Logo width" />
-        </FieldRow>
         <TextInput label="Text wordmark instead of the logo" hint="Large-logo header layout only." value={h.wordmark} maxLength={40} onChange={(v) => setHeader("wordmark", v)} />
         <TextInput label="Tagline under the logo" hint="Large-logo header layout only." value={h.logoTagline} maxLength={60} onChange={(v) => setHeader("logoTagline", v)} />
+      </Group>
+      <Group title="Logo size">
+        <SizeSlider
+          label="Width on desktop"
+          value={h.logoWidth}
+          autoValue={h.logoMaxWidth}
+          limits={LOGO_LIMITS.width}
+          onChange={(v) => setHeader("logoWidth", v)}
+        />
+        <SizeSlider
+          label="Width on phones"
+          value={h.logoWidthMobile}
+          autoValue={Math.min(h.logoWidth || h.logoMaxWidth, LOGO_LIMITS.widthMobile.max)}
+          autoLabel="Same as desktop (fits the screen)"
+          limits={LOGO_LIMITS.widthMobile}
+          onChange={(v) => setHeader("logoWidthMobile", v)}
+        />
+        <SizeSlider
+          label="Max height on desktop"
+          value={h.logoHeight}
+          autoValue={h.logoWidth || h.logoWidthMobile || h.logoHeightMobile ? AUTO_LOGO_HEIGHT.desktop : 56}
+          limits={LOGO_LIMITS.height}
+          onChange={(v) => setHeader("logoHeight", v)}
+        />
+        <SizeSlider
+          label="Max height on phones"
+          value={h.logoHeightMobile}
+          autoValue={h.logoWidth || h.logoWidthMobile || h.logoHeight ? AUTO_LOGO_HEIGHT.mobile : 56}
+          limits={LOGO_LIMITS.heightMobile}
+          onChange={(v) => setHeader("logoHeightMobile", v)}
+        />
+        <p className="text-xs text-muted">The logo keeps its proportions: if the height limit is reached it stops growing instead of stretching.</p>
+      </Group>
+      <Group title="Logo position">
+        <Segmented
+          label="Desktop"
+          value={h.logoPosition}
+          options={DESKTOP_POSITIONS}
+          onChange={(v) => setHeader("logoPosition", v)}
+        />
+        <Segmented label="Phones and tablets" value={h.mobileLogoPosition} options={MOBILE_POSITIONS} onChange={(v) => setHeader("mobileLogoPosition", v)} />
+        <p className="text-xs text-muted">
+          Auto follows the Header section&apos;s layout. Centre and Centre above split or stack the header menu: turn on &ldquo;Show menu inside the header&rdquo; in the Header section to see it.
+        </p>
       </Group>
       <Group title="Menu">
         <Select label="Main menu" value={h.menuHandle} options={menus.map((m) => [m.value, m.label] as const)} onChange={(v) => setHeader("menuHandle", v || "main")} />

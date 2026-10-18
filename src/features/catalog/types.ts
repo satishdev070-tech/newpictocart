@@ -42,7 +42,8 @@ export type ProductMedia = {
   position: number;
 };
 
-export function emptyProductDraft(): ProductDraft {
+/** A blank product; `productType` defaults to the store industry's first suggestion (see defaultTypeForIndustry). */
+export function emptyProductDraft(productType = "other"): ProductDraft {
   return {
     id: null,
     expectedUpdatedAt: null,
@@ -50,7 +51,7 @@ export function emptyProductDraft(): ProductDraft {
     slug: "",
     description: "",
     shortDescription: "",
-    productType: "kurta",
+    productType,
     brand: "",
     categoryId: null,
     sizeChartId: null,

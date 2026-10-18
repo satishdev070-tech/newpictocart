@@ -6,11 +6,12 @@ import { listBlogPosts } from "@/features/storefront/server/content";
 import { buildPageMetadata } from "@/features/storefront/seo";
 import { paths } from "@/features/storefront/urls";
 import { StoreImage } from "@/features/storefront/components/store-image";
+import { BUILTIN_TITLE_DEFAULTS } from "@/features/theme/schema/site";
 
 export async function generateMetadata({ params }: PageProps<"/store/[host]/blog">): Promise<Metadata> {
   const { host } = await params;
   const { sf } = await getRenderContext(host);
-  return buildPageMetadata({ primaryHost: sf.tenant.primaryHost, path: paths.blog(), title: "Journal", siteName: sf.store.name });
+  return buildPageMetadata({ primaryHost: sf.tenant.primaryHost, path: paths.blog(), title: sf.theme.builtinTitles.blog || BUILTIN_TITLE_DEFAULTS.blog, siteName: sf.store.name });
 }
 
 export default async function BlogIndex({ params, searchParams }: PageProps<"/store/[host]/blog">) {
@@ -23,7 +24,7 @@ export default async function BlogIndex({ params, searchParams }: PageProps<"/st
   const pages = Math.ceil(total / 12);
   return (
     <div className="sf-container sf-section">
-      <h1 className="sf-heading mb-8 text-4xl">Journal</h1>
+      <h1 className="sf-heading mb-8 text-4xl">{sf.theme.builtinTitles.blog || BUILTIN_TITLE_DEFAULTS.blog}</h1>
       {posts.length ? (
         <ul className="grid gap-8 @[48rem]:grid-cols-2 @[64rem]:grid-cols-3">
           {posts.map((p) => (

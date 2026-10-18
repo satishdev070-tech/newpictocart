@@ -21,7 +21,9 @@ export type HostMessage =
   | { tag: typeof HOST_TAG; type: "select"; sectionId: string | null }
   /** Popup to show open on the canvas (null closes it). */
   | { tag: typeof HOST_TAG; type: "popup"; popupId: string | null }
-  | { tag: typeof HOST_TAG; type: "scrollTo"; sectionId: string };
+  | { tag: typeof HOST_TAG; type: "scrollTo"; sectionId: string }
+  /** Display names for the canvas label chips ("Hero / Slideshow"), by section id. */
+  | { tag: typeof HOST_TAG; type: "labels"; labels: Record<string, string> };
 
 export type CanvasMessage =
   | { tag: typeof CANVAS_TAG; type: "ready"; path: string; slots: string[] }
@@ -77,6 +79,14 @@ export function parseHostMessage(data: unknown): HostMessage | null {
       return { tag: HOST_TAG, type: "popup", popupId: typeof data.popupId === "string" && SECTION_ID.test(data.popupId) ? data.popupId : null };
     case "scrollTo":
       return typeof data.sectionId === "string" && SECTION_ID.test(data.sectionId) ? { tag: HOST_TAG, type: "scrollTo", sectionId: data.sectionId } : null;
+    case "labels": {
+      if (!isObj(data.labels)) return null;
+      const labels: Record<string, string> = {};
+      for (const [id, label] of Object.entries(data.labels).slice(0, 500)) {
+        if (SECTION_ID.test(id) && typeof label === "string") labels[id] = label.slice(0, 80);
+      }
+      return { tag: HOST_TAG, type: "labels", labels };
+    }
     default:
       return null;
   }
