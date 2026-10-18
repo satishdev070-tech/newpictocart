@@ -21,7 +21,6 @@ import { VideoShop as VideoShopPlayer, type VideoShopItem } from "@/features/sto
 import { Carousel } from "@/features/storefront/components/carousel";
 import { AutoScrollRow } from "@/features/storefront/components/auto-scroll-row";
 import { DECOR_ARTWORKS } from "@/features/theme/sections/definitions";
-import { ReelVideo } from "@/features/storefront/components/reel-tile";
 import { assetUrl } from "@/lib/storage/assets";
 import { AnnouncementBar, Footer, Header, MegaMenu } from "./chrome";
 import { Cta, HeadingText, Intro, ViewAll, headingClass, hp, sourceArgs } from "./parts";

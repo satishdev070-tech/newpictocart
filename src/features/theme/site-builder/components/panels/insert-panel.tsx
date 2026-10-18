@@ -10,6 +10,9 @@ import { generateSectionAction } from "../../ai-actions";
 import { useBuilder } from "../../context";
 import { addableTypes, insertSection } from "../../ops";
 import { DIAGRAMS, VariantDiagram } from "../fields";
+import { DIAGRAMS_A } from "../../variant-diagrams-a";
+import { DIAGRAMS_B } from "../../variant-diagrams-b";
+import { DIAGRAMS_PAGES } from "../../variant-diagrams-pages";
 import { EmptyState, PanelFrame, input } from "../ui";
 
 /**
@@ -46,7 +49,8 @@ function diagramFor(def: SectionDefinition): Box[] | undefined {
   if (own) return own;
   const variant = def.fields.find((f): f is Extract<EditorField, { kind: "select" }> => f.kind === "select" && f.display === "variants");
   const first = variant?.options[0]?.value;
-  return first ? DIAGRAMS[first] : DIAGRAMS.default;
+  // New variant values have their wireframes in the variant-diagrams-* files.
+  return (first ? (DIAGRAMS[first] ?? DIAGRAMS_A[first] ?? DIAGRAMS_B[first] ?? DIAGRAMS_PAGES[first]) : undefined) ?? DIAGRAMS.default;
 }
 
 const AI_EXAMPLE = "e.g. a testimonials section with 3 reviews about handmade sarees";

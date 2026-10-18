@@ -710,3 +710,45 @@ Dashboard → Storefront → Theme editor is now a full-screen visual builder (d
   < 1280px canvas) frame, so desktop clicks were tested at 1400px; the builder is desktop-first (narrow screens
   scroll the top bar); list items have no "hide" flag (the ⋮ menu offers Edit / Copy / Delete); the item editor's
   local copy can go stale if the same item changes elsewhere while it is open.
+
+## Product images + product types for every industry
+
+- **Images:** `ProductMediaManager` used to copy `media` into `useState` once, so images added from the media
+  library (or uploaded) never showed after `refresh()`, and the next reorder failed with "images changed". It now
+  renders the server order, with `useOptimistic` for moves. Each image has **Set as main** and the main one has a
+  **Main** badge. The main image is the lowest position (`features/catalog/media-order.ts`, with a tie-break by
+  storage path), and the dashboard, product cards and product page/og:image all use it. Attach skips
+  non-images and duplicates, and accepts up to 30 paths.
+- **Product types:** `features/catalog/product-types.ts` holds the catalogue (about 140 types in code, each
+  mapped to industries, with attribute templates: `fashion` fields, `sizes`, labelled `specs` stored in
+  `attributes.specs`, and a care label). Super Admin → Product types (`/admin/product-types`) can rename a type,
+  assign industries, edit its template, disable it, reset it or add a new one. These edits are stored in
+  `product_types`. Sellers can create store-only types from the product form (`tenant_product_types`). The
+  product form suggests types for the store's industry first and shows clothing fields only for clothing types
+  (or when a product already has values in them).
+- **Migration `20261018003200_product_types` (not applied yet):** drops the fashion-only CHECK on
+  `products.product_type` and creates both tables. Until it is applied: the code catalogue is used, Super Admin
+  edits and custom types return a "migration pending" message, and new type keys are saved as `other` with
+  `attributes._type` (read back everywhere; the migration moves the value back into `product_type`).
+- Tests: `tests/unit/products-types-images.test.ts`.
+
+## Site builder: pages panel menu, homepage, page sections (2026-10-18, branch `claude/builder-polish`)
+
+- Pages panel ⋮ menus (SEO & page setup with social image + noindex, Rename, Set as subitem, Set as
+  homepage, Duplicate, Delete; Blog: Manage blog / Rename), "Add new page" pinned at the bottom.
+- Theme fields (defaulted, back-compatible): `homePageId`, `builtinTitles`, page `socialImagePath` / `noindex`.
+- New sections: ContactInfo, RichText, BlogPosts, Gallery, Team, CallToAction (≥3 variants each);
+  About / Contact / Blogs / Gallery / Team / Privacy templates use them.
+- Canvas: empty page lists offer "Add a section". Tests: `tests/unit/site-builder-page-sections.test.ts`.
+- See docs/THEME_BUILDER.md "Pages panel and page sections".
+
+## Section designs, group a (2026-10-18, branch `claude/builder-polish`)
+
+New "Change design" options (first value of every list = the old look; old themes unchanged):
+- FAQ: accordion + split, cards, numbered, chat bubbles (optional contact button, spacing).
+- PromoBanner: tiles + full-width, split, three-tile mosaic, overlapping card, offer strip, text only (tone / alignment / badge).
+- Footer: +5 layouts (mega with newsletter, brand panel, contact buttons, illustrated, two slim rows); seller-uploaded illustration (`imagePath`/`imageAlt`) also as decoration "My illustration".
+- Hero: +3 fading slideshows (`HeroStage` island: thumbnails / numbered progress / dots, autoplay with pause button, paused on hover/focus/hidden tab, off under reduced motion).
+- CategoryGrid: +4 (circle avatars, overlay cards, bento, banner rows with description).
+- Instagram (SocialProof): layouts become variant cards (+ profile page, reels carousel, collage with follow card); `source: "instagram"` shows the connected Instagram account's latest posts (server-side, cached 1 h, ADR-006 addition), falling back to manual posts; builder help points to Marketing → Social → Accounts.
+Code: `render/designs-a.tsx`, `storefront/components/hero-stage.tsx`, `social/server/instagram-feed.ts`, `theme/designs-a.css`, wireframes in `site-builder/variant-diagrams-a.ts`. Tests: `tests/unit/section-designs-a.test.ts`. Not verified in a browser (no dev server run).

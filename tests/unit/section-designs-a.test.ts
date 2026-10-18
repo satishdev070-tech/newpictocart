@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SECTION_DEFINITIONS, defaultSettings } from "@/features/theme/sections/definitions";
 import { CATEGORY_VARIANTS, FAQ_VARIANTS, FOOTER_LAYOUTS, HERO_VARIANTS, PROMO_VARIANTS, SOCIAL_VARIANTS, type VariantOption } from "@/features/theme/sections/variants";
+import type { EditorField } from "@/features/theme/sections/types";
 import { DIAGRAMS_A } from "@/features/theme/site-builder/variant-diagrams-a";
 import { parseInstagramMedia } from "@/features/social/server/instagram-feed";
 
@@ -32,7 +33,7 @@ describe("section designs (group a)", () => {
   });
 
   it.each(CASES)("$type exposes its designs as a variant picker", ({ type, key, list }) => {
-    const field = SECTION_DEFINITIONS[type].fields.find((f) => f.key === key);
+    const field = (SECTION_DEFINITIONS[type].fields as EditorField[]).find((f) => f.key === key);
     expect(field && field.kind === "select" && field.display === "variants").toBe(true);
     if (field?.kind === "select") expect(field.options.map((o) => o.value)).toEqual(list.map((o) => o.value));
   });

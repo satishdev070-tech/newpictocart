@@ -117,7 +117,7 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
               aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                "min-w-0 flex-1 shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
+                "flex-1 shrink-0 whitespace-nowrap rounded-lg px-2 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
                 tab === t.id ? "bg-surface text-accent shadow-[0_1px_3px_rgba(0,0,0,0.12)]" : "text-muted hover:text-foreground",
               )}
             >

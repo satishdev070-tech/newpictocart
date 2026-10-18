@@ -498,7 +498,7 @@ function initials(name: string): string {
     .join("");
 }
 
-function Team({ s, ctx }: P<"Team">) {
+function Team({ s }: P<"Team">) {
   if (!s.members.length) return null;
   const intro = <Intro eyebrow={s.eyebrow} heading={s.heading} subheading={s.subheading} />;
   const photo = (m: SectionSettings<"Team">["members"][number], i: number, shape: string) => (

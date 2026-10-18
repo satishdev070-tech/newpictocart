@@ -55,3 +55,22 @@ back. Both sides check `event.origin` and `event.source`; messages are parsed by
 - Section envelope: optional `style {background, text, accent}` colour overrides.
 
 No database migration.
+
+## Pages panel and page sections
+
+- Each row in Pages has a ⋮ menu. Site-builder pages: SEO & page setup (title, handle, SEO title /
+  description, social image `socialImagePath`, `noindex`), Rename, Set as subitem, Set as homepage,
+  Duplicate, Delete. Blog: Manage blog, Rename. Contact / FAQ: Rename, Set as subitem. Pure ops in
+  `site-builder/page-ops.ts`.
+- `homePageId` (default ""): "/" renders that page's sections in the `templates.home` slot (the slot
+  reports list `pages.<id>`; `slotList` / `changedLists` map it), and the builder's Home row edits it.
+  A dangling id parses to "". `/pages/<handle>` of the homepage sets canonical "/".
+- `builtinTitles {blog, contact, faq}` (default ""): renamed built-in page headings.
+- "Set as subitem" nests the page's item under the parent's item in the theme copy of the header
+  menu (`config.menus[header.menuHandle]`, copied from the DB menu on first use).
+- Empty page lists show an "Add a section" placeholder on the canvas (`canvas/empty-slot.tsx` →
+  `pc:builder-empty-insert` → CanvasBridge posts `insert` with no anchor).
+- Page sections (`sections/definitions-pages.ts`, `render/sections-pages.tsx`, diagrams in
+  `site-builder/variant-diagrams-pages.ts`): ContactInfo (store details, mailto / WhatsApp buttons,
+  Google Maps embed limited to `https://www.google.com/maps/embed?…` in a sandboxed iframe),
+  RichText (plain text paragraphs), BlogPosts, Gallery, Team, CallToAction; each has ≥3 variants.

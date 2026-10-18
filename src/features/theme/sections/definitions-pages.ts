@@ -23,6 +23,9 @@ const variantEditor = (label: string, list: readonly VariantOption[]): EditorFie
   options: list.map((o) => ({ value: o.value, label: o.label, hint: o.hint })),
 });
 
+/** Widens field literals to EditorField (keeps SECTION_DEFINITIONS' field union uniform). */
+const editorFields = (f: EditorField[]): EditorField[] => f;
+
 const TONES = ["light", "dark", "accent", "muted"] as const;
 const toneEditor: EditorField = { kind: "select", key: "tone", label: "Background", options: TONES.map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) })) };
 const spacingEditor: EditorField = { kind: "select", key: "spacing", label: "Space above and below", options: SECTION_SPACINGS.map((o) => ({ value: o.value, label: o.label })) };
@@ -153,7 +156,7 @@ const contactInfo = {
     mapHeight: z.enum(["small", "medium", "large"]).default("medium"),
     ...commonFields,
   }),
-  fields: [
+  fields: editorFields([
     variantEditor("Layout", CONTACT_VARIANTS),
     ...headingEditor,
     { kind: "toggle", key: "showPhone", label: "Show phone" },
@@ -188,7 +191,7 @@ const contactInfo = {
     { kind: "select", key: "mapHeight", label: "Map height", options: [{ value: "small", label: "Small" }, { value: "medium", label: "Medium" }, { value: "large", label: "Large" }] },
     toneEditor,
     spacingEditor,
-  ],
+  ]),
 } satisfies SectionDefinition;
 
 const richText = {
@@ -206,7 +209,7 @@ const richText = {
     ctaHref: safeHref.default(""),
     ...commonFields,
   }),
-  fields: [
+  fields: editorFields([
     variantEditor("Layout", RICH_TEXT_VARIANTS),
     ...headingEditor,
     { kind: "text", key: "body", label: "Text", maxLength: 6000, multiline: true, help: "Leave an empty line between paragraphs." },
@@ -214,7 +217,7 @@ const richText = {
     { kind: "link", key: "ctaHref", label: "Button link" },
     toneEditor,
     spacingEditor,
-  ],
+  ]),
 } satisfies SectionDefinition;
 
 const blogPosts = {
@@ -232,7 +235,7 @@ const blogPosts = {
     viewAllLabel: txt(40, "All stories"),
     ...commonFields,
   }),
-  fields: [
+  fields: editorFields([
     variantEditor("Layout", BLOG_POSTS_VARIANTS),
     ...headingEditor,
     { kind: "text", key: "viewAllLabel", label: "“View all” link text (empty = hide)", maxLength: 40 },
@@ -241,7 +244,7 @@ const blogPosts = {
     { kind: "toggle", key: "showDate", label: "Show the date" },
     toneEditor,
     spacingEditor,
-  ],
+  ]),
 } satisfies SectionDefinition;
 
 const galleryItem = z.object({ imagePath: imagePath.default(""), alt: txt(200), caption: txt(120), href: safeHref.default("") });
@@ -270,7 +273,7 @@ const gallery = {
     captions: z.enum(["below", "overlay", "hidden"]).default("below"),
     ...commonFields,
   }),
-  fields: [
+  fields: editorFields([
     variantEditor("Layout", GALLERY_VARIANTS),
     ...headingEditor,
     {
@@ -291,7 +294,7 @@ const gallery = {
     { kind: "select", key: "captions", label: "Captions", options: [{ value: "below", label: "Below the photo" }, { value: "overlay", label: "On the photo" }, { value: "hidden", label: "Hidden" }] },
     toneEditor,
     spacingEditor,
-  ],
+  ]),
 } satisfies SectionDefinition;
 
 const member = z.object({ name: plainText(80).pipe(z.string().min(1, "Add a name")), role: txt(80), bio: txt(400), imagePath: imagePath.default(""), href: safeHref.default("") });
@@ -315,7 +318,7 @@ const team = {
     columns: z.coerce.number().int().min(2).max(5).default(3),
     ...commonFields,
   }),
-  fields: [
+  fields: editorFields([
     variantEditor("Layout", TEAM_VARIANTS),
     ...headingEditor,
     {
@@ -335,7 +338,7 @@ const team = {
     { kind: "number", key: "columns", label: "People per row (desktop)", min: 2, max: 5, showIf: { key: "variant", equals: ["team-cards", "team-circles"] } },
     toneEditor,
     spacingEditor,
-  ],
+  ]),
 } satisfies SectionDefinition;
 
 const callToAction = {
@@ -357,7 +360,7 @@ const callToAction = {
     tone: z.enum(TONES).default("accent"),
     spacing: variantSchema(SECTION_SPACINGS),
   }),
-  fields: [
+  fields: editorFields([
     variantEditor("Layout", CTA_VARIANTS),
     { kind: "text", key: "eyebrow", label: "Eyebrow", maxLength: 60 },
     { kind: "text", key: "heading", label: "Heading", maxLength: 120 },
@@ -370,7 +373,7 @@ const callToAction = {
     { kind: "text", key: "alt", label: "Image description", maxLength: 200, showIf: { key: "variant", equals: ["cta-split", "cta-image"] } },
     toneEditor,
     spacingEditor,
-  ],
+  ]),
 } satisfies SectionDefinition;
 
 /** Registered in ./definitions.ts SECTION_DEFINITIONS (spread). */
