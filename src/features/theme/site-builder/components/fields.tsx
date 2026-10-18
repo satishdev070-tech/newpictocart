@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
+import { DIAGRAMS_A } from "../variant-diagrams-a";
+import { DIAGRAMS_B } from "../variant-diagrams-b";
 import { ArrowDown, ArrowUp, Plus, Trash2, Upload } from "lucide-react";
 import { uploadThemeVideoAction } from "@/features/theme/actions";
 import { MediaPicker } from "@/features/media/components/media-picker";
@@ -122,7 +124,7 @@ export const DIAGRAMS: Record<string, Box[]> = {
 
 /** Wireframe from a variant value, or from explicit boxes. */
 export function VariantDiagram({ value, boxes: given, className }: { value?: string; boxes?: Box[]; className?: string }) {
-  const boxes = given ?? (value ? DIAGRAMS[value] : undefined);
+  const boxes = given ?? (value ? (DIAGRAMS[value] ?? DIAGRAMS_A[value] ?? DIAGRAMS_B[value]) : undefined);
   if (!boxes) return null;
   return (
     <svg viewBox="0 0 40 24" aria-hidden className={cn("h-9 w-full rounded-sm bg-surface-secondary", className)}>
