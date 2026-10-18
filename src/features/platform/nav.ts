@@ -50,6 +50,7 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
       { href: "/admin/users", label: "Platform users", permission: "platform.users.manage", icon: "users" },
       { href: "/admin/landing", label: "Landing page", permission: "platform.settings.manage", icon: "pages" },
       { href: "/admin/themes", label: "Themes", permission: "platform.settings.manage", icon: "themes" },
+      { href: "/admin/product-types", label: "Product types", permission: "platform.settings.manage", icon: "products" },
       { href: "/admin/media", label: "Media library", permission: "platform.settings.manage", icon: "media" },
       { href: "/admin/branding", label: "Branding & analytics", permission: "platform.settings.manage", icon: "themes" },
       { href: "/admin/sign-in", label: "Sign-in & checkout", permission: "platform.settings.manage", icon: "users" },

@@ -10,6 +10,8 @@ import { splitAtPageContent } from "@/features/theme/render/split";
  *   templates.<key>                             a whole template (home, or a template without PageContent)
  *   templates.<key>.before | .after             the parts of a template around the page's own content
  *   pages.<pageId>                              a site-builder page
+ *   templates.home                              "/": the home template, or the sections of the page set
+ *                                               as the homepage (config.homePageId; list pages.<id>)
  *   handle.<handle>                             /pages/<handle> in the preview when the server had no
  *                                               such theme page yet (an unsaved new page)
  *
@@ -51,6 +53,8 @@ export function groupOfList(key: ListKey): SectionGroup {
 
 /** The list a slot's sections belong to (handle slots resolve to their page), or null. */
 export function slotList(config: ThemeConfig, slot: string): ListKey | null {
+  // A page chosen as the homepage renders in the home slot ("/").
+  if (slot === "templates.home" && config.homePageId && config.pages.some((p) => p.id === config.homePageId)) return `pages.${config.homePageId}`;
   if (slot.startsWith("handle.") && SLOT_KEY_RE.test(slot)) {
     const page = config.pages.find((p) => p.handle === slot.slice(7));
     return page ? `pages.${page.id}` : null;

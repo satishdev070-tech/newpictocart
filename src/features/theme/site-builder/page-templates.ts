@@ -2,8 +2,9 @@ import { defaultSettings } from "@/features/theme/sections/definitions";
 import type { SectionInstance, SectionType } from "@/features/theme/sections/types";
 
 /**
- * Starter layouts for "Add page" in the site builder (pure). Each template is a list of existing
- * home-page section types with defaulted settings plus starter copy; ops.addPage() gives every
+ * Starter layouts for "Add page" in the site builder (pure). Each template is a list of home-page
+ * section types (including the page sections: ContactInfo, RichText, BlogPosts, Gallery, Team,
+ * CallToAction) with defaulted settings plus starter copy; ops.addPage() gives every
  * section its id. Content is placeholder text the seller edits; no images are referenced, so
  * every section renders its own empty-image state until the seller uploads one.
  */
@@ -31,7 +32,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
   {
     key: "about",
     label: "About",
-    description: "Tell your story: a banner, who you are with key numbers, your values and kind words from customers.",
+    description: "Tell your story: a banner, who you are with key numbers, your values, the team and kind words from customers.",
     sections: [
       hero("Our story", "How a small idea became the brand you know today."),
       sec("BrandStory", {
@@ -43,13 +44,12 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
           { value: "10k+", label: "happy customers" },
         ],
       }),
-      sec("EditorialImageText", {
+      sec("RichText", {
+        variant: "richtext-columns",
         heading: "What we believe in",
-        body: "Honest materials, fair work and designs you will want to keep for years. Every product is checked by hand before it reaches you.",
-        imagePosition: "right",
-        ctaLabel: "Shop the collection",
-        ctaHref: "/collections",
+        body: "Honest materials. We choose fabrics, woods and metals that age well and are kind to the people who work with them.\n\nFair work. Every maker we partner with is paid fairly and on time, and many have been with us since the start.\n\nMade to last. Each product is checked by hand before it reaches you, and we are here to help long after you order.",
       }),
+      sec("Team", { heading: "The people behind the brand", variant: "team-circles" }),
       sec("Testimonials", {
         heading: "What our customers say",
         items: [
@@ -58,30 +58,22 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
           { quote: "My go-to store for gifts now.", author: "Meera", location: "Bengaluru", rating: 5 },
         ],
       }),
-      sec("Newsletter", { heading: "Stay in touch" }),
+      sec("CallToAction", { heading: "Find something you'll keep for years", text: "Browse the collection or write to us for help choosing.", ctaLabel: "Shop the collection", ctaHref: "/collections", secondaryLabel: "Contact us", secondaryHref: "/contact" }),
     ],
   },
   {
     key: "blogs",
     label: "Blogs",
-    description: "A journal landing page: a banner, featured stories that link to your blog and a sign-up.",
+    description: "A journal landing page: a short intro, your latest stories from the blog and a sign-up.",
     sections: [
-      hero("The journal", "Stories, guides and behind-the-scenes notes from our studio.", "Read the blog", "/blog"),
-      sec("EditorialImageText", {
-        eyebrow: "Featured",
-        heading: "Behind the making",
-        body: "A look at the people and the process behind our latest collection.",
-        ctaLabel: "Read more",
-        ctaHref: "/blog",
+      sec("RichText", {
+        variant: "richtext-centered",
+        eyebrow: "The journal",
+        heading: "Stories from our studio",
+        body: "Guides, behind-the-scenes notes and the people who make our products.",
       }),
-      sec("EditorialImageText", {
-        eyebrow: "Guide",
-        heading: "How to care for your pieces",
-        body: "Simple tips to keep your favourites looking new for longer.",
-        imagePosition: "right",
-        ctaLabel: "Read more",
-        ctaHref: "/blog",
-      }),
+      sec("BlogPosts", { heading: "Latest stories", variant: "blog-featured", limit: 4 }),
+      sec("BlogPosts", { heading: "More to read", variant: "blog-grid", limit: 6, viewAllLabel: "All stories" }),
       sec("Newsletter", { heading: "Get new stories in your inbox" }),
     ],
   },
@@ -99,17 +91,11 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
   {
     key: "contact",
     label: "Contact",
-    description: "Help customers reach you: a banner, how to get in touch and common questions.",
+    description: "Help customers reach you: your phone, email, address and map, quick answers and a WhatsApp button.",
     sections: [
-      hero("Get in touch", "We usually reply within one working day."),
-      sec("EditorialImageText", {
-        heading: "Write to us or visit",
-        body: "Questions about an order, sizes or bulk gifting? Send us a message and our team will help you out.",
-        ctaLabel: "Contact us",
-        ctaHref: "/contact",
-      }),
+      sec("ContactInfo", { variant: "contact-cards", heading: "Get in touch", subheading: "Questions about an order, sizes or bulk gifting? We usually reply within one working day." }),
       sec("FAQ", { heading: "Before you write", source: "store", limit: 4 }),
-      sec("TrustBadges"),
+      sec("CallToAction", { variant: "cta-card", heading: "Prefer to chat?", text: "Message us on WhatsApp and we'll get back to you quickly.", ctaLabel: "Read our FAQ", ctaHref: "/faq", tone: "muted" }),
     ],
   },
   {
@@ -139,9 +125,10 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
   {
     key: "gallery",
     label: "Gallery",
-    description: "An image gallery of your looks, an Instagram-style feed and a scrolling strip.",
+    description: "A photo gallery of your looks with captions, an Instagram-style feed and a scrolling strip.",
     sections: [
-      sec("Lookbook", { heading: "Gallery", subheading: "Moments from our studio and our customers.", layout: "masonry" }),
+      sec("Gallery", { heading: "Gallery", subheading: "Moments from our studio and our customers.", variant: "gallery-masonry" }),
+      sec("Gallery", { heading: "Behind the scenes", variant: "gallery-carousel", columns: 4, captions: "overlay" }),
       sec("SocialProof", { heading: "Seen on Instagram" }),
       sec("Marquee", { items: [{ text: "Tag us to be featured" }, { text: "New looks every week" }] }),
     ],
@@ -151,21 +138,24 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     label: "Privacy Policy",
     description: "A plain policy page with an introduction and one section per topic. Review the wording before you publish.",
     sections: [
-      sec("BrandStory", {
+      sec("RichText", {
         heading: "Privacy policy",
-        body: "This page explains what information we collect when you shop with us, how we use it and the choices you have. Please replace this text with your own policy.",
-        variant: "centered",
+        subheading: "Please replace this text with your own policy.",
+        body: "This page explains what information we collect when you shop with us, how we use it and the choices you have.",
       }),
-      sec("FAQ", {
-        heading: "",
-        source: "manual",
-        items: [
-          { question: "Information we collect", answer: "Your name, contact details and delivery address when you place an order, and basic usage data when you browse the store." },
-          { question: "How we use it", answer: "To process and deliver your orders, provide support and, if you agree, send you updates about our products." },
-          { question: "Sharing", answer: "We share details only with the partners needed to complete your order, such as payment and delivery providers." },
-          { question: "Your choices", answer: "You can ask us to update or delete your information, or unsubscribe from emails at any time." },
-          { question: "Contact", answer: "Write to us using the contact page with any question about this policy." },
-        ],
+      sec("RichText", {
+        heading: "Information we collect",
+        body: "Your name, contact details and delivery address when you place an order, and basic usage data when you browse the store.",
+      }),
+      sec("RichText", {
+        heading: "How we use it",
+        body: "To process and deliver your orders, provide support and, if you agree, send you updates about our products.\n\nWe share details only with the partners needed to complete your order, such as payment and delivery providers.",
+      }),
+      sec("RichText", {
+        heading: "Your choices",
+        body: "You can ask us to update or delete your information, or unsubscribe from emails at any time. Write to us using the contact page with any question about this policy.",
+        ctaLabel: "Contact us",
+        ctaHref: "/contact",
       }),
     ],
   },
@@ -184,17 +174,19 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
   {
     key: "team",
     label: "Team",
-    description: "Introduce the people behind the brand with photos, names and a few numbers.",
+    description: "Introduce the people behind the brand with photos, names, roles and a few numbers.",
     sections: [
       hero("Meet the team", "The people who design, make and pack every order."),
-      sec("Lookbook", {
+      sec("Team", {
         heading: "Our people",
-        layout: "arches",
-        looks: [
-          { imagePath: "", alt: "Team member", caption: "Founder", productId: "" },
-          { imagePath: "", alt: "Team member", caption: "Head of design", productId: "" },
-          { imagePath: "", alt: "Team member", caption: "Customer care", productId: "" },
+        variant: "team-cards",
+        members: [
+          { name: "Asha", role: "Founder", bio: "Started the brand from her kitchen table in 2015.", imagePath: "", href: "" },
+          { name: "Vikram", role: "Head of design", bio: "Turns sketches and old textiles into new collections.", imagePath: "", href: "" },
+          { name: "Neha", role: "Customer care", bio: "Answers every message, usually within the hour.", imagePath: "", href: "" },
+          { name: "Imran", role: "Packing and dispatch", bio: "Makes sure every parcel leaves on time.", imagePath: "", href: "" },
         ],
+        columns: 4,
       }),
       sec("BrandStory", {
         heading: "Small team, big care",
@@ -205,6 +197,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
           { value: "1", label: "shared studio" },
         ],
       }),
+      sec("CallToAction", { heading: "Want to work with us?", text: "We're always happy to hear from makers and designers.", ctaLabel: "Get in touch", ctaHref: "/contact" }),
     ],
   },
   {

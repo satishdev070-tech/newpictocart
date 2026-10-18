@@ -70,7 +70,7 @@ function Shell() {
       <div className="flex min-h-0 flex-1">
         <IconRail />
         {panel ? (
-          <aside aria-label="Editor panel" className="w-80 shrink-0 border-r border-border bg-surface">
+          <aside aria-label="Editor panel" className="relative z-10 w-80 shrink-0 border-r border-border bg-surface shadow-[4px_0_16px_-12px_rgba(0,0,0,0.2)]">
             <PanelHost />
           </aside>
         ) : null}

@@ -9,7 +9,7 @@ import { getProductReviews } from "@/features/storefront/server/content";
 import { redirectOrNotFound } from "@/features/storefront/server/redirects";
 import { buildPageMetadata, jsonLdString, productJsonLd, toDescription } from "@/features/storefront/seo";
 import { canonicalUrl, paths } from "@/features/storefront/urls";
-import { productTypeLabel } from "@/features/storefront/constants";
+import { typeLabel } from "@/features/catalog/product-types";
 import { assetUrl } from "@/lib/storage/assets";
 import { formatMoney } from "@/lib/money";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -132,7 +132,7 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
                   {p.productType !== "other" ? (
                     <div className="contents">
                       <dt className="sf-muted">Type</dt>
-                      <dd>{productTypeLabel(p.productType)}</dd>
+                      <dd>{typeLabel(p.productType)}</dd>
                     </div>
                   ) : null}
                   {p.attributes.map((a) => (

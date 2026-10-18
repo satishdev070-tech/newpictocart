@@ -9,8 +9,11 @@ import { PRODUCT_PAGE_SIZE } from "../constants";
 import { dbToDraft, type DbOption, type DbOptionValue, type DbProduct, type DbVariant } from "../draft";
 import { buildCollectionQuery, parseCollectionRules, pgrstQuote } from "../collection-rules";
 import { descendantIds } from "../category-tree";
+import { sortByPosition } from "../media-order";
 import { cleanSearch, dbMoneyToMinor, likeEscape } from "../format";
-import type { ProductListQuery } from "../schemas";
+import type { ProductListQuery, toSaveProductPayload } from "../schemas";
+import type { Json } from "@/lib/supabase/database.types";
+import { effectiveProductType, isTypeCheckViolation, withTypeFallback } from "../product-types";
 import type { ProductDraft, ProductMedia } from "../types";
 
 type Supabase = Awaited<ReturnType<typeof createSupabaseServerClient>>;
@@ -106,7 +109,7 @@ export async function listProducts(tenantId: string, f: ProductListQuery, pageSi
   const supabase = await createSupabaseServerClient();
   const base = supabase
     .from("products")
-    .select("id, title, slug, status, product_type, featured, min_price, max_price, updated_at, categories(name)", { count: "exact" });
+    .select("id, title, slug, status, product_type, attributes, featured, min_price, max_price, updated_at, categories(name)", { count: "exact" });
   const filtered = await applyProductFilters(supabase, tenantId, base, f);
   if (!filtered) return { rows: [], total: 0 };
   const sort = SORTS[f.sort];
@@ -126,7 +129,7 @@ export async function listProducts(tenantId: string, f: ProductListQuery, pageSi
       title: p.title,
       slug: p.slug,
       status: p.status,
-      productType: p.product_type,
+      productType: effectiveProductType(p.product_type, p.attributes),
       categoryName: p.categories?.name ?? null,
       minPrice: dbMoneyToMinor(p.min_price),
       maxPrice: dbMoneyToMinor(p.max_price),
@@ -151,7 +154,7 @@ async function thumbnails(supabase: Supabase, tenantId: string, ids: string[]) {
     .eq("media_type", "image")
     .order("position");
   if (error) throw mapDbError(error);
-  for (const m of data ?? []) if (!out.has(m.product_id)) out.set(m.product_id, { url: assetUrl(m.storage_path), alt: m.alt_text ?? "" });
+  for (const m of sortByPosition(data ?? [])) if (!out.has(m.product_id)) out.set(m.product_id, { url: assetUrl(m.storage_path), alt: m.alt_text ?? "" });
   return out;
 }
 
@@ -248,7 +251,7 @@ export async function getProductForAdmin(tenantId: string, id: string): Promise<
     draft,
     publishedAt: p.published_at,
     createdAt: p.created_at,
-    media: (media.data ?? []).map((m) => ({ id: m.id, storagePath: m.storage_path, url: assetUrl(m.storage_path), altText: m.alt_text ?? "", variantId: m.variant_id, position: m.position })),
+    media: sortByPosition(media.data ?? []).map((m) => ({ id: m.id, storagePath: m.storage_path, url: assetUrl(m.storage_path), altText: m.alt_text ?? "", variantId: m.variant_id, position: m.position })),
     collectionIds: (members.data ?? []).map((m) => m.collection_id),
     stock,
     // order_items may be unreadable without orders.read; treat errors as "unknown = has orders" for safety
@@ -296,6 +299,20 @@ export async function assertProductCapacity(tenantId: string, adding = 1): Promi
 }
 
 /* ------------------------------------------------------------------ writes */
+
+export type SaveProductPayload = ReturnType<typeof toSaveProductPayload>;
+
+/**
+ * public.save_product(). Until migration 3200 drops the fashion-only CHECK on product_type, a
+ * new type key is rejected (23514); the product is then saved as 'other' with the key in
+ * attributes._type (read back by effectiveProductType; 3200 moves it into product_type).
+ */
+export async function callSaveProduct(supabase: Supabase, tenantId: string, payload: SaveProductPayload) {
+  const first = await supabase.rpc("save_product", { p_tenant: tenantId, p_payload: payload as unknown as Json });
+  if (!isTypeCheckViolation(first.error, payload.product.product_type)) return first;
+  logger.warn("catalog.product_type_fallback", { tenantId, productType: payload.product.product_type });
+  return supabase.rpc("save_product", { p_tenant: tenantId, p_payload: withTypeFallback(payload) as unknown as Json });
+}
 
 /** Current status + updated_at (for audit diffs); null when not in this tenant. */
 export async function getProductStatus(tenantId: string, id: string): Promise<{ status: string; title: string; minPrice: number | null } | null> {

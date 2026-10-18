@@ -37,6 +37,8 @@ export const SECTION_TYPES = [
   "FeatureBand",
   "DecorDivider",
   "PageContent",
+  // Page sections (definitions-pages.ts / render/sections-pages.tsx)
+  "ContactInfo", "RichText", "BlogPosts", "Gallery", "Team", "CallToAction",
   "Footer",
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];

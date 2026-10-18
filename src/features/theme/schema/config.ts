@@ -4,7 +4,7 @@ import { SECTION_TYPES, type SectionGroup, type SectionInstance, type SectionTyp
 import { HEX_COLOR_RE, SECTION_ID_RE, STORAGE_PATH_RE } from "./primitives";
 import { headerSettingsSchema, productCardSchema, tokensSchema, type HeaderSettings, type ProductCardSettings, type ThemeTokens } from "./tokens";
 import { themeMenusSchema, type ThemeMenu } from "./links";
-import { MAX_POPUPS, MAX_THEME_PAGES, RESERVED_PAGE_HANDLES, embedsSchema, pageMetaSchema, popupSchema, type Embeds, type PageMeta, type Popup } from "./site";
+import { MAX_POPUPS, MAX_THEME_PAGES, RESERVED_PAGE_HANDLES, builtinTitlesSchema, embedsSchema, pageMetaSchema, popupSchema, type BuiltinTitles, type Embeds, type PageMeta, type Popup } from "./site";
 
 /**
  * Theme config = the JSON stored in theme_versions.config.
@@ -60,6 +60,10 @@ export type ThemeConfig = {
   /** Theme copies of menus by handle; they replace the database menu with the same handle. */
   menus: Record<string, ThemeMenu>;
   embeds: Embeds;
+  /** Site-builder page shown at "/" instead of templates.home ("" = the home template). */
+  homePageId: string;
+  /** Renamed built-in pages (blog, contact, FAQ); empty = default titles. */
+  builtinTitles: BuiltinTitles;
 };
 
 export type ThemeIssue = { path: string; message: string };
@@ -202,8 +206,12 @@ function parseAll(raw: unknown): { config: ThemeConfig; issues: ThemeIssue[] } {
     popups: parsePopups(obj.popups, issues),
     menus: parseObject(themeMenusSchema, obj.menus, "menus", issues),
     embeds: parseObject(embedsSchema, obj.embeds, "embeds", issues),
+    homePageId: "",
+    builtinTitles: parseObject(builtinTitlesSchema, obj.builtinTitles, "builtinTitles", issues),
   };
   config.pages = parsePages(obj.pages, issues);
+  // A homepage that no longer exists (deleted page, bad value) falls back to the home template.
+  config.homePageId = typeof obj.homePageId === "string" && config.pages.some((p) => p.id === obj.homePageId) ? obj.homePageId : "";
   return { config, issues };
 }
 

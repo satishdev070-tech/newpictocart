@@ -44,10 +44,11 @@ export function IconRail() {
           title={label}
           onClick={() => setPanel(on && panel?.kind === kind ? null : ({ kind } as Panel))}
           className={cn(
-            "flex w-full flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-medium leading-tight transition-colors [&_svg]:size-5",
+            "relative flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-[10px] font-medium leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 [&_svg]:size-5",
             on ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-secondary hover:text-foreground",
           )}
         >
+          {on ? <span aria-hidden className="absolute -left-1.5 top-2 bottom-2 w-[3px] rounded-r-full bg-accent-strong" /> : null}
           <Icon aria-hidden />
           <span className="text-center">{label}</span>
         </button>

@@ -6,6 +6,8 @@ import { toMinor } from "@/lib/money";
 import { readSeo, type SeoFields } from "../seo";
 import type { ListingRpcArgs } from "../filters";
 import type { PdpOption, PdpVariant } from "../variants";
+import { sortByPosition } from "@/features/catalog/media-order";
+import { effectiveProductType } from "@/features/catalog/product-types";
 
 /**
  * Public catalog reads for the storefront. Tenant id always comes from the verified host
@@ -126,7 +128,7 @@ export function toCard(row: CardRow, stock: Map<string, { available: number; inS
     .map((v) => ({ id: v.id, price: money(v.price) ?? 0, cmp: money(v.compare_at_price) }))
     .sort((a, b) => a.price - b.price);
   const cheapest = priced[0]!;
-  const images = [...row.product_media].filter((m) => m.media_type === "image").sort((a, b) => a.position - b.position);
+  const images = sortByPosition(row.product_media.filter((m) => m.media_type === "image"));
   const published = row.published_at ? Date.parse(row.published_at) : 0;
   // Unknown stock (e.g. stock call failed) is shown as available: checkout re-checks authoritatively.
   const inStock = variants.some((v) => stock.get(v.id)?.inStock ?? !stock.size);
@@ -364,7 +366,7 @@ export function readAttributes(value: unknown): { label: string; value: string }
   if (!value || typeof value !== "object" || Array.isArray(value)) return [];
   const out: { label: string; value: string }[] = [];
   for (const [k, v] of Object.entries(value as Record<string, unknown>).slice(0, 20)) {
-    if (k === "specs") continue; // label/value rows, appended below
+    if (k === "specs" || k.startsWith("_")) continue; // specs: label/value rows, appended below; _keys are internal
     const label = ATTRIBUTE_LABELS[k] ?? (/^[a-z_]{1,30}$/.test(k) ? k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, " ") : null);
     if (!label) continue;
     const text = Array.isArray(v) ? v.filter((x) => typeof x === "string").join(", ") : typeof v === "string" || typeof v === "number" ? String(v) : "";
@@ -408,9 +410,7 @@ export const getProductBySlug = cache(async (tenantId: string, slug: string): Pr
   const activeVariants = data.product_variants.filter((v) => v.status === "active").sort((a, b) => a.position - b.position);
   if (activeVariants.length === 0) return null;
   const stock = await getVariantStock(activeVariants.map((v) => v.id));
-  const media = data.product_media
-    .filter((m) => m.media_type === "image")
-    .sort((a, b) => a.position - b.position)
+  const media = sortByPosition(data.product_media.filter((m) => m.media_type === "image"))
     .map((m) => ({ id: m.id, path: m.storage_path, alt: m.alt_text?.trim() || data.title, variantId: m.variant_id, width: m.width, height: m.height }));
 
   const options: PdpOption[] = data.product_options
@@ -453,7 +453,7 @@ export const getProductBySlug = cache(async (tenantId: string, slug: string): Pr
     title: data.title,
     description: data.description,
     shortDescription: data.short_description,
-    productType: data.product_type,
+    productType: effectiveProductType(data.product_type, data.attributes),
     brand: data.brand,
     tags: data.tags,
     attributes: readAttributes(data.attributes),

@@ -2,8 +2,13 @@ import type { Metadata } from "next";
 import { getRenderContext } from "@/features/theme/render/load";
 import { getFaqs } from "@/features/storefront/server/content";
 import { jsonLdString } from "@/features/storefront/seo";
+import { BUILTIN_TITLE_DEFAULTS } from "@/features/theme/schema/site";
 
-export const metadata: Metadata = { title: "FAQs" };
+export async function generateMetadata({ params }: PageProps<"/store/[host]/faq">): Promise<Metadata> {
+  const { host } = await params;
+  const { sf } = await getRenderContext(host);
+  return { title: sf.theme.builtinTitles.faq || "FAQs" };
+}
 
 export default async function FaqPage({ params }: PageProps<"/store/[host]/faq">) {
   const { host } = await params;
@@ -14,7 +19,7 @@ export default async function FaqPage({ params }: PageProps<"/store/[host]/faq">
   return (
     <div className="sf-container sf-section mx-auto max-w-3xl">
       {faqs.length ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(ld) }} /> : null}
-      <h1 className="sf-heading mb-8 text-4xl">Frequently asked questions</h1>
+      <h1 className="sf-heading mb-8 text-4xl">{sf.theme.builtinTitles.faq || BUILTIN_TITLE_DEFAULTS.faq}</h1>
       {faqs.length === 0 ? <p className="sf-muted">No FAQs yet.</p> : null}
       {groups.map((g) => (
         <section key={g} className="mb-8">

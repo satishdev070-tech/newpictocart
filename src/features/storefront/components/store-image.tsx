@@ -2,6 +2,8 @@ import Image, { getImageProps } from "next/image";
 import { assetUrl } from "@/lib/storage/assets";
 
 import imageLoader from "@/lib/images/loader";
+import { IconGlyph } from "@/lib/icons/icon-glyph";
+import { parseIconValue } from "@/lib/icons/names";
 
 /** A stand-in photo (Unsplash stock, src/lib/unsplash-stock.ts) for an empty image slot. */
 export type ImageFallback = { url: string; alt: string };
@@ -9,6 +11,7 @@ export type ImageFallback = { url: string; alt: string };
 /**
  * Tenant image from Supabase Storage via next/image. When the path is empty/invalid (assetUrl only
  * accepts tenant/{uuid}/... paths) it shows the `stock` photo if given, else a neutral placeholder.
+ * An allowlisted `icon:<name>` value (media picker Icons tab) renders as an inline SVG icon instead.
  */
 export function StoreImage({
   path,
@@ -29,6 +32,15 @@ export function StoreImage({
   /** Stand-in photo when the path is empty. */
   stock?: ImageFallback | null;
 }) {
+  // Library icon (`icon:<name>`, allowlisted): inline SVG tinted with the theme colours, no request.
+  if (parseIconValue(path)) {
+    const box = "grid place-items-center bg-[color-mix(in_srgb,var(--sf-primary)_7%,var(--sf-bg))] text-[var(--sf-primary)]";
+    return (
+      <div className={natural ? `${box} aspect-[3/1] w-full ${className}` : `${box} absolute inset-0 ${className}`}>
+        <IconGlyph value={path} label={alt} className="h-1/2 max-h-40 w-1/2 max-w-40" />
+      </div>
+    );
+  }
   const own = assetUrl(path);
   const src = own ?? stock?.url ?? null;
   const label = !own && stock ? alt || stock.alt : alt;
@@ -65,6 +77,7 @@ export function StoreArtImage({
   natural?: boolean;
   stock?: ImageFallback | null;
 }) {
+  // Icon values have no URL, so they take the StoreImage path below (which renders the icon).
   const desktop = assetUrl(path);
   const mobile = assetUrl(mobilePath);
   if (!desktop || !mobile) return <StoreImage path={path || mobilePath} alt={alt} sizes={sizes} priority={priority} natural={natural} stock={stock} />;

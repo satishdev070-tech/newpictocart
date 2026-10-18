@@ -178,11 +178,14 @@ earlier keep their look (zod defaults; tested in `tests/unit/theme-layouts.test.
 
 | Section | Setting | Values |
 |---|---|---|
-| Hero | `variant` | `overlay` (old look), `split`, `collage`, `minimal`, `band`, `cards`, `framed`; plus `mediaRatio`, `panelTone` |
+| Hero | `variant` | `overlay` (old look), `split`, `collage`, `minimal`, `band`, `cards`, `framed`, `hero-fade`, `hero-slider`, `hero-kenburns` (fading slideshows, `HeroStage`); plus `mediaRatio`, `panelTone`, `slideNav` |
 | ProductGrid | `variant` | `grid` (old), `masonry`, `lookbook`, `rail`, `bigtile`, `list`; plus `cardRatio`, `spacing` |
 | Bestseller / NewArrivals | `layout` | `carousel`, `grid`, and every ProductGrid variant |
 | ProductCarousel | `cardRatio`, `spacing` | |
-| CategoryGrid | `variant` | `grid` (old, uses `shape`), `mosaic`, `rail`, `index`, `pills` |
+| CategoryGrid | `variant` | `grid` (old, uses `shape`), `mosaic`, `rail`, `index`, `pills`, `cat-circles`, `cat-overlay`, `cat-bento`, `cat-banners` |
+| PromoBanner | `variant` | `tiles` (old), `promo-fullwidth`, `promo-split`, `promo-mosaic`, `promo-overlap`, `promo-strip`, `promo-minimal`; plus `tone`, `align`, `badge` |
+| FAQ | `variant` | `accordion` (old), `faq-split`, `faq-cards`, `faq-numbered`, `faq-chat`; plus contact `ctaLabel`/`ctaHref`, `spacing` |
+| SocialProof | `layout` | `grid` (old), `mosaic`, `strip`, `ig-profile`, `ig-reels`, `ig-collage`; plus `source` (`posts` / `instagram` = connected account's latest posts), `bio` |
 | CollectionGrid | `layout` | `grid` (old), `mosaic`, `rail` |
 | BrandStory | `variant` | `split` (old), `centered`, `overlay`, `band`, `collage`; plus `imagePosition`, `tone` |
 | EditorialImageText | `variant` | `split`, `fullbleed`, `journal`, `overlap` (new) |
@@ -190,7 +193,7 @@ earlier keep their look (zod defaults; tested in `tests/unit/theme-layouts.test.
 | Newsletter | `variant` | `centered` (old), `split`, `banner`, `card`, `inline`; plus `imagePath` |
 | TrustBadges (USP band) | `layout` | `grid`, `marquee`, `line`, `cards`, `badges` |
 | Header | `style` | `classic` (old), `bordered`, `inverted`, `floating`, `minimal`, `editorial` |
-| Footer | `layout` | `columns` (old), `centered`, `minimal`, `statement` |
+| Footer | `layout` | `columns` (old), `centered`, `minimal`, `statement`, `footer-mega`, `footer-brand`, `footer-app`, `footer-illustrated`, `footer-tworow`; `decor` adds `illustration` (seller upload: `imagePath`, `imageAlt`) |
 | most content sections | `spacing` | `default`, `compact`, `airy`, `flush` (SectionList sets `data-spacing`) |
 
 In a marketplace preset a theme pins values in its items, e.g. `["Hero", { variant: "split" }, "hero"]`,

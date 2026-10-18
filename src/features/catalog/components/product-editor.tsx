@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { saveProductAction } from "@/features/catalog/actions";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { createProductTypeAction, saveProductAction } from "@/features/catalog/actions";
 import type { ProductDraft } from "@/features/catalog/types";
 import type { OptionDraft, VariantDraft } from "@/features/catalog/variants";
 import { discountPercent, priceFromDiscount } from "@/features/catalog/discount";
 import { cleanOptions, emptyVariant, generateVariantMatrix, slugify, suggestSku, variantTitle } from "@/features/catalog/variants";
-import { OCCASIONS, OPTION_NAME_SUGGESTIONS, PRODUCT_STATUS_LABELS, PRODUCT_TYPE_LABELS, PRODUCT_TYPES, PRODUCT_STATUSES, SIZE_PRESETS } from "@/features/catalog/constants";
+import { OCCASIONS, OPTION_NAME_SUGGESTIONS, PRODUCT_STATUS_LABELS, PRODUCT_STATUSES, SIZE_PRESETS } from "@/features/catalog/constants";
+import { extraSpecs, groupTypesForPicker, setSpecValue, specValue, templateFor, type ProductTypeDef } from "@/features/catalog/product-types";
 import { Card } from "@/components/ui/layout";
 import { Button } from "@/components/ui/button";
 import { inputClassName as input } from "@/components/ui/field";
@@ -34,6 +35,9 @@ export function ProductEditor({
   initialCollectionIds,
   canWriteInventory,
   stock,
+  types: initialTypes,
+  industryName,
+  industry,
 }: {
   initial: ProductDraft;
   categories: Opt[];
@@ -42,12 +46,40 @@ export function ProductEditor({
   initialCollectionIds: string[];
   canWriteInventory: boolean;
   stock: Record<string, number>;
+  /** Merged product-type catalogue for this store (defaults + Super Admin + store types). */
+  types: ProductTypeDef[];
+  /** Store industry (slug + display name) used to order type suggestions. */
+  industry: string | null;
+  industryName: string | null;
 }) {
   const [d, setD] = useState<ProductDraft>(initial);
   const [slugTouched, setSlugTouched] = useState(Boolean(initial.id));
   const [collectionIds, setCollectionIds] = useState<string[]>(initialCollectionIds);
   const [dirty, setDirty] = useState(false);
   const [state, action, pending] = useActionState(saveProductAction, null);
+  const [types, setTypes] = useState<ProductTypeDef[]>(initialTypes);
+  const [newType, setNewType] = useState<string | null>(null);
+  const [typeError, setTypeError] = useState<string | null>(null);
+  const [creatingType, startCreateType] = useTransition();
+  const tpl = templateFor(d.productType, types);
+  const groups = groupTypesForPicker(types, industry, d.productType);
+  // Clothing fields show for clothing types, and for any product that already has values in them.
+  const a = d.attributes;
+  const showFashion = tpl.fashion || Boolean(a.fabric || a.style || a.length || a.work || a.pattern || a.occasion.length);
+  const showSizeChart = tpl.sizes || tpl.fashion || Boolean(d.sizeChartId);
+  const optionNames = tpl.sizes || tpl.fashion ? ["Size", "Colour", "Fabric"] : ["Colour", "Size", "Material"];
+  const createType = () => {
+    const label = (newType ?? "").trim();
+    if (label.length < 2) return setTypeError("Enter a name for the new type");
+    setTypeError(null);
+    startCreateType(async () => {
+      const r = await createProductTypeAction({ label, baseKey: d.productType });
+      if (!r.ok) return setTypeError(Object.values(r.error.fieldErrors ?? {})[0]?.[0] ?? r.error.message);
+      setTypes((ts) => (ts.some((t) => t.key === r.data.key) ? ts : [...ts, r.data]));
+      setNewType(null);
+      set({ productType: r.data.key });
+    });
+  };
   const errors = state && !state.ok ? (state.error.fieldErrors ?? {}) : {};
   const errorList = Object.entries(errors).flatMap(([k, v]) => v.map((m) => (k === "_form" ? m : `${k}: ${m}`)));
 
@@ -185,7 +217,7 @@ export function ProductEditor({
               </datalist>
               <div className="flex flex-wrap gap-2">
                 {d.options.length < 3 ? (
-                  <Button variant="secondary" onClick={() => setOptions([...d.options, { name: d.options.length === 0 ? "Size" : d.options.length === 1 ? "Colour" : "Fabric", values: [] }])}>
+                  <Button variant="secondary" onClick={() => setOptions([...d.options, { name: optionNames.find((n) => !d.options.some((o) => o.name.toLowerCase() === n.toLowerCase())) ?? "", values: [] }])}>
                     Add option
                   </Button>
                 ) : null}
@@ -289,38 +321,54 @@ export function ProductEditor({
             ) : null}
           </Card>
 
-          <Card title="Product details">
+          <Card title="Product details" description={tpl.specs.length ? "Fill in what applies; empty fields are not shown on your store." : undefined}>
             <div className="grid gap-4 sm:grid-cols-2">
-              {(["fabric", "style", "length", "work", "pattern"] as const).map((k) => (
-                <div key={k}>
-                  <L htmlFor={`a-${k}`}>{k[0]!.toUpperCase() + k.slice(1)}</L>
-                  <input id={`a-${k}`} className={input} value={d.attributes[k]} maxLength={80} onChange={(e) => set({ attributes: { ...d.attributes, [k]: e.target.value } })} />
+              {showFashion
+                ? (["fabric", "style", "length", "work", "pattern"] as const).map((k) => (
+                    <div key={k}>
+                      <L htmlFor={`a-${k}`}>{k[0]!.toUpperCase() + k.slice(1)}</L>
+                      <input id={`a-${k}`} className={input} value={d.attributes[k]} maxLength={80} onChange={(e) => set({ attributes: { ...d.attributes, [k]: e.target.value } })} />
+                    </div>
+                  ))
+                : null}
+              {showFashion ? (
+                <fieldset className="sm:col-span-2">
+                  <legend className="mb-1 text-sm font-medium">Occasion</legend>
+                  <div className="flex flex-wrap gap-3">
+                    {OCCASIONS.map((o) => (
+                      <label key={o} className="flex items-center gap-1.5 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={d.attributes.occasion.includes(o)}
+                          onChange={(e) => set({ attributes: { ...d.attributes, occasion: e.target.checked ? [...d.attributes.occasion, o] : d.attributes.occasion.filter((x) => x !== o) } })}
+                        />
+                        {o}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              ) : null}
+              {tpl.specs.map((label, i) => (
+                <div key={label}>
+                  <L htmlFor={`t-spec-${i}`}>{label}</L>
+                  <input
+                    id={`t-spec-${i}`}
+                    className={input}
+                    value={specValue(d.attributes.specs, label)}
+                    maxLength={200}
+                    onChange={(e) => set({ attributes: { ...d.attributes, specs: setSpecValue(d.attributes.specs, label, e.target.value) } })}
+                  />
                 </div>
               ))}
               <fieldset className="sm:col-span-2">
-                <legend className="mb-1 text-sm font-medium">Occasion</legend>
-                <div className="flex flex-wrap gap-3">
-                  {OCCASIONS.map((o) => (
-                    <label key={o} className="flex items-center gap-1.5 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={d.attributes.occasion.includes(o)}
-                        onChange={(e) => set({ attributes: { ...d.attributes, occasion: e.target.checked ? [...d.attributes.occasion, o] : d.attributes.occasion.filter((x) => x !== o) } })}
-                      />
-                      {o}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              <fieldset className="sm:col-span-2">
-                <legend className="mb-1 text-sm font-medium">Specifications</legend>
-                <p className="mb-2 text-xs text-muted">Shown in the product details. Use what matters for your category, e.g. Battery life, Material, Dimensions, Net weight, Skin type.</p>
+                <legend className="mb-1 text-sm font-medium">{tpl.specs.length ? "More specifications" : "Specifications"}</legend>
+                <p className="mb-2 text-xs text-muted">Shown in the product details. Add anything else that matters, e.g. Battery life, Net weight, Skin type, Country of origin.</p>
                 <div className="space-y-2">
-                  {d.attributes.specs.map((sp, i) => (
+                  {extraSpecs(d.attributes.specs, tpl.specs).map(({ spec: sp, index: i }, n) => (
                     <div key={i} className="flex gap-2">
-                      <input aria-label={`Specification ${i + 1} label`} className={`${input} max-w-[40%]`} value={sp.label} maxLength={40} placeholder="Label" onChange={(e) => set({ attributes: { ...d.attributes, specs: d.attributes.specs.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) } })} />
-                      <input aria-label={`Specification ${i + 1} value`} className={input} value={sp.value} maxLength={200} placeholder="Value" onChange={(e) => set({ attributes: { ...d.attributes, specs: d.attributes.specs.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)) } })} />
-                      <button type="button" aria-label={`Remove specification ${i + 1}`} className="shrink-0 rounded-md px-2 text-sm text-muted hover:text-danger" onClick={() => set({ attributes: { ...d.attributes, specs: d.attributes.specs.filter((_, j) => j !== i) } })}>
+                      <input aria-label={`Specification ${n + 1} label`} className={`${input} max-w-[40%]`} value={sp.label} maxLength={40} placeholder="Label" onChange={(e) => set({ attributes: { ...d.attributes, specs: d.attributes.specs.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) } })} />
+                      <input aria-label={`Specification ${n + 1} value`} className={input} value={sp.value} maxLength={200} placeholder="Value" onChange={(e) => set({ attributes: { ...d.attributes, specs: d.attributes.specs.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)) } })} />
+                      <button type="button" aria-label={`Remove specification ${n + 1}`} className="shrink-0 rounded-md px-2 text-sm text-muted hover:text-danger" onClick={() => set({ attributes: { ...d.attributes, specs: d.attributes.specs.filter((_, j) => j !== i) } })}>
                         ✕
                       </button>
                     </div>
@@ -333,7 +381,7 @@ export function ProductEditor({
                 </div>
               </fieldset>
               <div className="sm:col-span-2">
-                <L htmlFor="p-care">Fabric & care</L>
+                <L htmlFor="p-care">{tpl.care || "Care & usage"}</L>
                 <textarea id="p-care" rows={3} className={input} value={d.careInstructions} onChange={(e) => set({ careInstructions: e.target.value })} />
               </div>
               <div>
@@ -396,13 +444,85 @@ export function ProductEditor({
             <div className="space-y-4">
               <div>
                 <L htmlFor="p-type">Product type</L>
-                <select id="p-type" className={input} value={d.productType} onChange={(e) => set({ productType: e.target.value as ProductDraft["productType"] })}>
-                  {PRODUCT_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {PRODUCT_TYPE_LABELS[t]}
-                    </option>
-                  ))}
+                <select
+                  id="p-type"
+                  className={input}
+                  value={newType !== null ? "__new" : d.productType}
+                  onChange={(e) => {
+                    if (e.target.value === "__new") {
+                      setNewType("");
+                      setTypeError(null);
+                      return;
+                    }
+                    setNewType(null);
+                    set({ productType: e.target.value });
+                  }}
+                >
+                  {groups.store.length ? (
+                    <optgroup label="Your types">
+                      {groups.store.map((t) => (
+                        <option key={t.key} value={t.key}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : null}
+                  {groups.suggested.length ? (
+                    <optgroup label={industryName ? `Suggested for ${industryName}` : "Suggested"}>
+                      {groups.suggested.map((t) => (
+                        <option key={t.key} value={t.key}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ) : null}
+                  <optgroup label={groups.suggested.length || groups.store.length ? "All types" : "Types"}>
+                    {groups.others.map((t) => (
+                      <option key={t.key} value={t.key}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <option value="__new">+ Create a new type…</option>
                 </select>
+                {newType !== null ? (
+                  <div className="mt-2 space-y-2 rounded-md border border-border p-2">
+                    <label htmlFor="p-type-new" className="block text-xs font-medium">
+                      New type for your store
+                    </label>
+                    <input
+                      id="p-type-new"
+                      className={input}
+                      value={newType}
+                      maxLength={60}
+                      placeholder="e.g. Handmade soap"
+                      autoFocus
+                      onChange={(e) => setNewType(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          createType();
+                        }
+                      }}
+                    />
+                    <p className="text-xs text-muted">Starts with the detail fields of the current type ({templateFor(d.productType, types).specs.slice(0, 3).join(", ") || "none"}).</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" pending={creatingType} onClick={createType}>
+                        Create type
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setNewType(null); setTypeError(null); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+                {typeError ? (
+                  <p role="alert" className="mt-1 text-xs text-error">
+                    {typeError}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-muted">Decides which detail fields this form shows.</p>
+                )}
               </div>
               <div>
                 <L htmlFor="p-cat">Category</L>
@@ -415,17 +535,19 @@ export function ProductEditor({
                   ))}
                 </select>
               </div>
-              <div>
-                <L htmlFor="p-chart">Size chart</L>
-                <select id="p-chart" className={input} value={d.sizeChartId ?? ""} onChange={(e) => set({ sizeChartId: e.target.value || null })}>
-                  <option value="">None</option>
-                  {sizeCharts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {showSizeChart ? (
+                <div>
+                  <L htmlFor="p-chart">Size chart</L>
+                  <select id="p-chart" className={input} value={d.sizeChartId ?? ""} onChange={(e) => set({ sizeChartId: e.target.value || null })}>
+                    <option value="">None</option>
+                    {sizeCharts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <div>
                 <L htmlFor="p-brand">Brand</L>
                 <input id="p-brand" className={input} value={d.brand} onChange={(e) => set({ brand: e.target.value })} />

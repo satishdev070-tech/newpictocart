@@ -413,7 +413,7 @@ describe("ops", () => {
     expect(changedLists(base, { ...base, tokens: { ...base.tokens } })).toBe("all");
     const footer = getList(base, "layout.footer")!;
     expect(changedLists(base, setList(base, "layout.footer", [...footer]))).toEqual(["layout.footer"]);
-    const withPage: ThemeConfig = { ...base, pages: [{ id: "pabcdefghi", handle: "about", title: "About", seoTitle: "", seoDescription: "", sections: [] }] };
+    const withPage: ThemeConfig = { ...base, pages: [{ id: "pabcdefghi", handle: "about", title: "About", seoTitle: "", seoDescription: "", socialImagePath: "", noindex: false, sections: [] }] };
     const editedPage: ThemeConfig = { ...withPage, pages: withPage.pages.map((p) => ({ ...p, sections: [sec("sd00000001", "FAQ")] })) };
     expect(changedLists(withPage, editedPage)).toEqual(["pages.pabcdefghi"]);
   });

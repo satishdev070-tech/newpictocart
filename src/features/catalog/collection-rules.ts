@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { PRODUCT_TYPES, SCALAR_ATTRIBUTES, LIST_ATTRIBUTES } from "./constants";
+import { SCALAR_ATTRIBUTES, LIST_ATTRIBUTES } from "./constants";
+import { productTypeKeySchema } from "./product-types";
 
 /**
  * Automated collection rules (collections.rules jsonb) — pure, shared by the dashboard
@@ -30,8 +31,8 @@ const textList = z.array(text).min(1).max(50);
 const tag = z.string().trim().toLowerCase().regex(TAG_RE, "Tags can't contain { } \" , \\ ( )");
 
 export const collectionConditionSchema = z.union([
-  z.object({ field: z.literal("product_type"), op: z.literal("eq"), value: z.enum(PRODUCT_TYPES) }),
-  z.object({ field: z.literal("product_type"), op: z.literal("in"), value: z.array(z.enum(PRODUCT_TYPES)).min(1).max(20) }),
+  z.object({ field: z.literal("product_type"), op: z.literal("eq"), value: productTypeKeySchema }),
+  z.object({ field: z.literal("product_type"), op: z.literal("in"), value: z.array(productTypeKeySchema).min(1).max(20) }),
   z.object({ field: z.literal("tag"), op: z.literal("eq"), value: tag }),
   z.object({ field: z.literal("tag"), op: z.literal("in"), value: z.array(tag).min(1).max(50) }),
   z.object({ field: z.literal("category"), op: z.literal("eq"), value: z.uuid() }),

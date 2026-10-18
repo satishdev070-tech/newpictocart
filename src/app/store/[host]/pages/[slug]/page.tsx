@@ -8,12 +8,25 @@ import { ContentBlocks } from "@/features/storefront/components/content-blocks";
 import { Breadcrumbs } from "@/features/storefront/components/breadcrumbs";
 import { TemplateFrame, ThemeSlot } from "@/features/theme/render/slot";
 import { CanvasSlot } from "@/features/theme/site-builder/canvas/canvas-slot";
+import { assetUrl } from "@/lib/storage/assets";
 
 export async function generateMetadata({ params }: PageProps<"/store/[host]/pages/[slug]">): Promise<Metadata> {
   const { host, slug } = await params;
   const { sf } = await getRenderContext(host);
   const built = sf.theme.pages.find((p) => p.handle === slug);
-  if (built) return buildPageMetadata({ primaryHost: sf.tenant.primaryHost, path: paths.page(built.handle), title: built.seoTitle || built.title, description: built.seoDescription || undefined, siteName: sf.store.name, noindex: sf.preview });
+  if (built) {
+    return buildPageMetadata({
+      primaryHost: sf.tenant.primaryHost,
+      path: paths.page(built.handle),
+      // The homepage is also reachable here; search engines should index it once, at "/".
+      canonical: sf.theme.homePageId === built.id ? "/" : undefined,
+      title: built.seoTitle || built.title,
+      description: built.seoDescription || undefined,
+      imageUrl: assetUrl(built.socialImagePath),
+      siteName: sf.store.name,
+      noindex: sf.preview || built.noindex,
+    });
+  }
   const page = await getPageBySlug(sf.tenant.tenantId, slug);
   if (!page) return {};
   return buildPageMetadata({ primaryHost: sf.tenant.primaryHost, path: paths.page(page.slug), title: page.seo.title || page.title, description: page.seo.description, siteName: sf.store.name, noindex: page.seo.noindex });

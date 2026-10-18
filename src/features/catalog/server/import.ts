@@ -3,13 +3,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mapDbError } from "@/lib/supabase/errors";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/observability/logger";
-import type { Json } from "@/lib/supabase/database.types";
 import { groupByHandle, mergeImportIntoDraft, parseProductCsv, type RowError } from "../csv";
 import { productInputSchema, toSaveProductPayload } from "../schemas";
 import { comboKey } from "../variants";
 import type { ProductDraft } from "../types";
 import type { DbProduct } from "../draft";
-import { countProducts, loadDrafts, PRODUCT_COLUMNS, productLimit } from "./products";
+import { callSaveProduct, countProducts, loadDrafts, PRODUCT_COLUMNS, productLimit } from "./products";
 import { catalogDbError } from "./db-errors";
 
 export const MAX_IMPORT_BYTES = 900_000;
@@ -152,7 +151,7 @@ export async function applyImport(tenantId: string, text: string, opts: { canWri
     try {
       const input = productInputSchema.parse(item.draft);
       const payload = toSaveProductPayload(input, { allowInitialStock: opts.canWriteInventory });
-      const { data: id, error } = await supabase.rpc("save_product", { p_tenant: tenantId, p_payload: payload as unknown as Json });
+      const { data: id, error } = await callSaveProduct(supabase, tenantId, payload);
       if (error) throw catalogDbError(error, { handle: item.handle });
       result.productIds.push(id);
       if (item.action === "create") result.created++;

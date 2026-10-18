@@ -12,7 +12,9 @@ import { listProducts } from "@/features/catalog/server/products";
 import { listCategories } from "@/features/catalog/server/categories";
 import { listCollectionOptions } from "@/features/catalog/server/collections";
 import { productListQuerySchema, PRODUCT_SORT_LABELS, PRODUCT_SORTS } from "@/features/catalog/schemas";
-import { PRODUCT_PAGE_SIZE, PRODUCT_STATUSES, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_TONE, PRODUCT_TYPES, PRODUCT_TYPE_LABELS } from "@/features/catalog/constants";
+import { PRODUCT_PAGE_SIZE, PRODUCT_STATUSES, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_TONE } from "@/features/catalog/constants";
+import { groupTypesForPicker, typeLabel } from "@/features/catalog/product-types";
+import { getTenantTypeCatalogue } from "@/features/catalog/server/product-types";
 import { categoryLabel } from "@/features/catalog/category-tree";
 import { ProductBulkBar } from "@/features/catalog/components/catalog-forms";
 
@@ -22,7 +24,9 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
   const ctx = await requireTenantPermission("catalog.read");
   const sp = await searchParams;
   const f = productListQuerySchema.parse(sp);
-  const [{ rows, total }, categories, collections] = await Promise.all([listProducts(ctx.tenantId, f), listCategories(ctx.tenantId), listCollectionOptions(ctx.tenantId)]);
+  const [{ rows, total }, categories, collections, catalogue] = await Promise.all([listProducts(ctx.tenantId, f), listCategories(ctx.tenantId), listCollectionOptions(ctx.tenantId), getTenantTypeCatalogue(ctx.tenantId)]);
+  const typeGroups = groupTypesForPicker(catalogue.types, catalogue.industry, f.type);
+  const typeOptions = [...typeGroups.store, ...typeGroups.suggested, ...typeGroups.others].map((t) => ({ value: t.key, label: t.label }));
   const params = { q: f.q, status: f.status, type: f.type, category: f.category, collection: f.collection, sort: f.sort };
   const filtered = Boolean(f.q || f.status || f.type || f.category || f.collection);
   const writable = can(ctx, "catalog.write");
@@ -53,7 +57,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
       <FilterBar action="/dashboard/products" resetHref="/dashboard/products" label="Filter products">
         <TextField label="Search" name="q" type="search" defaultValue={f.q ?? ""} placeholder="Title or SKU" className="sm:col-span-2" />
         <SelectField label="Status" name="status" defaultValue={f.status ?? ""} options={[{ value: "", label: "Any status" }, ...PRODUCT_STATUSES.map((s) => ({ value: s, label: PRODUCT_STATUS_LABELS[s] }))]} />
-        <SelectField label="Type" name="type" defaultValue={f.type ?? ""} options={[{ value: "", label: "Any type" }, ...PRODUCT_TYPES.map((t) => ({ value: t, label: PRODUCT_TYPE_LABELS[t] }))]} />
+        <SelectField label="Type" name="type" defaultValue={f.type ?? ""} options={[{ value: "", label: "Any type" }, ...typeOptions]} />
         <SelectField label="Category" name="category" defaultValue={f.category ?? ""} options={[{ value: "", label: "Any category" }, ...categories.map((c) => ({ value: c.id, label: categoryLabel(c) }))]} />
         <SelectField label="Collection" name="collection" defaultValue={f.collection ?? ""} options={[{ value: "", label: "Any collection" }, ...collections.map((c) => ({ value: c.id, label: c.title }))]} />
         <SelectField label="Sort" name="sort" defaultValue={f.sort} options={PRODUCT_SORTS.map((s) => ({ value: s, label: PRODUCT_SORT_LABELS[s] }))} />
@@ -103,7 +107,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
                     <td className={td}>
                       <Badge tone={PRODUCT_STATUS_TONE[p.status as keyof typeof PRODUCT_STATUS_TONE] ?? "neutral"}>{PRODUCT_STATUS_LABELS[p.status as keyof typeof PRODUCT_STATUS_LABELS] ?? p.status}</Badge>
                     </td>
-                    <td className={td}>{PRODUCT_TYPE_LABELS[p.productType as keyof typeof PRODUCT_TYPE_LABELS] ?? p.productType}</td>
+                    <td className={td}>{typeLabel(p.productType, catalogue.types)}</td>
                     <td className={`${td} tabular-nums`}>{p.minPrice === null ? "—" : p.maxPrice !== null && p.maxPrice !== p.minPrice ? `${formatMoney(p.minPrice)} – ${formatMoney(p.maxPrice)}` : formatMoney(p.minPrice)}</td>
                     <td className={`${td} tabular-nums`}>{p.stockTotal === null ? "Not tracked" : `${p.stockTotal} in ${p.variantCount} variant${p.variantCount === 1 ? "" : "s"}`}</td>
                   </tr>

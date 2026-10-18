@@ -44,6 +44,8 @@ Inbound `x-paliya-host` headers from clients are stripped.
 
 **Addition (2026-10-11, image variants):** `/api/img` (lib/storage/variants-server.ts) uses the secret-key client for one write only: a derived WebP copy (`{original}__w{480|960|1600}.webp`) next to an EXISTING public original in `store-assets`, when that copy is missing. It never reads private data, never overwrites originals, and validates the path (`tenant/{uuid}/…`, raster extension) and width (fixed ladder). New uploads make their copies with the uploader's own client (RLS). Reason: store images are served pre-sized from Supabase Storage instead of Vercel Image Optimization, whose per-transformation quota paused the platform.
 
+**Addition (2026-10-18, storefront Instagram feed):** `features/social/server/instagram-feed.ts` reads the store's connected `instagram` integration (via `activeIntegration`, secret-key client) for the tenant resolved from the verified host, only when a SocialProof section has `source: "instagram"`. The Page token never leaves the server; only validated public media fields (https Instagram/Facebook CDN image, instagram.com permalink, caption) are cached (Data Cache, 1 h, tagged with the storefront tag) and rendered. Any failure falls back to the seller's manual posts.
+
 ## ADR-007 — Edge → origin trust via HMAC-signed host · Accepted
 The Worker forwards the original hostname with `x-paliya-edge-{host,ts,sig}` where `sig = HMAC-SHA256(EDGE_SHARED_SECRET, host + "\n" + ts)`.
 The proxy accepts it only if the signature is valid and ≤ 300 s old; otherwise it falls back to the literal Host header. Anyone hitting the origin directly cannot claim a tenant host.

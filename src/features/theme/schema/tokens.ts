@@ -22,6 +22,16 @@ export const FONT_STACKS = {
   grotesk: { label: "Space Grotesk (bold grotesk)", stack: 'var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif' },
   "dm-sans": { label: "DM Sans (clean sans)", stack: 'var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif' },
   condensed: { label: "Barlow Condensed (bold display)", stack: 'var(--font-barlow-condensed), "Arial Narrow", "Roboto Condensed", sans-serif' },
+  "asap-sharp": { label: "Asap Sharp (crisp sans)", stack: 'var(--font-asap-sharp), ui-sans-serif, system-ui, sans-serif' },
+  "open-sans": { label: "Open Sans (friendly sans)", stack: 'var(--font-open-sans), ui-sans-serif, system-ui, "Segoe UI", sans-serif' },
+  arimo: { label: "Arimo (neutral sans)", stack: 'var(--font-arimo), Arial, Helvetica, sans-serif' },
+  "roboto-condensed": { label: "Roboto Condensed (narrow sans)", stack: 'var(--font-roboto-condensed), "Arial Narrow", sans-serif' },
+  roboto: { label: "Roboto (everyday sans)", stack: 'var(--font-roboto), ui-sans-serif, system-ui, sans-serif' },
+  isometra: { label: "Isometra (geometric display)", stack: 'var(--font-isometra), "Century Gothic", ui-sans-serif, sans-serif' },
+  rubik: { label: "Rubik (rounded sans)", stack: 'var(--font-rubik), ui-sans-serif, system-ui, sans-serif' },
+  outfit: { label: "Outfit (geometric sans)", stack: 'var(--font-outfit), Avenir, ui-sans-serif, sans-serif' },
+  poppins: { label: "Poppins (geometric sans)", stack: 'var(--font-poppins), Avenir, ui-sans-serif, sans-serif' },
+  montserrat: { label: "Montserrat (urban sans)", stack: 'var(--font-montserrat), ui-sans-serif, system-ui, sans-serif' },
   mono: { label: "Monospace", stack: 'ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace' },
 } as const;
 export type FontKey = keyof typeof FONT_STACKS;
@@ -67,10 +77,43 @@ export const tokensSchema = z.object({
 });
 export type ThemeTokens = z.infer<typeof tokensSchema>;
 
+/** Logo size limits (px) for the builder sliders and the schema; 0 always means "auto". */
+export const LOGO_LIMITS = {
+  width: { min: 40, max: 400 },
+  widthMobile: { min: 32, max: 280 },
+  height: { min: 20, max: 200 },
+  heightMobile: { min: 16, max: 120 },
+} as const;
+export const LOGO_POSITIONS = ["auto", "left", "center", "center-stacked", "right"] as const;
+export const MOBILE_LOGO_POSITIONS = ["auto", "left", "center"] as const;
+export type LogoPosition = (typeof LOGO_POSITIONS)[number];
+export type MobileLogoPosition = (typeof MOBILE_LOGO_POSITIONS)[number];
+
+function autoOrRange({ min, max }: { min: number; max: number }) {
+  return z.coerce
+    .number()
+    .int()
+    .refine((n) => n === 0 || (n >= min && n <= max), { message: `Use 0 (auto) or ${min}–${max}` })
+    .default(0);
+}
+
 export const headerSettingsSchema = z.object({
   logoPath: imagePath.default(""),
   logoAlt: plainText(120).default(""),
+  /** Legacy width cap; the logo is also capped at 56px tall (64px in the large-logo layout) while every size below is 0. */
   logoMaxWidth: z.coerce.number().int().min(60).max(320).default(160),
+  /**
+   * Exact logo widths / height limits (px) from the site builder; 0 = auto. While all four are 0
+   * the logo renders exactly as before (logoMaxWidth + the fixed height cap).
+   */
+  logoWidth: autoOrRange(LOGO_LIMITS.width),
+  logoWidthMobile: autoOrRange(LOGO_LIMITS.widthMobile),
+  logoHeight: autoOrRange(LOGO_LIMITS.height),
+  logoHeightMobile: autoOrRange(LOGO_LIMITS.heightMobile),
+  /** Desktop logo placement; "auto" follows the Header section's layout (today's look). */
+  logoPosition: z.enum(LOGO_POSITIONS).default("auto"),
+  /** Phone/tablet logo placement; "auto" follows the Header section's layout. */
+  mobileLogoPosition: z.enum(MOBILE_LOGO_POSITIONS).default("auto"),
   menuHandle: menuHandle.default("main"),
   showSearch: z.boolean().default(true),
   showAccount: z.boolean().default(true),

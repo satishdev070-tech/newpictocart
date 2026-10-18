@@ -1,39 +1,17 @@
 /** Catalog enums mirrored from the SQL check constraints (supabase/migrations/…0300_catalog_inventory.sql). */
+import { DEFAULT_PRODUCT_TYPES, LEGACY_PRODUCT_TYPES } from "./product-types";
 
-export const PRODUCT_TYPES = [
-  "kurta",
-  "kurta_set",
-  "suit",
-  "co_ord_set",
-  "dress",
-  "saree",
-  "lehenga",
-  "top",
-  "shirt",
-  "bottom",
-  "dupatta",
-  "nightwear",
-  "accessory",
-  "other",
-] as const;
-export type ProductType = (typeof PRODUCT_TYPES)[number];
-
-export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
-  kurta: "Kurta",
-  kurta_set: "Kurta set",
-  suit: "Suit set",
-  co_ord_set: "Co-ord set",
-  dress: "Dress",
-  saree: "Saree",
-  lehenga: "Lehenga",
-  top: "Top",
-  shirt: "Shirt",
-  bottom: "Bottom",
-  dupatta: "Dupatta",
-  nightwear: "Nightwear",
-  accessory: "Accessory",
-  other: "Other",
-};
+/**
+ * Product types used to be a fixed fashion list (the SQL CHECK of migration 0300). They are now a
+ * catalogue for every industry: see ./product-types (defaults in code, Super Admin overrides in
+ * public.product_types, store-only types in public.tenant_product_types).
+ * @deprecated PRODUCT_TYPES is the legacy key list, kept for old imports; use ./product-types.
+ */
+export const PRODUCT_TYPES = LEGACY_PRODUCT_TYPES;
+/** Any product type key (see PRODUCT_TYPE_KEY_RE); old fashion keys stay valid. */
+export type ProductType = string;
+/** Singular labels for the default catalogue (unknown keys: use typeLabel()). */
+export const PRODUCT_TYPE_LABELS: Record<string, string> = Object.fromEntries(DEFAULT_PRODUCT_TYPES.map((t) => [t.key, t.label]));
 
 export const PRODUCT_STATUSES = ["draft", "active", "archived"] as const;
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number];

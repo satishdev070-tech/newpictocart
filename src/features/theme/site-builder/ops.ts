@@ -202,6 +202,8 @@ export function addPage(config: ThemeConfig, title: string, sections: Omit<Secti
     title: title.trim().slice(0, 80) || "New page",
     seoTitle: "",
     seoDescription: "",
+    socialImagePath: "",
+    noindex: false,
     sections: sections.map((s) => ({ ...s, id: newId() })),
   };
   return { config: { ...config, pages: [...config.pages, page] }, page };
@@ -212,7 +214,7 @@ export function updatePageMeta(config: ThemeConfig, id: string, patch: Partial<O
 }
 
 export function removePage(config: ThemeConfig, id: string): ThemeConfig {
-  return { ...config, pages: config.pages.filter((p) => p.id !== id) };
+  return { ...config, pages: config.pages.filter((p) => p.id !== id), homePageId: config.homePageId === id ? "" : config.homePageId };
 }
 
 export function duplicatePage(config: ThemeConfig, id: string, reserved: readonly string[] = []): { config: ThemeConfig; page: ThemePage | null } {
@@ -265,7 +267,7 @@ export function setTokens(config: ThemeConfig, patch: Partial<ThemeConfig["token
 
 /** Lists whose rendering differs between two configs ("all" when shared parts changed). */
 export function changedLists(prev: ThemeConfig, next: ThemeConfig): string[] | "all" {
-  if (prev.tokens !== next.tokens || prev.header !== next.header || prev.productCard !== next.productCard || prev.menus !== next.menus || prev.popups !== next.popups) return "all";
+  if (prev.tokens !== next.tokens || prev.header !== next.header || prev.productCard !== next.productCard || prev.menus !== next.menus || prev.popups !== next.popups || prev.homePageId !== next.homePageId) return "all";
   const out: string[] = [];
   if (prev.layout.header !== next.layout.header) out.push("layout.header");
   if (prev.layout.footer !== next.layout.footer) out.push("layout.footer");
@@ -273,6 +275,8 @@ export function changedLists(prev: ThemeConfig, next: ThemeConfig): string[] | "
   if (prev.pages !== next.pages) {
     const before = new Map(prev.pages.map((p) => [p.id, p]));
     for (const p of next.pages) if (before.get(p.id)?.sections !== p.sections) out.push(`pages.${p.id}`);
+    // "/" renders the homepage's sections in the templates.home slot (see slots.ts slotList).
+    if (next.homePageId && out.includes(`pages.${next.homePageId}`) && !out.includes("templates.home")) out.push("templates.home");
   }
   return out;
 }
