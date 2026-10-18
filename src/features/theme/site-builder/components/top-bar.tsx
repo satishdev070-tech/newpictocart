@@ -175,7 +175,7 @@ export function TopBar() {
             title={b.page.label}
             value={b.page.key}
             onChange={(e) => b.setPageKey(e.target.value)}
-            className={cn(input, "h-8 w-full min-w-0 cursor-pointer appearance-none truncate rounded-lg py-0 pl-8 pr-7 text-small font-medium leading-8")}
+            className={cn(input, "h-8 w-full min-w-0 cursor-pointer appearance-none truncate rounded-lg !py-0 pl-8 pr-7 text-small font-medium leading-[30px]")}
           >
             {GROUP_ORDER.map((g) => {
               const items = b.pages.filter((p) => p.group === g);
