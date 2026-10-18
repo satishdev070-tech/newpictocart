@@ -36,12 +36,19 @@ export type PageSources = {
 };
 
 export function builderPages(config: ThemeConfig, src: PageSources): BuilderPage[] {
-  const out: BuilderPage[] = [{ key: "home", label: "Home", group: "pages", path: paths.home(), list: "templates.home" }];
-  for (const p of config.pages) out.push({ key: `theme:${p.id}`, label: p.title, group: "pages", path: paths.page(p.handle), list: `pages.${p.id}`, themePageId: p.id });
+  // A site-builder page set as the homepage is edited as the Home row ("/"), not as its own row.
+  const homePage = config.homePageId ? config.pages.find((p) => p.id === config.homePageId) : undefined;
+  const out: BuilderPage[] = [
+    homePage
+      ? { key: "home", label: homePage.title, group: "pages", path: paths.home(), list: `pages.${homePage.id}`, themePageId: homePage.id }
+      : { key: "home", label: "Home", group: "pages", path: paths.home(), list: "templates.home" },
+  ];
+  for (const p of config.pages) if (p !== homePage) out.push({ key: `theme:${p.id}`, label: p.title, group: "pages", path: paths.page(p.handle), list: `pages.${p.id}`, themePageId: p.id });
   for (const p of src.contentPages) out.push({ key: `content:${p.id}`, label: p.title, group: "pages", path: paths.page(p.slug), list: "templates.page", settingsHref: `/dashboard/content/pages/${p.id}` });
-  out.push({ key: "contact", label: "Contact", group: "pages", path: paths.contact(), list: "templates.page", settingsHref: "/dashboard/settings" });
-  out.push({ key: "faq", label: "FAQ", group: "pages", path: paths.faq(), list: "templates.page", settingsHref: "/dashboard/content/faqs" });
-  if (src.blog) out.push({ key: "blog", label: "Blog", group: "pages", path: paths.blog(), list: "templates.blog", settingsHref: "/dashboard/content/blog" });
+  const t = config.builtinTitles;
+  out.push({ key: "contact", label: t.contact || "Contact", group: "pages", path: paths.contact(), list: "templates.page", settingsHref: "/dashboard/settings" });
+  out.push({ key: "faq", label: t.faq || "FAQ", group: "pages", path: paths.faq(), list: "templates.page", settingsHref: "/dashboard/content/faqs" });
+  if (src.blog) out.push({ key: "blog", label: t.blog || "Blog", group: "pages", path: paths.blog(), list: "templates.blog", settingsHref: "/dashboard/content/blog" });
 
   out.push({ key: "product-list", label: "Product list", group: "ecommerce", path: src.sampleCollectionSlug ? paths.collection(src.sampleCollectionSlug) : paths.collections(), list: src.sampleCollectionSlug ? "templates.collection" : "templates.collectionList", settingsHref: "/dashboard/collections" });
   if (src.sampleProductSlug) out.push({ key: "product", label: "Product details", group: "ecommerce", path: paths.product(src.sampleProductSlug), list: "templates.product", settingsHref: "/dashboard/products" });

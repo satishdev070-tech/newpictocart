@@ -43,27 +43,39 @@ export async function addProductImage(tenantId: string, productId: string, file:
   return { id: data.id, path };
 }
 
-/** Attaches existing media-library images to a product (paths verified against this tenant's catalogue). */
-export async function attachLibraryImages(tenantId: string, productId: string, paths: string[]): Promise<number> {
+/**
+ * Attaches existing media-library images to a product (paths verified against this tenant's
+ * catalogue; non-images and images already on the product are skipped). Appended after the
+ * current last image, in the order picked.
+ */
+export async function attachLibraryImages(tenantId: string, productId: string, paths: string[]): Promise<{ added: number; skipped: number }> {
   const supabase = await assertProduct(tenantId, productId);
   const unique = [...new Set(paths)].filter((p) => p.startsWith(`tenant/${tenantId}/`));
-  const [{ data: assets }, { data: existing, error }] = await Promise.all([
-    supabase.from("media_assets").select("storage_path, alt_text, width, height").eq("tenant_id", tenantId).in("storage_path", unique),
+  if (!unique.length) throw new AppError("VALIDATION", { fieldErrors: { _form: ["Those images aren't in this store's media library."] } });
+  const [assetsRes, existingRes] = await Promise.all([
+    supabase.from("media_assets").select("storage_path, alt_text, width, height, mime_type").eq("tenant_id", tenantId).in("storage_path", unique),
     supabase.from("product_media").select("position, storage_path").eq("tenant_id", tenantId).eq("product_id", productId),
   ]);
-  if (error) throw mapDbError(error);
-  const already = new Set((existing ?? []).map((m) => m.storage_path));
-  const toAdd = (assets ?? []).filter((a) => !already.has(a.storage_path));
-  if ((existing ?? []).length + toAdd.length > MAX_MEDIA_PER_PRODUCT) {
-    throw new AppError("VALIDATION", { message: `A product can have at most ${MAX_MEDIA_PER_PRODUCT} images.` });
+  if (assetsRes.error) throw mapDbError(assetsRes.error);
+  if (existingRes.error) throw mapDbError(existingRes.error);
+  const existing = existingRes.data ?? [];
+  const already = new Set(existing.map((m) => m.storage_path));
+  const byPath = new Map((assetsRes.data ?? []).filter((a) => a.mime_type.startsWith("image/")).map((a) => [a.storage_path, a]));
+  const toAdd = unique.flatMap((p) => {
+    const a = byPath.get(p);
+    return a && !already.has(p) ? [a] : [];
+  });
+  if (existing.length + toAdd.length > MAX_MEDIA_PER_PRODUCT) {
+    throw new AppError("VALIDATION", { fieldErrors: { _form: [`A product can have at most ${MAX_MEDIA_PER_PRODUCT} images (it has ${existing.length}).`] } });
   }
-  if (!toAdd.length) return 0;
-  let position = Math.max(-1, ...(existing ?? []).map((m) => m.position)) + 1;
+  const skipped = paths.length - toAdd.length;
+  if (!toAdd.length) return { added: 0, skipped };
+  let position = Math.max(-1, ...existing.map((m) => m.position)) + 1;
   const { error: iErr } = await supabase.from("product_media").insert(
     toAdd.map((a) => ({ tenant_id: tenantId, product_id: productId, storage_path: a.storage_path, alt_text: a.alt_text, width: a.width, height: a.height, media_type: "image", position: position++ })),
   );
   if (iErr) throw mapDbError(iErr);
-  return toAdd.length;
+  return { added: toAdd.length, skipped };
 }
 
 export async function updateProductImage(tenantId: string, input: { id: string; productId: string; altText: string | null; variantId: string | null }) {

@@ -26,6 +26,7 @@ import { isHiddenDraft } from "@/features/stores/launch";
 import { PreviewEscapeBridge } from "@/features/storefront/components/preview-escape";
 import { RouteProgress } from "@/features/storefront/components/route-progress";
 import "@/features/theme/storefront.css";
+import "@/features/theme/designs-a.css";
 
 /**
  * Storefront shell for every tenant host (reached only via the proxy rewrite). Renders the

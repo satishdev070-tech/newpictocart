@@ -3,12 +3,15 @@
 import { useId, useState } from "react";
 import { DIAGRAMS_A } from "../variant-diagrams-a";
 import { DIAGRAMS_B } from "../variant-diagrams-b";
+import { DIAGRAMS_PAGES } from "../variant-diagrams-pages";
 import { ArrowDown, ArrowUp, Plus, Trash2, Upload } from "lucide-react";
 import { uploadThemeVideoAction } from "@/features/theme/actions";
 import { MediaPicker } from "@/features/media/components/media-picker";
 import type { EditorField } from "@/features/theme/sections/types";
 import type { EditorPickers } from "@/features/theme/server/queries";
 import { assetUrl } from "@/lib/storage/assets";
+import { IconGlyph } from "@/lib/icons/icon-glyph";
+import { iconLabel, parseIconValue } from "@/lib/icons/names";
 import { cn } from "@/lib/cn";
 import { blankItem, itemLabel, visibleFields } from "../field-groups";
 import { ColorInput, IconButton, Toggle, input } from "./ui";
@@ -124,7 +127,7 @@ export const DIAGRAMS: Record<string, Box[]> = {
 
 /** Wireframe from a variant value, or from explicit boxes. */
 export function VariantDiagram({ value, boxes: given, className }: { value?: string; boxes?: Box[]; className?: string }) {
-  const boxes = given ?? (value ? (DIAGRAMS[value] ?? DIAGRAMS_A[value] ?? DIAGRAMS_B[value]) : undefined);
+  const boxes = given ?? (value ? (DIAGRAMS[value] ?? DIAGRAMS_A[value] ?? DIAGRAMS_B[value] ?? DIAGRAMS_PAGES[value]) : undefined);
   if (!boxes) return null;
   return (
     <svg viewBox="0 0 40 24" aria-hidden className={cn("h-9 w-full rounded-sm bg-surface-secondary", className)}>
@@ -137,27 +140,33 @@ export function VariantDiagram({ value, boxes: given, className }: { value?: str
 
 /** Image chooser: thumbnail + media library picker + remove. */
 export function ImageField({ label, value, onChange, id }: { label: string; value: string; onChange: (v: string) => void; id?: string }) {
+  const icon = parseIconValue(value);
   const url = assetUrl(value);
+  const filled = Boolean(url || icon);
   return (
     <div>
       <span id={id} className="mb-1 block text-xs font-medium">
         {label}
       </span>
       <div className="flex items-center gap-2" aria-labelledby={id}>
-        {url ? (
+        {icon ? (
+          <div className="grid size-12 place-items-center rounded-md bg-accent-soft text-accent ring-1 ring-border" title={iconLabel(icon)}>
+            <IconGlyph name={icon} className="size-6" />
+          </div>
+        ) : url ? (
           // eslint-disable-next-line @next/next/no-img-element -- editor thumbnail
           <img src={url} alt="" className="size-12 rounded-md object-cover ring-1 ring-border" />
         ) : (
           <div className="grid size-12 place-items-center rounded-md bg-surface-secondary text-[10px] text-muted ring-1 ring-border">Stock</div>
         )}
-        <MediaPicker folder="theme" triggerLabel={url ? "Change" : "Choose image"} onSelect={([m]) => m && onChange(m.path)} />
-        {url ? (
+        <MediaPicker folder="theme" triggerLabel={filled ? "Change" : "Choose image"} onSelect={([m]) => m && onChange(m.path)} onSelectIcon={onChange} />
+        {filled ? (
           <button type="button" className="text-xs text-muted hover:text-foreground" onClick={() => onChange("")}>
             Remove
           </button>
         ) : null}
       </div>
-      {!url ? <p className="mt-1 text-xs text-muted">Empty slots show a stock photo on the store.</p> : null}
+      {!filled ? <p className="mt-1 text-xs text-muted">Empty slots show a stock photo on the store.</p> : null}
     </div>
   );
 }

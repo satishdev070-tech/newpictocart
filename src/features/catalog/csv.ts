@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { slug as slugSchema } from "@/lib/validation/common";
-import { MAX_IMPORT_ROWS, PRODUCT_STATUSES, PRODUCT_TYPES } from "./constants";
+import { MAX_IMPORT_ROWS, PRODUCT_STATUSES } from "./constants";
+import { productTypeKeySchema } from "./product-types";
 import { normalizeTags } from "./schemas";
 import type { ProductDraft } from "./types";
 import { comboKey, emptyVariant, type OptionDraft, type VariantDraft } from "./variants";
@@ -130,7 +131,8 @@ export const importRowSchema = z.object({
   handle: slugSchema,
   title: optStr(200),
   status: z.preprocess(blank, z.enum(PRODUCT_STATUSES).optional()),
-  product_type: z.preprocess(blank, z.enum(PRODUCT_TYPES).optional()),
+  // Type key ("kurta", "smartphone"); "Kurta Set" / "kurta-set" are normalised to "kurta_set".
+  product_type: z.preprocess((v) => { const b = blank(v); return typeof b === "string" ? b.trim().toLowerCase().replace(/[\s-]+/g, "_") : b; }, productTypeKeySchema.optional()),
   brand: optStr(120),
   category: z.preprocess(blank, slugSchema.optional()),
   tags: optStr(2000),

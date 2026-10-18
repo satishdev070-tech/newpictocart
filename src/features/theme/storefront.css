@@ -1878,6 +1878,161 @@ a.sf-spot-add-square {
     letter-spacing: 0.34em;
   }
 }
+/* Header logo: seller-set size (features/theme/render/logo-layout.ts). Exact width per breakpoint,
+   height limited with object-fit: contain so the logo keeps its aspect ratio. */
+.sf-logo-img {
+  display: block;
+  width: min(var(--sf-logo-w-m), 58cqi);
+  height: auto;
+  max-height: var(--sf-logo-h-m);
+  object-fit: contain;
+  object-position: var(--sf-logo-pos-m);
+}
+@container (min-width: 64rem) {
+  .sf-logo-img {
+    width: var(--sf-logo-w);
+    max-height: var(--sf-logo-h);
+    object-position: var(--sf-logo-pos);
+  }
+}
+
+/* Header with a seller-chosen logo position (HeaderPositioned in render/chrome.tsx).
+   Items sharing a grid cell (start + menu, menu2 + icons) sit at opposite ends of it, which keeps
+   a centred logo truly centred whatever the widths of the two sides. */
+.sf-hdr-pos {
+  display: grid;
+  align-items: center;
+  row-gap: 0.25rem;
+}
+.sf-hdr-pos > * {
+  min-width: 0;
+}
+.sf-hdr-start {
+  grid-area: start;
+  justify-self: start;
+  display: flex;
+  align-items: center;
+}
+.sf-hdr-logo {
+  grid-area: logo;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.sf-hdr-icons {
+  grid-area: icons;
+  justify-self: end;
+}
+.sf-hdr-menu,
+.sf-hdr-menu2 {
+  display: none;
+}
+.sf-hdr-m-left {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "start logo icons";
+}
+.sf-hdr-m-left .sf-hdr-logo {
+  justify-content: flex-start;
+  padding-left: 0.25rem;
+}
+.sf-hdr-m-center {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: "start logo icons";
+}
+.sf-hdr-m-center .sf-hdr-logo {
+  justify-content: center;
+}
+.sf-lockup-m-center {
+  align-items: center;
+  text-align: center;
+}
+@container (min-width: 64rem) {
+  .sf-hdr-menu,
+  .sf-hdr-menu2 {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    min-width: 0;
+  }
+  .sf-hdr-d-left {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "start logo menu icons";
+  }
+  .sf-hdr-d-right {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "start icons menu logo";
+  }
+  .sf-hdr-d-left .sf-hdr-logo,
+  .sf-hdr-d-right .sf-hdr-logo {
+    padding-left: 0;
+    justify-content: flex-start;
+  }
+  .sf-hdr-d-left .sf-hdr-menu,
+  .sf-hdr-d-right .sf-hdr-menu {
+    grid-area: menu;
+    justify-content: center;
+    padding-inline: 2rem;
+  }
+  .sf-hdr-d-right .sf-hdr-icons {
+    justify-self: start;
+  }
+  .sf-hdr-d-center,
+  .sf-hdr-d-center-stacked {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+  .sf-hdr-d-center {
+    grid-template-areas: "left logo right";
+  }
+  .sf-hdr-d-center .sf-hdr-start {
+    grid-area: left;
+  }
+  .sf-hdr-d-center .sf-hdr-menu {
+    grid-area: left;
+    justify-self: end;
+    padding-right: 2.5rem;
+  }
+  .sf-hdr-d-center .sf-hdr-menu2 {
+    grid-area: right;
+    justify-self: start;
+    padding-left: 2.5rem;
+  }
+  .sf-hdr-d-center .sf-hdr-icons {
+    grid-area: right;
+  }
+  .sf-hdr-d-center-stacked {
+    grid-template-areas: "start logo icons" "menu menu menu";
+  }
+  .sf-hdr-d-center-stacked .sf-hdr-menu {
+    grid-area: menu;
+    justify-content: center;
+    padding-top: 0.5rem;
+  }
+  .sf-hdr-d-center .sf-hdr-logo,
+  .sf-hdr-d-center-stacked .sf-hdr-logo {
+    padding-left: 0;
+    justify-content: center;
+  }
+  .sf-hdr-d-right .sf-hdr-logo {
+    justify-content: flex-end;
+  }
+  .sf-header-style-floating > .sf-hdr-d-center-stacked {
+    border-radius: 1.75rem;
+  }
+  .sf-lockup-d-left {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .sf-lockup-d-center,
+  .sf-lockup-d-center-stacked {
+    align-items: center;
+    text-align: center;
+  }
+  .sf-lockup-d-right {
+    align-items: flex-end;
+    text-align: right;
+  }
+}
+
 .sf-cnav,
 .sf-cnav-list {
   height: 100%;
@@ -2221,6 +2376,51 @@ a.sf-spot-add-square {
 
 /* Rails */
 .sf-rail-item { scroll-snap-align: start; }
+
+/* --- Section designs, group b (opt-in variants; defaults are unchanged) --- */
+/* Strips pause while a link inside has keyboard focus (announcement ticker). */
+.sf-marquee:focus-within .sf-marquee-track { animation-play-state: paused; }
+/* Marquee: second row of "Two rows" scrolls the other way in outlined lettering. */
+.sf-marquee-reverse .sf-marquee-track { animation-direction: reverse; }
+/* Browsers without text-stroke simply show filled letters. */
+.sf-marquee-outline { -webkit-text-fill-color: transparent; -webkit-text-stroke: 1px currentColor; }
+.sf-marquee-outline.text-sm { -webkit-text-fill-color: currentColor; -webkit-text-stroke: 0; opacity: 0.7; }
+/* Marquee: tilted ribbon (wider than the page so the slanted ends never show). */
+.sf-marquee-tilt { overflow: hidden; padding-block: 1.75rem; }
+.sf-marquee-tilt > .sf-marquee { width: 110%; margin-inline-start: -5%; transform: rotate(-2deg); box-shadow: 0 12px 30px -20px rgb(0 0 0 / 0.5); }
+@media (prefers-reduced-motion: reduce) {
+  .sf-marquee-tilt > .sf-marquee { width: 100%; margin-inline-start: 0; transform: none; }
+}
+/* Mega menu: colour bar. */
+.sf-mega-bar-inverted { background: var(--sf-primary); color: var(--sf-primary-fg); }
+/* Sale banner: coupon ticket with side notches and a perforated stub. */
+.sf-sale-ticket {
+  border-radius: calc(var(--sf-radius-card) + 4px);
+  -webkit-mask: radial-gradient(circle at 0 50%, transparent 0.85rem, #000 0.9rem) left / 51% 100% no-repeat, radial-gradient(circle at 100% 50%, transparent 0.85rem, #000 0.9rem) right / 51% 100% no-repeat;
+  mask: radial-gradient(circle at 0 50%, transparent 0.85rem, #000 0.9rem) left / 51% 100% no-repeat, radial-gradient(circle at 100% 50%, transparent 0.85rem, #000 0.9rem) right / 51% 100% no-repeat;
+}
+.sf-sale-ticket-stub { border-top: 2px dashed color-mix(in srgb, currentColor 45%, transparent); }
+@container (min-width: 48rem) {
+  .sf-sale-ticket-stub { border-top: 0; border-left: 2px dashed color-mix(in srgb, currentColor 45%, transparent); }
+}
+/* Reviews: big score beside the reviews. */
+.sf-reviews-score { display: grid; gap: 0.5rem; justify-items: start; padding-top: 1.25rem; border-top: 1px solid var(--sf-border); }
+/* Brand strip: logo grid. */
+.sf-brand-grid { border-top: 1px solid var(--sf-border); border-left: 1px solid var(--sf-border); }
+.sf-brand-grid > li { min-height: 6.5rem; border-right: 1px solid var(--sf-border); border-bottom: 1px solid var(--sf-border); }
+/* Compact products: list rows and rail cards. */
+.sf-compact-list > li { border-bottom: 1px solid var(--sf-border); }
+.sf-compact-card { border: 1px solid var(--sf-border); border-radius: var(--sf-radius-card); background: var(--sf-bg); }
+/* Product spotlight: mirrored (details left, photo and thumbnails right) on wide screens. */
+@container (min-width: 64rem) {
+  .sf-spot-reverse .sf-spot-body { grid-template-columns: minmax(0, 1fr) 6.5rem; }
+  .sf-spot-reverse .sf-spot-thumbs { order: 2; }
+  .sf-spot-reverse .sf-spot-media { order: 2; }
+  .sf-spot-reverse .sf-spot-tagline { left: auto; right: 0; text-align: right; }
+}
+/* Decorative divider: ornamented title. */
+.sf-decor-title { padding-block: 2.5rem; }
+.sf-decor-ornament.is-plain { max-width: 8rem; }
 
 /* Product list */
 .sf-product-list > li { border-bottom: 1px solid var(--sf-border); }

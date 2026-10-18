@@ -31,8 +31,8 @@ function InlinePreview({ item, className }: { item: VideoShopItem; className: st
   return <video ref={ref} src={item.src} poster={item.poster ?? undefined} className={className} muted loop playsInline preload="metadata" aria-hidden />;
 }
 
-/** Shoppable videos: round stories or 9:16 cards; tapping opens a player with the linked product. */
-export function VideoShop({ items, layout }: { items: VideoShopItem[]; layout: "stories" | "cards" }) {
+/** Shoppable videos: round stories, 9:16 cards in a row, or a grid of cards; tapping opens a player with the linked product. */
+export function VideoShop({ items, layout }: { items: VideoShopItem[]; layout: "stories" | "cards" | "videos-grid" }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [active, setActive] = useState<number | null>(null);
   const open = (i: number) => {
@@ -42,30 +42,40 @@ export function VideoShop({ items, layout }: { items: VideoShopItem[]; layout: "
   const current = active === null ? null : items[active];
   const step = (d: number) => setActive((i) => (i === null ? i : (i + d + items.length) % items.length));
 
+  const tile = (it: VideoShopItem, i: number) => (
+    <button type="button" onClick={() => open(i)} className="block w-full text-left" aria-label={`Play ${it.title || "video"}`}>
+      {layout === "stories" ? (
+        <span className="block rounded-full p-[3px]" style={{ background: "conic-gradient(var(--sf-accent), var(--sf-primary), var(--sf-accent))" }}>
+          <span className="block overflow-hidden rounded-full border-2 border-[var(--sf-bg)]">
+            <InlinePreview item={it} className="aspect-square w-full object-cover" />
+          </span>
+        </span>
+      ) : (
+        <span className="relative block overflow-hidden rounded-[var(--sf-radius-card)]">
+          <InlinePreview item={it} className="aspect-[9/16] w-full object-cover" />
+          <span aria-hidden className="absolute bottom-2 left-2 grid size-8 place-items-center rounded-full bg-black/55 text-white">▶</span>
+        </span>
+      )}
+      {it.title ? <span className={`mt-2 block truncate text-xs ${layout === "stories" ? "text-center" : ""}`}>{it.title}</span> : null}
+      {layout !== "stories" && it.product ? <span className="block truncate text-xs font-medium">{formatMoney(it.product.priceMinor)}</span> : null}
+    </button>
+  );
+
   return (
     <>
-      <Carousel label="Videos" itemClassName={layout === "stories" ? "w-20 text-center @[48rem]:w-24" : "w-[44%] @[48rem]:w-[23%] @[64rem]:w-[18%]"}>
-        {items.map((it, i) => (
-          <div key={i}>
-            <button type="button" onClick={() => open(i)} className="block w-full text-left" aria-label={`Play ${it.title || "video"}`}>
-              {layout === "stories" ? (
-                <span className="block rounded-full p-[3px]" style={{ background: "conic-gradient(var(--sf-accent), var(--sf-primary), var(--sf-accent))" }}>
-                  <span className="block overflow-hidden rounded-full border-2 border-[var(--sf-bg)]">
-                    <InlinePreview item={it} className="aspect-square w-full object-cover" />
-                  </span>
-                </span>
-              ) : (
-                <span className="relative block overflow-hidden rounded-[var(--sf-radius-card)]">
-                  <InlinePreview item={it} className="aspect-[9/16] w-full object-cover" />
-                  <span aria-hidden className="absolute bottom-2 left-2 grid size-8 place-items-center rounded-full bg-black/55 text-white">▶</span>
-                </span>
-              )}
-              {it.title ? <span className={`mt-2 block truncate text-xs ${layout === "stories" ? "text-center" : ""}`}>{it.title}</span> : null}
-              {layout === "cards" && it.product ? <span className="block truncate text-xs font-medium">{formatMoney(it.product.priceMinor)}</span> : null}
-            </button>
-          </div>
-        ))}
-      </Carousel>
+      {layout === "videos-grid" ? (
+        <ul className="grid grid-cols-2 gap-3 @[48rem]:grid-cols-3 @[64rem]:grid-cols-4 @[64rem]:gap-5">
+          {items.map((it, i) => (
+            <li key={i}>{tile(it, i)}</li>
+          ))}
+        </ul>
+      ) : (
+        <Carousel label="Videos" itemClassName={layout === "stories" ? "w-20 text-center @[48rem]:w-24" : "w-[44%] @[48rem]:w-[23%] @[64rem]:w-[18%]"}>
+          {items.map((it, i) => (
+            <div key={i}>{tile(it, i)}</div>
+          ))}
+        </Carousel>
+      )}
 
       <dialog ref={dialog} onClose={() => setActive(null)} aria-label="Video" className="m-auto w-[min(94vw,420px)] overflow-hidden rounded-xl bg-black p-0 text-white backdrop:bg-black/70">
         {current ? (

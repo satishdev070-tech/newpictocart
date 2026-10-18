@@ -7,12 +7,14 @@ import { HEX_COLOR_RE, parseVideoUrl } from "@/features/theme/schema/primitives"
 import { readableOn } from "@/features/theme/tokens-style";
 import { getAllCategories, getCollections, getProductBySlug, getProductCards, getProductRefs, listProducts, type ListArgs, type ProductCardData } from "@/features/storefront/server/catalog";
 import { getBlogPostById, getFaqs, getLatestReviews, getPageById, getReviewSummary } from "@/features/storefront/server/content";
-import { ReviewCard, ReviewSummary } from "@/features/storefront/components/review-card";
+import { GoldStars, ReviewCard, ReviewSummary } from "@/features/storefront/components/review-card";
 import { paths } from "@/features/storefront/urls";
 import { ProductCard, ProductGrid as Grid, ProductRow } from "@/features/storefront/components/product-card";
 import { CardQuickAdd } from "@/features/storefront/components/card-actions";
 import { Price } from "@/features/storefront/components/price";
 import { StoreArtImage, StoreImage, storeImageSrc } from "@/features/storefront/components/store-image";
+import { IconGlyph } from "@/lib/icons/icon-glyph";
+import { parseIconValue } from "@/lib/icons/names";
 import { Stars } from "@/features/storefront/components/price";
 import { NewsletterForm } from "@/features/storefront/components/islands";
 import { VideoShop as VideoShopPlayer, type VideoShopItem } from "@/features/storefront/components/video-shop";
@@ -26,7 +28,9 @@ import { Cta, HeadingText, Intro, ViewAll, headingClass, hp, sourceArgs } from "
 import { HeroVariant, NewsletterVariant, PhotoCredit, ProductGridVariant, StoryVariant, TestimonialsVariant, TileLayout, cardSettings, stockFor } from "./variants";
 import { productPlaceholder } from "@/features/storefront/components/product-card";
 import type { CardRatio } from "@/features/theme/sections/variants";
+import { PAGE_SECTION_RENDERERS } from "./sections-pages";
 import type { RenderContext } from "./context";
+import { CategoryDesign, FaqDesign, HeroDesign, PromoDesign, SocialProofSection, isCategoryDesign, isHeroDesign, tileSubtitle } from "./designs-a";
 
 type P<T extends SectionType> = { s: SectionSettings<T>; ctx: RenderContext };
 
@@ -51,6 +55,7 @@ async function Products({ ctx, args, layout, columns, cardRatio }: { ctx: Render
 }
 
 async function Hero({ s, ctx }: P<"Hero">) {
+  if (isHeroDesign(s.variant)) return <HeroDesign s={s} ctx={ctx} variant={s.variant} />;
   if (s.variant !== "overlay") return <HeroVariant s={s} ctx={ctx} />;
   const stock = (sl: (typeof s.slides)[number], i: number) => stockFor(ctx, sl.imagePath || sl.mobileImagePath, "hero", i);
   const banner = s.height === "banner";
@@ -125,6 +130,7 @@ async function Hero({ s, ctx }: P<"Hero">) {
 }
 
 function PromoBanner({ s, ctx }: P<"PromoBanner">) {
+  if (s.variant !== "tiles") return <PromoDesign s={s} ctx={ctx} variant={s.variant} />;
   const aspect = s.aspect === "wide" ? "aspect-[16/9]" : s.aspect === "banner" ? "aspect-[2/1]" : s.aspect === "square" ? "aspect-square" : "aspect-[3/4]";
   return (
     <section className="sf-container sf-section">
@@ -172,6 +178,12 @@ async function CategoryGrid({ s, ctx }: P<"CategoryGrid">) {
         }).slice(0, s.limit)
       : all.filter((c) => !c.parentId).slice(0, s.limit).map((c) => ({ href: paths.category(c.slug), label: c.name, imagePath: c.imagePath }));
   if (!tiles.length) return null;
+  if (isCategoryDesign(s.variant)) {
+    // Banner rows show each category's description (only these designs, so older layouts are unchanged).
+    const desc = new Map(all.map((c) => [paths.category(c.slug), c.description]));
+    const subtitled = s.variant === "cat-banners" ? tiles.map((t) => ({ ...t, subtitle: tileSubtitle(desc.get(t.href)) })) : tiles;
+    return <CategoryDesign tiles={subtitled} variant={s.variant} intro={hp(s)} ctx={ctx} />;
+  }
   if (s.variant !== "grid") return <TileLayout tiles={tiles} variant={s.variant} intro={hp(s)} ctx={ctx} />;
   if (s.shape === "arch") {
     return (
@@ -267,6 +279,8 @@ async function CollectionGrid({ s, ctx }: P<"CollectionGrid">) {
 
 async function ProductCarouselSection({ s, ctx }: P<"ProductCarousel">) {
   if (s.variant === "tilt") return <TiltCarousel s={s} ctx={ctx} />;
+  if (s.variant === "rail") return <ProductGridVariant ctx={ctx} args={sourceArgs(s)} variant="rail" intro={{ ...hp(s), action: <ViewAll href={s.viewAllHref} /> }} cardRatio={s.cardRatio} />;
+  if (s.variant === "carousel-tiles") return <TileCarousel s={s} ctx={ctx} />;
   return (
     <section className="sf-container sf-section">
       <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
@@ -308,6 +322,55 @@ async function NewArrivals({ s, ctx }: P<"NewArrivals">) {
 }
 
 function SaleBanner({ s }: P<"SaleBanner">) {
+  if (s.variant === "sale-split") {
+    return (
+      <section style={{ background: s.background, color: s.textColor }}>
+        <div className="sf-container sf-section grid items-center gap-8 text-center @[48rem]:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] @[48rem]:text-left">
+          <div>
+            {s.eyebrow ? <p className="sf-eyebrow !text-current opacity-80">{s.eyebrow}</p> : null}
+            <h2 className={headingClass(s.headingStyle, "sf-heading mt-2 text-4xl @[64rem]:text-6xl")}>
+              <HeadingText heading={s.heading} accent={s.headingAccent} />
+            </h2>
+            {s.subheading ? <p className="mt-3 max-w-xl opacity-90 @[48rem]:text-lg">{s.subheading}</p> : null}
+          </div>
+          <div className="flex flex-col items-center gap-3 @[48rem]:items-end">
+            {s.code ? (
+              <p className="text-sm">
+                Use code <span className="ml-1 rounded border border-dashed border-current px-3 py-1 font-mono text-base tracking-widest">{s.code}</span>
+              </p>
+            ) : null}
+            {s.endsText ? <p className="text-xs opacity-80">{s.endsText}</p> : null}
+            <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-light mt-2" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+  if (s.variant === "sale-ticket") {
+    return (
+      <section className="sf-container sf-section">
+        <div className="sf-sale-ticket mx-auto grid max-w-4xl @[48rem]:grid-cols-[minmax(0,1fr)_auto]" style={{ background: s.background, color: s.textColor }}>
+          <div className="space-y-2 px-8 py-8 text-center @[48rem]:px-12 @[48rem]:py-10 @[48rem]:text-left">
+            {s.eyebrow ? <p className="sf-eyebrow !text-current opacity-80">{s.eyebrow}</p> : null}
+            <h2 className={headingClass(s.headingStyle, "sf-heading text-3xl @[64rem]:text-4xl")}>
+              <HeadingText heading={s.heading} accent={s.headingAccent} />
+            </h2>
+            {s.subheading ? <p className="opacity-90">{s.subheading}</p> : null}
+            {s.endsText ? <p className="text-xs opacity-80">{s.endsText}</p> : null}
+          </div>
+          <div className="sf-sale-ticket-stub flex flex-col items-center justify-center gap-3 px-8 py-8 @[48rem]:px-10">
+            {s.code ? (
+              <>
+                <p className="text-[0.7rem] uppercase tracking-[0.2em] opacity-80">Use code</p>
+                <p className="font-mono text-2xl font-semibold tracking-[0.18em] @[64rem]:text-3xl">{s.code}</p>
+              </>
+            ) : null}
+            <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-light" />
+          </div>
+        </div>
+      </section>
+    );
+  }
   return (
     <section style={{ background: s.background, color: s.textColor }}>
       <div className="sf-container sf-section text-center">
@@ -394,28 +457,12 @@ async function EditorialImageText({ s, ctx }: P<"EditorialImageText">) {
 }
 
 function VideoBanner({ s }: P<"VideoBanner">) {
-  const video = s.videoUrl ? parseVideoUrl(s.videoUrl) : null;
-  const poster = assetUrl(s.posterPath) ?? undefined;
+  if (s.variant !== "video-boxed") return <VideoBannerVariant s={s} />;
   return (
     <section className="sf-container sf-section">
       <Intro {...hp(s)} />
       <div className="relative aspect-video overflow-hidden rounded-[var(--sf-radius-card)] bg-black">
-        {video?.provider === "file" && assetUrl(video.path) ? (
-          <video src={assetUrl(video.path)!} poster={poster} className="h-full w-full object-cover" playsInline controls={!s.autoplayMuted} autoPlay={s.autoplayMuted} muted={s.autoplayMuted} loop={s.autoplayMuted} />
-        ) : video && video.provider !== "file" ? (
-          <iframe
-            src={`${video.embedUrl}${s.autoplayMuted ? (video.embedUrl.includes("?") ? "&" : "?") + "autoplay=1&mute=1&muted=1&loop=1" : ""}`}
-            title={s.heading || "Video"}
-            className="h-full w-full"
-            loading="lazy"
-            allow="autoplay; encrypted-media; picture-in-picture"
-            referrerPolicy="strict-origin-when-cross-origin"
-            sandbox="allow-scripts allow-same-origin allow-presentation"
-          />
-        ) : poster ? (
-          // eslint-disable-next-line @next/next/no-img-element -- poster fallback
-          <img src={poster} alt="" className="h-full w-full object-cover" />
-        ) : null}
+        <VideoBannerMedia s={s} />
       </div>
       <div className="mt-6 text-center">
         <Cta label={s.ctaLabel} href={s.ctaHref} />
@@ -424,9 +471,81 @@ function VideoBanner({ s }: P<"VideoBanner">) {
   );
 }
 
+/** The video (MP4, YouTube/Vimeo embed or the cover image), filling its box. */
+function VideoBannerMedia({ s }: { s: SectionSettings<"VideoBanner"> }) {
+  const video = s.videoUrl ? parseVideoUrl(s.videoUrl) : null;
+  const poster = assetUrl(s.posterPath) ?? undefined;
+  return (
+    <>
+      {video?.provider === "file" && assetUrl(video.path) ? (
+        <video src={assetUrl(video.path)!} poster={poster} className="h-full w-full object-cover" playsInline controls={!s.autoplayMuted} autoPlay={s.autoplayMuted} muted={s.autoplayMuted} loop={s.autoplayMuted} />
+      ) : video && video.provider !== "file" ? (
+        <iframe
+          src={`${video.embedUrl}${s.autoplayMuted ? (video.embedUrl.includes("?") ? "&" : "?") + "autoplay=1&mute=1&muted=1&loop=1" : ""}`}
+          title={s.heading || "Video"}
+          className="h-full w-full"
+          loading="lazy"
+          allow="autoplay; encrypted-media; picture-in-picture"
+          referrerPolicy="strict-origin-when-cross-origin"
+          sandbox="allow-scripts allow-same-origin allow-presentation"
+        />
+      ) : poster ? (
+        // eslint-disable-next-line @next/next/no-img-element -- poster fallback
+        <img src={poster} alt="" className="h-full w-full object-cover" />
+      ) : null}
+    </>
+  );
+}
+
+/** Full-width (text over the video) and split (video beside the text) video banners. */
+function VideoBannerVariant({ s }: { s: SectionSettings<"VideoBanner"> }) {
+  const text = (light: boolean) => (
+    <>
+      {s.eyebrow ? <p className={`sf-eyebrow ${light ? "!text-white/90" : ""}`}>{s.eyebrow}</p> : null}
+      {s.heading ? (
+        <h2 className={headingClass(s.headingStyle, "sf-heading text-3xl @[64rem]:text-5xl")}>
+          <HeadingText heading={s.heading} accent={s.headingAccent} />
+        </h2>
+      ) : null}
+      {s.subheading ? <p className={light ? "max-w-xl text-white/90" : "sf-muted max-w-xl leading-relaxed"}>{s.subheading}</p> : null}
+    </>
+  );
+  if (s.variant === "video-fullbleed") {
+    return (
+      <section className="relative overflow-hidden bg-black text-white">
+        <div className="relative aspect-[4/5] w-full @[48rem]:aspect-video @[80rem]:aspect-[21/9]">
+          <VideoBannerMedia s={s} />
+          <span aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/10" />
+          {/* Clicks pass through the text layer to the player; only the button takes them. */}
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-end gap-4 px-6 pb-10 text-center @[64rem]:pb-16">
+            {text(true)}
+            {s.ctaLabel && s.ctaHref ? (
+              <div className="pointer-events-auto pt-2">
+                <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-light" />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section className={`sf-container sf-section grid items-center gap-8 @[48rem]:grid-cols-2 @[64rem]:gap-14 ${s.videoPosition === "right" ? "@[48rem]:[&>*:first-child]:order-2" : ""}`}>
+      <div className="relative aspect-video overflow-hidden rounded-[var(--sf-radius-card)] bg-black">
+        <VideoBannerMedia s={s} />
+      </div>
+      <div className="space-y-4">
+        {text(false)}
+        <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-outline" />
+      </div>
+    </section>
+  );
+}
+
 function Lookbook({ s, ctx }: P<"Lookbook">) {
   if (!s.looks.length) return null;
   if (s.layout === "arches") return <LookbookArches s={s} ctx={ctx} />;
+  if (s.layout === "lookbook-rail") return <LookbookRail s={s} ctx={ctx} />;
   return (
     <section className="sf-container sf-section">
       <Intro {...hp(s)} />
@@ -508,6 +627,56 @@ async function ReviewsSection({ s, ctx }: P<"Reviews">) {
   if (!ctx.sf.features.reviews) return null;
   const [reviews, summary] = await Promise.all([getLatestReviews(ctx.sf.tenant.tenantId, s.minRating, s.limit), getReviewSummary(ctx.sf.tenant.tenantId)]);
   if (!reviews.length) return null;
+  if (s.variant === "reviews-grid") {
+    return (
+      <section className="sf-section sf-reviews-band">
+        <div className="sf-container">
+          <Intro {...hp(s)} />
+          <ReviewSummary average={summary.average} count={summary.count} className="mb-8 justify-center" />
+          <ul className="grid gap-4 @[48rem]:grid-cols-2 @[64rem]:grid-cols-3 @[64rem]:gap-5">
+            {reviews.map((r) => (
+              <li key={r.id}>
+                <ReviewCard review={r} showProduct={s.showProduct} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    );
+  }
+  if (s.variant === "reviews-split") {
+    return (
+      <section className="sf-section sf-reviews-band">
+        <div className="sf-container grid gap-8 @[64rem]:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)] @[64rem]:gap-12">
+          <div className="space-y-5 @[64rem]:sticky @[64rem]:top-24 @[64rem]:self-start">
+            {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
+            {s.heading ? (
+              <h2 className={headingClass(s.headingStyle, "sf-heading text-3xl @[64rem]:text-4xl")}>
+                <HeadingText heading={s.heading} accent={s.headingAccent} />
+              </h2>
+            ) : null}
+            {s.subheading ? <p className="sf-muted">{s.subheading}</p> : null}
+            {summary.count ? (
+              <div className="sf-reviews-score">
+                <p className="sf-heading text-6xl leading-none">{summary.average.toFixed(1)}</p>
+                <GoldStars rating={summary.average} size={20} />
+                <p className="sf-muted text-sm">
+                  Based on {summary.count} review{summary.count === 1 ? "" : "s"}
+                </p>
+              </div>
+            ) : null}
+          </div>
+          <ul className="grid gap-4 @[48rem]:grid-cols-2">
+            {reviews.map((r) => (
+              <li key={r.id}>
+                <ReviewCard review={r} showProduct={s.showProduct} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="sf-section sf-reviews-band">
       <div className="sf-container">
@@ -523,75 +692,9 @@ async function ReviewsSection({ s, ctx }: P<"Reviews">) {
   );
 }
 
+/** Instagram / social: every layout and the connected-Instagram feed live in ./designs-a. */
 function SocialProof({ s, ctx }: P<"SocialProof">) {
-  if (!s.posts.length) return null;
-  const handle = s.handle ? (s.handle.startsWith("@") ? s.handle : `@${s.handle}`) : "";
-  const logo = storeImageSrc(ctx.sf.theme.header.logoPath || ctx.sf.store.logoPath);
-  const mosaic = s.layout === "mosaic";
-  const strip = s.layout === "strip";
-  // A mosaic only fills evenly with 1 large + 4 or 1 large + 8 tiles.
-  const posts = mosaic ? s.posts.slice(0, s.posts.length >= 9 ? 9 : s.posts.length >= 5 ? 5 : s.posts.length) : s.posts;
-  return (
-    <section className="sf-container sf-section">
-      <Intro {...hp(s)} />
-      {s.showProfile && (handle || s.profileUrl) ? (
-        <div className="sf-ig-profile mx-auto mb-8 flex max-w-md items-center gap-4">
-          <span className="sf-ig-ring shrink-0">
-            {logo ? (
-              // eslint-disable-next-line @next/next/no-img-element -- small avatar
-              <img src={logo} alt="" className="size-14 rounded-full bg-white object-contain p-1" />
-            ) : (
-              <span className="sf-heading grid size-14 place-items-center rounded-full bg-[var(--sf-bg)] text-xl">{ctx.sf.store.name.charAt(0)}</span>
-            )}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-semibold">{handle || ctx.sf.store.name}</span>
-            <span className="sf-muted block truncate text-xs">{ctx.sf.store.name} · Instagram</span>
-          </span>
-          {s.profileUrl ? (
-            <a href={s.profileUrl} target="_blank" rel="noopener noreferrer" className="sf-ig-follow">
-              Follow
-            </a>
-          ) : null}
-        </div>
-      ) : null}
-      <ul className={`${s.filter === "greyscale" ? "sf-greyscale " : ""}${strip ? "sf-reel-strip" : `grid gap-2 @[48rem]:gap-3 ${mosaic ? "grid-cols-2 @[48rem]:grid-cols-4" : "grid-cols-3 @[64rem]:grid-cols-6"}`}`}>
-        {posts.map((p, i) => {
-          const v = p.videoUrl ? parseVideoUrl(p.videoUrl) : null;
-          const reel = v?.provider === "file" ? assetUrl(v.path) : null;
-          const big = mosaic && i === 0;
-          const tile = (
-            <div className={`sf-ig-tile group relative overflow-hidden ${big ? "aspect-square @[48rem]:aspect-auto @[48rem]:h-full" : strip ? "aspect-[3/4] @[64rem]:aspect-[9/10]" : reel ? "aspect-[9/16] @[48rem]:aspect-square" : "aspect-square"}`}>
-              <StoreImage path={p.imagePath} alt={p.alt} sizes={big ? "(min-width: 768px) 50vw, 50vw" : "(min-width: 1024px) 16vw, 33vw"} />
-              {reel ? <ReelVideo src={reel} poster={assetUrl(p.imagePath)} /> : null}
-              <span aria-hidden className="sf-ig-overlay">
-                {reel ? "▶ Reel" : "View post"}
-              </span>
-              {reel ? (
-                <span aria-hidden className="absolute right-2 top-2 text-white drop-shadow">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="5" />
-                    <path d="m10 9 5 3-5 3z" fill="currentColor" />
-                  </svg>
-                </span>
-              ) : null}
-            </div>
-          );
-          return (
-            <li key={i} className={big ? "col-span-2 row-span-2" : ""}>
-              {p.href || s.profileUrl ? (
-                <a href={p.href || s.profileUrl} rel="noopener noreferrer" target="_blank" aria-label={p.alt || (reel ? "Watch reel" : "Open post")} className="block h-full">
-                  {tile}
-                </a>
-              ) : (
-                tile
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
+  return <SocialProofSection s={s} ctx={ctx} />;
 }
 
 function Newsletter({ s, ctx }: P<"Newsletter">) {
@@ -611,6 +714,7 @@ function Newsletter({ s, ctx }: P<"Newsletter">) {
 async function FAQ({ s, ctx }: P<"FAQ">) {
   const items = s.source === "manual" ? s.items : (await getFaqs(ctx.sf.tenant.tenantId, { group: s.group || undefined, limit: s.limit })).map((f) => ({ question: f.question, answer: f.answer }));
   if (!items.length) return null;
+  if (s.variant !== "accordion") return <FaqDesign s={s} items={items} />;
   return (
     <section className="sf-container sf-section mx-auto max-w-3xl">
       <Intro {...hp(s)} />
@@ -717,8 +821,10 @@ function Marquee({ s }: P<"Marquee">) {
       {sep ? <span aria-hidden className="opacity-60">{sep}</span> : null}
     </span>
   ));
-  const strip = (
-    <div className={`sf-tone-${s.tone} sf-marquee ${MARQUEE_SIZE[s.size]}${s.fontStyle === "italic-serif" ? " sf-marquee-italic" : ""}`} style={{ ["--sf-marquee-duration" as string]: `${words.length * MARQUEE_SPEED[s.speed]}s` }}>
+  const duration = { ["--sf-marquee-duration" as string]: `${words.length * MARQUEE_SPEED[s.speed]}s` };
+  const lettering = `${MARQUEE_SIZE[s.size]}${s.fontStyle === "italic-serif" ? " sf-marquee-italic" : ""}`;
+  const single = (
+    <div className={`sf-tone-${s.tone} sf-marquee ${lettering}`} style={duration}>
       <p className="sr-only">{s.items.map((i) => i.text).join(" · ")}</p>
       <div aria-hidden className="sf-marquee-track">
         {row}
@@ -726,6 +832,23 @@ function Marquee({ s }: P<"Marquee">) {
       </div>
     </div>
   );
+  // Two rows: the second scrolls the other way in outlined lettering. Tilted: the strip as a slanted ribbon.
+  const strip =
+    s.variant === "marquee-double" ? (
+      <div className={`sf-tone-${s.tone}`}>
+        {single}
+        <div aria-hidden className={`sf-marquee sf-marquee-reverse sf-marquee-outline ${lettering}`} style={duration}>
+          <div className="sf-marquee-track">
+            {row}
+            {row}
+          </div>
+        </div>
+      </div>
+    ) : s.variant === "marquee-tilted" ? (
+      <div className="sf-marquee-tilt">{single}</div>
+    ) : (
+      single
+    );
   return s.link ? (
     <Link href={s.link} className="block">
       {strip}
@@ -761,7 +884,12 @@ async function VideoShop({ s, ctx }: P<"VideoShop">) {
 function BrandStrip({ s }: P<"BrandStrip">) {
   const tile = (b: (typeof s.items)[number], key: string, hidden = false) => {
     const logo = assetUrl(b.imagePath);
-    const inner = logo ? (
+    const inner = parseIconValue(b.imagePath) ? (
+      <span className="flex items-center gap-2 text-[var(--sf-text)]">
+        <IconGlyph value={b.imagePath} className="size-7" />
+        <span className="sf-brand-word">{b.name}</span>
+      </span>
+    ) : logo ? (
       // eslint-disable-next-line @next/next/no-img-element -- small logo with intrinsic ratio
       <img src={logo} alt={b.name} className="h-8 w-auto max-w-[9rem] object-contain grayscale transition hover:grayscale-0" loading="lazy" />
     ) : (
@@ -790,6 +918,10 @@ function BrandStrip({ s }: P<"BrandStrip">) {
             {s.items.map((b, i) => tile(b, `a${i}`))}
             {s.items.map((b, i) => tile(b, `b${i}`, true))}
           </ul>
+        </div>
+      ) : s.layout === "brands-grid" ? (
+        <div className="sf-container">
+          <ul className="sf-brand-grid grid grid-cols-2 @[48rem]:grid-cols-3 @[64rem]:grid-cols-4">{s.items.map((b, i) => tile(b, `g${i}`))}</ul>
         </div>
       ) : (
         <ul className="sf-container flex flex-wrap items-center justify-center gap-y-6">{s.items.map((b, i) => tile(b, `r${i}`))}</ul>
@@ -836,6 +968,34 @@ async function TiltCarousel({ s, ctx }: P<"ProductCarousel">) {
   );
 }
 
+/** Big photo slides: one large product photo per slide with the name and price on it (ProductCarousel "carousel-tiles"). */
+async function TileCarousel({ s, ctx }: P<"ProductCarousel">) {
+  const args = sourceArgs(s);
+  if (!args) return null;
+  const { cards } = await listProducts(ctx.sf.tenant.tenantId, args);
+  if (!cards.length) return null;
+  const stock = ctx.stockProducts ? ctx.stock : null;
+  return (
+    <section className="sf-container sf-section">
+      <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
+      <Carousel label={s.heading || "Products"} itemClassName="w-[86%] @[48rem]:w-[48%] @[64rem]:w-[calc((100%-2.5rem)/3)]">
+        {cards.map((p) => (
+          <Link key={p.id} href={paths.product(p.slug)} className="group relative block aspect-[4/5] overflow-hidden rounded-[var(--sf-radius-card)]">
+            <StoreImage path={p.imagePath} alt={p.imageAlt || p.title} sizes="(min-width: 1024px) 33vw, (min-width: 768px) 48vw, 86vw" stock={productPlaceholder(stock, p)} className="transition duration-700 group-hover:scale-105" />
+            <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-transparent" />
+            <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5 text-white">
+              <span className="sf-heading min-w-0 text-2xl leading-tight">{p.title}</span>
+              <span className="sf-bigtile-price shrink-0">
+                <Price priceMinor={p.priceMinor} compareAtMinor={null} fromPrice={p.hasPriceRange} size="sm" />
+              </span>
+            </span>
+          </Link>
+        ))}
+      </Carousel>
+    </section>
+  );
+}
+
 /** Add-to-bag control for compact layouts: quick add for one-variant products, otherwise a link to choose options. */
 function AddToBag({ p, label, className }: { p: ProductCardData; label: string; className: string }) {
   if (!p.inStock) return <span className={`${className} is-disabled`}>Sold out</span>;
@@ -859,6 +1019,53 @@ async function CompactProducts({ s, ctx }: P<"CompactProducts">) {
   const { cards } = await listProducts(ctx.sf.tenant.tenantId, args);
   if (!cards.length) return null;
   const cols = s.columns >= 4 ? "@[64rem]:grid-cols-4" : s.columns === 3 ? "@[64rem]:grid-cols-3" : s.columns === 2 ? "@[64rem]:grid-cols-2" : "";
+  if (s.variant === "compact-list") {
+    // One product per line; wide screens split the list into up to two columns.
+    return (
+      <section className="sf-container sf-section sf-compact">
+        <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
+        <ul className={`sf-compact-list grid gap-x-10 ${s.columns >= 2 ? "@[64rem]:grid-cols-2" : ""}`}>
+          {cards.map((p) => (
+            <li key={p.id} className="flex items-center gap-3 py-3 @[48rem]:gap-5">
+              <Link href={paths.product(p.slug)} className="relative block aspect-square w-14 shrink-0 overflow-hidden rounded-[var(--sf-radius-card)] bg-[var(--sf-surface)] @[48rem]:w-16">
+                <StoreImage path={p.imagePath} alt={p.imageAlt || p.title} sizes="64px" />
+              </Link>
+              <div className="min-w-0 flex-1">
+                <Link href={paths.product(p.slug)} className="sf-heading line-clamp-2 block text-base leading-tight @[48rem]:text-lg">
+                  {p.title}
+                </Link>
+                <Price priceMinor={p.priceMinor} compareAtMinor={p.compareAtMinor} fromPrice={p.hasPriceRange} showCompare showPercent={false} size="sm" />
+              </div>
+              <AddToBag p={p} label={s.buttonLabel || "Add to bag"} className="sf-compact-add shrink-0" />
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+  if (s.variant === "compact-rail") {
+    return (
+      <section className="sf-container sf-section sf-compact">
+        <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
+        <ul className="sf-scroll-row -mx-4 px-4 @[48rem]:mx-0 @[48rem]:px-0">
+          {cards.map((p) => (
+            <li key={p.id} className="sf-rail-item sf-compact-card flex w-[78%] shrink-0 items-center gap-3 p-3 @[48rem]:w-[40%] @[64rem]:w-[calc((100%-2.25rem)/4)]">
+              <Link href={paths.product(p.slug)} className="relative block aspect-[8/11] w-16 shrink-0 overflow-hidden bg-[var(--sf-surface)]">
+                <StoreImage path={p.imagePath} alt={p.imageAlt || p.title} sizes="64px" />
+              </Link>
+              <div className="min-w-0 space-y-1.5">
+                <Link href={paths.product(p.slug)} className="sf-heading line-clamp-2 block text-[0.95rem] leading-tight">
+                  {p.title}
+                </Link>
+                <Price priceMinor={p.priceMinor} compareAtMinor={p.compareAtMinor} fromPrice={p.hasPriceRange} showCompare showPercent={false} size="sm" />
+                <AddToBag p={p} label={s.buttonLabel || "Add to bag"} className="sf-compact-add" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
   return (
     <section className="sf-container sf-section sf-compact">
       <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
@@ -902,10 +1109,45 @@ function SpotlightView({ s, items, blurbs }: { s: SectionSettings<"ProductSpotli
   const rid = (i: number) => `spot-${uid}-${(i + items.length) % items.length}`;
   const n = items.length;
   const pad = (i: number) => String(i).padStart(2, "0");
+  if (s.variant === "spotlight-rows") {
+    // Every product as its own row, photo sides alternating on wide screens; no switching.
+    return (
+      <section className="sf-container sf-section">
+        <Intro {...hp(s)} />
+        <ul className="space-y-12 @[64rem]:space-y-16">
+          {items.map((p, i) => (
+            <li key={p.id} className={`grid items-center gap-6 @[48rem]:grid-cols-2 @[64rem]:gap-14 ${i % 2 ? "@[48rem]:[&>*:first-child]:order-2" : ""}`}>
+              <Link href={paths.product(p.slug)} className="relative block aspect-[4/5] overflow-hidden rounded-[var(--sf-radius-card)] @[64rem]:aspect-[5/6]" tabIndex={-1} aria-hidden>
+                <StoreImage path={p.imagePath} alt="" sizes="(min-width: 768px) 50vw, 100vw" className="transition duration-700 hover:scale-105" />
+              </Link>
+              <div className="sf-spot-info">
+                <p className="sf-eyebrow !text-current">
+                  {pad(i + 1)}
+                  {s.productEyebrow ? ` · ${s.productEyebrow}` : ""}
+                </p>
+                <h3 className="sf-heading sf-spot-title">
+                  <Link href={paths.product(p.slug)}>{p.title}</Link>
+                </h3>
+                <Price priceMinor={p.priceMinor} compareAtMinor={p.compareAtMinor} fromPrice={p.hasPriceRange} showCompare showPercent={false} />
+                {blurbs[i] ? <p className="sf-muted max-w-md text-sm leading-relaxed">{blurbs[i]}</p> : null}
+                {s.note ? <p className="sf-muted text-sm">{s.note}</p> : null}
+                <AddToBag p={p} label={s.buttonLabel || "Add to bag"} className={`sf-spot-add sf-spot-add-${s.buttonStyle}`} />
+                {s.detailsLabel ? (
+                  <Link href={paths.product(p.slug)} className="sf-underline-link">
+                    {s.detailsLabel}
+                  </Link>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
   return (
     <section className="sf-container sf-section">
       <Intro {...hp(s)} />
-      <div className="sf-spot">
+      <div className={`sf-spot${s.variant === "spotlight-reverse" ? " sf-spot-reverse" : ""}`}>
         {items.map((p, i) => (
           <input key={p.id} type="radio" name={`spot-${uid}`} id={rid(i)} defaultChecked={i === 0} className="sf-spot-radio sr-only" aria-label={p.title} />
         ))}
@@ -993,6 +1235,11 @@ async function FeatureBand({ s, ctx }: P<"FeatureBand">) {
       ) : null}
     </>
   );
+  // band-reverse: cards first, photo on the right (wide screens). band-stacked: a wide photo banner above the cards.
+  const reverse = s.variant === "band-reverse";
+  const stacked = s.variant === "band-stacked";
+  const bandCols = stacked ? "" : reverse ? "@[64rem]:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)]" : "@[64rem]:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)]";
+  const featureShape = stacked ? "aspect-[4/3] @[48rem]:aspect-[21/9]" : `aspect-[4/5] @[64rem]:aspect-auto${reverse ? " @[64rem]:order-2" : ""}`;
   return (
     <section className={`sf-band sf-band-${s.tone}`}>
       {s.edge === "wave" ? (
@@ -1002,24 +1249,24 @@ async function FeatureBand({ s, ctx }: P<"FeatureBand">) {
       ) : null}
       <div className="sf-band-inner">
         <div className="sf-container">
-          <div className="grid gap-6 @[64rem]:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)] @[64rem]:gap-7">
-            <div className="hidden @[64rem]:block" />
+          <div className={`grid gap-6 @[64rem]:gap-7 ${bandCols}`}>
+            {stacked ? null : <div className={`hidden @[64rem]:block ${reverse ? "@[64rem]:order-2" : ""}`} />}
             {s.heading ? (
               <h2 className={headingClass(s.headingStyle, "sf-heading text-center text-3xl @[64rem]:text-4xl")}>
                 <HeadingText heading={s.heading} accent={s.headingAccent} />
               </h2>
             ) : null}
           </div>
-          <div className="mt-6 grid gap-6 @[64rem]:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)] @[64rem]:gap-7">
+          <div className={`mt-6 grid gap-6 @[64rem]:gap-7 ${bandCols}`}>
             {s.imagePath ? (
               s.featureHref ? (
-                <Link href={s.featureHref} className="sf-band-feature relative block aspect-[4/5] overflow-hidden @[64rem]:aspect-auto">
+                <Link href={s.featureHref} className={`sf-band-feature relative block overflow-hidden ${featureShape}`}>
                   {feature}
                 </Link>
               ) : (
-                <div className="sf-band-feature relative aspect-[4/5] overflow-hidden @[64rem]:aspect-auto">{feature}</div>
+                <div className={`sf-band-feature relative overflow-hidden ${featureShape}`}>{feature}</div>
               )
-            ) : (
+            ) : stacked ? null : (
               <div />
             )}
             <ul className="sf-band-cards grid grid-cols-2 gap-3 @[48rem]:grid-cols-4">
@@ -1169,6 +1416,45 @@ async function LookbookArches({ s, ctx }: P<"Lookbook">) {
   );
 }
 
+/** Tall looks in a swipeable row (CSS scroll-snap); each can link to its product. */
+async function LookbookRail({ s, ctx }: P<"Lookbook">) {
+  const ids = s.looks.map((l) => l.productId).filter(Boolean);
+  const refs = ids.length ? await getProductRefs(ctx.sf.tenant.tenantId, ids) : new Map<string, { slug: string; title: string }>();
+  return (
+    <section className="sf-container sf-section">
+      <Intro {...hp(s)} />
+      <ul className="sf-scroll-row -mx-4 px-4 @[48rem]:mx-0 @[48rem]:px-0" aria-label={s.heading || "Lookbook"}>
+        {s.looks.map((l, i) => {
+          const ref = l.productId ? refs.get(l.productId) : undefined;
+          const img = (
+            <span className="relative block aspect-[2/3] overflow-hidden rounded-[var(--sf-radius-card)]">
+              <StoreImage path={l.imagePath} alt={l.alt} sizes="(min-width: 1024px) 26vw, 70vw" className="transition duration-700 group-hover:scale-105" />
+            </span>
+          );
+          return (
+            <li key={i} className="sf-rail-item w-[70%] shrink-0 @[48rem]:w-[38%] @[64rem]:w-[26%]">
+              {ref ? (
+                <Link href={paths.product(ref.slug)} className="group block">
+                  {img}
+                  <span className="mt-2 flex items-center justify-between gap-2 text-sm">
+                    <span className="sf-muted">{l.caption || ref.title}</span>
+                    <span aria-hidden className="opacity-60 transition group-hover:translate-x-1">→</span>
+                  </span>
+                </Link>
+              ) : (
+                <>
+                  {img}
+                  {l.caption ? <p className="sf-muted mt-2 text-sm">{l.caption}</p> : null}
+                </>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 /** Marker only: the page places its own content here (see splitAtPageContent). */
 function PageContent() {
   return null;
@@ -1202,6 +1488,20 @@ function DecorDivider({ s }: P<"DecorDivider">) {
         <span className="sf-decor-line" />
       </div>
     );
+  if (s.layout === "decor-title") {
+    // The motif framing a centred heading and text (a section title ornament); no painting.
+    if (!s.heading && !s.text) return <div className="sf-decor sf-container">{ornament}</div>;
+    return (
+      <section className="sf-decor sf-decor-title sf-container text-center">
+        {ornament}
+        {s.heading ? <h2 className="sf-heading mx-auto mt-4 max-w-2xl text-3xl @[64rem]:text-4xl">{s.heading}</h2> : null}
+        {s.text ? <p className="sf-muted mx-auto mt-3 max-w-xl leading-relaxed">{s.text}</p> : null}
+        <div aria-hidden className="sf-decor-ornament is-plain mx-auto mt-6">
+          <span className="sf-decor-line" />
+        </div>
+      </section>
+    );
+  }
   if (!art) return <div className="sf-decor sf-container">{ornament}</div>;
   return (
     <section className="sf-decor sf-decor-art sf-container" aria-label={s.heading || art.title}>
@@ -1259,6 +1559,7 @@ const REGISTRY: { [K in SectionType]: Renderer<K> } = {
   FeatureBand,
   DecorDivider,
   PageContent,
+  ...PAGE_SECTION_RENDERERS,
   Footer,
 };
 

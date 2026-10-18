@@ -2684,6 +2684,45 @@ export type Database = {
           },
         ]
       }
+      product_types: {
+        Row: {
+          created_at: string
+          industries: string[]
+          key: string
+          label: string
+          plural_label: string | null
+          position: number
+          status: string
+          template: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          industries?: string[]
+          key: string
+          label: string
+          plural_label?: string | null
+          position?: number
+          status?: string
+          template?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          industries?: string[]
+          key?: string
+          label?: string
+          plural_label?: string | null
+          position?: number
+          status?: string
+          template?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       product_variants: {
         Row: {
           allow_backorder: boolean
@@ -4220,6 +4259,44 @@ export type Database = {
             foreignKeyName: "tenant_payment_settings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_product_types: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          key: string
+          label: string
+          template: Json
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          key: string
+          label: string
+          template?: Json
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          key?: string
+          label?: string
+          template?: Json
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_product_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },

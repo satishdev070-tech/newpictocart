@@ -11,6 +11,7 @@ import { changedLists, duplicateSection, moveSection, removeSection, toggleHidde
 import { pageForPath, type BuilderPage } from "../pages";
 import { HOST_TAG, parseCanvasMessage, type CanvasMessage, type HostMessage } from "../protocol";
 import { listKeyOf } from "../slots";
+import { sectionChipLabels } from "../chip-labels";
 
 /**
  * The canvas: the storefront (store origin) in an iframe, entered through the theme preview route so
@@ -83,6 +84,10 @@ export function CanvasFrame() {
   const [ready, setReady] = useState(false);
   const [canvasPath, setCanvasPath] = useState<string | null>(null);
   const [status, setStatus] = useState<{ updating: boolean; error: string | null }>({ updating: false, error: null });
+  /** The document last handed to the canvas (state twin of `shown`, for the progress bar). */
+  const [postedConfig, setPostedConfig] = useState<ThemeConfig | null>(null);
+  /** The target whose entry URL was last loaded (differs from `target` while a page load is starting). */
+  const [loadedTarget, setLoadedTarget] = useState<typeof target | null>(null);
 
   const token = useRef<{ token: string; expiresAt: number } | null>(null);
   const canvasPathRef = useRef<string | null>(null);
@@ -112,6 +117,7 @@ export function CanvasFrame() {
     const config = b.config;
     const lists = all || !prev ? "all" : changedLists(prev, config);
     shown.current = config;
+    setPostedConfig(config);
     if (Array.isArray(lists) && lists.length === 0) return;
     rev.current += 1;
     post({ type: "theme", rev: rev.current, config: JSON.stringify(config), changedLists: lists });
@@ -139,6 +145,7 @@ export function CanvasFrame() {
     };
     void entryUrl().then((url) => {
       if (!live || !url) return;
+      setLoadedTarget(target);
       setReady(false);
       setStatus({ updating: false, error: null });
       setSrc(url);
@@ -169,6 +176,12 @@ export function CanvasFrame() {
     return () => clearTimeout(t);
   }, [b.config, ready]);
 
+  // Section names for the canvas label chips.
+  const labels = useMemo(() => sectionChipLabels(b.config), [b.config]);
+  useEffect(() => {
+    if (ready) post({ type: "labels", labels });
+  }, [labels, ready]);
+
   // Mirror the selection on the canvas (and scroll to it when it was picked in a panel).
   const onSelection = useEffectEvent(() => {
     const id = b.selected?.sectionId ?? null;
@@ -198,6 +211,7 @@ export function CanvasFrame() {
         if (b.dirty) postTheme(true);
         else {
           shown.current = b.config;
+          setPostedConfig(b.config);
           setStatus({ updating: false, error: null });
         }
         if (page.key === b.page.key && b.selected) post({ type: "select", sectionId: b.selected.sectionId });
@@ -290,9 +304,15 @@ export function CanvasFrame() {
   const scale = mobile ? fitScale(size.w - 48, width + 2 * bezel) : fitScale(size.w, width);
   const frameH = mobile ? Math.max(480, Math.min(844, (size.h - 48) / scale - 2 * bezel)) : size.h / scale;
 
+  // Progress: a page is loading, or an edit is on its way to / rendering in the canvas.
+  const loading = !!origin && !loadError && (loadedTarget !== target || !ready);
+  const updating = ready && !status.error && (status.updating || (postedConfig !== null && postedConfig !== b.config));
+  const busy = loading || updating;
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-secondary">
-      <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 text-xs">
+      <style>{PROGRESS_CSS}</style>
+      <div className="relative flex h-9 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 text-xs">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md bg-surface-secondary px-2.5 py-1 text-muted">
           <Lock aria-hidden className="size-3 shrink-0" />
           <span className="truncate">
@@ -305,14 +325,15 @@ export function CanvasFrame() {
             <AlertTriangle aria-hidden className="size-3.5" />
             <span className="max-w-60 truncate">{status.error}</span>
           </span>
-        ) : status.updating || (src && !ready) ? (
-          <span role="status" className="flex items-center gap-1 text-muted">
-            <LoaderCircle aria-hidden className="size-3.5 animate-spin" /> {ready ? "Updating…" : "Loading…"}
+        ) : busy ? (
+          <span role="status" className="flex items-center gap-1.5 rounded-full bg-accent-soft px-2 py-0.5 font-medium text-accent">
+            <LoaderCircle aria-hidden className="size-3 animate-spin motion-reduce:animate-none" /> {loading ? "Loading…" : "Updating…"}
           </span>
         ) : null}
         <button type="button" onClick={reload} aria-label="Reload canvas" title="Reload canvas" className="grid size-6 place-items-center rounded-md text-muted hover:bg-surface-secondary hover:text-foreground">
           <RotateCw aria-hidden className="size-3.5" />
         </button>
+        <ProgressBar active={busy} />
       </div>
 
       <div ref={box} className={cn("relative min-h-0 flex-1", mobile ? "overflow-auto" : "overflow-hidden")}>
@@ -329,7 +350,12 @@ export function CanvasFrame() {
           <p className="grid h-full place-items-center text-small text-error">This store has no valid address.</p>
         ) : src && size.w ? (
           <div
-            className={cn("absolute top-0", scale < 1 ? "left-1/2 origin-top" : "inset-x-0 mx-auto w-fit", mobile && "mt-6 rounded-[2.25rem] border border-border-strong bg-foreground/90 shadow-xl")}
+            className={cn(
+              "absolute top-0 transition-opacity duration-300 motion-reduce:transition-none",
+              scale < 1 ? "left-1/2 origin-top" : "inset-x-0 mx-auto w-fit",
+              mobile && "mt-6 rounded-[2.25rem] border border-border-strong bg-foreground/90 shadow-xl",
+              loading && ready && "opacity-60",
+            )}
             // No transform at 100%: sharper text, and pointer/devtools hit-testing stays exact.
             style={{ padding: bezel, transform: scale < 1 ? `translateX(-50%) scale(${scale})` : undefined }}
           >
@@ -343,9 +369,43 @@ export function CanvasFrame() {
             />
           </div>
         ) : (
-          <p className="grid h-full place-items-center text-small text-muted">Loading your store…</p>
+          <div className="grid h-full place-items-center">
+            <div className="flex flex-col items-center gap-3 text-small text-muted">
+              <span className="relative grid size-10 place-items-center">
+                <span className="absolute inset-0 animate-ping rounded-full bg-accent/20 motion-reduce:animate-none" />
+                <LoaderCircle aria-hidden className="size-6 animate-spin text-accent motion-reduce:animate-none" />
+              </span>
+              Loading your store…
+            </div>
+          </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Indeterminate bar keyframes (a static bar when the user prefers reduced motion). */
+const PROGRESS_CSS = `
+@keyframes sb-progress { 0% { transform: translateX(-110%); } 100% { transform: translateX(260%); } }
+.sb-progress-run { animation: sb-progress 1.1s cubic-bezier(.45,.05,.35,1) infinite; }
+.sb-progress-run2 { animation: sb-progress 1.1s cubic-bezier(.45,.05,.35,1) .55s infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .sb-progress-run, .sb-progress-run2 { animation: none; transform: none; width: 100% !important; opacity: .55; }
+  .sb-progress-run2 { display: none; }
+}`;
+
+/** Thin orange indeterminate progress bar along the bottom edge of the canvas address bar. */
+function ProgressBar({ active }: { active: boolean }) {
+  const seg = "absolute inset-y-0 left-0 w-2/5 rounded-full";
+  const look = { background: "linear-gradient(90deg, rgba(249,115,22,0), #fb923c 30%, #f97316 60%, #ea580c)", boxShadow: "0 0 10px rgba(249,115,22,.55)" };
+  return (
+    <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 -bottom-px z-10 h-[3px] overflow-hidden bg-accent/15 transition-opacity duration-300", active ? "opacity-100" : "opacity-0")}>
+      {active ? (
+        <>
+          <span className={cn(seg, "sb-progress-run")} style={look} />
+          <span className={cn(seg, "sb-progress-run2")} style={look} />
+        </>
+      ) : null}
     </div>
   );
 }

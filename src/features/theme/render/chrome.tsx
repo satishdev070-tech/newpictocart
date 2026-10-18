@@ -6,6 +6,8 @@ import { getStoreLogo } from "@/features/storefront/server/logo";
 import { formatAddress, telHref, whatsappUrl } from "@/features/storefront/store-profile";
 import { paths } from "@/features/storefront/urls";
 import type { RenderContext } from "./context";
+import { FooterBody, FooterIllustration, isFooterDesign } from "./designs-a";
+import { hasCustomLogoPosition, logoImageProps, resolveLogoPositions, splitMenu, type HeaderLayout } from "./logo-layout";
 import { BottomNav, CartDrawer, HeaderScrollState, MobileNav, SearchOverlay } from "@/features/storefront/components/header-islands";
 import { HeartIcon, UserIcon } from "@/features/storefront/components/icons";
 import { CartDrawerContent } from "@/features/cart/components/cart-drawer-content";
@@ -25,15 +27,16 @@ function MenuLink({ node, className }: { node: MenuNode; className?: string }) {
   );
 }
 
-async function Logo({ ctx }: { ctx: RenderContext }) {
+async function Logo({ ctx, layout }: { ctx: RenderContext; layout: HeaderLayout }) {
   const h = ctx.sf.theme.header;
   // Optimised file, rendered at exactly the original's size (see features/storefront/server/logo.ts).
   const logo = await getStoreLogo(h.logoPath || ctx.sf.store.logoPath);
+  const img = logo ? logoImageProps(h, { aspectRatio: logo.aspectRatio, legacyMaxHeight: 56, positions: resolveLogoPositions(h, layout) }) : null;
   return (
     <Link href="/" className="flex items-center gap-2" aria-label={`${ctx.sf.store.name} home`}>
-      {logo ? (
-        // eslint-disable-next-line @next/next/no-img-element -- logo keeps intrinsic ratio; width capped by theme
-        <img src={logo.src} alt={h.logoAlt || ctx.sf.store.name} style={{ maxWidth: h.logoMaxWidth, maxHeight: 56, aspectRatio: logo.aspectRatio }} className="h-auto w-auto" />
+      {logo && img ? (
+        // eslint-disable-next-line @next/next/no-img-element -- logo keeps intrinsic ratio; size set by theme (logo-layout.ts)
+        <img src={logo.src} alt={h.logoAlt || ctx.sf.store.name} style={img.style} className={img.className} />
       ) : h.showStoreName ? (
         <span className="sf-heading block max-w-[52vw] truncate whitespace-nowrap text-lg @[48rem]:max-w-none @[48rem]:text-2xl">{ctx.sf.store.name}</span>
       ) : null}
@@ -43,6 +46,56 @@ async function Logo({ ctx }: { ctx: RenderContext }) {
 
 export function AnnouncementBar({ s }: { s: SectionSettings<"AnnouncementBar">; ctx: RenderContext }) {
   if (!s.messages.length) return null;
+  const message = (m: (typeof s.messages)[number], hidden = false) =>
+    m.href ? (
+      <Link href={m.href} className="underline-offset-2 hover:underline" tabIndex={hidden ? -1 : undefined}>
+        {m.text}
+      </Link>
+    ) : (
+      m.text
+    );
+  if (s.variant === "announce-ticker") {
+    // Repeat short lists so one copy is wider than the bar; the second copy is hidden from assistive tech.
+    const words = Array.from({ length: Math.max(1, Math.ceil(6 / s.messages.length)) }, () => s.messages).flat();
+    const copy = (key: string, hidden: boolean) => (
+      <ul key={key} aria-hidden={hidden || undefined} className="flex shrink-0">
+        {words.map((m, i) => (
+          <li key={i} aria-hidden={(hidden || i >= s.messages.length) || undefined} className="flex shrink-0 items-center gap-8 px-4">
+            <span>{message(m, hidden || i >= s.messages.length)}</span>
+            <span aria-hidden className="opacity-50">✦</span>
+          </li>
+        ))}
+      </ul>
+    );
+    return (
+      <div className={`sf-tone-${s.tone} sf-marquee py-2 text-xs tracking-wide`} style={{ ["--sf-marquee-duration" as string]: `${words.length * 7}s` }}>
+        <div className="sf-marquee-track">
+          {copy("a", false)}
+          {copy("b", true)}
+        </div>
+      </div>
+    );
+  }
+  if (s.variant === "announce-split") {
+    const [lead, ...rest] = s.messages;
+    return (
+      <div className={`sf-tone-${s.tone} py-2 text-xs tracking-wide`}>
+        <div className="sf-container flex items-center justify-center gap-6 text-center @[48rem]:justify-between @[48rem]:text-left">
+          <p className="font-medium">{message(lead!)}</p>
+          {rest.length ? (
+            <ul className="hidden items-center gap-x-6 opacity-90 @[48rem]:flex">
+              {rest.map((m, i) => (
+                <li key={i} className="flex items-center gap-6">
+                  {i > 0 ? <span aria-hidden className="h-3 w-px bg-current opacity-40" /> : null}
+                  {message(m)}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
   if (s.mode === "rotate") {
     return (
       <div className={`sf-tone-${s.tone} px-2 py-2 text-xs tracking-wide`}>
@@ -67,13 +120,17 @@ export function AnnouncementBar({ s }: { s: SectionSettings<"AnnouncementBar">; 
 async function BrandLockup({ ctx }: { ctx: RenderContext }) {
   const h = ctx.sf.theme.header;
   const logo = h.wordmark ? null : await getStoreLogo(h.logoPath || ctx.sf.store.logoPath);
+  const positions = resolveLogoPositions(h, "logo-left-nav-center");
+  const img = logo ? logoImageProps(h, { aspectRatio: logo.aspectRatio, legacyMaxHeight: 64, positions }) : null;
+  // Tagline follows the logo placement (custom placements only; the legacy layout stays left-aligned).
+  const align = hasCustomLogoPosition(h) ? `sf-lockup-m-${positions.mobile} sf-lockup-d-${positions.desktop}` : "";
   return (
-    <Link href="/" className="sf-lockup" aria-label={`${ctx.sf.store.name} home`}>
+    <Link href="/" className={align ? `sf-lockup ${align}` : "sf-lockup"} aria-label={`${ctx.sf.store.name} home`}>
       {h.wordmark ? (
         <span className="sf-lockup-wordmark">{h.wordmark}</span>
-      ) : logo ? (
-        // eslint-disable-next-line @next/next/no-img-element -- logo keeps intrinsic ratio; width capped by theme
-        <img src={logo.src} alt={h.logoAlt || ctx.sf.store.name} style={{ maxWidth: h.logoMaxWidth, maxHeight: 64, aspectRatio: logo.aspectRatio }} className="h-auto w-auto" />
+      ) : logo && img ? (
+        // eslint-disable-next-line @next/next/no-img-element -- logo keeps intrinsic ratio; size set by theme (logo-layout.ts)
+        <img src={logo.src} alt={h.logoAlt || ctx.sf.store.name} style={img.style} className={img.className} />
       ) : (
         <span className="sf-lockup-wordmark">{ctx.sf.store.name}</span>
       )}
@@ -195,7 +252,72 @@ function HeaderLogoLeftNavCenter({ s, ctx }: { s: SectionSettings<"Header">; ctx
   );
 }
 
+/**
+ * Header with a seller-chosen logo placement (Theme settings → Header → Logo position). One grid,
+ * re-templated per breakpoint in storefront.css (.sf-hdr-*): phones/tablets place the logo left or
+ * centre; desktop (64rem+) left, centre with the menu split around it, centre above the menu, or
+ * right. Works with every header style (classes sf-header-style-*) and layout (the large-logo
+ * layout keeps its lockup and mega-menu dropdowns).
+ */
+function HeaderPositioned({ s, ctx }: { s: SectionSettings<"Header">; ctx: RenderContext }) {
+  const h = ctx.sf.theme.header;
+  const lnc = s.layout === "logo-left-nav-center";
+  const pos = resolveLogoPositions(h, s.layout);
+  const menu = ctx.menus[h.menuHandle]?.items ?? [];
+  const popular = menu.filter((n) => n.href && !n.external).slice(0, 8).map((n) => ({ label: n.title, href: n.href! }));
+  const showMenu = menu.length > 0 && s.menuStyle !== "drawer" && (lnc || s.showInlineMenu);
+  const [first, second] = pos.desktop === "center" ? splitMenu(menu) : [menu, []];
+  const renderMenu = (items: MenuNode[]) =>
+    lnc ? (
+      <CenterMenu items={items} />
+    ) : (
+      <nav aria-label="Main">
+        <ul className="flex flex-wrap gap-6 text-sm">
+          {items.map((n) => (
+            <li key={n.id}>
+              <MenuLink node={n} className={`sf-link-quiet ${n.highlight ? "text-[var(--sf-sale)]" : ""}`} />
+            </li>
+          ))}
+        </ul>
+      </nav>
+    );
+  return (
+    <header className={`sf-header ${lnc ? "sf-header-lnc" : ""} sf-header-style-${s.style} sf-surface sf-border z-40 border-b ${h.sticky ? "sticky top-0" : ""}`}>
+      {h.sticky ? <HeaderScrollState /> : null}
+      <div className={`sf-container sf-hdr-pos sf-hdr-m-${pos.mobile} sf-hdr-d-${pos.desktop} py-2.5 @[64rem]:py-3`}>
+        <div className="sf-hdr-start">
+          <MobileNav items={menu} storeName={ctx.sf.store.name} signedIn={ctx.signedIn} alwaysVisible={s.menuStyle === "drawer"} />
+        </div>
+        <div className="sf-hdr-logo">{lnc ? <BrandLockup ctx={ctx} /> : <Logo ctx={ctx} layout={s.layout} />}</div>
+        {showMenu && first.length ? <div className="sf-hdr-menu">{renderMenu(first)}</div> : null}
+        {showMenu && second.length ? <div className="sf-hdr-menu2">{renderMenu(second)}</div> : null}
+        <div className="sf-hdr-icons flex items-center gap-0.5">
+          {h.showSearch ? <SearchOverlay popular={popular} /> : null}
+          {h.showAccount ? (
+            <Link href={paths.account()} className="sf-icon-btn hidden @[48rem]:inline-grid" aria-label={ctx.signedIn ? "Your account" : "Sign in"}>
+              <UserIcon />
+            </Link>
+          ) : null}
+          {h.showWishlist ? (
+            <Link href={paths.wishlist()} className="sf-icon-btn" aria-label="Wishlist">
+              <HeartIcon />
+            </Link>
+          ) : null}
+          {h.showCart ? (
+            <CartDrawer count={ctx.cartCount} inlineCount={lnc}>
+              <CartDrawerContent tenantId={ctx.sf.tenant.tenantId} />
+            </CartDrawer>
+          ) : null}
+        </div>
+      </div>
+      {h.bottomNav ? <BottomNav cartCount={ctx.cartCount} signedIn={ctx.signedIn} /> : null}
+    </header>
+  );
+}
+
 export function Header({ s, ctx }: { s: SectionSettings<"Header">; ctx: RenderContext }) {
+  // Positions left on "auto" keep the original layouts below untouched (old themes render identically).
+  if (hasCustomLogoPosition(ctx.sf.theme.header)) return <HeaderPositioned s={s} ctx={ctx} />;
   if (s.layout === "logo-left-nav-center") return <HeaderLogoLeftNavCenter s={s} ctx={ctx} />;
   const h = ctx.sf.theme.header;
   const menu = ctx.menus[h.menuHandle]?.items ?? [];
@@ -227,11 +349,11 @@ export function Header({ s, ctx }: { s: SectionSettings<"Header">; ctx: RenderCo
       <div className={`sf-container grid items-center gap-3 py-2.5 @[64rem]:py-3 ${s.layout === "logo-center" ? "grid-cols-[1fr_auto_1fr]" : "grid-cols-[auto_1fr_auto]"}`}>
         <div className="flex items-center gap-0.5">
           <MobileNav items={menu} storeName={ctx.sf.store.name} signedIn={ctx.signedIn} alwaysVisible={s.menuStyle === "drawer"} />
-          {s.layout === "logo-center" ? search : <Logo ctx={ctx} />}
+          {s.layout === "logo-center" ? search : <Logo ctx={ctx} layout={s.layout} />}
         </div>
         <div className={s.layout === "logo-center" ? "flex justify-center" : "hidden @[64rem]:block"}>
           {s.layout === "logo-center" ? (
-            <Logo ctx={ctx} />
+            <Logo ctx={ctx} layout={s.layout} />
           ) : s.showInlineMenu && s.menuStyle !== "drawer" ? (
             <nav aria-label="Main">
               <ul className="flex flex-wrap gap-6 text-sm">
@@ -257,14 +379,53 @@ export function MegaMenu({ s, ctx }: { s: SectionSettings<"MegaMenu">; ctx: Rend
   if ((headerSection?.settings as { menuStyle?: string } | undefined)?.menuStyle === "drawer") return null;
   const items = ctx.menus[s.menuHandle]?.items ?? [];
   if (!items.length) return null;
+  const wide = s.variant === "mega-wide";
+  const inverted = s.variant === "mega-inverted";
+  const navClass = inverted ? "sf-mega-bar-inverted hidden @[64rem]:block" : `sf-surface sf-border hidden border-b @[64rem]:block${wide ? " relative" : ""}`;
   return (
-    <nav aria-label="Main" className="sf-surface sf-border hidden border-b @[64rem]:block">
-      <ul className={`sf-container flex flex-wrap justify-center gap-x-8 text-sm ${s.uppercase ? "uppercase tracking-[0.14em] text-xs" : ""}`}>
+    <nav aria-label="Main" className={navClass}>
+      <ul className={`sf-container flex flex-wrap gap-x-8 text-sm ${inverted ? "justify-start" : "justify-center"} ${s.uppercase ? "uppercase tracking-[0.14em] text-xs" : ""}`}>
         {items.map((n) => (
-          <li key={n.id} className="group relative">
-            <MenuLink node={n} className={`block py-3 ${n.highlight ? "text-[var(--sf-sale)]" : ""}`} />
-            {n.children.length ? (
-              <div className="sf-surface sf-border invisible absolute left-1/2 top-full z-40 w-[min(90vw,640px)] -translate-x-1/2 border p-6 opacity-0 shadow-lg transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+          <li key={n.id} className={wide ? "group" : "group relative"}>
+            <MenuLink node={n} className={`block py-3 ${n.highlight ? (inverted ? "font-semibold underline underline-offset-4" : "text-[var(--sf-sale)]") : ""}`} />
+            {n.children.length && wide ? (
+              <div className="sf-surface sf-border invisible absolute inset-x-0 top-full z-40 border-y py-8 text-[var(--sf-text)] opacity-0 shadow-lg transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+                <div className="sf-container grid grid-cols-[minmax(0,1fr)_auto] gap-10 normal-case tracking-normal">
+                  <div>
+                    <p className="sf-heading mb-4 text-2xl">{n.title}</p>
+                    <ul className="grid grid-cols-4 gap-x-8 gap-y-6">
+                      {n.children.map((c) => (
+                        <li key={c.id}>
+                          <MenuLink node={c} className="sf-link-quiet font-medium" />
+                          {c.children.length ? (
+                            <ul className="mt-2 space-y-1.5">
+                              {c.children.map((g) => (
+                                <li key={g.id}>
+                                  <MenuLink node={g} className="sf-link-quiet sf-muted" />
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  {s.showImages && n.children.some((c) => c.imagePath && assetUrl(c.imagePath)) ? (
+                    <ul className="flex gap-4">
+                      {n.children
+                        .filter((c) => c.imagePath && assetUrl(c.imagePath))
+                        .slice(0, 2)
+                        .map((c) => (
+                          <li key={c.id} className="w-44">
+                            <MegaImage node={c} />
+                          </li>
+                        ))}
+                    </ul>
+                  ) : null}
+                </div>
+              </div>
+            ) : n.children.length ? (
+              <div className={`sf-surface sf-border invisible absolute left-1/2 top-full z-40 w-[min(90vw,640px)] -translate-x-1/2 border p-6 opacity-0 shadow-lg transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100${inverted ? " text-[var(--sf-text)]" : ""}`}>
                 <ul className="grid grid-cols-3 gap-4 normal-case tracking-normal">
                   {n.children.map((c) => (
                     <li key={c.id}>
@@ -372,7 +533,7 @@ export function Footer({ s, ctx }: { s: SectionSettings<"Footer">; ctx: RenderCo
         </>
       ) : null}
       {ethnic ? <div aria-hidden className="sf-footer-pattern" /> : null}
-      {s.showNewsletter ? (
+      {s.showNewsletter && s.layout !== "footer-mega" ? (
         <div className="relative border-b border-current/15">
           <div className="sf-container flex flex-col items-start gap-5 py-10 @[64rem]:flex-row @[64rem]:items-center @[64rem]:justify-between">
             <div className="max-w-lg space-y-1">
@@ -387,6 +548,8 @@ export function Footer({ s, ctx }: { s: SectionSettings<"Footer">; ctx: RenderCo
       ) : null}
       {s.layout === "centered" || s.layout === "minimal" ? (
         <FooterCompact s={s} ctx={ctx} />
+      ) : isFooterDesign(s.layout) ? (
+        <FooterBody s={s} ctx={ctx} payments={[...PAYMENTS, ...(cod ? ["Cash on delivery"] : [])]} />
       ) : (
       <div className="sf-container relative grid gap-10 py-14 @[48rem]:grid-cols-2 @[64rem]:grid-cols-[1.4fr_repeat(3,1fr)]">
         <div className="space-y-4">
@@ -454,7 +617,9 @@ export function Footer({ s, ctx }: { s: SectionSettings<"Footer">; ctx: RenderCo
           {store.name}
         </p>
       ) : null}
+      {s.decor === "illustration" && s.layout !== "footer-illustrated" ? <FooterIllustration s={s} /> : null}
       {ethnic ? <ChhatriSkyline /> : null}
+      {s.layout === "footer-tworow" ? null : (
       <div className="relative border-t border-current/15">
         <div className={`sf-container flex flex-col gap-3 py-5 text-xs @[48rem]:flex-row @[48rem]:items-center ${s.layout === "centered" ? "items-center @[48rem]:justify-center @[48rem]:gap-8" : "@[48rem]:justify-between"}`}>
           <p className="opacity-75">{s.copyright || `© ${year} ${store.name}. All rights reserved.`}</p>
@@ -469,6 +634,7 @@ export function Footer({ s, ctx }: { s: SectionSettings<"Footer">; ctx: RenderCo
           ) : null}
         </div>
       </div>
+      )}
     </footer>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useOptimistic, useState, useTransition } from "react";
 import {
   adjustStockAction,
   bulkProductsAction,
@@ -26,11 +26,13 @@ import { MediaPicker } from "@/features/media/components/media-picker";
 import { ActionDialog, ActionForm, InlineAction } from "@/features/settings/ui/action-controls";
 import { CheckboxField, SelectField, TextAreaField, TextField, inputClassName as input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/layout";
+import { Badge, Card } from "@/components/ui/layout";
 import { FormMessage } from "@/components/ui/form";
 import type { ProductMedia } from "@/features/catalog/types";
+import { moveBy, moveToFront } from "@/features/catalog/media-order";
 import type { CollectionCondition, CollectionRules } from "@/features/catalog/collection-rules";
-import { ADJUST_REASONS, COLLECTION_SORTS, COLLECTION_SORT_LABELS, INVENTORY_REASON_LABELS, PRODUCT_TYPES, PRODUCT_TYPE_LABELS } from "@/features/catalog/constants";
+import { ADJUST_REASONS, COLLECTION_SORTS, COLLECTION_SORT_LABELS, INVENTORY_REASON_LABELS } from "@/features/catalog/constants";
+import { DEFAULT_PRODUCT_TYPES, typeLabel } from "@/features/catalog/product-types";
 import { DEFAULT_CHART, addColumn, addRow, removeColumn, removeRow, setCell, setColumnName, type SizeChartData } from "@/features/catalog/size-chart";
 
 type Opt = { id: string; label: string };
@@ -59,31 +61,47 @@ function LibraryImageField({ inputId, folder }: { inputId: string; folder: strin
 
 // ------------------------------------------------------------------ products
 
+const firstError = (e: { message: string; fieldErrors?: Record<string, string[]> }) => Object.values(e.fieldErrors ?? {})[0]?.[0] ?? e.message;
+
 export function ProductMediaManager({ productId, media, variants }: { productId: string; media: ProductMedia[]; variants: Opt[] }) {
-  const [order, setOrder] = useState(media.map((m) => m.id));
-  const [libraryError, setLibraryError] = useState<string | null>(null);
+  // The server order (props) is the source of truth: after any change the action calls refresh()
+  // and new props arrive. Moves are shown optimistically while the reorder request runs. (The old
+  // useState(media) snapshot never picked up images added from the library or by upload, so they
+  // seemed not to apply and the next reorder failed with "images changed".)
+  const serverOrder = media.map((m) => m.id);
+  const [order, setOptimisticOrder] = useOptimistic(serverOrder);
+  const [message, setMessage] = useState<{ tone: "error" | "success"; text: string } | null>(null);
   const [pending, start] = useTransition();
   const byId = new Map(media.map((m) => [m.id, m]));
-  const move = (i: number, dir: -1 | 1) => {
-    const next = [...order];
-    const j = i + dir;
-    if (j < 0 || j >= next.length) return;
-    [next[i], next[j]] = [next[j]!, next[i]!];
-    setOrder(next);
-    const fd = new FormData();
-    fd.set("productId", productId);
-    next.forEach((id) => fd.append("ids[]", id));
-    start(() => void reorderProductImagesAction(null, fd));
+  const visible = order.filter((id) => byId.has(id));
+  const saveOrder = (next: string[]) => {
+    setMessage(null);
+    start(async () => {
+      setOptimisticOrder(next);
+      const fd = new FormData();
+      fd.set("productId", productId);
+      next.forEach((id) => fd.append("ids[]", id));
+      const r = await reorderProductImagesAction(null, fd);
+      if (!r.ok) setMessage({ tone: "error", text: firstError(r.error) });
+    });
   };
   return (
-    <Card title="Images" description="JPG, PNG, WebP or AVIF up to 10 MB. The first image is the main one.">
+    <Card title="Images" description="JPG, PNG, WebP or AVIF up to 10 MB. The main image is the thumbnail on product cards and the image shown when the product is shared.">
+      {visible.length === 0 ? <p className="mb-4 text-small text-muted">No images yet. Add some from your media library or upload new ones.</p> : null}
       <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3" aria-busy={pending}>
-        {order.map((id, i) => {
-          const m = byId.get(id);
-          if (!m) return null;
+        {visible.map((id, i) => {
+          const m = byId.get(id)!;
+          const isMain = i === 0;
           return (
-            <li key={id} className="space-y-2 rounded-md border border-border p-2">
-              <div className="relative aspect-[3/4] overflow-hidden rounded bg-border/40">{m.url ? <Image src={m.url} alt={m.altText} fill sizes="200px" className="object-cover" /> : null}</div>
+            <li key={id} className={`space-y-2 rounded-md border p-2 ${isMain ? "border-accent ring-1 ring-accent" : "border-border"}`}>
+              <div className="relative aspect-[3/4] overflow-hidden rounded bg-border/40">
+                {m.url ? <Image src={m.url} alt={m.altText} fill sizes="200px" className="object-cover" /> : null}
+                {isMain ? (
+                  <span className="absolute top-2 left-2">
+                    <Badge tone="brand">Main</Badge>
+                  </span>
+                ) : null}
+              </div>
               <ActionForm action={updateProductImageAction} fields={{ id: m.id, productId }} submitLabel="Save" success="Saved." submitVariant="secondary">
                 {() => (
                   <>
@@ -94,15 +112,20 @@ export function ProductMediaManager({ productId, media, variants }: { productId:
                   </>
                 )}
               </ActionForm>
-              <div className="flex items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                 <span className="flex gap-1">
-                  <Button size="sm" variant="ghost" aria-label="Move earlier" disabled={i === 0} onClick={() => move(i, -1)}>
+                  <Button size="sm" variant="ghost" aria-label="Move earlier" disabled={i === 0 || pending} onClick={() => saveOrder(moveBy(visible, i, -1))}>
                     ←
                   </Button>
-                  <Button size="sm" variant="ghost" aria-label="Move later" disabled={i === order.length - 1} onClick={() => move(i, 1)}>
+                  <Button size="sm" variant="ghost" aria-label="Move later" disabled={i === visible.length - 1 || pending} onClick={() => saveOrder(moveBy(visible, i, 1))}>
                     →
                   </Button>
                 </span>
+                {isMain ? null : (
+                  <Button size="sm" variant="secondary" disabled={pending} onClick={() => saveOrder(moveToFront(visible, id))}>
+                    Set as main
+                  </Button>
+                )}
                 <InlineAction action={deleteProductImageAction} fields={{ id: m.id, productId }} label="Delete" />
               </div>
             </li>
@@ -115,14 +138,23 @@ export function ProductMediaManager({ productId, media, variants }: { productId:
           folder="products"
           triggerLabel="Add from media library"
           onSelect={(items) => {
-            setLibraryError(null);
+            setMessage(null);
+            const paths = items.map((m) => m.path);
+            if (!paths.length) return;
             start(async () => {
-              const r = await attachProductMediaAction(productId, items.map((m) => m.path));
-              if (!r.ok) setLibraryError(r.error.message);
+              const r = await attachProductMediaAction(productId, paths);
+              if (!r.ok) setMessage({ tone: "error", text: firstError(r.error) });
+              else if (r.data.added === 0) setMessage({ tone: "success", text: "Those images are already on this product." });
+              else setMessage({ tone: "success", text: `${r.data.added} image${r.data.added === 1 ? "" : "s"} added.${r.data.skipped ? ` ${r.data.skipped} skipped (already added or not an image).` : ""}` });
             });
           }}
         />
-        {libraryError ? <p role="alert" className="text-small text-error">{libraryError}</p> : null}
+        {pending ? <span className="text-small text-muted">Saving…</span> : null}
+        {message ? (
+          <p role={message.tone === "error" ? "alert" : "status"} className={`text-small ${message.tone === "error" ? "text-error" : "text-success"}`}>
+            {message.text}
+          </p>
+        ) : null}
       </div>
       <div className="mt-4">
         <ActionForm action={uploadProductImageAction} fields={{ productId }} submitLabel="Upload" success="Uploaded." encType="multipart/form-data" resetOnSuccess>
@@ -266,10 +298,13 @@ const RULE_FIELDS = [
   { value: "attribute.style", label: "Style" },
 ] as const;
 
+/** Product types for automated-collection rules (built-in catalogue, A–Z; "Other" last). */
+const RULE_TYPES = [...DEFAULT_PRODUCT_TYPES].sort((a, b) => (a.key === "other" ? 1 : b.key === "other" ? -1 : a.label.localeCompare(b.label)));
+
 function defaultCondition(field: string, categories: Opt[]): CollectionCondition {
   switch (field) {
     case "product_type":
-      return { field: "product_type", op: "eq", value: "kurta" } as CollectionCondition;
+      return { field: "product_type", op: "eq", value: RULE_TYPES[0]!.key } as CollectionCondition;
     case "category":
       return { field: "category", op: "eq", value: categories[0]?.id ?? "" } as CollectionCondition;
     case "price":
@@ -340,9 +375,10 @@ export function CollectionForm({ value, categories, products }: { value: Collect
                     )}
                     {c.field === "product_type" ? (
                       <select aria-label="Value" className={`${input} w-44`} value={String(c.value)} onChange={(ev) => setCond(i, { ...c, value: ev.target.value } as CollectionCondition)}>
-                        {PRODUCT_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {PRODUCT_TYPE_LABELS[t]}
+                        {RULE_TYPES.some((t) => t.key === String(c.value)) ? null : <option value={String(c.value)}>{typeLabel(String(c.value))}</option>}
+                        {RULE_TYPES.map((t) => (
+                          <option key={t.key} value={t.key}>
+                            {t.label}
                           </option>
                         ))}
                       </select>

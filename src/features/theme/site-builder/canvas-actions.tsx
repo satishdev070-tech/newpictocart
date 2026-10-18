@@ -12,7 +12,7 @@ import { PREVIEW_COOKIE } from "@/features/theme/preview";
 import { verifyPreviewToken } from "@/features/theme/server/preview";
 import { MAX_CONFIG_BYTES, resolveThemeConfig } from "@/features/theme/schema/config";
 import { getRenderContext, loadThemeMenus } from "@/features/theme/render/load";
-import { SectionList } from "@/features/theme/render/sections";
+import { SlotSections } from "@/features/theme/render/slot";
 import { themeCss } from "@/features/theme/tokens-style";
 import { slotList, slotSections, SLOT_KEY_RE } from "./slots";
 
@@ -48,8 +48,10 @@ export async function renderCanvasAction(input: { config: string; slots: string[
     const out: Record<string, ReactNode> = {};
     for (const slot of slots) {
       const sections = slotSections(config, slot);
-      // Handle slots (an unsaved page) report their page list so canvas selections address it.
-      if (sections) out[slot] = <SectionList sections={sections} ctx={ctx} slot={slot.startsWith("handle.") ? (slotList(config, slot) ?? slot) : slot} />;
+      // Handle slots (an unsaved page) and the home slot showing the homepage (config.homePageId)
+      // report the list they edit, so canvas selections address it.
+      const itemSlot = slot.startsWith("handle.") || slot === "templates.home" ? (slotList(config, slot) ?? slot) : slot;
+      if (sections) out[slot] = <SlotSections sections={sections} ctx={ctx} slot={itemSlot} />;
     }
     return { slots: out, css: themeCss(config.tokens) };
   });

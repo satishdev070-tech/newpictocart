@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import type { TemplateKey } from "@/features/theme/schema/config";
 import type { SectionInstance } from "@/features/theme/sections/types";
 import { CanvasSlot } from "@/features/theme/site-builder/canvas/canvas-slot";
+import { EmptySlotInsert } from "@/features/theme/site-builder/canvas/empty-slot";
+import { getList, listKeyOf } from "@/features/theme/site-builder/slots";
 import { SectionList } from "./sections";
 import { splitAtPageContent } from "./split";
 import type { RenderContext } from "./context";
@@ -12,13 +14,29 @@ import type { RenderContext } from "./context";
  * re-render it from an unsaved theme and outline its sections.
  */
 
-export function ThemeSlot({ slot, sections, ctx }: { slot: string; sections: SectionInstance[]; ctx: RenderContext }) {
+export function ThemeSlot({ slot, sections, ctx, list }: { slot: string; sections: SectionInstance[]; ctx: RenderContext; list?: string }) {
   if (!ctx.sf.preview) return <SectionList sections={sections} ctx={ctx} />;
   return (
     <CanvasSlot slot={slot}>
-      <SectionList sections={sections} ctx={ctx} slot={slot} />
+      <SlotSections sections={sections} ctx={ctx} slot={list ?? slot} />
     </CanvasSlot>
   );
+}
+
+/**
+ * Preview rendering of one slot's sections (also used by renderCanvasAction). `slot` is the value
+ * the canvas reports for selections: the slot key, or the list it edits (e.g. pages.<id> for the
+ * homepage). When the slot's whole LIST is empty, an "Add a section" placeholder keeps the canvas
+ * editable (the part before a PageContent marker never shows it; header/footer never do).
+ */
+export function SlotSections({ sections, ctx, slot }: { sections: SectionInstance[]; ctx: RenderContext; slot: string }) {
+  const key = listKeyOf(slot);
+  const showEmpty = !!key && !key.startsWith("layout.") && !slot.endsWith(".before") && (getList(ctx.sf.theme, key)?.length ?? sections.length) === 0;
+  if (showEmpty) {
+    const label = key.startsWith("pages.") || key === "templates.home" ? "This page has no sections yet." : "No sections around this page's content yet.";
+    return <EmptySlotInsert slot={key} label={label} />;
+  }
+  return <SectionList sections={sections} ctx={ctx} slot={slot} />;
 }
 
 /**

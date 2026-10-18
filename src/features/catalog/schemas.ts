@@ -10,7 +10,6 @@ import {
   MAX_TAGS,
   MAX_VARIANTS,
   PRODUCT_STATUSES,
-  PRODUCT_TYPES,
   VARIANT_STATUSES,
 } from "./constants";
 
@@ -25,6 +24,7 @@ export const PRODUCT_SORT_LABELS: Record<ProductSort, string> = {
   price_desc: "Price: high to low",
 };
 import { collectionRulesSchema } from "./collection-rules";
+import { productTypeKeySchema } from "./product-types";
 import { comboKey } from "./variants";
 
 /* ------------------------------------------------------------------ helpers */
@@ -124,7 +124,7 @@ export const productInputSchema = z
     slug: slug,
     description: optText(20_000),
     shortDescription: optText(500),
-    productType: z.enum(PRODUCT_TYPES),
+    productType: productTypeKeySchema,
     brand: optText(120),
     categoryId: optUuid,
     sizeChartId: optUuid,
@@ -253,7 +253,7 @@ export function toSaveProductPayload(p: ProductInput, opts: { allowInitialStock:
 export const productListQuerySchema = z.object({
   q: z.preprocess(blankToUndefined, z.string().trim().max(100).optional()),
   status: z.preprocess(blankToUndefined, z.enum(PRODUCT_STATUSES).optional()).catch(undefined),
-  type: z.preprocess(blankToUndefined, z.enum(PRODUCT_TYPES).optional()).catch(undefined),
+  type: z.preprocess(blankToUndefined, productTypeKeySchema.optional()).catch(undefined),
   category: z.preprocess(blankToUndefined, z.uuid().optional()).catch(undefined),
   collection: z.preprocess(blankToUndefined, z.uuid().optional()).catch(undefined),
   sort: z.enum(PRODUCT_SORTS).catch("updated_desc").default("updated_desc"),
