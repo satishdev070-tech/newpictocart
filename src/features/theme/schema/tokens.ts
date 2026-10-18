@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { UNSPLASH_CATEGORIES } from "@/lib/unsplash-categories";
 import { hexColor, imagePath, menuHandle, plainText } from "./primitives";
+import { typographySchema } from "./site";
 
 /**
  * Global design tokens, header settings and product-card settings. Every field has a default
@@ -61,6 +62,8 @@ export const tokensSchema = z.object({
    * category, a category name forces that category, "off" keeps plain placeholders.
    */
   imagery: z.enum(["auto", "off", ...UNSPLASH_CATEGORIES]).default("auto"),
+  /** Per-level font sizes / weights set in the site builder (all "theme default" when absent). */
+  typography: typographySchema,
 });
 export type ThemeTokens = z.infer<typeof tokensSchema>;
 

@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { requireStorefront } from "@/features/storefront/server/context";
-import { getMenus } from "@/features/storefront/server/content";
+import { getMenus, resolveThemeMenus } from "@/features/storefront/server/content";
 import { getCartCount } from "@/features/cart/queries";
 import { getStoreCustomer } from "@/features/customer-account/session";
 import type { ThemeConfig } from "@/features/theme/schema/config";
@@ -20,11 +20,20 @@ export function menuHandles(theme: ThemeConfig): string[] {
   return [...set].filter(Boolean).sort();
 }
 
+/** Database menus for the theme's handles, with the theme's own menu copies (site builder) on top. */
+export async function loadThemeMenus(tenantId: string, theme: ThemeConfig): Promise<RenderContext["menus"]> {
+  const [db, own] = await Promise.all([
+    getMenus(tenantId, menuHandles(theme).filter((h) => !(h in theme.menus)).join(",")),
+    resolveThemeMenus(tenantId, theme.menus, theme.pages.map((p) => p.handle), theme.popups.map((p) => p.id)),
+  ]);
+  return { ...db, ...own };
+}
+
 /** Per-request storefront render context shared by the store layout and pages (memoised). */
 export const getRenderContext = cache(async (host: string): Promise<RenderContext> => {
   const sf = await requireStorefront(host);
   const [menus, cartCount, customer, stock] = await Promise.all([
-    getMenus(sf.tenant.tenantId, menuHandles(sf.theme).join(",")),
+    loadThemeMenus(sf.tenant.tenantId, sf.theme),
     getCartCount(sf.tenant.tenantId),
     getStoreCustomer(sf.tenant.tenantId),
     getStorefrontStock(sf),

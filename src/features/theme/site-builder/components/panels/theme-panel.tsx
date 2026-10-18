@@ -1,0 +1,504 @@
+"use client";
+
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { Check, ChevronRight, LayoutTemplate, Palette as PaletteIcon, PanelTop, RectangleHorizontal, ShoppingBag, Type } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
+import { assetUrl } from "@/lib/storage/assets";
+import { MediaPicker } from "@/features/media/components/media-picker";
+import type { ThemeConfig } from "@/features/theme/schema/config";
+import { BUTTON_SHAPES, BUTTON_VARIANTS, CARD_RADII, CONTAINER_WIDTHS, FONT_KEYS, FONT_STACKS, SPACING_SCALES, type HeaderSettings, type ProductCardSettings, type ThemeTokens } from "@/features/theme/schema/tokens";
+import { DEFAULT_TYPE_SIZES, TYPE_FONTS, TYPE_LEVELS, TYPE_LEVEL_LABELS, TYPE_WEIGHTS, type TypeLevel, type TypeStyle } from "@/features/theme/schema/site";
+import type { MarketplaceTheme } from "@/features/theme/marketplace/types";
+import { UNSPLASH_CATEGORIES } from "@/lib/unsplash-categories";
+import { useBuilder } from "../../context";
+import { applyPalette, applyPresetTokens, COLOR_KEYS, COLOR_LABELS, isPaletteActive, PALETTES } from "../../palettes";
+import { ColorInput, Dialog, FieldRow, input, PanelFrame, Toggle } from "../ui";
+
+/**
+ * Theme settings (site builder left panel): theme preset, site colours, font styles, buttons &
+ * layout, header and product cards. Every change goes through apply() (undoable); rapid edits of
+ * one field coalesce into one history step.
+ */
+
+type Tab = "preset" | "colors" | "fonts" | "layout" | "header" | "cards";
+const TABS: { key: Tab; label: string; hint: string; icon: ReactNode }[] = [
+  { key: "preset", label: "Theme preset", hint: "Restyle with a marketplace theme", icon: <LayoutTemplate /> },
+  { key: "colors", label: "Site colours", hint: "Palettes and custom colours", icon: <PaletteIcon /> },
+  { key: "fonts", label: "Font styles", hint: "Fonts and heading sizes", icon: <Type /> },
+  { key: "layout", label: "Buttons & layout", hint: "Buttons, corners, width, spacing", icon: <RectangleHorizontal /> },
+  { key: "header", label: "Header", hint: "Logo, icons, sticky bar", icon: <PanelTop /> },
+  { key: "cards", label: "Product cards", hint: "Image shape, badges, prices", icon: <ShoppingBag /> },
+];
+
+export function ThemePanel() {
+  const { setPanel } = useBuilder();
+  const [tab, setTab] = useState<Tab | null>(null);
+  const current = TABS.find((t) => t.key === tab);
+
+  if (!current) {
+    return (
+      <PanelFrame title="Theme settings" subtitle="Applies to every page" onClose={() => setPanel(null)}>
+        <nav className="space-y-1.5" aria-label="Theme settings">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className="flex w-full items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2.5 text-left hover:border-border-strong hover:bg-surface-secondary"
+            >
+              <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-4">{t.icon}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-small font-medium">{t.label}</span>
+                <span className="block truncate text-xs text-muted">{t.hint}</span>
+              </span>
+              <ChevronRight className="size-4 text-muted" />
+            </button>
+          ))}
+        </nav>
+      </PanelFrame>
+    );
+  }
+
+  return (
+    <PanelFrame title={current.label} subtitle="Theme settings" onBack={() => setTab(null)} onClose={() => setPanel(null)}>
+      {tab === "preset" ? <PresetTab /> : null}
+      {tab === "colors" ? <ColorsTab /> : null}
+      {tab === "fonts" ? <FontsTab /> : null}
+      {tab === "layout" ? <LayoutTab /> : null}
+      {tab === "header" ? <HeaderTab /> : null}
+      {tab === "cards" ? <CardsTab /> : null}
+    </PanelFrame>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Shared bits
+// -----------------------------------------------------------------------------
+
+function Select<T extends string>({ label, value, options, onChange, hint }: { label: string; value: T; options: readonly (T | readonly [T, string])[]; onChange: (v: T) => void; hint?: string }) {
+  const id = useId();
+  return (
+    <FieldRow label={label} htmlFor={id} hint={hint}>
+      <select id={id} className={input} value={value} onChange={(e) => onChange(e.target.value as T)}>
+        {options.map((o) => {
+          const [v, l] = typeof o === "string" ? [o, humanize(o)] : o;
+          return (
+            <option key={v} value={v}>
+              {l}
+            </option>
+          );
+        })}
+      </select>
+    </FieldRow>
+  );
+}
+
+function TextInput({ label, value, onChange, maxLength, placeholder, hint }: { label: string; value: string; onChange: (v: string) => void; maxLength: number; placeholder?: string; hint?: string }) {
+  const id = useId();
+  return (
+    <FieldRow label={label} htmlFor={id} hint={hint}>
+      <input id={id} className={input} value={value} maxLength={maxLength} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+    </FieldRow>
+  );
+}
+
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-3 border-b border-border pb-4 last:border-b-0">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+const humanize = (s: string) => {
+  const t = s.replace(/([A-Z])/g, " $1").replace(/-/g, " ").toLowerCase();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
+/** Token / header / product-card updaters with a coalesce key per field. */
+function useThemeSetters() {
+  const { config, apply } = useBuilder();
+  return {
+    config,
+    setToken: <K extends keyof ThemeTokens>(k: K, v: ThemeTokens[K]) => apply((c) => ({ ...c, tokens: { ...c.tokens, [k]: v } }), `tokens.${String(k)}`),
+    setHeader: <K extends keyof HeaderSettings>(k: K, v: HeaderSettings[K]) => apply((c) => ({ ...c, header: { ...c.header, [k]: v } }), `header.${String(k)}`),
+    setCard: <K extends keyof ProductCardSettings>(k: K, v: ProductCardSettings[K]) => apply((c) => ({ ...c, productCard: { ...c.productCard, [k]: v } }), `productCard.${String(k)}`),
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Theme preset
+// -----------------------------------------------------------------------------
+
+function PresetTab() {
+  const { apply } = useBuilder();
+  const [themes, setThemes] = useState<readonly MarketplaceTheme[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [q, setQ] = useState("");
+  const [pending, setPending] = useState<MarketplaceTheme | null>(null);
+  const [applied, setApplied] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    // Loaded on demand: the catalogue is large and only this tab needs it.
+    import("@/features/theme/marketplace/catalog")
+      .then((m) => live && setThemes(m.MARKETPLACE_THEMES))
+      .catch(() => live && setFailed(true));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const shown = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!themes) return [];
+    return term ? themes.filter((t) => `${t.name} ${t.tagline} ${t.industry} ${t.style}`.toLowerCase().includes(term)) : themes;
+  }, [themes, q]);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted">Restyles colours, fonts, buttons, corners and spacing. Your sections, text, images and menus stay as they are. You can undo it.</p>
+      <input type="search" className={input} placeholder="Search themes (name, industry, style)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search themes" />
+      {failed ? <p className="text-small text-error">Couldn&apos;t load the themes. Reload the page and try again.</p> : null}
+      {!themes && !failed ? <p className="text-small text-muted">Loading themes…</p> : null}
+      {themes && !shown.length ? <p className="text-small text-muted">No theme matches “{q}”.</p> : null}
+      <div className="grid grid-cols-2 gap-2">
+        {shown.map((t) => {
+          const c = t.preset.tokens.colors;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setPending(t)}
+              className={cn("overflow-hidden rounded-lg border bg-surface text-left hover:border-border-strong", applied === t.key ? "border-accent ring-2 ring-accent/30" : "border-border")}
+            >
+              <div className="flex h-12 items-end gap-1 p-2" style={{ background: c.background }}>
+                {[c.primary, c.secondary, c.accent, c.text].map((col, i) => (
+                  <span key={i} className="size-4 rounded-full ring-1 ring-black/10" style={{ background: col }} />
+                ))}
+              </div>
+              <div className="px-2 py-1.5">
+                <span className="block truncate text-xs font-medium">{t.name}</span>
+                <span className="block truncate text-[11px] text-muted">{t.tagline}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      <Dialog
+        open={!!pending}
+        onClose={() => setPending(null)}
+        title={pending ? `Apply ${pending.name} styles?` : "Apply theme"}
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setPending(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              size="sm"
+              onClick={() => {
+                if (!pending) return;
+                apply((cfg: ThemeConfig) => applyPresetTokens(cfg, pending.preset.tokens));
+                setApplied(pending.key);
+                setPending(null);
+              }}
+            >
+              Apply styles
+            </Button>
+          </>
+        }
+      >
+        <p className="text-small">
+          This changes the colours, fonts, buttons, corners, page width and spacing to match <strong>{pending?.name}</strong>. Your sections and content are not changed, and you can undo it.
+        </p>
+      </Dialog>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Site colours
+// -----------------------------------------------------------------------------
+
+function ColorsTab() {
+  const { config, apply } = useBuilder();
+  const [custom, setCustom] = useState(false);
+  const tokens = config.tokens;
+  return (
+    <div className="space-y-4">
+      <Group title="Palettes">
+        <div className="space-y-1.5">
+          {PALETTES.map((p) => {
+            const active = isPaletteActive(tokens, p);
+            return (
+              <button
+                key={p.key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => apply((c) => applyPalette(c, p.colors))}
+                className={cn("flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left", active ? "border-accent bg-accent-soft" : "border-border bg-surface hover:border-border-strong")}
+              >
+                <span className="flex overflow-hidden rounded-md ring-1 ring-black/10">
+                  {COLOR_KEYS.map((k) => (
+                    <span key={k} className="h-6 w-4" style={{ background: p.colors[k] }} title={COLOR_LABELS[k]} />
+                  ))}
+                </span>
+                <span className="flex-1 truncate text-small">{p.name}</span>
+                {active ? <Check className="size-4 text-accent" /> : null}
+              </button>
+            );
+          })}
+        </div>
+      </Group>
+      <Group title="Your colours">
+        <div className="flex overflow-hidden rounded-md ring-1 ring-black/10">
+          {COLOR_KEYS.map((k) => (
+            <span key={k} className="h-6 flex-1" style={{ background: tokens.colors[k] }} title={COLOR_LABELS[k]} />
+          ))}
+        </div>
+        <Button variant="secondary" size="sm" onClick={() => setCustom((v) => !v)} aria-expanded={custom}>
+          {custom ? "Hide custom colours" : "Customize"}
+        </Button>
+        {custom ? (
+          <div className="space-y-2">
+            {COLOR_KEYS.map((k) => (
+              <ColorInput key={k} label={COLOR_LABELS[k]} value={tokens.colors[k]} onChange={(v) => apply((c) => applyPalette(c, { [k]: v }), `tokens.colors.${k}`)} />
+            ))}
+          </div>
+        ) : null}
+      </Group>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Font styles
+// -----------------------------------------------------------------------------
+
+const FONT_OPTIONS = FONT_KEYS.map((k) => [k, FONT_STACKS[k].label] as const);
+const DEFAULT_STYLE: TypeStyle = { size: 0, weight: "default", font: "default", lineHeight: 0 };
+const isHeading = (l: TypeLevel) => l.startsWith("h");
+
+function FontsTab() {
+  const { config, setToken } = useThemeSetters();
+  const { apply } = useBuilder();
+  const t = config.tokens;
+  const [editing, setEditing] = useState<TypeLevel | null>(null);
+
+  const setLevel = (level: TypeLevel, patch: Partial<TypeStyle>, field: string) =>
+    apply((c) => {
+      const cur = c.tokens.typography[level] ?? DEFAULT_STYLE;
+      return { ...c, tokens: { ...c.tokens, typography: { ...c.tokens.typography, [level]: { ...cur, ...patch } } } };
+    }, `tokens.typography.${level}.${field}`);
+
+  return (
+    <div className="space-y-4">
+      <Group title="Fonts">
+        <Select label="Heading font" value={t.headingFont} options={FONT_OPTIONS} onChange={(v) => setToken("headingFont", v)} />
+        <Select label="Body font" value={t.bodyFont} options={FONT_OPTIONS} onChange={(v) => setToken("bodyFont", v)} />
+        <Select label="Heading case" value={t.headingCase} options={[["normal", "As typed"], ["uppercase", "UPPERCASE"]] as const} onChange={(v) => setToken("headingCase", v)} />
+      </Group>
+      <Group title="Text styles">
+        <ul className="space-y-1.5">
+          {TYPE_LEVELS.map((level) => {
+            const s = t.typography[level] ?? DEFAULT_STYLE;
+            const size = s.size > 0 ? s.size : DEFAULT_TYPE_SIZES[level];
+            const fontKey = s.font === "heading" ? t.headingFont : s.font === "body" ? t.bodyFont : isHeading(level) ? t.headingFont : t.bodyFont;
+            const changed = s.size > 0 || s.weight !== "default" || s.font !== "default" || s.lineHeight > 0;
+            const open = editing === level;
+            return (
+              <li key={level} className={cn("rounded-lg border bg-surface", open ? "border-accent" : "border-border")}>
+                <div className="flex items-center gap-2 px-2.5 py-2">
+                  <span
+                    className="min-w-0 flex-1 truncate"
+                    style={{
+                      fontFamily: FONT_STACKS[fontKey].stack,
+                      fontSize: Math.min(size, 34),
+                      fontWeight: s.weight === "default" ? (isHeading(level) ? 600 : 400) : Number(s.weight),
+                      lineHeight: 1.2,
+                      textTransform: isHeading(level) && t.headingCase === "uppercase" ? "uppercase" : undefined,
+                    }}
+                  >
+                    {TYPE_LEVEL_LABELS[level]}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted">
+                    {size}px{changed ? " ·" : ""}
+                  </span>
+                  <button type="button" className="shrink-0 text-xs font-medium text-accent hover:underline" aria-expanded={open} onClick={() => setEditing(open ? null : level)}>
+                    {open ? "Done" : "Edit"}
+                  </button>
+                </div>
+                {open ? <TypeEditor level={level} style={s} onChange={(patch, field) => setLevel(level, patch, field)} onReset={() => setLevel(level, DEFAULT_STYLE, "reset")} /> : null}
+              </li>
+            );
+          })}
+        </ul>
+        <p className="text-xs text-muted">Phones use 80% of the size you set (never below 12px).</p>
+      </Group>
+    </div>
+  );
+}
+
+function TypeEditor({ level, style, onChange, onReset }: { level: TypeLevel; style: TypeStyle; onChange: (patch: Partial<TypeStyle>, field: string) => void; onReset: () => void }) {
+  const id = useId();
+  const shownSize = style.size > 0 ? style.size : DEFAULT_TYPE_SIZES[level];
+  const clampSize = (n: number) => (Number.isFinite(n) ? Math.max(10, Math.min(96, Math.round(n))) : 0);
+  return (
+    <div className="space-y-3 border-t border-border px-2.5 py-3">
+      <FieldRow label="Size (px)" htmlFor={`${id}-size`} hint={style.size > 0 ? undefined : "Theme default"}>
+        <div className="flex items-center gap-2">
+          <input type="range" min={10} max={96} value={shownSize} onChange={(e) => onChange({ size: clampSize(Number(e.target.value)) }, "size")} className="flex-1 accent-accent" aria-label="Size" />
+          <input id={`${id}-size`} type="number" min={10} max={96} className={cn(input, "w-20")} value={shownSize} onChange={(e) => onChange({ size: clampSize(Number(e.target.value)) }, "size")} />
+        </div>
+      </FieldRow>
+      <div className="grid grid-cols-2 gap-2">
+        <Select label="Weight" value={style.weight} options={TYPE_WEIGHTS.map((w) => [w, w === "default" ? "Theme default" : w] as const)} onChange={(v) => onChange({ weight: v }, "weight")} />
+        <Select label="Font" value={style.font} options={TYPE_FONTS.map((f) => [f, f === "default" ? "Theme default" : `${humanize(f)} font`] as const)} onChange={(v) => onChange({ font: v }, "font")} />
+      </div>
+      <FieldRow label="Line height" htmlFor={`${id}-lh`} hint={style.lineHeight > 0 ? `${(style.lineHeight / 100).toFixed(2)}×` : "Theme default"}>
+        <input
+          id={`${id}-lh`}
+          type="range"
+          min={90}
+          max={200}
+          step={5}
+          value={style.lineHeight > 0 ? style.lineHeight : 120}
+          onChange={(e) => onChange({ lineHeight: Math.max(90, Math.min(200, Number(e.target.value) || 0)) }, "lineHeight")}
+          className="w-full accent-accent"
+        />
+      </FieldRow>
+      <button type="button" onClick={onReset} className="text-xs font-medium text-accent hover:underline">
+        Reset to theme default
+      </button>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Buttons & layout
+// -----------------------------------------------------------------------------
+
+function LayoutTab() {
+  const { config, setToken } = useThemeSetters();
+  const t = config.tokens;
+  return (
+    <div className="space-y-4">
+      <Group title="Buttons">
+        <Select label="Button shape" value={t.buttonShape} options={BUTTON_SHAPES} onChange={(v) => setToken("buttonShape", v)} />
+        <Select label="Button style" value={t.buttonVariant} options={BUTTON_VARIANTS} onChange={(v) => setToken("buttonVariant", v)} />
+      </Group>
+      <Group title="Layout">
+        <Select label="Card corners" value={t.cardRadius} options={[["none", "Square"], ["sm", "Slightly rounded"], ["md", "Rounded"], ["lg", "Very rounded"]] as const satisfies readonly (readonly [(typeof CARD_RADII)[number], string])[]} onChange={(v) => setToken("cardRadius", v)} />
+        <Select label="Page width" value={t.containerWidth} options={CONTAINER_WIDTHS} onChange={(v) => setToken("containerWidth", v)} />
+        <Select label="Spacing between sections" value={t.spacing} options={SPACING_SCALES} onChange={(v) => setToken("spacing", v)} />
+        <Select label="Section titles" value={t.sectionHeadingAlign} options={[["left", "Left aligned"], ["center", "Centred"]] as const} onChange={(v) => setToken("sectionHeadingAlign", v)} />
+        <Select label="Finish" value={t.finish} options={[["standard", "Standard"], ["refined", "Refined (extra polish)"]] as const} onChange={(v) => setToken("finish", v)} hint="Refined adds a finer type scale, spacing and hover states to editorial sections." />
+      </Group>
+      <Group title="Images">
+        <Select
+          label="Stock photos for empty image slots"
+          value={t.imagery}
+          options={[["auto", "Auto (store category)"], ["off", "Off (plain placeholders)"], ...UNSPLASH_CATEGORIES.map((c) => [c, humanize(c)] as const)] as const}
+          onChange={(v) => setToken("imagery", v)}
+          hint="Photos from Unsplash fill image slots you haven't set yet."
+        />
+      </Group>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Header
+// -----------------------------------------------------------------------------
+
+const HEADER_TOGGLES: [keyof HeaderSettings & ("showSearch" | "showAccount" | "showWishlist" | "showCart" | "sticky" | "showStoreName" | "bottomNav"), string][] = [
+  ["showSearch", "Search icon"],
+  ["showAccount", "Account icon"],
+  ["showWishlist", "Wishlist icon"],
+  ["showCart", "Cart icon"],
+  ["sticky", "Sticky header"],
+  ["showStoreName", "Store name when there's no logo"],
+  ["bottomNav", "App-style bottom bar on phones"],
+];
+
+function HeaderTab() {
+  const { config, setHeader } = useThemeSetters();
+  const { pickers } = useBuilder();
+  const h = config.header;
+  const logo = assetUrl(h.logoPath);
+  const menus = pickers.menu.some((m) => m.value === h.menuHandle) ? pickers.menu : [{ value: h.menuHandle, label: h.menuHandle }, ...pickers.menu];
+  return (
+    <div className="space-y-4">
+      <Group title="Logo">
+        <div className="flex items-center gap-2">
+          {logo ? (
+            // eslint-disable-next-line @next/next/no-img-element -- editor thumbnail
+            <img src={logo} alt="" className="h-12 max-w-28 rounded-md bg-surface-secondary object-contain ring-1 ring-border" />
+          ) : (
+            <div className="grid size-12 place-items-center rounded-md bg-surface-secondary text-xs text-muted ring-1 ring-border">Logo</div>
+          )}
+          <MediaPicker folder="theme" triggerLabel={logo ? "Change" : "Choose logo"} onSelect={([m]) => m && setHeader("logoPath", m.path)} />
+          {logo ? (
+            <button type="button" className="text-xs text-muted hover:underline" onClick={() => setHeader("logoPath", "")}>
+              Remove
+            </button>
+          ) : null}
+        </div>
+        {logo ? <TextInput label="Logo alt text" value={h.logoAlt} maxLength={120} onChange={(v) => setHeader("logoAlt", v)} placeholder="Your store name" /> : null}
+        <FieldRow label={`Logo width (${h.logoMaxWidth}px)`}>
+          <input type="range" min={60} max={320} step={4} value={h.logoMaxWidth} onChange={(e) => setHeader("logoMaxWidth", Number(e.target.value))} className="w-full accent-accent" aria-label="Logo width" />
+        </FieldRow>
+        <TextInput label="Text wordmark instead of the logo" hint="Large-logo header layout only." value={h.wordmark} maxLength={40} onChange={(v) => setHeader("wordmark", v)} />
+        <TextInput label="Tagline under the logo" hint="Large-logo header layout only." value={h.logoTagline} maxLength={60} onChange={(v) => setHeader("logoTagline", v)} />
+      </Group>
+      <Group title="Menu">
+        <Select label="Main menu" value={h.menuHandle} options={menus.map((m) => [m.value, m.label] as const)} onChange={(v) => setHeader("menuHandle", v || "main")} />
+        <Select label="Menu on phones" value={h.mobileMenu} options={[["drawer", "Side drawer"], ["fullscreen", "Full screen"]] as const} onChange={(v) => setHeader("mobileMenu", v)} />
+      </Group>
+      <Group title="Icons and behaviour">
+        {HEADER_TOGGLES.map(([k, label]) => (
+          <Toggle key={k} label={label} checked={h[k]} onChange={(v) => setHeader(k, v)} />
+        ))}
+      </Group>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Product cards
+// -----------------------------------------------------------------------------
+
+const CARD_TOGGLES: [keyof ProductCardSettings & ("showBrand" | "secondImageOnHover" | "showBadges" | "showComparePrice" | "showDiscountPercent" | "showQuickAdd" | "showRating" | "showSizes" | "showWishlist"), string][] = [
+  ["showBrand", "Brand above the title"],
+  ["secondImageOnHover", "Second image on hover"],
+  ["showBadges", "Badges (new, sale, sold out)"],
+  ["showComparePrice", "Compare-at price"],
+  ["showDiscountPercent", "Discount percentage"],
+  ["showQuickAdd", "Quick add button"],
+  ["showRating", "Star rating"],
+  ["showSizes", "Size chips"],
+  ["showWishlist", "Wishlist heart"],
+];
+
+function CardsTab() {
+  const { config, setCard } = useThemeSetters();
+  const p = config.productCard;
+  return (
+    <div className="space-y-4">
+      <Group title="Look">
+        <Select label="Image shape" value={p.imageRatio} options={[["portrait", "Portrait (3:4)"], ["tall", "Tall (2:3)"], ["square", "Square"], ["landscape", "Landscape (4:3)"]] as const} onChange={(v) => setCard("imageRatio", v)} />
+        <Select label="Text alignment" value={p.textAlign} options={[["left", "Left"], ["center", "Centred"]] as const} onChange={(v) => setCard("textAlign", v)} />
+        <Select label="Badge style" value={p.badgeStyle} options={[["minimal", "Minimal"], ["filled", "Filled"], ["pill", "Pill (% off in green)"]] as const} onChange={(v) => setCard("badgeStyle", v)} />
+        <TextInput label="Offer badge on every card (optional)" value={p.offerBadge} maxLength={24} placeholder="e.g. Buy 2 Get 1" onChange={(v) => setCard("offerBadge", v)} />
+      </Group>
+      <Group title="Show on cards">
+        {CARD_TOGGLES.map(([k, label]) => (
+          <Toggle key={k} label={label} checked={p[k]} onChange={(v) => setCard(k, v)} />
+        ))}
+      </Group>
+    </div>
+  );
+}

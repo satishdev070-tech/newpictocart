@@ -5,6 +5,7 @@ import { logger } from "@/lib/observability/logger";
 import { parseStoredBlocks, type ContentBlock } from "@/features/content/blocks";
 import { readSeo, type SeoFields } from "../seo";
 import { buildMenuTree, menuLinkRefs, type LinkTargets, type MenuItemRow, type MenuNode } from "../urls";
+import { themeMenuRefs, themeMenuToNodes, type ThemeMenu } from "@/features/theme/schema/links";
 import { readAddress, type StoreAddress } from "../store-profile";
 
 /** Public content reads (menus, pages, blog, FAQs, locations, reviews). Tenant id from the verified host only. */
@@ -57,6 +58,29 @@ export const getMenus = cache(async (tenantId: string, handlesKey: string): Prom
   }
   return out;
 });
+
+/**
+ * Theme (site builder) copies of menus → MenuNode trees, with entity links resolved in one batched
+ * query per type. `themePages` / `popups` are the handles and ids the theme defines.
+ */
+export async function resolveThemeMenus(
+  tenantId: string,
+  menus: Record<string, ThemeMenu>,
+  themePages: string[],
+  popups: string[],
+): Promise<Record<string, { title: string; items: MenuNode[] }>> {
+  const handles = Object.keys(menus);
+  if (!handles.length) return {};
+  const refs = themeMenuRefs(menus);
+  const [collections, products, pages, blogPosts] = await Promise.all([
+    slugMap("collections", tenantId, refs.collection),
+    slugMap("products", tenantId, refs.product),
+    slugMap("pages", tenantId, refs.page),
+    slugMap("blog_posts", tenantId, refs.blog),
+  ]);
+  const targets = { collections, categories: new Map<string, string>(), products, pages, blogPosts, themePages: new Set(themePages), popups: new Set(popups) };
+  return Object.fromEntries(handles.map((h) => [h, { title: menus[h]!.title, items: themeMenuToNodes(menus[h]!, targets) }]));
+}
 
 export type PageContent = { id: string; title: string; slug: string; kind: string; blocks: ContentBlock[]; seo: SeoFields; updatedAt: string };
 

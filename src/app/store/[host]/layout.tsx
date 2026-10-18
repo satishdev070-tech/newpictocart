@@ -7,7 +7,11 @@ import { assetUrl } from "@/lib/storage/assets";
 import { canonicalUrl } from "@/features/storefront/urls";
 import { toDescription } from "@/features/storefront/seo";
 import { ThemeTokensStyle } from "@/features/theme/tokens-style";
-import { SectionList } from "@/features/theme/render/sections";
+import { ThemeSlot } from "@/features/theme/render/slot";
+import { CanvasBridge } from "@/features/theme/site-builder/canvas/canvas-bridge";
+import { platformOrigin } from "@/lib/platform/urls";
+import { SiteExtras } from "@/features/theme/render/site-extras";
+import { whatsappUrl } from "@/features/storefront/store-profile";
 import { getRenderContext } from "@/features/theme/render/load";
 import { Suspense } from "react";
 import { getTrackingConfig } from "@/features/tracking/server/config";
@@ -84,7 +88,7 @@ export default async function StorefrontLayout({ children, params }: LayoutProps
         Skip to content
       </a>
       {ctx.sf.preview ? (
-        <div role="status" className="bg-amber-100 px-4 py-2 text-center text-xs text-amber-900">
+        <div role="status" data-preview-banner className="bg-amber-100 px-4 py-2 text-center text-xs text-amber-900">
           Previewing your unpublished theme.{" "}
           <Link href="/preview?exit=1" className="underline">
             Exit preview
@@ -100,12 +104,16 @@ export default async function StorefrontLayout({ children, params }: LayoutProps
         </div>
       ) : null}
       <FestiveTop c={festive} />
-      <SectionList sections={ctx.sf.theme.layout.header} ctx={ctx} />
+      <ThemeSlot slot="layout.header" sections={ctx.sf.theme.layout.header} ctx={ctx} />
       <FestiveBelowHeader c={festive} />
       <main id="main" className="flex-1">
         {children}
       </main>
-      <SectionList sections={ctx.sf.theme.layout.footer} ctx={ctx} />
+      <ThemeSlot slot="layout.footer" sections={ctx.sf.theme.layout.footer} ctx={ctx} />
+      {ctx.sf.theme.popups.length || ctx.sf.theme.embeds.whatsapp.enabled || ctx.sf.theme.embeds.backToTop.enabled || ctx.sf.preview ? (
+        <SiteExtras popups={ctx.sf.theme.popups} embeds={ctx.sf.theme.embeds} whatsapp={whatsappUrl(ctx.sf.store.whatsapp)} />
+      ) : null}
+      {ctx.sf.preview ? <CanvasBridge platformOrigin={platformOrigin()} /> : null}
       {tracking ? (
         <Suspense fallback={null}>
           <TrackingTags config={tracking} />

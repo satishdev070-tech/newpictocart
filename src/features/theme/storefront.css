@@ -2273,3 +2273,8 @@ a.sf-spot-add-square {
 
 /* Footer: statement wordmark */
 .sf-footer-wordmark { margin: 0; padding-inline: 0.5rem; overflow: hidden; white-space: nowrap; text-align: center; font-size: clamp(3rem, 15cqi, 14rem); line-height: 0.9; letter-spacing: -0.02em; opacity: 0.92; }
+
+/* Site builder canvas (the framed preview): the builder has its own status, so hide the preview banner. */
+html[data-builder-canvas] [data-preview-banner] {
+  display: none;
+}
