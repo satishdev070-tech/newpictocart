@@ -752,3 +752,28 @@ New "Change design" options (first value of every list = the old look; old theme
 - CategoryGrid: +4 (circle avatars, overlay cards, bento, banner rows with description).
 - Instagram (SocialProof): layouts become variant cards (+ profile page, reels carousel, collage with follow card); `source: "instagram"` shows the connected Instagram account's latest posts (server-side, cached 1 h, ADR-006 addition), falling back to manual posts; builder help points to Marketing → Social → Accounts.
 Code: `render/designs-a.tsx`, `storefront/components/hero-stage.tsx`, `social/server/instagram-feed.ts`, `theme/designs-a.css`, wireframes in `site-builder/variant-diagrams-a.ts`. Tests: `tests/unit/section-designs-a.test.ts`. Not verified in a browser (no dev server run).
+
+## Builder polish round (2026-10-18, branch `claude/builder-polish`)
+
+Owner review of 19 screenshots, built by 7 parallel agents and integrated here (details in the sections
+above and in `docs/THEME_BUILDER.md`):
+- Logo: real width/height controls for desktop and phones, logo position (left / centre split / centre
+  above / right, phone left / centre) on every header style; 10 new self-hosted fonts with a live picker.
+- Builder UX: orange progress bar while the canvas updates, gradient selected-section overlay, cleaner
+  toolbar with section-name chip, ON/OFF pill toggles, pinned Update button, "Add with AI" pill and a
+  "Coming soon" state when AI isn't configured.
+- Products: "Add from media library" fixed (stale client copy of the image list), "Set as main" + Main badge,
+  industry-aware product types with per-type fields, seller custom types, Super Admin `/admin/product-types`.
+  **Migration `20261018003200_product_types.sql` is NOT applied** — until it is, the built-in catalogue is used,
+  admin/custom type edits show "migration pending", and new type keys are saved via a fallback.
+- Media library: asset-manager dialog (upload, Images, Stock photos, Icons, inspector, Insert media) and a
+  197-icon allowlisted library (`icon:<name>` in image fields, inline SVG in theme colours).
+- Pages: per-page ⋮ menus (SEO & page setup, rename, set as subitem, set as homepage, duplicate, delete),
+  `homePageId`, empty-page "Add a section" placeholder, new page sections ContactInfo / RichText / BlogPosts /
+  Gallery / Team / CallToAction.
+- Designs: every section has ≥3 designs (FAQ 5, Promo 7, Footer 9 incl. illustration upload, Hero 10, Category
+  tiles 9, Instagram 6 with a real feed from the connected Instagram account, all others ≥3).
+- Tests: `tests/unit/section-render-smoke.test.ts` server-renders every section × design (166 cases).
+- Verified: `pnpm check` green (86 files / 1213 tests, build OK); dev server on nook-living: builder, logo
+  size/position, hero designs, progress bar, page menus, new page, product images + type suggestions, media
+  library + icons. Live store renders unchanged.
