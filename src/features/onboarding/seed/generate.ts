@@ -1,7 +1,11 @@
 import "server-only";
 import { AppError } from "@/lib/errors";
+import { logger } from "@/lib/observability/logger";
+import { isSarvamConfigured } from "@/lib/sarvam/client";
 import { industryName, type IndustrySlug } from "@/features/stores/industries";
 import { chatTurn, translateText } from "./sarvam";
+import { READY_STORE_COUNTS } from "./counts";
+import { buildFallbackReadyStorePlan } from "./fallback";
 import { readyStorePlanSchema, type ReadyStorePlan } from "./schemas";
 
 function extractJson(text: string): unknown {
@@ -32,12 +36,13 @@ function extractJson(text: string): unknown {
 
 function buildPrompt(args: { storeName: string; industry: IndustrySlug; brief?: string }): { system: string; user: string } {
   const industry = industryName(args.industry);
+  const { categories, products, blogs, testimonials } = READY_STORE_COUNTS;
   const system = [
     "You are a catalogue writer for Indian D2C storefronts on Pictocart.",
     "Reply with a single JSON object only (no markdown). Prices must be integer paise (₹1 = 100).",
     "Use lowercase hyphenated slugs. Keep copy warm, concrete and India-relevant.",
-    "Exactly 4 categories, 8 products (each categorySlug must match a category), 2–4 collections,",
-    "1–3 hero slides, 3 blog posts, 4 testimonials.",
+    `Exactly ${categories} categories, ${products} products (each categorySlug must match a category), 2–4 collections,`,
+    `1–3 hero slides, ${blogs} blog posts, ${testimonials} testimonials.`,
   ].join(" ");
   const user = [
     `Store name: ${args.storeName}`,
@@ -115,26 +120,7 @@ async function maybeLocalize(plan: ReadyStorePlan, locale?: string): Promise<Rea
   };
 }
 
-/**
- * Ask Sarvam chat for a structured ready-store plan and Zod-validate it.
- * Callers should debit AI credits around this (see pipeline).
- */
-export async function generateReadyStorePlan(args: {
-  storeName: string;
-  industry: IndustrySlug;
-  brief?: string;
-  locale?: string;
-}): Promise<ReadyStorePlan> {
-  const { system, user } = buildPrompt(args);
-  const turn = await chatTurn({
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    languageCode: args.locale ?? "en-IN",
-    temperature: 0.4,
-  });
-  const raw = extractJson(turn.content);
+function validateAiPlan(raw: unknown): ReadyStorePlan {
   const parsed = readyStorePlanSchema.safeParse(raw);
   if (!parsed.success) {
     throw new AppError("VALIDATION", {
@@ -142,7 +128,6 @@ export async function generateReadyStorePlan(args: {
       context: { reason: "seed_plan_invalid", issues: parsed.error.issues.slice(0, 5).map((i) => i.message) },
     });
   }
-  // Every product must reference a known category slug.
   const catSlugs = new Set(parsed.data.categories.map((c) => c.slug));
   for (const p of parsed.data.products) {
     if (!catSlugs.has(p.categorySlug)) {
@@ -160,7 +145,56 @@ export async function generateReadyStorePlan(args: {
       });
     }
   }
-  return maybeLocalize(parsed.data, args.locale);
+  return parsed.data;
+}
+
+async function fallbackPlan(args: { storeName: string; industry: IndustrySlug; brief?: string; locale?: string; reason: string }): Promise<ReadyStorePlan> {
+  logger.warn("onboarding.seed_plan_fallback", { industry: args.industry, reason: args.reason });
+  const plan = buildFallbackReadyStorePlan({
+    storeName: args.storeName,
+    industry: args.industry,
+    brief: args.brief,
+  });
+  return maybeLocalize(plan, args.locale);
+}
+
+/**
+ * Ask Sarvam chat for a structured ready-store plan and Zod-validate it.
+ * Falls back to a deterministic plan when Sarvam is missing or the response is invalid.
+ * Callers should debit AI credits around this (see pipeline).
+ */
+export async function generateReadyStorePlan(args: {
+  storeName: string;
+  industry: IndustrySlug;
+  brief?: string;
+  locale?: string;
+}): Promise<ReadyStorePlan> {
+  if (!isSarvamConfigured()) {
+    return fallbackPlan({ ...args, reason: "sarvam_not_configured" });
+  }
+
+  try {
+    const { system, user } = buildPrompt(args);
+    const turn = await chatTurn({
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      languageCode: args.locale ?? "en-IN",
+      temperature: 0.4,
+    });
+    const raw = extractJson(turn.content);
+    const plan = validateAiPlan(raw);
+    return maybeLocalize(plan, args.locale);
+  } catch (err) {
+    const reason =
+      err instanceof AppError
+        ? String((err.context as { reason?: string } | undefined)?.reason ?? err.code)
+        : err instanceof Error
+          ? err.message.slice(0, 120)
+          : "unknown";
+    return fallbackPlan({ ...args, reason });
+  }
 }
 
 export function parseReadyStorePlan(raw: unknown): ReadyStorePlan {

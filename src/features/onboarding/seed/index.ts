@@ -15,6 +15,8 @@ export { seedReadyStore, type SeedReadyStoreArgs } from "./pipeline";
 export { pickBestMarketplaceTheme, pickMarketplaceThemePair, applyBestFitTheme } from "./theme-pick";
 export { generateReadyStorePlan, parseReadyStorePlan } from "./generate";
 export { persistReadyStore } from "./persist";
+export { READY_STORE_COUNTS } from "./counts";
+export { buildFallbackReadyStorePlan } from "./fallback";
 export {
   seedReadyStoreInputSchema,
   readyStorePlanSchema,

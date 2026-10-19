@@ -8,6 +8,7 @@ import type { IndustrySlug } from "@/features/stores/industries";
 import { generateReadyStorePlan, parseReadyStorePlan } from "./generate";
 import { persistReadyStore } from "./persist";
 import { applyBestFitTheme, pickBestMarketplaceTheme } from "./theme-pick";
+import { READY_STORE_COUNTS } from "./counts";
 import { seedReadyStoreInputSchema, type ReadyStorePlan, type SeedReadyStoreInput, type SeedReadyStoreResult } from "./schemas";
 
 const SEED_CREDIT_KIND = "onboarding_seed";
@@ -54,7 +55,7 @@ export async function seedReadyStore(ctx: TenantContext, raw: Omit<SeedReadyStor
       supabase.from("categories").select("id", { count: "exact", head: true }).eq("tenant_id", ctx.tenantId),
       supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", ctx.tenantId),
     ]);
-    if ((catCount ?? 0) >= 4 && (productCount ?? 0) >= 8) {
+    if ((catCount ?? 0) >= READY_STORE_COUNTS.categories && (productCount ?? 0) >= READY_STORE_COUNTS.products) {
       return {
         themeKey: input.themeKey ?? pickBestMarketplaceTheme(industry).key,
         categoryIds: [],
@@ -62,7 +63,13 @@ export async function seedReadyStore(ctx: TenantContext, raw: Omit<SeedReadyStor
         collectionIds: [],
         blogIds: [],
         menuId: null,
-        skipped: { categories: 4, products: 8, collections: 0, blogs: 3, menu: true },
+        skipped: {
+          categories: READY_STORE_COUNTS.categories,
+          products: READY_STORE_COUNTS.products,
+          collections: 0,
+          blogs: READY_STORE_COUNTS.blogs,
+          menu: true,
+        },
         alreadySeeded: true,
       };
     }
