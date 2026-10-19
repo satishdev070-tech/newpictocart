@@ -1,6 +1,7 @@
 import "server-only";
 import type { Json } from "@/lib/supabase/database.types";
 import { AppError } from "@/lib/errors";
+import { logger } from "@/lib/observability/logger";
 import { toDecimalString } from "@/lib/money";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mapDbError } from "@/lib/supabase/errors";
@@ -302,21 +303,25 @@ function patchHomeSections(config: ThemeConfig, plan: ReadyStorePlan, ids: Ids):
   return { ...config, templates: { ...config.templates, home }, header: { ...config.header, menuHandle: config.header.menuHandle || "main" } };
 }
 
+function clip(value: string, max: number): string {
+  return value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim().slice(0, max);
+}
+
 function patchSection(section: SectionInstance, plan: ReadyStorePlan, ids: Ids): SectionInstance {
   const type = section.type as SectionType;
   const settings = { ...(section.settings as Record<string, unknown>) };
   if (type === "Hero") {
     const defaults = defaultSettings("Hero") as { slides: Record<string, unknown>[] };
     const baseSlide = defaults.slides[0] ?? {};
-    settings.slides = plan.hero.slides.map((s) => ({
+    settings.slides = plan.hero.slides.slice(0, 5).map((s) => ({
       ...baseSlide,
       imagePath: typeof (baseSlide as { imagePath?: string }).imagePath === "string" ? (baseSlide as { imagePath: string }).imagePath : "",
       mobileImagePath: "",
-      alt: s.heading,
-      eyebrow: s.eyebrow,
-      heading: s.heading,
-      subheading: s.subheading,
-      ctaLabel: s.ctaLabel,
+      alt: clip(s.heading, 200),
+      eyebrow: clip(s.eyebrow, 60),
+      heading: clip(s.heading, 120),
+      subheading: clip(s.subheading, 240),
+      ctaLabel: clip(s.ctaLabel, 40),
       ctaHref: s.ctaHref,
     }));
   } else if (type === "CategoryGrid") {
@@ -339,16 +344,16 @@ function patchSection(section: SectionInstance, plan: ReadyStorePlan, ids: Ids):
     }
   } else if (type === "Testimonials") {
     settings.heading = settings.heading || "Loved by our customers";
-    settings.items = plan.testimonials.map((t) => ({
-      quote: t.quote,
-      author: t.author,
-      location: t.location,
+    settings.items = plan.testimonials.slice(0, 8).map((t) => ({
+      quote: clip(t.quote, 400),
+      author: clip(t.author, 60),
+      location: clip(t.location, 60),
       rating: t.rating,
     }));
   } else if (type === "BrandStory") {
     settings.eyebrow = settings.eyebrow || "Our story";
     settings.heading = typeof settings.heading === "string" && settings.heading ? settings.heading : "About us";
-    settings.body = plan.story;
+    settings.body = clip(plan.story, 1500);
   }
   return { ...section, settings };
 }
@@ -358,10 +363,10 @@ async function mergeThemeContent(ctx: TenantContext, plan: ReadyStorePlan, ids: 
   const next = patchHomeSections(data.config, plan, ids);
   const parsed = parseThemeConfigStrict(next);
   if (!parsed.ok) {
-    throw new AppError("INTERNAL", {
-      message: "Seeded theme content failed validation.",
-      context: { issues: parsed.issues.slice(0, 5) },
-    });
+    // Catalogue, navigation and SEO are already saved. A theme-shape mismatch must not
+    // block account creation; the seller can edit the homepage in the builder.
+    logger.warn("onboarding.seed_theme_merge_skipped", { tenantId: ctx.tenantId, issues: parsed.issues.slice(0, 8) });
+    return;
   }
   if (!assetsBelongToTenant(parsed.config, ctx.tenantId)) {
     throw new AppError("VALIDATION", { fieldErrors: { _form: ["Some theme images don't belong to this store."] } });

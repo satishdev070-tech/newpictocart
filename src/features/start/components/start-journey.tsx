@@ -55,6 +55,21 @@ export function StartJourney({
   const finalizing = useRef(false);
   const routedEmpty = useRef(false);
 
+  const finalize = useCallback(() => {
+    if (!draft || finalizing.current || draft.result) return;
+    finalizing.current = true;
+    const fd = new FormData();
+    fd.set("draftJson", JSON.stringify(draft));
+    void finalizeStartDraftAction(null, fd).then((res) => {
+      setFinalizeState(res);
+      if (res.ok) {
+        setDraft((d) => ({ ...d, result: { slug: res.data.slug, name: res.data.name }, screen: "done" }));
+      } else {
+        finalizing.current = false;
+      }
+    });
+  }, [draft, setDraft]);
+
   const go = useCallback(
     (screen: StartScreen) => {
       if (!draft) return;
@@ -83,18 +98,8 @@ export function StartJourney({
     const shouldFinalize =
       (draft.screen === "building" || draft.screen === "account") && draftReadyToFinalize(draft);
     if (!shouldFinalize) return;
-    finalizing.current = true;
-    const fd = new FormData();
-    fd.set("draftJson", JSON.stringify(draft));
-    void finalizeStartDraftAction(null, fd).then((res) => {
-      setFinalizeState(res);
-      if (res.ok) {
-        setDraft((d) => ({ ...d, result: { slug: res.data.slug, name: res.data.name }, screen: "done" }));
-      } else {
-        finalizing.current = false;
-      }
-    });
-  }, [hydrated, draft, signedIn, setDraft]);
+    finalize();
+  }, [hydrated, draft, signedIn, finalize]);
 
   if (!hydrated || !draft) {
     return <div className="min-h-dvh bg-[#FBF6F1]" />;
@@ -271,25 +276,8 @@ export function StartJourney({
         locale={draft.locale}
         host={previewHost}
         onComplete={() => {
-          if (signedIn && draftReadyToFinalize(draft)) {
-            /* finalize effect handles */
-            if (!finalizing.current) {
-              finalizing.current = true;
-              const fd = new FormData();
-              fd.set("draftJson", JSON.stringify(draft));
-              void finalizeStartDraftAction(null, fd).then((res) => {
-                setFinalizeState(res);
-                if (res.ok) {
-                  setDraft((d) => ({ ...d, result: { slug: res.data.slug, name: res.data.name }, screen: "done" }));
-                } else {
-                  finalizing.current = false;
-                  go("account");
-                }
-              });
-            }
-          } else if (!signedIn) {
-            go("account");
-          }
+          if (signedIn && draftReadyToFinalize(draft)) finalize();
+          else if (!signedIn) go("account");
         }}
       />,
       { back: true },
@@ -301,7 +289,21 @@ export function StartJourney({
       <>
         <AccountScreen draft={draft} rootDomain={rootDomain} googleAvailable={googleAvailable} host={previewHost} />
         {finalizeState && !finalizeState.ok ? (
-          <p className="mt-4 text-sm text-red-600">{finalizeState.error?.message ?? "Could not finish setup. Try again after signing in."}</p>
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-red-600" role="alert">
+              {finalizeState.error.fieldErrors?._form?.[0] ??
+                (finalizeState.error.message === "Something went wrong. Please try again."
+                  ? "Your account is connected, but the store could not be finished. Try again."
+                  : finalizeState.error.message)}
+            </p>
+            <button
+              type="button"
+              onClick={() => finalize()}
+              className="rounded-full bg-linear-to-br from-[#FB923C] to-[#F97316] px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Try again
+            </button>
+          </div>
         ) : null}
       </>,
       { back: true, layout: "split" },

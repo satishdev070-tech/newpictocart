@@ -147,8 +147,8 @@ export function buildFallbackReadyStorePlan(args: {
   const heroSlides = [
     {
       eyebrow: industryLabel,
-      heading: `Welcome to ${args.storeName}`,
-      subheading: args.brief?.trim() || `Discover ${industryLabel.toLowerCase()} made for modern Indian shoppers.`,
+      heading: `Welcome to ${args.storeName}`.slice(0, 120),
+      subheading: (args.brief?.trim().replace(/\s+/g, " ") || `Discover ${industryLabel.toLowerCase()} made for modern Indian shoppers.`).slice(0, 240),
       ctaLabel: "Shop now",
       ctaHref: `/categories/${categorySlugs[0]}`,
     },
@@ -171,7 +171,7 @@ export function buildFallbackReadyStorePlan(args: {
   ];
   const blogSlugs = uniqueSlugs(blogTopics);
   const blogs = blogTopics.map((title, i) => ({
-    title: `${title} — ${args.storeName}`,
+    title: `${title} — ${args.storeName}`.slice(0, 200),
     slug: blogSlugs[i]!,
     excerpt: `${title} for customers shopping ${industryLabel.toLowerCase()} at ${args.storeName}.`,
     paragraphs: [
@@ -193,14 +193,14 @@ export function buildFallbackReadyStorePlan(args: {
   ];
   const testimonialAuthors = ["Ananya R.", "Rahul K.", "Priya M.", "Vikram S.", "Neha T."];
   const testimonials = testimonialQuotes.map((quote, i) => ({
-    quote,
+    quote: quote.slice(0, 400),
     author: testimonialAuthors[i]!,
     location: INDIAN_CITIES[i % INDIAN_CITIES.length]!,
     rating: 5 as const,
   }));
 
   const storyBase = `${args.storeName} is a ${industryLabel.toLowerCase()} brand serving customers across India with curated products and clear policies.`;
-  const story = args.brief?.trim() ? `${storyBase} ${args.brief.trim()}` : storyBase;
+  const story = (args.brief?.trim() ? `${storyBase} ${args.brief.trim().replace(/\s+/g, " ")}` : storyBase).slice(0, 1500);
 
   const plan = {
     tagline: `${args.storeName} — ${industryShort(args.industry)} you can trust`.slice(0, 160),
