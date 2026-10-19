@@ -5,9 +5,11 @@ import { ActionDialog, ActionForm, InlineAction } from "@/features/settings/ui/a
 import { CheckboxField, SelectField, TextAreaField, TextField, inputClassName as input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/layout";
+import { MediaPicker } from "@/features/media/components/media-picker";
 import { updateCustomerAction } from "@/features/customers/actions";
 import { saveDiscountAction, toggleDiscountAction } from "@/features/marketing/actions";
 import { moderateReviewAction } from "@/features/reviews/actions";
+import { slugify } from "@/features/catalog/variants";
 import { deleteDocumentAction, deleteRowAction, saveDocumentAction, saveMenuAction, saveRowAction, uploadContentImageAction } from "@/features/content/actions";
 import {
   deletePincodeRuleAction,
@@ -227,8 +229,13 @@ function BlockEditor({ blocks, onChange }: { blocks: ContentBlock[]; onChange: (
         <Button size="sm" variant="secondary" onClick={() => add({ type: "quote", text: "" } as ContentBlock)}>+ Quote</Button>
         <Button size="sm" variant="secondary" onClick={() => add({ type: "button", label: "Shop now", href: "/", style: "primary" } as ContentBlock)}>+ Button</Button>
         <Button size="sm" variant="secondary" onClick={() => add({ type: "divider" })}>+ Divider</Button>
+        <MediaPicker
+          folder="content"
+          triggerLabel="Choose existing image"
+          onSelect={([media]) => media && add({ type: "image", path: media.path, alt: media.alt } as ContentBlock)}
+        />
         <label className="inline-flex cursor-pointer items-center rounded-md border border-border px-3 py-1.5 text-sm">
-          {uploading ? "Uploading…" : "+ Image"}
+          {uploading ? "Uploading…" : "Upload image"}
           <input
             type="file"
             accept="image/*"
@@ -259,20 +266,45 @@ export type DocumentValue = { id?: string; title: string; slug: string; status: 
 
 export function DocumentEditor({ table, value }: { table: "pages" | "blog_posts"; value: DocumentValue }) {
   const [blocks, setBlocks] = useState<ContentBlock[]>(value.blocks);
+  const [title, setTitle] = useState(value.title);
+  const [slug, setSlug] = useState(value.slug);
+  const [slugTouched, setSlugTouched] = useState(Boolean(value.id || value.slug));
   return (
     <ActionForm action={saveDocumentAction} fields={{ table, blocks: JSON.stringify(blocks), ...(value.id ? { id: value.id } : {}) }} submitLabel="Save" encType="multipart/form-data">
       {(e) => (
         <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
           <div className="space-y-4">
-            <TextField label="Title" name="title" defaultValue={value.title} required errors={e.title} />
-            <Card title="Content">
+            <TextField
+              label="Title"
+              name="title"
+              value={title}
+              required
+              errors={e.title}
+              onChange={(event) => {
+                const next = event.target.value;
+                setTitle(next);
+                if (!slugTouched) setSlug(slugify(next));
+              }}
+            />
+            <Card title="Content" description="Start from the included content, then add structured text, calls to action, and images from your media library or your computer.">
               <BlockEditor blocks={blocks} onChange={setBlocks} />
               {e.blocks ? <p className="mt-2 text-sm text-error">{e.blocks[0]}</p> : null}
             </Card>
           </div>
           <div className="space-y-4">
             <SelectField label="Status" name="status" defaultValue={value.status} options={[{ value: "draft", label: "Draft" }, { value: "published", label: "Published" }]} />
-            <TextField label="URL handle" name="slug" defaultValue={value.slug} required errors={e.slug} />
+            <TextField
+              label="URL handle"
+              name="slug"
+              value={slug}
+              required
+              errors={e.slug}
+              hint={`/${table === "pages" ? "pages" : "blog"}/${slug || "your-page"}`}
+              onChange={(event) => {
+                setSlugTouched(true);
+                setSlug(slugify(event.target.value));
+              }}
+            />
             {table === "pages" ? (
               <SelectField label="Page type" name="kind" defaultValue={value.kind ?? "page"} options={[{ value: "page", label: "Page" }, { value: "policy", label: "Policy" }, { value: "about", label: "About" }, { value: "contact", label: "Contact" }, { value: "faq", label: "FAQ" }]} />
             ) : (

@@ -27,11 +27,14 @@ export function MerchantAside({ mode }: { mode: "login" | "register" }) {
   return (
     <>
       <BrandLogo />
-      <div className="max-w-lg py-10">
-        <h2 className="font-brand text-[2.5rem] font-extrabold leading-[1.1] tracking-tight text-brand-ink">
+      <div className="max-w-xl py-8 xl:py-10">
+        <p className="mb-5 inline-flex rounded-full border border-brand/15 bg-white/75 px-3 py-1 text-caption font-semibold tracking-wide text-brand-ink shadow-xs">
+          Built for independent businesses
+        </p>
+        <h2 className="font-brand text-[2.5rem] font-extrabold leading-[1.08] tracking-tight text-brand-ink xl:text-5xl">
           {mode === "register" ? "Your brand. Your store. Your next big beginning." : "Welcome back to your store."}
         </h2>
-        <ul className="mt-8 space-y-5">
+        <ul className="mt-8 grid gap-5 xl:grid-cols-2 xl:gap-x-8">
           {MERCHANT_POINTS.map((p) => (
             <li key={p.title} className="flex gap-4">
               <span className="grid size-10 shrink-0 place-items-center rounded-brand-md bg-white text-brand shadow-brand-card">
@@ -46,7 +49,7 @@ export function MerchantAside({ mode }: { mode: "login" | "register" }) {
         </ul>
       </div>
       {ASIDE_THEME ? (
-        <div className="hidden max-h-56 max-w-md overflow-hidden rounded-brand-md border border-border bg-white shadow-brand-float [@media(min-height:900px)]:block" aria-hidden>
+        <div className="hidden w-full max-w-xl self-start overflow-hidden rounded-brand-lg border border-white/80 bg-white p-1.5 shadow-brand-float [@media(min-height:1024px)]:block" aria-hidden>
           <ThemeMockup preset={ASIDE_THEME.preset} name={ASIDE_THEME.name.split(" ")[0]!} />
         </div>
       ) : null}

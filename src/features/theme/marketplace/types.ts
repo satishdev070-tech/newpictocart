@@ -53,6 +53,17 @@ export type ThemePreset = {
   footerLayout?: FooterLayout;
   /** Layout family / stock-photo category, stamped by withLayout from the theme's industry. */
   family?: string;
+  /**
+   * First-use copy for a brochure theme. It is applied only when the current site is still the
+   * untouched commerce starter, so changing a theme never overwrites a seller's own copy.
+   */
+  informativeSeed?: {
+    /** Guards seeds when a consumer derives a different composition from this preset. */
+    homeTypes: string;
+    announcement?: Record<string, unknown>;
+    home?: Record<number, { type: string; settings: Record<string, unknown> }>;
+    footer?: Record<string, unknown>;
+  };
 };
 
 export type MarketplaceTheme = {

@@ -11,6 +11,7 @@ import { extraSpecs, groupTypesForPicker, setSpecValue, specValue, templateFor, 
 import { Card } from "@/components/ui/layout";
 import { Button } from "@/components/ui/button";
 import { inputClassName as input } from "@/components/ui/field";
+import { ProductDescriptionEditor } from "@/features/catalog/components/product-description-editor";
 
 type Opt = { id: string; label: string };
 
@@ -149,7 +150,7 @@ export function ProductEditor({
               </div>
               <div>
                 <L htmlFor="p-desc">Description</L>
-                <textarea id="p-desc" className={input} rows={6} value={d.description} maxLength={20000} onChange={(e) => set({ description: e.target.value })} />
+                <ProductDescriptionEditor id="p-desc" value={d.description} onChange={(description) => set({ description })} />
               </div>
             </div>
           </Card>

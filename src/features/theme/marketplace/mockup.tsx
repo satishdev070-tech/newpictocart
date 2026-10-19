@@ -4,6 +4,7 @@ import { layoutSummary } from "../layouts/apply-layout";
 import { toUnsplashCategory } from "@/lib/unsplash-categories";
 import { curatedStock, sizedStockUrl, stockIndex } from "@/lib/unsplash-stock";
 import type { ThemePreset } from "./catalog";
+import type { MarketplaceTheme } from "./types";
 
 /**
  * Live, token-driven preview of a theme (no screenshots to go stale): header, hero, a product block
@@ -13,6 +14,62 @@ import type { ThemePreset } from "./catalog";
  */
 const RADIUS: Record<string, string> = { none: "0", sm: "4px", md: "8px", lg: "14px" };
 const BTN: Record<string, string> = { square: "0", rounded: "6px", pill: "999px" };
+
+/**
+ * A service-site thumbnail deliberately contains no prices, products, cart or shopping UI.
+ * It is shared by the public and seller marketplaces when a full demo tenant is unavailable.
+ */
+export function InformativeThemeMockup({ theme, size = "card" }: { theme: Pick<MarketplaceTheme, "key" | "name" | "tagline" | "preset">; size?: "card" | "large" | "phone" }) {
+  const c = theme.preset.tokens.colors;
+  const t = theme.preset.tokens as Record<string, unknown>;
+  const heading = FONT_STACKS[(t.headingFont as FontKey) ?? "editorial-serif"]?.stack;
+  const phone = size === "phone";
+  const large = size === "large";
+  const pad = large ? 22 : phone ? 9 : 12;
+  const heroHeight = large ? 230 : phone ? 128 : 112;
+  const labels = theme.key === "pan-pizza" ? ["Our menu", "Private dining", "Find us"]
+    : theme.key === "wedding-wonders" ? ["Our story", "Members", "Start a conversation"]
+      : theme.key === "medicare-clinic" ? ["Departments", "Our doctors", "Appointments"]
+        : theme.key === "urbanistic-studio" || theme.key === "archgenius" ? ["Studio", "Projects", "Journal"]
+          : ["About us", "Services", "Contact"];
+  const action = theme.key === "pan-pizza" ? "Book a table" : theme.key === "easy-loans" ? "Apply now" : theme.key === "medicare-clinic" ? "Book appointment" : theme.key === "shinex-services" ? "Get a quote" : "Talk to us";
+  const proof = theme.key === "easy-loans" ? ["25k+", "48 hrs", "98%"]
+    : theme.key === "medicare-clinic" ? ["15", "37k", "30%"]
+      : theme.key === "wedding-wonders" ? ["10k+", "98%", "15 yrs"]
+        : ["10+", "98%", "1:1"];
+  const editorial = theme.key === "urbanistic-studio" || theme.key === "archgenius";
+  const utility = theme.key === "global-vision" || theme.key === "pan-pizza" || theme.key === "shinex-services" || theme.key === "envoy-visa";
+  return (
+    <div aria-hidden className="overflow-hidden select-none" style={{ background: c.background, color: c.text, fontSize: large ? 12 : 9, lineHeight: 1.25 }}>
+      {utility ? <div style={{ background: c.secondary, color: "#fff", display: "flex", justifyContent: "space-between", padding: `3px ${pad}px`, fontSize: "0.72em" }}><span>● hello@{theme.name.toLowerCase().replace(/\s+/g, "")}.com</span><span>+91 98765 43210</span></div> : null}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: `${pad * 0.6}px ${pad}px`, borderBottom: `1px solid ${c.border}`, background: editorial ? "#fff" : c.background }}>
+        <strong style={{ color: c.primary, fontFamily: heading, fontSize: large ? "1.8em" : "1.3em" }}>{theme.name}</strong>
+        {!phone ? <div style={{ display: "flex", gap: large ? 18 : 8, fontSize: "0.76em" }}>{labels.map((label) => <span key={label}>{label}</span>)}</div> : null}
+        <span style={{ background: c.primary, color: "#fff", padding: "4px 8px", borderRadius: 999, fontSize: "0.7em", whiteSpace: "nowrap" }}>{action}</span>
+      </div>
+      <div style={{ minHeight: heroHeight, display: "grid", gridTemplateColumns: phone ? "1fr" : editorial ? "1.05fr 0.95fr" : "1fr", alignItems: "end", padding: pad, position: "relative", background: `linear-gradient(120deg, ${c.secondary}, ${c.primary})`, color: "#fff", overflow: "hidden" }}>
+        <div style={{ position: "relative", zIndex: 1, maxWidth: phone ? "100%" : "64%" }}>
+          <div style={{ fontSize: "0.68em", letterSpacing: "0.18em", textTransform: "uppercase", opacity: 0.8 }}>— {theme.key === "pan-pizza" ? "Wood fired perfection" : theme.key === "medicare-clinic" ? "Care that puts you first" : "Thoughtfully made for you"}</div>
+          <div style={{ fontFamily: heading, fontSize: large ? "3em" : phone ? "1.75em" : "2em", lineHeight: 1.03, marginTop: 5 }}>{theme.tagline}</div>
+          <div style={{ display: "inline-block", marginTop: 9, padding: "5px 10px", background: c.accent, color: c.text, borderRadius: 2, fontWeight: 700, fontSize: "0.78em" }}>{action} →</div>
+        </div>
+        {editorial && !phone ? <div style={{ position: "absolute", right: 0, bottom: 0, width: "45%", height: "86%", background: `linear-gradient(145deg, ${c.accent}, rgb(255 255 255 / 0.2))`, clipPath: "polygon(18% 0, 100% 0, 100% 100%, 0 100%)" }} /> : null}
+        {!editorial ? <div style={{ position: "absolute", right: "-8%", bottom: "-30%", width: "45%", aspectRatio: "1", border: "1px solid rgb(255 255 255 / 0.35)", borderRadius: "50%" }} /> : null}
+      </div>
+      <div style={{ padding: `${pad}px ${pad}px ${pad * 0.7}px` }}>
+        <div style={{ textAlign: "center", color: c.primary, letterSpacing: "0.12em", fontSize: "0.68em", textTransform: "uppercase" }}>Why choose {theme.name}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginTop: 7 }}>
+          {proof.map((value, index) => <div key={value} style={{ border: `1px solid ${c.border}`, borderRadius: 4, padding: large ? 10 : 5, textAlign: "center" }}><strong style={{ color: c.primary, fontSize: large ? "1.8em" : "1.2em" }}>{value}</strong><span style={{ display: "block", fontSize: "0.65em", marginTop: 2 }}>{["trusted clients", "expert team", "personal service"][index]}</span></div>)}
+        </div>
+      </div>
+      <div style={{ margin: `0 ${pad}px ${pad}px`, padding: pad, background: c.border, display: "grid", gridTemplateColumns: phone ? "1fr" : "1fr 1.2fr", gap: pad }}>
+        <div style={{ minHeight: phone ? 34 : 52, background: `linear-gradient(135deg, ${c.accent}, ${c.background})`, borderRadius: 3 }} />
+        <div><div style={{ fontFamily: heading, fontSize: large ? "1.7em" : "1.15em" }}>Guidance with a human touch</div><p style={{ margin: "4px 0", opacity: 0.75, fontSize: "0.72em" }}>Clear expertise, meaningful outcomes and a simple path to your next step.</p><span style={{ color: c.primary, fontWeight: 700, fontSize: "0.72em" }}>Explore our approach →</span></div>
+      </div>
+      <div style={{ background: c.secondary, color: "#fff", padding: `${pad * 0.55}px ${pad}px`, fontSize: "0.68em", display: "flex", justifyContent: "space-between" }}><span>{theme.name}</span><span>© 2026 · Privacy · Contact</span></div>
+    </div>
+  );
+}
 
 function Photo({ src, style, radius = "0" }: { src: string; style?: CSSProperties; radius?: string }) {
   // eslint-disable-next-line @next/next/no-img-element -- tiny decorative thumbnail, pre-sized by Unsplash

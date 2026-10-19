@@ -34,6 +34,7 @@ import type { CollectionCondition, CollectionRules } from "@/features/catalog/co
 import { ADJUST_REASONS, COLLECTION_SORTS, COLLECTION_SORT_LABELS, INVENTORY_REASON_LABELS } from "@/features/catalog/constants";
 import { DEFAULT_PRODUCT_TYPES, typeLabel } from "@/features/catalog/product-types";
 import { DEFAULT_CHART, addColumn, addRow, removeColumn, removeRow, setCell, setColumnName, type SizeChartData } from "@/features/catalog/size-chart";
+import { slugify } from "@/features/catalog/variants";
 
 type Opt = { id: string; label: string };
 
@@ -218,27 +219,48 @@ export function ProductBulkBar({ formId }: { formId: string }) {
 export function ImportProducts() {
   const [state, action, pending] = useActionState(importProductsAction, null);
   const [mode, setMode] = useState<"preview" | "apply">("preview");
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   return (
-    <form action={action} className="space-y-3" encType="multipart/form-data">
+    <form action={action} className="space-y-4" encType="multipart/form-data">
       <input type="hidden" name="mode" value={mode} />
       <FormMessage state={state} />
-      <label htmlFor="csv" className="block text-sm font-medium">
-        Products CSV
+      <label htmlFor="csv" className="block cursor-pointer rounded-lg border border-dashed border-border-strong bg-surface-secondary/40 p-5 text-center transition-colors hover:border-accent hover:bg-accent-soft/40">
+        <span className="block text-sm font-semibold text-foreground">{fileName ?? "Choose a CSV file"}</span>
+        <span className="mt-1 block text-xs text-muted">One row per variant. CSV files up to 10 MB.</span>
+        <input
+          id="csv"
+          name="file"
+          type="file"
+          accept=".csv,text/csv"
+          required
+          className="sr-only"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            const validType = file.name.toLowerCase().endsWith(".csv") || file.type === "text/csv";
+            const error = !validType ? "Choose a .csv file." : file.size > 10 * 1024 * 1024 ? "The CSV must be 10 MB or smaller." : null;
+            setFileName(error ? null : file.name);
+            setFileError(error);
+            if (error) event.target.value = "";
+          }}
+        />
       </label>
-      <input id="csv" name="file" type="file" accept=".csv,text/csv" required className="text-sm" />
-      <div className="flex gap-2">
-        <Button type="submit" variant="secondary" pending={pending && mode === "preview"} onClick={() => setMode("preview")}>
-          Preview
+      {fileError ? <p role="alert" className="text-sm text-error">{fileError}</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" variant="secondary" disabled={Boolean(fileError)} pending={pending && mode === "preview"} onClick={() => setMode("preview")}>
+          Validate & preview
         </Button>
-        <Button type="submit" pending={pending && mode === "apply"} onClick={() => setMode("apply")}>
+        <Button type="submit" disabled={Boolean(fileError)} pending={pending && mode === "apply"} onClick={() => setMode("apply")}>
           Import
         </Button>
       </div>
       {state?.ok ? (
-        <div role="status" className="rounded-md border border-border p-3 text-sm">
-          <p className="font-medium">{state.data.mode === "preview" ? "Preview: " : "Imported: "}{state.data.summary}</p>
+        <div role="status" className="rounded-md border border-border bg-surface-secondary/40 p-4 text-sm">
+          <p className="font-medium">{state.data.mode === "preview" ? "Validation complete" : "Import complete"}</p>
+          <p className="mt-1 text-muted">{state.data.summary}</p>
           {state.data.errors.length ? (
-            <ul className="mt-2 max-h-48 list-disc overflow-y-auto pl-5 text-xs text-error">
+            <ul className="mt-3 max-h-48 list-disc overflow-y-auto rounded-md border border-error/20 bg-error/5 p-3 pl-7 text-xs text-error">
               {state.data.errors.map((e, i) => (
                 <li key={i}>{e}</li>
               ))}
@@ -255,12 +277,15 @@ export function ImportProducts() {
 export type CategoryValue = { id?: string; name: string; slug: string; description: string; parentId: string | null; status: string; position: number; seoTitle: string; seoDescription: string; imageUrl: string | null };
 
 export function CategoryForm({ value, parents }: { value?: CategoryValue; parents: Opt[] }) {
+  const [name, setName] = useState(value?.name ?? "");
+  const [slug, setSlug] = useState(value?.slug ?? "");
+  const [slugTouched, setSlugTouched] = useState(Boolean(value?.id || value?.slug));
   return (
     <ActionForm action={saveCategoryAction} fields={value?.id ? { id: value.id } : {}} submitLabel={value?.id ? "Save category" : "Add category"} success="Saved." encType="multipart/form-data" resetOnSuccess={!value?.id}>
       {(e) => (
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Name" name="name" defaultValue={value?.name} required errors={e.name} />
-          <TextField label="URL handle" name="slug" defaultValue={value?.slug} required errors={e.slug} hint="lowercase-with-hyphens" />
+          <TextField label="Name" name="name" value={name} required errors={e.name} onChange={(event) => { setName(event.target.value); if (!slugTouched) setSlug(slugify(event.target.value)); }} />
+          <TextField label="URL handle" name="slug" value={slug} required errors={e.slug} hint="Generated from the name; you can edit it." onChange={(event) => { setSlugTouched(true); setSlug(slugify(event.target.value)); }} />
           <SelectField label="Parent" name="parentId" defaultValue={value?.parentId ?? ""} options={[{ value: "", label: "None (top level)" }, ...parents.filter((p) => p.id !== value?.id).map((p) => ({ value: p.id, label: p.label }))]} errors={e.parentId} />
           <SelectField label="Status" name="status" defaultValue={value?.status ?? "active"} options={[{ value: "active", label: "Visible" }, { value: "hidden", label: "Hidden" }]} />
           <TextField label="Position" name="position" type="number" min={0} defaultValue={value?.position ?? 0} />
@@ -325,6 +350,9 @@ export function CollectionForm({ value, categories, products }: { value: Collect
   const [filter, setFilter] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
   const [checking, start] = useTransition();
+  const [title, setTitle] = useState(value.title);
+  const [slug, setSlug] = useState(value.slug);
+  const [slugTouched, setSlugTouched] = useState(Boolean(value.id || value.slug));
   const conds = rules.conditions as CollectionCondition[];
   const setCond = (i: number, c: CollectionCondition) => setRules({ ...rules, conditions: conds.map((x, j) => (j === i ? c : x)) as CollectionRules["conditions"] });
   return (
@@ -335,8 +363,8 @@ export function CollectionForm({ value, categories, products }: { value: Collect
           {type === "manual" ? <input type="hidden" name="productIdsPresent" value="1" /> : null}
           <Card title="Details">
             <div className="grid gap-4 sm:grid-cols-2">
-              <TextField label="Title" name="title" defaultValue={value.title} required errors={e.title} />
-              <TextField label="URL handle" name="slug" defaultValue={value.slug} required errors={e.slug} />
+              <TextField label="Title" name="title" value={title} required errors={e.title} onChange={(event) => { setTitle(event.target.value); if (!slugTouched) setSlug(slugify(event.target.value)); }} />
+              <TextField label="URL handle" name="slug" value={slug} required errors={e.slug} hint="Generated from the title; you can edit it." onChange={(event) => { setSlugTouched(true); setSlug(slugify(event.target.value)); }} />
               <SelectField label="Type" name="type" value={type} onChange={(ev) => setType(ev.target.value as "manual" | "automated")} options={[{ value: "manual", label: "Manual — pick products" }, { value: "automated", label: "Automated — by rules" }]} />
               <SelectField label="Status" name="status" defaultValue={value.status} options={[{ value: "active", label: "Active" }, { value: "draft", label: "Draft" }]} />
               <SelectField label="Sort products by" name="sortOrder" defaultValue={value.sortOrder} options={COLLECTION_SORTS.map((s) => ({ value: s, label: COLLECTION_SORT_LABELS[s] }))} />

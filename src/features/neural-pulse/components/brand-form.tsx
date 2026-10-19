@@ -1,10 +1,12 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
-import { Sparkles } from "lucide-react";
+import Link from "next/link";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
 import { Hint, TextAreaField, TextField } from "@/components/ui/field";
+import { useToast } from "@/components/ui/toast";
 import type { ActionResult } from "@/lib/actions/result";
 import { autofillBrandAction, saveBrandProfileAction } from "../actions";
 import { BRAND_LANGUAGES, LANGUAGE_LABELS, PROVIDER_LABELS, type BrandLanguage, type BrandProfile } from "../schemas";
@@ -16,15 +18,28 @@ export function BrandForm({ initial, canWrite, aiReady }: { initial: BrandProfil
   const [filling, startFill] = useTransition();
   const [fillMsg, setFillMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const errors = fieldErrors(state);
+  const { show } = useToast();
+
+  useEffect(() => {
+    if (!state) return;
+    show({ tone: state.ok ? "success" : "error", message: state.ok ? "Brand profile saved. Future drafts will use it." : state.error.fieldErrors?._form?.[0] ?? state.error.message });
+  }, [show, state]);
 
   const autofill = () =>
     startFill(async () => {
       setFillMsg(null);
       const r = await autofillBrandAction();
-      if (!r.ok) return setFillMsg({ ok: false, text: r.error.fieldErrors?._form?.[0] ?? r.error.message });
+      if (!r.ok) {
+        const text = r.error.fieldErrors?._form?.[0] ?? r.error.message;
+        setFillMsg({ ok: false, text });
+        show({ tone: "error", message: text });
+        return;
+      }
       setV({ voice: r.data.voice, audience: r.data.audience, keywords: r.data.keywords.join(", "), dos: r.data.dos, donts: r.data.donts });
       setLangs(r.data.languages);
-      setFillMsg({ ok: true, text: `Draft filled in by ${PROVIDER_LABELS[r.data.provider]}. Review it, then save.` });
+      const text = `Draft filled in by ${PROVIDER_LABELS[r.data.provider]}. Review it, then save.`;
+      setFillMsg({ ok: true, text });
+      show({ tone: "success", message: text });
     });
 
   const set = (k: keyof typeof v) => (e: { target: { value: string } }) => setV((s) => ({ ...s, [k]: e.target.value }));
@@ -44,6 +59,7 @@ export function BrandForm({ initial, canWrite, aiReady }: { initial: BrandProfil
           {fillMsg.text}
         </p>
       ) : null}
+      <p className="rounded-lg border border-border bg-surface-secondary/55 px-3 py-2 text-caption text-muted">This controls your writing voice, audience and guardrails. Your visual colours and logo are inherited by Creative Studio from the <Link href="/dashboard/themes" className="font-medium text-accent underline">Theme editor <ArrowRight aria-hidden className="inline size-3" /></Link>.</p>
       <fieldset disabled={!canWrite} className="grid gap-4 md:grid-cols-2">
         <TextAreaField label="Brand voice" name="voice" rows={3} maxLength={500} value={v.voice} onChange={set("voice")} errors={errors.voice} optional placeholder="Warm, witty, proudly handmade. Talks like a friend, not a salesperson." />
         <TextAreaField label="Audience" name="audience" rows={3} maxLength={500} value={v.audience} onChange={set("audience")} errors={errors.audience} optional placeholder="Women 22-40 in metro cities who love ethnic wear for festivals and work." />

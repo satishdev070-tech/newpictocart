@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { CheckCircle2, MailCheck } from "lucide-react";
 import { TextField } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
@@ -14,6 +14,39 @@ const forgotLink = (
   </Link>
 );
 
+const merchantSubmitClass = "w-full !bg-[#c2410c] !text-white hover:!bg-[#9a3412] focus-visible:!outline-[#c2410c]";
+
+function PasswordGuidance({ value }: { value: string }) {
+  const requirements = [
+    { label: "10+ characters", met: value.length >= 10 },
+    { label: "A letter", met: /[A-Za-z]/.test(value) },
+    { label: "A number", met: /\d/.test(value) },
+  ];
+  const met = requirements.filter((requirement) => requirement.met).length;
+  const summary = value.length === 0 ? "Use a unique password with these requirements." : met === requirements.length ? "Password meets the requirements." : "Keep going — complete all three checks.";
+
+  return (
+    <div className="mt-2 rounded-brand-sm border border-brand-orange/15 bg-brand-accent-soft/45 px-3 py-2.5 text-caption text-muted">
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-medium text-brand-ink">Password strength</span>
+        <span className={met === requirements.length ? "font-semibold text-success" : "text-muted"}>{summary}</span>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-1" aria-hidden>
+        {requirements.map((requirement) => (
+          <span key={requirement.label} className={`h-1 rounded-full ${requirement.met ? "bg-brand-orange-hover" : "bg-border"}`} />
+        ))}
+      </div>
+      <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+        {requirements.map((requirement) => (
+          <li key={requirement.label} className={requirement.met ? "font-medium text-success" : undefined}>
+            {requirement.met ? "✓" : "○"} {requirement.label}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** `variant="admin"` is the platform console: no self-serve sign-up link. */
 export function SignInForm({ next, variant = "seller" }: { next?: string; variant?: "seller" | "admin" }) {
   const [state, action] = useActionState(signInAction, null);
@@ -22,9 +55,9 @@ export function SignInForm({ next, variant = "seller" }: { next?: string; varian
     <form action={action} className="space-y-5" noValidate>
       <input type="hidden" name="next" value={next ?? ""} />
       <FormMessage state={state} />
-      <TextField label={variant === "admin" ? "Work email" : "Email"} name="email" type="email" autoComplete="email" placeholder="you@company.com" required errors={errors.email} />
-      <PasswordField label="Password" name="password" autoComplete="current-password" required errors={errors.password} labelAside={forgotLink} />
-      <SubmitButton size="lg" variant={variant === "admin" ? "accent" : "primary"} className="w-full">
+      <TextField label={variant === "admin" ? "Work email" : "Email"} name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@company.com" required errors={errors.email} />
+      <PasswordField label="Password" name="password" autoComplete="current-password" required errors={errors.password} labelAside={forgotLink} hint={variant === "seller" ? "Use the password for this merchant account." : undefined} />
+      <SubmitButton size="lg" variant={variant === "admin" ? "accent" : "primary"} className={variant === "seller" ? merchantSubmitClass : "w-full"}>
         Sign in
       </SubmitButton>
       {variant === "seller" ? (
@@ -41,6 +74,7 @@ export function SignInForm({ next, variant = "seller" }: { next?: string; varian
 
 export function SignUpForm({ next, defaultStoreName, plan, theme }: { next?: string; defaultStoreName?: string; plan?: string | null; theme?: string | null }) {
   const [state, action] = useActionState(signUpAction, null);
+  const [password, setPassword] = useState("");
   const errors = fieldErrors(state);
   if (state?.ok && state.data.needsConfirmation) {
     return (
@@ -60,10 +94,10 @@ export function SignUpForm({ next, defaultStoreName, plan, theme }: { next?: str
       {theme ? <input type="hidden" name="theme" value={theme} /> : null}
       <FormMessage state={state} />
       <TextField label="Full name" name="displayName" autoComplete="name" placeholder="Asha Mehta" required errors={errors.displayName} />
-      <TextField label="Email" name="email" type="email" autoComplete="email" placeholder="you@yourbusiness.in" required errors={errors.email} />
-      <PasswordField label="Password" name="password" autoComplete="new-password" required errors={errors.password} hint="At least 10 characters with a letter and a number." />
+      <TextField label="Email" name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@yourbusiness.in" required errors={errors.email} />
+      <PasswordField label="Password" name="password" autoComplete="new-password" required errors={errors.password} onChange={(event) => setPassword(event.currentTarget.value)} hint={<PasswordGuidance value={password} />} />
       <TextField label="Business name" name="storeName" autoComplete="organization" placeholder="e.g. Asha Crafts" defaultValue={defaultStoreName} required errors={errors.storeName} hint="You'll confirm your store details in the next step." />
-      <SubmitButton size="lg" className="w-full">
+      <SubmitButton size="lg" className={merchantSubmitClass}>
         Create account
       </SubmitButton>
       <p className="text-caption text-muted">
@@ -107,8 +141,8 @@ export function ForgotPasswordForm() {
   return (
     <form action={action} className="space-y-5" noValidate>
       <FormMessage state={state} />
-      <TextField label="Email" name="email" type="email" autoComplete="email" placeholder="you@company.com" required errors={errors.email} />
-      <SubmitButton size="lg" className="w-full">
+      <TextField label="Email" name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@company.com" required errors={errors.email} />
+      <SubmitButton size="lg" className={merchantSubmitClass}>
         Send reset link
       </SubmitButton>
     </form>
@@ -117,13 +151,14 @@ export function ForgotPasswordForm() {
 
 export function ResetPasswordForm() {
   const [state, action] = useActionState(resetPasswordAction, null);
+  const [password, setPassword] = useState("");
   const errors = fieldErrors(state);
   return (
     <form action={action} className="space-y-5" noValidate>
       <FormMessage state={state} success={<><CheckCircle2 aria-hidden className="mr-1 inline size-4" /> Password updated.</>} />
-      <PasswordField label="New password" name="password" autoComplete="new-password" required errors={errors.password} hint="At least 10 characters with a letter and a number." />
-      <PasswordField label="Confirm password" name="confirm" autoComplete="new-password" required errors={errors.confirm} />
-      <SubmitButton size="lg" className="w-full">
+      <PasswordField label="New password" name="password" autoComplete="new-password" required errors={errors.password} onChange={(event) => setPassword(event.currentTarget.value)} hint={<PasswordGuidance value={password} />} />
+      <PasswordField label="Confirm password" name="confirm" autoComplete="new-password" required errors={errors.confirm} hint="Re-enter the same password to confirm it." />
+      <SubmitButton size="lg" className={merchantSubmitClass}>
         Update password
       </SubmitButton>
     </form>

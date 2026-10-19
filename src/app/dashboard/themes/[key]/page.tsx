@@ -8,10 +8,10 @@ import { Badge, Card, PageHeader } from "@/components/ui/layout";
 import { getEntitlements } from "@/features/platform";
 import { getThemeKeys } from "@/features/theme/server/queries";
 import { findAnyMarketplaceTheme } from "@/features/theme/marketplace/registry";
-import { ThemeMockup } from "@/features/theme/marketplace/mockup";
+import { InformativeThemeMockup, ThemeMockup } from "@/features/theme/marketplace/mockup";
 import { ApplyThemeButton } from "@/features/theme/marketplace/apply-button";
 import { FONT_STACKS, type FontKey } from "@/features/theme/schema/tokens";
-import { THEME_STYLE_LABELS } from "@/features/theme/marketplace/types";
+import { THEME_STYLE_LABELS, themeSiteType } from "@/features/theme/marketplace/types";
 import { industryName } from "@/features/stores/industries";
 import { liveDemoOrigins } from "@/features/theme/marketplace/server";
 import { livePreviewUrl } from "@/features/theme/marketplace/live-preview";
@@ -27,7 +27,7 @@ export default async function ThemeDetailPage({ params }: PageProps<"/dashboard/
   if (!t) notFound();
   const [keys, ent, demos] = await Promise.all([getThemeKeys(ctx.tenantId), getEntitlements(ctx.tenantId), liveDemoOrigins(t.demo ? [t.demo] : [])]);
   const live = keys.published === t.key;
-  const previewUrl = t.demo && demos.has(t.demo) ? livePreviewUrl(storeOrigin(storeSubdomain(t.demo)), t.key) : null;
+  const previewUrl = themeSiteType(t) === "informative" ? null : t.demo && demos.has(t.demo) ? livePreviewUrl(storeOrigin(storeSubdomain(t.demo)), t.key) : null;
   const colors = t.preset.tokens.colors;
   const canApply = !live && ent.isEnabled("theme_marketplace");
   return (
@@ -45,7 +45,7 @@ export default async function ThemeDetailPage({ params }: PageProps<"/dashboard/
       />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="self-start overflow-hidden rounded-lg border border-border">
-          <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} size="large" />
+          {themeSiteType(t) === "informative" ? <InformativeThemeMockup theme={t} size="large" /> : <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} size="large" />}
         </div>
         <div className="space-y-4">
           <Card title="About this theme">

@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition, type ReactNode } from "react";
-import { CalendarPlus, Copy, Lightbulb, PenLine, CalendarRange, History, UserRound } from "lucide-react";
+import { CalendarPlus, Copy, Lightbulb, PenLine, CalendarRange, History, UserRound, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/layout";
 import { inputClassName, Label, Hint } from "@/components/ui/field";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { PILLAR_LABELS, type Channel } from "@/features/social/compose";
 import { ChannelChip } from "@/features/social/components/channels";
@@ -51,11 +53,14 @@ function Channels({ list }: { list: Channel[] }) {
 function useCalendar() {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<Msg>(null);
+  const { show } = useToast();
   const add = (mode: "draft" | "plan", items: CalendarItem[]) =>
     start(async () => {
       setMsg(null);
       const r = await addToCalendarAction({ mode, items });
-      setMsg(r.ok ? { ok: true, text: r.data } : { ok: false, text: errText(r.error) });
+      const next = r.ok ? { ok: true, text: r.data } : { ok: false, text: errText(r.error) };
+      setMsg(next);
+      show({ tone: next.ok ? "success" : "error", message: next.text });
     });
   return { pending, msg, add };
 }
@@ -112,12 +117,19 @@ function IdeasPanel({ canWrite, aiReady, onCaption }: { canWrite: boolean; aiRea
   const [pending, start] = useTransition();
   const [res, setRes] = useState<({ ideas: ContentIdea[] } & Meta) | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
+  const { show } = useToast();
   const run = () =>
     start(async () => {
       setMsg(null);
       const r = await generateIdeasAction({ focus });
-      if (r.ok) setRes(r.data);
-      else setMsg({ ok: false, text: errText(r.error) });
+      if (r.ok) {
+        setRes(r.data);
+        show({ tone: "success", message: `${r.data.ideas.length} fresh content ideas are ready to review.` });
+      } else {
+        const text = errText(r.error);
+        setMsg({ ok: false, text });
+        show({ tone: "error", message: text });
+      }
     });
   return (
     <div className="space-y-4">
@@ -147,6 +159,7 @@ function IdeasPanel({ canWrite, aiReady, onCaption }: { canWrite: boolean; aiRea
 
 function CopyButton({ text }: { text: string }) {
   const [done, setDone] = useState(false);
+  const { show } = useToast();
   return (
     <Button
       variant="ghost"
@@ -155,9 +168,10 @@ function CopyButton({ text }: { text: string }) {
         try {
           await navigator.clipboard.writeText(text);
           setDone(true);
+          show({ tone: "success", message: "Copied to your clipboard." });
           setTimeout(() => setDone(false), 1500);
         } catch {
-          /* clipboard blocked: the text is still selectable */
+          show({ tone: "warning", message: "Copying was blocked by this browser. You can still select the text." });
         }
       }}
     >
@@ -218,12 +232,19 @@ function CaptionPanel({ canWrite, aiReady, products, idea, setIdea }: { canWrite
   const [pending, start] = useTransition();
   const [res, setRes] = useState<(CaptionSet & Meta & { title: string }) | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
+  const { show } = useToast();
   const run = () =>
     start(async () => {
       setMsg(null);
       const r = await generateCaptionAction({ productId, idea });
-      if (r.ok) setRes({ ...r.data, title: products.find((p) => p.id === productId)?.title.slice(0, 120) ?? (idea.split("\n")[0]?.slice(0, 80) || "AI caption") });
-      else setMsg({ ok: false, text: errText(r.error) });
+      if (r.ok) {
+        setRes({ ...r.data, title: products.find((p) => p.id === productId)?.title.slice(0, 120) ?? (idea.split("\n")[0]?.slice(0, 80) || "AI caption") });
+        show({ tone: "success", message: "Channel-ready captions and hashtags are ready." });
+      } else {
+        const text = errText(r.error);
+        setMsg({ ok: false, text });
+        show({ tone: "error", message: text });
+      }
     });
   return (
     <div className="space-y-4">
@@ -240,7 +261,7 @@ function CaptionPanel({ canWrite, aiReady, products, idea, setIdea }: { canWrite
               </option>
             ))}
           </select>
-          <Hint>Uses the product&apos;s title, price and summary.</Hint>
+          <Hint>Uses this product&apos;s current title, price and summary — it never invents a discount.</Hint>
         </div>
         <div>
           <Label htmlFor="np-idea" optional>
@@ -252,6 +273,7 @@ function CaptionPanel({ canWrite, aiReady, products, idea, setIdea }: { canWrite
       <Button onClick={run} pending={pending} disabled={!canWrite || !aiReady || (!productId && !idea.trim())}>
         Write caption + hashtags
       </Button>
+      {!products.length ? <p className="text-caption text-muted">No active products yet. Describe an angle above, or <Link href="/dashboard/products/new" className="font-medium text-accent underline">add a product first</Link>.</p> : null}
       <Banner msg={msg} />
       {res ? (
         <>
@@ -315,12 +337,19 @@ function PlanPanel({ canWrite, aiReady, today }: { canWrite: boolean; aiReady: b
   const [pending, start] = useTransition();
   const [res, setRes] = useState<({ posts: PlanPost[] } & Meta) | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
+  const { show } = useToast();
   const run = () =>
     start(async () => {
       setMsg(null);
       const r = await generatePlanAction(form);
-      if (r.ok) setRes(r.data);
-      else setMsg({ ok: false, text: errText(r.error) });
+      if (r.ok) {
+        setRes(r.data);
+        show({ tone: "success", message: `${r.data.posts.length} planned posts are ready for your review.` });
+      } else {
+        const text = errText(r.error);
+        setMsg({ ok: false, text });
+        show({ tone: "error", message: text });
+      }
     });
   return (
     <div className="space-y-4">
@@ -431,6 +460,20 @@ export function NeuralPulseStudio(props: { brand: BrandProfile; canWrite: boolea
   const [captionIdea, setCaptionIdea] = useState("");
   return (
     <div>
+      <section className="mb-5 grid gap-3 rounded-xl border border-border bg-surface-secondary/55 p-4 sm:grid-cols-3">
+        <div className="flex items-start gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><UserRound aria-hidden className="size-4" /></span>
+          <div><p className="text-small font-semibold">1. Set your voice</p><p className="mt-0.5 text-caption text-muted">{props.brand.voice || props.brand.audience ? "Brand profile is ready to guide every draft." : "Add a brand profile before you generate."}</p></div>
+        </div>
+        <div className="flex items-start gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><WandSparkles aria-hidden className="size-4" /></span>
+          <div><p className="text-small font-semibold">2. Generate and review</p><p className="mt-0.5 text-caption text-muted">Use real product details, then edit every word.</p></div>
+        </div>
+        <div className="flex items-start gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><CalendarPlus aria-hidden className="size-4" /></span>
+          <div><p className="text-small font-semibold">3. Send when ready</p><p className="mt-0.5 text-caption text-muted">Save drafts or plan posts — nothing publishes automatically.</p></div>
+        </div>
+      </section>
       <div role="tablist" aria-label="Neural Pulse" className="-mx-4 mb-5 flex gap-1 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
         {TABS.map((t) => (
           <button

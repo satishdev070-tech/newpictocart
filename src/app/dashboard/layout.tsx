@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { platformIconMetadata } from "@/features/platform/server/public-config";
 import Link from "next/link";
-import { ChevronsUpDown, ExternalLink, LogOut } from "lucide-react";
+import { ChevronsUpDown, ExternalLink, LogOut, Sparkles } from "lucide-react";
 import { requireTenant } from "@/lib/tenant/membership";
 import { DASHBOARD_NAV } from "@/components/dashboard/nav";
 import { AppShell } from "@/components/app-shell/app-shell";
@@ -18,6 +18,7 @@ import { roleLabel } from "@/lib/permissions/labels";
 import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { navForSiteMode, parseSiteMode } from "@/features/stores/site-mode";
+import { getAiCreditBalance } from "@/features/ai-credits/server";
 
 /** Plan name and trial end of the active store (RLS: members read their tenant). Null on error. */
 async function trialInfo(tenantId: string): Promise<{ plan: string | null; endsAt: string | null } | null> {
@@ -61,7 +62,13 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   );
   const storeUrl = storeOrigin(storeSubdomain(ctx.tenantSlug));
   // Independent reads in parallel (the cookie store is needed only for the support banner).
-  const [alerts, trial, cookieStore, bell] = await Promise.all([getDashboardAlerts(ctx), ctx.tenantStatus === "trial" ? trialInfo(ctx.tenantId) : Promise.resolve(null), cookies(), getBellData({ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId })]);
+  const [alerts, trial, cookieStore, bell, aiCreditBalance] = await Promise.all([
+    getDashboardAlerts(ctx),
+    ctx.tenantStatus === "trial" ? trialInfo(ctx.tenantId) : Promise.resolve(null),
+    cookies(),
+    getBellData({ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId }),
+    ctx.permissions.has("marketing.read") ? getAiCreditBalance(ctx.tenantId) : Promise.resolve(null),
+  ]);
   const displayName = ctx.user.displayName ?? ctx.user.email ?? "Account";
 
   const brand = <PanelLogo href="/dashboard" label="Pictocart seller dashboard" />;
@@ -90,6 +97,17 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   const topbarEnd = (
     <>
       <AppearanceQuickToggle />
+      {aiCreditBalance !== null ? (
+        <Link
+          href="/dashboard/marketing/neural-pulse"
+          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/20 bg-accent-soft px-2.5 text-caption font-semibold text-accent transition-colors hover:bg-accent/15"
+          title="AI credits"
+        >
+          <Sparkles aria-hidden className="size-3.5" />
+          <span>{aiCreditBalance}</span>
+          <span className="hidden sm:inline">credits</span>
+        </Link>
+      ) : null}
       <NotificationBell scope="tenant" userId={ctx.user.id} initial={bell} attention={alerts} viewAllHref="/dashboard/notifications" />
       <Popover
         label="Account and store"

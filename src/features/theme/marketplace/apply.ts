@@ -29,11 +29,22 @@ export function isStyleSetting(type: SectionType, key: string): boolean {
 
 const isType = (t: string): t is SectionType => (SECTION_TYPES as readonly string[]).includes(t);
 
-function mergeSection(type: SectionType, id: string, style: Record<string, unknown>, current: SectionInstance | undefined): SectionInstance {
+function mergeSection(type: SectionType, id: string, style: Record<string, unknown>, current: SectionInstance | undefined, seed?: Record<string, unknown>): SectionInstance {
   const base = { ...defaultSettings(type) };
-  if (current) for (const [k, v] of Object.entries(current.settings)) if (!isStyleSetting(type, k)) base[k] = v;
+  if (seed) Object.assign(base, seed);
+  if (current && !seed) for (const [k, v] of Object.entries(current.settings)) if (!isStyleSetting(type, k)) base[k] = v;
   for (const [k, v] of Object.entries(style)) if (isStyleSetting(type, k) || (!current && k in base)) base[k] = v;
   return { id, type, settings: base, visibility: current?.visibility ?? { desktop: true, mobile: true } };
+}
+
+/** The starter storefront has commerce-only copy. Brochure starter copy must replace it once. */
+function isUntouchedCommerceStarter(current: ThemeConfig): boolean {
+  const announcement = current.layout.header.find((section) => section.type === "AnnouncementBar");
+  const hero = current.templates.home.find((section) => section.type === "Hero");
+  const messages = announcement?.settings.messages;
+  const slides = hero?.settings.slides;
+  return Array.isArray(messages) && messages.some((message) => typeof message === "object" && message !== null && String((message as { text?: unknown }).text ?? "").includes("Free shipping"))
+    && Array.isArray(slides) && slides.some((slide) => typeof slide === "object" && slide !== null && String((slide as { heading?: unknown }).heading ?? "").includes("festive edit"));
 }
 
 /** Product grids and carousels share their content settings, so a slot can feed either. */
@@ -93,6 +104,8 @@ function buildTemplate(list: HomeItem[], current: SectionInstance[], prefix: str
 }
 
 export function applyThemePreset(current: ThemeConfig, preset: ThemePreset): unknown {
+  const seedMatchesComposition = preset.informativeSeed?.homeTypes === preset.home.map(([type]) => type).join(">");
+  const informativeSeed = preset.informativeSeed && seedMatchesComposition && isUntouchedCommerceStarter(current) ? preset.informativeSeed : undefined;
   const pool = makePool([...current.templates.home, ...current.layout.header, ...current.layout.footer]);
   const used = new Set<string>();
   const uid = (type: string, n: number) => {
@@ -117,7 +130,8 @@ export function applyThemePreset(current: ThemeConfig, preset: ThemePreset): unk
       // Keep slot ids, so applying another theme later still finds the same content.
       const hit = !!slot && cur?.id === `${SLOT_PREFIX}${slot}` && !used.has(cur.id);
       const id = hit ? (used.add(cur!.id), cur!.id) : uid(type, i + 1);
-      const s = mergeSection(type, id, style, cur);
+      const seed = informativeSeed?.home?.[i];
+      const s = mergeSection(type, id, style, cur, seed?.type === type ? seed.settings : undefined);
       // A named slot is shown when a theme asks for it (demo pools keep unused slots hidden).
       if (hit || cur?.id.startsWith(SLOT_PREFIX)) s.visibility = { ...SHOWN };
       if (type === "Hero" && Array.isArray(s.settings.slides)) {
@@ -127,7 +141,7 @@ export function applyThemePreset(current: ThemeConfig, preset: ThemePreset): unk
     });
 
   const layoutHeader: SectionInstance[] = [
-    mergeSection("AnnouncementBar" as SectionType, uid("announcement", 1), { tone: preset.announcementTone, mode: preset.announcementMode ?? "static" }, announcement),
+    mergeSection("AnnouncementBar" as SectionType, uid("announcement", 1), { tone: preset.announcementTone, mode: preset.announcementMode ?? "static" }, announcement, informativeSeed?.announcement),
     mergeSection("Header" as SectionType, uid("header", 1), { layout: preset.headerLayout, showInlineMenu: preset.inlineMenu, menuStyle: preset.menuStyle ?? "bar", style: preset.headerStyle ?? "classic" }, header),
   ];
   // The inline menu only renders beside a left logo; a centred logo needs the menu bar below it.
@@ -142,7 +156,7 @@ export function applyThemePreset(current: ThemeConfig, preset: ThemePreset): unk
     tokens: { ...current.tokens, ...preset.tokens, colors: { ...current.tokens.colors, ...preset.tokens.colors } },
     header: { ...current.header, ...preset.header },
     productCard: { ...current.productCard, ...preset.productCard },
-    layout: { header: layoutHeader, footer: [mergeSection("Footer" as SectionType, uid("footer", 1), { tone: preset.footerTone, layout: preset.footerLayout ?? "columns", ...(preset.footerDecor ? { decor: preset.footerDecor } : {}) }, footer)] },
+    layout: { header: layoutHeader, footer: [mergeSection("Footer" as SectionType, uid("footer", 1), { tone: preset.footerTone, layout: preset.footerLayout ?? "columns", ...(preset.footerDecor ? { decor: preset.footerDecor } : {}) }, footer, informativeSeed?.footer)] },
     templates: {
       // Unused named slots stay in the config, hidden, so the next theme switch still finds them.
       home: [...home, ...pool.unusedSlots().filter((x) => current.templates.home.includes(x)).map((x) => ({ ...x, visibility: { ...HIDDEN } }))],

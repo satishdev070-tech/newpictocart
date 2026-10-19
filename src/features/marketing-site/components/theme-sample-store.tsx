@@ -5,6 +5,7 @@ import { themeSiteType, type MarketplaceTheme } from "@/features/theme/marketpla
 import { industryShort } from "@/features/stores/industries";
 import { formatMoney } from "@/lib/money";
 import { sampleProducts, sampleStyle } from "../sample-store";
+import { InformativeTemplatePreview } from "./informative-template-preview";
 
 export type SamplePhoto = { url: string; alt: string };
 
@@ -15,7 +16,7 @@ export type SamplePhoto = { url: string; alt: string };
  * a wide frame and the mobile layout in the 390 px phone frame. Not interactive (links are inert).
  */
 export function ThemeSampleStore({ theme, photos }: { theme: MarketplaceTheme; photos: SamplePhoto[] }) {
-  if (themeSiteType(theme) === "informative") return <InformativeSampleStore theme={theme} photos={photos} />;
+  if (themeSiteType(theme) === "informative") return <InformativeTemplatePreview theme={theme} photos={photos} />;
   const s = sampleStyle(theme.preset);
   const c = s.colors;
   const heading = FONT_STACKS[s.headingFont as FontKey]?.stack;
@@ -204,7 +205,7 @@ export function ThemeSampleStore({ theme, photos }: { theme: MarketplaceTheme; p
 }
 
 /** A service-site sample used by the full preview for informative marketplace themes. */
-function InformativeSampleStore({ theme, photos }: { theme: MarketplaceTheme; photos: SamplePhoto[] }) {
+export function LegacyInformativeSampleStore({ theme, photos }: { theme: MarketplaceTheme; photos: SamplePhoto[] }) {
   const s = sampleStyle(theme.preset);
   const c = s.colors;
   const heading = FONT_STACKS[s.headingFont as FontKey]?.stack;

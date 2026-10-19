@@ -371,5 +371,8 @@ export function normalizePreset(preset: ThemePreset): ThemePreset {
   const headerKeys = Object.keys(PRESET_HEADER.shape);
   const cardKeys = Object.keys(productCardSchema.shape);
   const keep = (o: Record<string, unknown>, keys: string[]) => Object.fromEntries(Object.entries(o ?? {}).filter(([k]) => keys.includes(k)));
-  return { ...preset, tokens: tokens as ThemePreset["tokens"], header: keep(preset.header, headerKeys), productCard: keep(preset.productCard, cardKeys) };
+  // Informative first-use copy belongs to the code catalogue, not a seller-authored stored
+  // theme schema. A duplicate retains its visual preset and is otherwise content-safe.
+  const { informativeSeed: _informativeSeed, ...storedPreset } = preset;
+  return { ...storedPreset, tokens: tokens as ThemePreset["tokens"], header: keep(preset.header, headerKeys), productCard: keep(preset.productCard, cardKeys) };
 }

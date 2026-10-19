@@ -5,6 +5,7 @@ import { livePreviewUrl } from "@/features/theme/marketplace/live-preview";
 import { SHOWCASE_STORES } from "@/features/theme/marketplace/showcase";
 import { logger } from "@/lib/observability/logger";
 import type { MarketplaceTheme } from "@/features/theme/marketplace/catalog";
+import { themeSiteType } from "@/features/theme/marketplace/types";
 import { pickPreviewDemo } from "../themes";
 
 /**
@@ -24,6 +25,9 @@ export async function livePreviewUrls(themes: readonly MarketplaceTheme[]): Prom
     logger.warn("marketing.theme_demos_unavailable", { error: error instanceof Error ? error.message : "unknown" });
   }
   for (const t of themes) {
+    // Informative themes have a purpose-built brochure preview. Never borrow an unrelated shop
+    // tenant just because it happens to be online.
+    if (themeSiteType(t) === "informative") continue;
     const demo = pickPreviewDemo(t, live);
     if (!demo) continue;
     try {

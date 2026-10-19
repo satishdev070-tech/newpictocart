@@ -45,6 +45,18 @@ export type AiCreditOverview = {
   purchases: AiCreditPurchaseRow[];
 };
 
+/** Lightweight header value. Returns null during the staged migration rollout. */
+export async function getAiCreditBalance(tenantId: string): Promise<number | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from("ai_credit_accounts").select("balance").eq("tenant_id", tenantId).maybeSingle();
+  if (error) {
+    if (missingSchema(error)) return null;
+    logger.warn("ai_credits.balance_unavailable", { code: error.code });
+    return null;
+  }
+  return data?.balance ?? 0;
+}
+
 /** Seller-owned data only; callers must have checked the matching tenant membership/permission. */
 export async function getAiCreditOverview(tenantId: string, limit = 30): Promise<AiCreditOverview> {
   const supabase = await createSupabaseServerClient();

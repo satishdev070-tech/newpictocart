@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ExternalLink, Search } from "lucide-react";
-import { ThemeMockup } from "../mockup";
+import { InformativeThemeMockup, ThemeMockup } from "../mockup";
 import { ApplyThemeButton } from "../apply-button";
 import { THEME_STYLE_LABELS, themeSiteType, type ThemePreset, type ThemeSiteType, type ThemeStyle } from "../types";
 
@@ -48,6 +48,7 @@ function ThemeCardPreview({ theme }: { theme: MarketplaceCard }) {
     return () => observer.disconnect();
   }, [theme.previewUrl]);
 
+  if (themeSiteType(theme) === "informative") return <InformativeThemeMockup theme={theme} />;
   if (!theme.previewUrl) return <ThemeMockup preset={theme.preset} name={theme.name.split(" ")[0]!} />;
 
   return (

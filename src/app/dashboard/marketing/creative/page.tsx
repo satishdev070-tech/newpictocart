@@ -13,19 +13,28 @@ export const metadata: Metadata = { title: "Creative studio" };
 
 export default async function CreativePage() {
   const ctx = await requireTenantPermission("marketing.read");
-  const [templates, brand, ent, { data: creatives }] = await Promise.all([
+  const supabase = await createSupabaseServerClient();
+  const [templates, brand, ent, { data: creatives }, { data: products }, { data: productMedia }] = await Promise.all([
     listCreativeTemplates(),
     getBrand(ctx.tenantId),
     getEntitlements(ctx.tenantId),
-    (await createSupabaseServerClient()).from("creatives").select("id, name, template_key, output_path, created_at").eq("tenant_id", ctx.tenantId).order("created_at", { ascending: false }).limit(24),
+    supabase.from("creatives").select("id, name, template_key, output_path, created_at").eq("tenant_id", ctx.tenantId).order("created_at", { ascending: false }).limit(24),
+    supabase.from("products").select("id, title, short_description, min_price").eq("tenant_id", ctx.tenantId).eq("status", "active").order("updated_at", { ascending: false }).limit(200),
+    supabase.from("product_media").select("product_id, storage_path").eq("tenant_id", ctx.tenantId).eq("media_type", "image").order("position").limit(500),
   ]);
   const enabled = ent.isEnabled("creative_studio");
   const { logoPath: _logoPath, ...clientBrand } = brand;
+  const firstImageByProduct = new Map<string, string>();
+  for (const media of productMedia ?? []) if (!firstImageByProduct.has(media.product_id)) firstImageByProduct.set(media.product_id, media.storage_path);
+  const creativeProducts = (products ?? []).map((product) => {
+    const imagePath = firstImageByProduct.get(product.id) ?? null;
+    return { id: product.id, title: product.title, summary: product.short_description, priceMinor: product.min_price, imagePath, imageUrl: assetUrl(imagePath) };
+  });
   return (
     <div className="space-y-6">
       <PageHeader title="Creative studio" description="Make on-brand images for Instagram, WhatsApp and ads from ready templates. Designs use your theme colours and logo and are saved to your media library." />
       {!enabled ? <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-small text-warning">Creative Studio isn&apos;t included in your plan. You can preview templates but not save designs.</p> : null}
-      <CreativeStudio templates={templates} brand={clientBrand} canSave={enabled && can(ctx, "marketing.write")} />
+      <CreativeStudio templates={templates} brand={clientBrand} products={creativeProducts} canSave={enabled && can(ctx, "marketing.write")} />
       <Card title="Saved designs">
         {creatives?.length ? (
           <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">

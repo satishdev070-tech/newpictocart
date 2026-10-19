@@ -27,7 +27,7 @@ export function Hero({ theme, previewUrl, trialDays }: { theme: MarketplaceTheme
   ];
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-brand-soft/70 to-white" aria-labelledby="hero-title">
-      <Container className="grid items-center gap-12 py-14 sm:py-20 lg:grid-cols-[1.05fr_1fr] lg:py-24">
+      <Container className="grid items-center gap-12 py-14 sm:py-20 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] lg:py-24">
         <div>
           <p className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-brand shadow-brand-card">
             <span className="size-1.5 rounded-full bg-brand-accent" aria-hidden />
@@ -57,7 +57,7 @@ export function Hero({ theme, previewUrl, trialDays }: { theme: MarketplaceTheme
           </ul>
         </div>
         {theme ? (
-          <figure className="relative pb-8 lg:pl-6">
+          <figure className="relative pb-6 lg:pl-3">
             <div className="absolute -inset-x-4 -top-6 bottom-2 -z-0 rounded-[40px] bg-brand-accent-soft" aria-hidden />
             <div className="relative">
               <ThemeDevicePreview theme={theme} previewUrl={previewUrl} size="large" eager live />

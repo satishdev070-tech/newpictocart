@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ExternalLink, Eye } from "lucide-react";
-import { ThemeMockup } from "@/features/theme/marketplace/mockup";
+import { InformativeThemeMockup, ThemeMockup } from "@/features/theme/marketplace/mockup";
 import { THEME_STYLE_LABELS, type MarketplaceTheme } from "@/features/theme/marketplace/types";
 import { themeSiteType } from "@/features/theme/marketplace/types";
 import { industryShort } from "@/features/stores/industries";
@@ -19,6 +19,9 @@ const mockName = (t: MarketplaceTheme) => t.name.split(" ")[0]!;
 
 /** A theme screenshot (static file) or, when none was captured, the token mockup. `fill` sizes it to its frame. */
 function Still({ theme, device, size, eager, fill = false }: { theme: MarketplaceTheme; device: ShotDevice; size: "card" | "large"; eager: boolean; fill?: boolean }) {
+  if (themeSiteType(theme) === "informative") {
+    return <div className={fill ? "size-full overflow-hidden" : "overflow-hidden"}><InformativeThemeMockup theme={theme} size={device === "phone" ? "phone" : size === "large" ? "large" : "card"} /></div>;
+  }
   const shot = themeShot(theme.key, device);
   const vp = device === "desktop" ? DESKTOP_VIEWPORT : PHONE_VIEWPORT;
   return (
@@ -39,6 +42,7 @@ function Still({ theme, device, size, eager, fill = false }: { theme: Marketplac
  * (Unsplash), else the token mockup. The photo zooms gently on card hover.
  */
 function CardDesktop({ theme, image }: { theme: MarketplaceTheme; image?: CategoryImage | null }) {
+  if (themeSiteType(theme) === "informative") return <InformativeThemeMockup theme={theme} />;
   if (themeShot(theme.key, "desktop") || !image) return <Still theme={theme} device="desktop" size="card" eager={false} fill />;
   return (
     <div className="relative size-full overflow-hidden bg-brand-canvas">
@@ -78,7 +82,9 @@ function Devices({ desktop, phone, size }: { desktop: ReactNode; phone: ReactNod
         {DOTS}
         {desktop}
       </div>
-      <div className="absolute -bottom-8 right-3 w-[24%] min-w-24 sm:right-5">
+      {/* Keep the phone recognisably mobile without letting its 390:844 aspect ratio dominate
+          the desktop canvas on wider marketing layouts. */}
+      <div className="absolute -bottom-6 right-3 w-[20%] min-w-20 max-w-36 sm:right-5">
         <div className="overflow-hidden rounded-[22px] border-[6px] border-brand-ink bg-brand-ink shadow-brand-float">{phone}</div>
       </div>
     </div>
@@ -142,7 +148,7 @@ const PILL = "inline-flex h-6 items-center rounded-full px-2.5 text-xs font-semi
  */
 export function ThemeCard({ theme, headingLevel = "h3", location, image = null }: { theme: MarketplaceTheme; headingLevel?: "h2" | "h3"; location: string; image?: CategoryImage | null }) {
   const H = headingLevel;
-  const photo = image && !themeShot(theme.key, "desktop") ? image : null;
+  const photo = themeSiteType(theme) === "informative" ? null : image && !themeShot(theme.key, "desktop") ? image : null;
   return (
     <article className="group flex h-full flex-col rounded-brand-lg border border-border bg-white p-4 transition duration-300 ease-out hover:-translate-y-1 hover:border-brand/30 hover:shadow-brand-card motion-reduce:transition-none motion-reduce:hover:translate-y-0">
       <div className="relative">

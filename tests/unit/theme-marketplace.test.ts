@@ -132,6 +132,23 @@ describe("theme marketplace", () => {
     expect(isStyleSetting("ProductGrid", "heading")).toBe(false);
   });
 
+  it("seeds brochure content, not shop copy, for an untouched starter site", () => {
+    const themes = MARKETPLACE_THEMES.filter((theme) => theme.siteType === "informative");
+    expect(themes).toHaveLength(10);
+    for (const theme of themes) {
+      const strict = parseThemeConfigStrict(applyThemePreset(DEFAULT_THEME_CONFIG, theme.preset));
+      if (!strict.ok) throw new Error(`${theme.key}: ${JSON.stringify(strict.issues.slice(0, 3))}`);
+      const home = strict.config.templates.home;
+      const words = JSON.stringify({ header: strict.config.layout.header, home, footer: strict.config.layout.footer }).toLowerCase();
+      expect(words, theme.key).not.toContain("shop now");
+      expect(words, theme.key).not.toContain("free shipping");
+      expect(words, theme.key).not.toContain("cash on delivery");
+      expect(home.some((section) => section.type === "FeatureBand"), theme.key).toBe(false);
+      const hero = home.find((section) => section.type === "Hero");
+      expect(JSON.stringify(hero?.settings).toLowerCase(), theme.key).toContain(theme.tagline.toLowerCase());
+    }
+  });
+
   for (const theme of MARKETPLACE_THEMES) {
     it(`applies ${theme.name} to a store without losing its content`, () => {
       const current = storeConfig();

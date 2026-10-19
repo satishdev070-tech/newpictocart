@@ -10,6 +10,7 @@ import { INDUSTRIES, isIndustry, industryShort } from "@/features/stores/industr
 import { MarketplaceBrowser, type MarketplaceCard } from "@/features/theme/marketplace/components/marketplace-browser";
 import { getStoreIndustry, liveDemoOrigins } from "@/features/theme/marketplace/server";
 import { livePreviewUrl } from "@/features/theme/marketplace/live-preview";
+import { themeSiteType } from "@/features/theme/marketplace/types";
 
 export const metadata: Metadata = { title: "Theme marketplace" };
 
@@ -40,7 +41,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/dashboard
       added: t.added,
       order,
       preset: t.preset,
-      previewUrl: demoHost ? livePreviewUrl(storeOrigin(demoHost), t.key) : null,
+      previewUrl: themeSiteType(t) === "informative" ? null : demoHost ? livePreviewUrl(storeOrigin(demoHost), t.key) : null,
       status: keys.published === t.key ? "live" : keys.draft === t.key ? "draft" : null,
     };
   });

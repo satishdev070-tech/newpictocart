@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { ArrowRight, Palette, Sparkles } from "lucide-react";
+import { buttonClass } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/layout";
 import { can, requireTenantPermission } from "@/lib/tenant/membership";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -35,6 +36,7 @@ export default async function NeuralPulsePage() {
       <PageHeader
         title="Neural Pulse"
         description="AI content studio: on-brand post ideas, captions with hashtags and content plans from your products and key dates. You review everything before it's posted."
+        actions={<Link href="/dashboard/marketing/creative" className={buttonClass({ variant: "secondary", size: "sm" })}><Palette aria-hidden /> Open Creative Studio <ArrowRight aria-hidden /></Link>}
       />
       {!enabled ? <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-small text-warning">Neural Pulse is part of social publishing, which isn&apos;t included in your plan.</p> : null}
       {!aiReady ? (

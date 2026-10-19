@@ -805,3 +805,40 @@ above and in `docs/THEME_BUILDER.md`):
 - Verified: `pnpm check` green (86 files / 1213 tests, build OK); dev server on nook-living: builder, logo
   size/position, hero designs, progress bar, page menus, new page, product images + type suggestions, media
   library + icons. Live store renders unchanged.
+
+## Informative theme correction (2026-10-19)
+
+- The ten Informative marketplace entries now use service-site previews and cards: no marketplace card,
+  detail page or public Preview Theme route borrows an unrelated online-store demo.
+- An untouched starter site receives brochure copy when an informative theme is applied: enquiry hero,
+  services/proof, story, FAQ/contact and no shipping/COD/product-band copy. Existing stores retain their
+  edited content when changing themes. Product-dependent `FeatureBand` sections were removed from the
+  informative compositions.
+- Verified: `pnpm typecheck`, `pnpm lint`, and `pnpm test` (88 files, 1234 tests).
+
+## Seller authoring, marketing and feedback polish (2026-10-19)
+
+- **Responsive marketing and sign-in:** the landing-page device preview now keeps a conventional phone
+  aspect ratio beside a wider desktop preview. Merchant sign-in, registration and recovery use a 60:40 desktop
+  layout, orange action buttons, an uncropped store preview at suitable viewport heights, email-entry hygiene,
+  and clear password-strength guidance. The existing Google OAuth action and all server-side auth safeguards are
+  unchanged.
+- **Authoring workflows:** pages now begin with editable starter content and can add an existing Media Library
+  image or upload a new one. New page, collection and category URL handles follow their title until the seller
+  edits them. Product descriptions have a safe plain-text Write/Preview editor with heading, paragraph and
+  bullet helpers; no untrusted HTML is stored or rendered. Product CSV import has a clearer drop area, client
+  file checks and a structured validation/import-result panel.
+- **Feedback and credits:** a shared, accessible, top-right glass toast surface reports successful, warning and
+  failed dashboard actions while retaining inline field errors. The dashboard header shows a tenant-scoped AI
+  credit balance when the AI-credit migration is available.
+- **Creative Studio and Neural Pulse:** sellers can start a branded creative from an active product (copy, price
+  and first image), choose Media Library assets, hand a saved tenant-owned PNG into the social composer, and
+  follow a clear Brand → Generate → Review → Plan workflow. Creative and Neural Pulse actions now use the shared
+  toast feedback.
+- **Verification:** `pnpm typecheck`, `pnpm lint`, and `pnpm test` passed together (89 files, 1236 tests);
+  `git diff --check` is clean. The local Next/Turbopack production build entered its compile step then remained
+  idle in this environment, so its two exact processes were stopped after the successful static and test checks.
+- **External setup still required:** apply migration `20261019003400_ai_credits.sql` before the balance can
+  appear; configure the documented Supabase Send Email Hook/Resend credentials for branded auth messages;
+  configure Google OAuth client credentials/redirects to test Google login; and add an Unsplash access key for
+  live stock-photo search beyond its fallback results.

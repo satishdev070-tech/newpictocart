@@ -4,6 +4,7 @@ import { useActionState, useEffect, useId, useRef, useState, type ReactNode } fr
 import type { ActionResult } from "@/lib/actions/result";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
+import { useToast } from "@/components/ui/toast";
 
 /**
  * Shared dashboard action controls (seller ops features). Unlike ConfirmButton these
@@ -61,13 +62,17 @@ export function ActionDialog({
   const [state, formAction] = useActionState(action, null);
   // Success is derived from the action state (no extra state), announced via aria-live.
   const [dismissed, setDismissed] = useState<unknown>(null);
+  const { show } = useToast();
   const announce = Boolean(state?.ok) && state !== dismissed;
   useEffect(() => {
     if (state?.ok) {
       ref.current?.close();
       formRef.current?.reset();
+      show({ tone: "success", message: success ?? "Saved." });
+    } else if (state && !state.ok) {
+      show({ tone: "error", message: state.error.fieldErrors?._form?.[0] ?? state.error.message });
     }
-  }, [state]);
+  }, [state, show, success]);
   const errors = fieldErrors(state);
   return (
     <>
@@ -131,6 +136,11 @@ export function InlineAction({
   className?: string;
 }) {
   const [state, formAction] = useActionState(action, null);
+  const { show } = useToast();
+  useEffect(() => {
+    if (!state) return;
+    show(state.ok ? { tone: "success", message: success ?? "Saved." } : { tone: "error", message: state.error.fieldErrors?._form?.[0] ?? Object.values(state.error.fieldErrors ?? {})[0]?.[0] ?? state.error.message });
+  }, [state, show, success]);
   return (
     <form action={formAction} className={className ?? "inline-flex flex-col items-start gap-1"}>
       <HiddenFields fields={fields} />
@@ -177,9 +187,12 @@ export function ActionForm({
 }) {
   const [state, formAction] = useActionState(action, null);
   const formRef = useRef<HTMLFormElement>(null);
+  const { show } = useToast();
   useEffect(() => {
     if (state?.ok && resetOnSuccess) formRef.current?.reset();
-  }, [state, resetOnSuccess]);
+    if (state?.ok) show({ tone: "success", message: success });
+    if (state && !state.ok) show({ tone: "error", message: state.error.fieldErrors?._form?.[0] ?? Object.values(state.error.fieldErrors ?? {})[0]?.[0] ?? state.error.message });
+  }, [state, resetOnSuccess, show, success]);
   return (
     <form ref={formRef} action={formAction} encType={encType} className={className ?? "space-y-4"}>
       <HiddenFields fields={fields} />

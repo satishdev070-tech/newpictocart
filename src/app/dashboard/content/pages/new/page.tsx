@@ -11,7 +11,21 @@ export default async function NewDoc() {
   return (
     <div>
       <PageHeader title="New page" back={<Link href="/dashboard/content/pages" className="text-muted hover:text-foreground">← Pages</Link>} />
-      <DocumentEditor table="pages" value={{ title: "", slug: "", status: "draft", blocks: [], seoTitle: "", seoDescription: "" }} />
+      <DocumentEditor
+        table="pages"
+        value={{
+          title: "",
+          slug: "",
+          status: "draft",
+          blocks: [
+            { type: "heading", level: 2, text: "Tell your story" },
+            { type: "paragraph", text: "Use this page to introduce your business, explain what makes you different, and help visitors take their next step." },
+            { type: "button", label: "Explore our collection", href: "/collections/all", style: "primary" },
+          ],
+          seoTitle: "",
+          seoDescription: "",
+        }}
+      />
     </div>
   );
 }

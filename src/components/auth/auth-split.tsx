@@ -15,10 +15,11 @@ export function AuthSplit({ variant, aside, children, back }: { variant: "mercha
   const merchant = variant === "merchant";
   return (
     // Merchant screens use the Pictocart brand (light only); the staff console keeps its own look.
-    <div data-theme={merchant ? "light" : undefined} className={cn("grid min-h-dvh flex-1", merchant ? "theme-brand lg:grid-cols-[1fr_1.1fr]" : "theme-console lg:grid-cols-[3fr_2fr]")}>
+    <div data-theme={merchant ? "light" : undefined} className={cn("grid min-h-dvh flex-1", merchant ? "theme-brand bg-brand-canvas lg:grid-cols-[3fr_2fr]" : "theme-console lg:grid-cols-[3fr_2fr]")}>
       {merchant ? (
         <aside className="relative hidden overflow-hidden bg-brand-soft lg:flex">
-          <div className="relative z-10 flex w-full flex-col justify-between p-12 text-brand-ink xl:p-16">{aside}</div>
+          <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_78%_12%,rgba(249,115,22,0.20),transparent_30%),radial-gradient(circle_at_12%_88%,rgba(79,70,229,0.14),transparent_32%)]" />
+          <div className="relative z-10 flex w-full flex-col justify-between p-10 text-brand-ink xl:p-14 2xl:p-16">{aside}</div>
         </aside>
       ) : (
         <aside data-theme="dark" className="relative hidden overflow-hidden bg-[#080b10] lg:flex">
@@ -26,7 +27,7 @@ export function AuthSplit({ variant, aside, children, back }: { variant: "mercha
           <div className="relative z-10 flex w-full flex-col justify-between p-12 text-[#f4efe9] xl:p-16">{aside}</div>
         </aside>
       )}
-      <main className="flex min-w-0 flex-col bg-surface px-6 py-6 sm:px-10">
+      <main className={cn("flex min-w-0 flex-col bg-surface px-6 py-6 sm:px-10", merchant && "lg:px-12 xl:px-16")}>
         <div className="flex items-center justify-between gap-4">
           {back ? (
             <Link href={back.href} className="inline-flex items-center gap-1.5 text-small text-muted hover:text-foreground">
@@ -43,7 +44,7 @@ export function AuthSplit({ variant, aside, children, back }: { variant: "mercha
           )}
           {merchant ? null : <AppearanceToggle compact />}
         </div>
-        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10">{children}</div>
+        <div className={cn("mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-10", merchant && "max-w-md lg:py-12")}>{children}</div>
         <footer className="flex flex-wrap justify-between gap-2 text-caption text-subtle">
           <span>© {new Date().getFullYear()} {PLATFORM_NAME}</span>
           <span className="flex gap-4">

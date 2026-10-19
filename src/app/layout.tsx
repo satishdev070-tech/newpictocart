@@ -3,6 +3,7 @@ import { PLATFORM_NAME, PLATFORM_TAGLINE } from "@/config/platform";
 import { APPEARANCE_BOOT_SCRIPT } from "@/lib/appearance";
 import { fraunces, inter } from "./fonts";
 import { storefrontFontVariables } from "./storefront-fonts";
+import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
 /**
@@ -28,7 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Static, first-party script (no user input): applies the saved light/dark preference. */}
         <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT_SCRIPT }} />
       </head>
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col"><ToastProvider>{children}</ToastProvider></body>
     </html>
   );
 }
