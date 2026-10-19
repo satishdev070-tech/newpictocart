@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/session";
 import { landingPathFor } from "@/lib/auth/landing";
@@ -7,6 +8,12 @@ import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { findPlan } from "@/features/marketing-site/plans";
 import { cleanPlanCode } from "@/features/onboarding/steps";
 import { StartJourney } from "@/features/start/components/start-journey";
+import { START_DRAFT_COOKIE } from "@/features/start/draft/schema";
+import { brandImageView, getPublicPlatformConfig } from "@/features/platform/server/public-config";
+import { PLATFORM_LOGO, PLATFORM_NAME } from "@/config/platform";
+import { publicEnv } from "@/lib/env/public";
+import { googleSignInAvailable } from "@/features/auth/google";
+import { isSarvamConfigured } from "@/lib/sarvam/client";
 
 export const metadata: Metadata = {
   title: "Let's begin",
@@ -14,7 +21,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** Pre-auth prototype-style journey: welcome → language → intent → register. */
+/** Cache-first journey: welcome → language → intent → AI or manual → account → ready store. */
 export default async function StartPage({ searchParams }: PageProps<"/start">) {
   const sp = await searchParams;
   const plans = await getMarketingPlans();
@@ -22,7 +29,12 @@ export default async function StartPage({ searchParams }: PageProps<"/start">) {
   const theme = typeof sp.theme === "string" && isThemeKey(sp.theme) ? sp.theme : null;
 
   const user = await getSessionUser();
-  if (user) {
+  const jar = await cookies();
+  const draftCookie = jar.get(START_DRAFT_COOKIE)?.value === "1";
+  const signedIn = Boolean(user);
+  let landingPath: string | null = null;
+
+  if (user && !draftCookie) {
     const landing = await landingPathFor(user.id);
     const qs = new URLSearchParams();
     if (plan) qs.set("plan", plan);
@@ -30,5 +42,35 @@ export default async function StartPage({ searchParams }: PageProps<"/start">) {
     redirect(landing === "/onboarding" && qs.size ? `/onboarding?${qs}` : landing);
   }
 
-  return <StartJourney plan={plan} theme={theme} />;
+  if (user) {
+    landingPath = await landingPathFor(user.id);
+  }
+
+  const config = await getPublicPlatformConfig();
+  const uploaded = brandImageView(config.headerLogo);
+  const fallback = PLATFORM_LOGO;
+  const logoSrc = uploaded?.src ?? fallback?.src ?? "";
+  const logo = {
+    src: logoSrc,
+    width: uploaded?.width ?? fallback?.width ?? null,
+    height: uploaded?.height ?? fallback?.height ?? null,
+    name: PLATFORM_NAME,
+  };
+
+  const rootDomain = publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN;
+  const googleAvailable = await googleSignInAvailable("sellers");
+  const voiceReady = isSarvamConfigured();
+
+  return (
+    <StartJourney
+      plan={plan}
+      theme={theme}
+      signedIn={signedIn}
+      landingPath={landingPath}
+      logo={logo}
+      rootDomain={rootDomain}
+      googleAvailable={googleAvailable}
+      voiceReady={voiceReady}
+    />
+  );
 }

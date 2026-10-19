@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { slug } from "@/lib/validation/common";
 import { isIndustry } from "@/features/stores/industries";
+import { READY_STORE_COUNTS } from "./counts";
 
 /** Input accepted by the seed pipeline / server action (after create_tenant). */
 export const seedReadyStoreInputSchema = z.object({
@@ -93,14 +94,14 @@ export const readyStorePlanSchema = z.object({
     title: z.string().trim().min(1).max(70),
     description: z.string().trim().min(1).max(160),
   }),
-  categories: z.array(categoryPlanSchema).length(4),
-  products: z.array(productPlanSchema).length(8),
+  categories: z.array(categoryPlanSchema).length(READY_STORE_COUNTS.categories),
+  products: z.array(productPlanSchema).length(READY_STORE_COUNTS.products),
   collections: z.array(collectionTileSchema).min(2).max(4),
   hero: z.object({
     slides: z.array(heroSlideSchema).min(1).max(3),
   }),
-  blogs: z.array(blogPlanSchema).length(3),
-  testimonials: z.array(testimonialSchema).length(4),
+  blogs: z.array(blogPlanSchema).length(READY_STORE_COUNTS.blogs),
+  testimonials: z.array(testimonialSchema).length(READY_STORE_COUNTS.testimonials),
 });
 
 export type ReadyStorePlan = z.infer<typeof readyStorePlanSchema>;

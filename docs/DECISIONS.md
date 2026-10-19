@@ -230,3 +230,15 @@ industry best-fit marketplace theme and seeds content; Ready is the default land
 optional via “Change theme”). Pre-tenant voice is rate-limited by user; AI credits debit on seed.
 **Consequences.** `SARVAM_API_KEY` required for voice; form path works without it. Theme/plan are no
 longer required onboarding steps.
+
+## ADR-039 — Cache-first start journey · Accepted
+**Context.** The Pictocart prototype collects language, intent, business facts, and manual setup
+choices before account creation; sellers expect to resume after OAuth or email confirmation.
+**Decision.** Public **`/start`** stores the journey in **`localStorage`** (`pictocart.start.draft.v1`)
+and sets cookie **`pc_start_draft=1`** after welcome. **`finalizeStartDraftAction`** runs only after
+verified auth (Google or email/password), creates or reuses the owned tenant, applies optional
+payment/WhatsApp/city prefs, then **`seedReadyStore`** with a seller brief. Pre-auth Tara uses
+**`startVoiceTurnAction`** (IP rate limit) sharing **`runTaraTurn`** with post-auth voice.
+**Consequences.** Logged-in users without the cookie still redirect to the dashboard; with the
+cookie they can finish on `/start`. `SARVAM_API_KEY` still required for voice; manual path works
+without it.

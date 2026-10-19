@@ -1,12 +1,27 @@
 # Implementation Status
 
-_Last updated: 2026-10-19 (prototype /start journey + Sarvam voice onboarding)_
+_Last updated: 2026-10-19 (cache-first /start journey)_
 
-## Prototype start journey (2026-10-19)
+## Cache-first `/start` journey (2026-10-19)
 
-- Public CTAs (**Start Free**, **Create Your Free Store**) open **`/start`**: welcome
-  (“Let's begin”) → language picker → Tara intent → `/seller/register` with `lang` / `intent`.
-- Locale is stored on signup metadata (`onboarding_locale`) and carried into `/onboarding`.
+- **`/start`** is a full prototype-order onboarding flow with **no database writes until the seller
+  has a verified account**. Progress lives in **`localStorage`** (`pictocart.start.draft.v1`) and a
+  **`pc_start_draft=1`** cookie (set after welcome) so signed-in users can return to finalize.
+- **Screens:** Welcome → Language → Intent → Path (AI vs Manual) → **AI:** Tara voice → Building →
+  Account (if needed) → persist → Done · **Manual:** Business → Products → Mood → Payment → Building →
+  Account → persist → Done.
+- **`finalizeStartDraftAction`** creates or reuses the owned store, applies payment/WhatsApp/city prefs,
+  then **`seedReadyStore`** with a rich brief (seed counts in pipeline: **5 categories / 10 products /
+  nav / homepage / 6 blogs / 5 testimonials**).
+- **Voice before auth:** `startVoiceTurnAction` (IP rate-limited) uses shared **`runTaraTurn`**; post-auth
+  onboarding voice unchanged.
+- **Tests:** `tests/unit/start/*` (draft, flow, brief, register href) and `tests/unit/onboarding/seed-counts.test.ts`.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, 96 files / 1,260 tests, build). Browser walkthrough of `/start` was not run here: this environment has no Supabase URL or publishable key, so the app cannot boot.
+
+## Prototype start journey (2026-10-19, superseded routing)
+
+- Public CTAs still open **`/start`** (journey above replaces register-first for new sellers).
+- Locale is stored on signup metadata (`onboarding_locale`) and carried into `/onboarding` when used.
 
 ## Sarvam voice onboarding → ready store (2026-10-19)
 
@@ -19,8 +34,9 @@ _Last updated: 2026-10-19 (prototype /start journey + Sarvam voice onboarding)_
   extracts name / category / siteMode / tagline, rate-limits by user, and falls back to typed input
   or the form. Pre-store turns are rate-limited only; AI credits debit on the ready-store seed.
 - **Build & ready:** `saveBusinessAction` creates a draft store then continues to **Building**, which
-  calls `seedReadyStore` (curated theme + 4 categories / 8 products / nav / homepage / blogs /
-  testimonials). Theme and plan steps are optional; Ready offers **Change theme**.
+  calls `seedReadyStore` (curated theme + 5 categories / 10 products / nav with category submenus /
+  homepage / 6 blogs / 5 testimonials). Theme and plan steps are optional; Ready offers **Change theme**.
+  If Sarvam is unset or returns an invalid plan, a deterministic catalogue of the same counts is used.
 - **Sarvam client:** `src/lib/sarvam/{locales,client}.ts` + `SARVAM_API_KEY` (server-only). Seed
   pipeline lives under `src/features/onboarding/seed/`.
 - **Tests:** steps resolution, voice fact→industry mapping, existing onboarding action redirects.
