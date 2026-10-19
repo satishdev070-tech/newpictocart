@@ -9,6 +9,8 @@ const user = { id: "u1", email: "a@example.com", displayName: "A" };
 vi.mock("@/lib/auth/session", () => ({ requireUser: async () => user }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: vi.fn(), clientIpKey: async () => "ip" }));
 vi.mock("@/lib/tenant/active", () => ({ setActiveTenant: vi.fn() }));
+vi.mock("@/features/onboarding/email-gate", () => ({ assertEmailVerifiedForOnboarding: vi.fn() }));
+vi.mock("@/features/onboarding/seed/pipeline", () => ({ seedReadyStore: vi.fn(async () => ({ themeKey: "earth-artisan", categoryIds: [], productIds: [], collectionIds: [], blogIds: [], menuId: null, skipped: { categories: 0, products: 0, collections: 0, blogs: 0, menu: false }, alreadySeeded: false })) }));
 const audit = vi.fn();
 vi.mock("@/lib/audit", () => ({ audit: (...a: unknown[]) => audit(...a) }));
 vi.mock("@/lib/observability/logger", () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() } }));
@@ -58,10 +60,10 @@ const redirectedTo = async (p: Promise<unknown>) => {
 };
 
 describe("saveBusinessAction", () => {
-  it("creates the store as a draft, sets the category and continues to the theme step with the choices", async () => {
+  it("creates the store as a draft, sets the category and continues to the building step with the choices", async () => {
     const { saveBusinessAction } = await import("@/features/onboarding/actions");
     const to = await redirectedTo(saveBusinessAction(null, fd({ name: "Asha Crafts", category: "handicrafts", slug: "asha-crafts", plan: "growth", theme: "earth-artisan" })));
-    expect(to).toBe(`/onboarding?step=theme&store=${OWN}&plan=growth&theme=earth-artisan`);
+    expect(to).toBe(`/onboarding?step=building&store=${OWN}&plan=growth&theme=earth-artisan`);
     expect(updates).toContainEqual({ launch_status: "draft" });
     expect(updates).toContainEqual({ category_id: "cat-1" });
   });
@@ -70,7 +72,7 @@ describe("saveBusinessAction", () => {
     rpcResult = { data: null, error: { code: "23505", message: "duplicate" } };
     const { saveBusinessAction } = await import("@/features/onboarding/actions");
     const to = await redirectedTo(saveBusinessAction(null, fd({ name: "Asha Crafts", category: "handicrafts", slug: "asha-crafts" })));
-    expect(to).toBe(`/onboarding?step=theme&store=${OWN}`);
+    expect(to).toBe(`/onboarding?step=building&store=${OWN}`);
     expect(updates).not.toContainEqual({ launch_status: "draft" });
   });
 
@@ -102,11 +104,11 @@ describe("saveBusinessAction", () => {
 });
 
 describe("chooseThemeAction / choosePlanAction", () => {
-  it("applies the theme as a draft on the owned store", async () => {
+  it("applies the theme as a draft on the owned store and lands on ready", async () => {
     const { chooseThemeAction } = await import("@/features/onboarding/actions");
     const to = await redirectedTo(chooseThemeAction(null, fd({ store: OWN, choice: "minimal-d2c", plan: "growth" })));
     expect(applyTheme).toHaveBeenCalledWith(expect.objectContaining({ tenantId: OWN }), "minimal-d2c");
-    expect(to).toBe(`/onboarding?step=plan&store=${OWN}&plan=growth`);
+    expect(to).toBe(`/onboarding?step=ready&store=${OWN}&plan=growth&theme=minimal-d2c`);
   });
 
   it("skips without applying anything", async () => {

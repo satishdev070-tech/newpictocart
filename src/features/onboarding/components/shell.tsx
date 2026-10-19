@@ -3,11 +3,23 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "@/features/marketing-site/components/brand-logo";
-import { ONBOARDING_STEPS, stepIndex, type OnboardingStepKey } from "../steps";
+import { ONBOARDING_STEPS, progressStep, stepIndex, type OnboardingStepKey, type WizardStep } from "../steps";
 
 /** Brand-styled frame for onboarding: logo, step progress and a centred card. */
-export function OnboardingShell({ step, children, wide }: { step: OnboardingStepKey; children: ReactNode; wide?: boolean }) {
-  const current = stepIndex(step);
+export function OnboardingShell({
+  step,
+  children,
+  wide,
+}: {
+  step: WizardStep | OnboardingStepKey;
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  const rail: OnboardingStepKey =
+    step === "account" || step === "language" || step === "setup" || step === "building" || step === "ready"
+      ? step
+      : progressStep(step as WizardStep);
+  const current = stepIndex(rail);
   return (
     <div data-theme="light" className="theme-brand flex min-h-dvh flex-1 flex-col bg-brand-canvas">
       <header className="border-b border-border bg-white">

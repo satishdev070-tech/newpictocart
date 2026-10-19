@@ -217,3 +217,16 @@ still invalid, and every image slot is filled from Unsplash with credits. The ex
 parts (Anthropic, Gemini; Groq stays text-only and is tried last when screenshots are attached). Rate limit: 6/hour,
 30/day per platform user. Chosen over a new table (the reserved one fits) and over storing reference screenshots (copyright,
 storage) or scraping reference images (never allowed).
+
+## ADR-038 — Sarvam voice onboarding (Tara) → ready draft store · Accepted
+**Context.** Sellers need a multi-language path from account → business facts → a draft store with
+starter catalogue and a curated theme, without forcing theme/plan wizard steps.
+**Decision.** Keep Google **or** name/email/password signup; require `email_confirmed_at` (or OAuth
+identity) before `/onboarding` voice or `create_tenant`. Persist `onboarding_locale` on user
+metadata. Tara (`voiceTurnAction`) uses server-only Sarvam STT/chat/TTS with a locale capability
+map (`SARVAM_LOCALES`): STT-only languages chat in English then translate; TTS omitted when Bulbul
+does not support the locale. After confirm, `saveBusinessAction` → `seedReadyStore` applies the
+industry best-fit marketplace theme and seeds content; Ready is the default landing (theme/plan
+optional via “Change theme”). Pre-tenant voice is rate-limited by user; AI credits debit on seed.
+**Consequences.** `SARVAM_API_KEY` required for voice; form path works without it. Theme/plan are no
+longer required onboarding steps.

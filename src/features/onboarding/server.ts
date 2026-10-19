@@ -5,6 +5,7 @@ import type { SessionUser } from "@/lib/auth/session";
 import { logger } from "@/lib/observability/logger";
 import { isIndustry, type IndustrySlug } from "@/features/stores/industries";
 import { isThemeKey } from "@/features/marketing-site/themes";
+import { isSarvamLocaleCode, type SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { cleanPlanCode } from "./steps";
 import { parseSiteMode, type SiteMode } from "@/features/stores/site-mode";
 
@@ -67,18 +68,27 @@ export async function listOwnedStores(userId: string): Promise<OnboardingStore[]
   });
 }
 
-/** Plan/theme the seller picked on the marketing site: URL first, then what sign-up saved. */
-export async function requestedChoices(sp: Record<string, string | string[] | undefined>): Promise<{ plan: string | null; theme: string | null }> {
+/** Plan/theme/locale the seller picked: URL first, then what sign-up / onboarding saved. */
+export async function requestedChoices(sp: Record<string, string | string[] | undefined>): Promise<{
+  plan: string | null;
+  theme: string | null;
+  locale: SarvamLocaleCode | null;
+  method: "voice" | "form" | null;
+}> {
   const q = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : null);
   let plan = cleanPlanCode(q("plan"));
   let theme = isThemeKey(q("theme")) ? q("theme") : null;
-  if (!plan || !theme) {
+  let locale = q("lang") && isSarvamLocaleCode(q("lang")!) ? (q("lang") as SarvamLocaleCode) : null;
+  let method: "voice" | "form" | null = q("method") === "voice" || q("method") === "form" ? q("method") : null;
+  if (!plan || !theme || !locale || !method) {
     const { data } = await (await createSupabaseServerClient()).auth.getUser();
     const meta = (data.user?.user_metadata ?? {}) as Record<string, unknown>;
     plan ??= cleanPlanCode(meta.requested_plan);
     theme ??= typeof meta.requested_theme === "string" && isThemeKey(meta.requested_theme) ? meta.requested_theme : null;
+    locale ??= typeof meta.onboarding_locale === "string" && isSarvamLocaleCode(meta.onboarding_locale) ? meta.onboarding_locale : null;
+    method ??= meta.onboarding_method === "voice" || meta.onboarding_method === "form" ? meta.onboarding_method : null;
   }
-  return { plan, theme };
+  return { plan, theme, locale, method };
 }
 
 /**
