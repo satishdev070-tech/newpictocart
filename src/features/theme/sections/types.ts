@@ -98,6 +98,30 @@ export type SectionVisibility = { desktop: boolean; mobile: boolean };
 /** Per-section colour overrides from the builder's colour (droplet) panel; empty = theme colours. */
 export type SectionStyle = { background: string; text: string; accent: string };
 
+/** Section content widths; absent = the theme's container width. */
+export const SECTION_BOX_WIDTHS = ["narrow", "wide", "full"] as const;
+export type SectionBoxWidth = (typeof SECTION_BOX_WIDTHS)[number];
+/** Vertical spacing sides (px). */
+export const SECTION_BOX_SIDES = ["marginTop", "marginBottom", "paddingTop", "paddingBottom"] as const;
+export type SectionBoxSide = (typeof SECTION_BOX_SIDES)[number];
+/** Limits shared by the schema, the renderer and the builder sliders. */
+export const SECTION_BOX_LIMITS = { scale: { min: 80, max: 130, step: 5 }, space: { min: 0, max: 160 }, mobileFactor: 0.6 } as const;
+
+/**
+ * Per-section size & spacing (every key optional = theme default). `scale` is a percentage
+ * (80–130, steps of 5) of the section's type and item sizes; spacing values are px (0–160).
+ * `mobile` holds explicit phone values; a missing phone value is 60% of the desktop one.
+ */
+export type SectionBox = {
+  scale?: number;
+  width?: SectionBoxWidth;
+  marginTop?: number;
+  marginBottom?: number;
+  paddingTop?: number;
+  paddingBottom?: number;
+  mobile?: Partial<Record<SectionBoxSide, number>>;
+};
+
 export type SectionInstance<T = Record<string, unknown>> = {
   id: string;
   type: SectionType;
@@ -105,4 +129,6 @@ export type SectionInstance<T = Record<string, unknown>> = {
   visibility: SectionVisibility;
   /** Only present when at least one colour is set. */
   style?: SectionStyle;
+  /** Size & spacing overrides (builder Settings tab); only present when at least one value is set. */
+  box?: SectionBox;
 };

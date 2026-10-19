@@ -4,6 +4,7 @@ import type { SectionSettings } from "@/features/theme/sections/definitions";
 import type { SectionInstance, SectionType } from "@/features/theme/sections/types";
 import { isSectionHidden } from "@/features/theme/schema/config";
 import { HEX_COLOR_RE, parseVideoUrl } from "@/features/theme/schema/primitives";
+import { sectionBoxVars } from "@/features/theme/schema/section-box";
 import { readableOn } from "@/features/theme/tokens-style";
 import { getAllCategories, getCollections, getProductBySlug, getProductCards, getProductRefs, listProducts, type ListArgs, type ProductCardData } from "@/features/storefront/server/catalog";
 import { getBlogPostById, getFaqs, getLatestReviews, getPageById, getReviewSummary } from "@/features/storefront/server/content";
@@ -1602,10 +1603,14 @@ export function SectionList({ sections, ctx, slot }: { sections: SectionInstance
         // Per-section rhythm (sections/variants SECTION_SPACINGS); CSS adjusts the inner .sf-section padding.
         const spacing = (section.settings as { spacing?: unknown }).spacing;
         const sp = typeof spacing === "string" && spacing !== "default" ? spacing : undefined;
-        const style = sectionStyleVars(section.style);
+        const colours = sectionStyleVars(section.style);
+        // Size & spacing (validated numbers / enums only). Custom properties inherit through
+        // display:contents, so the wrapper stays "contents" (sticky headers keep working).
+        const box = sectionBoxVars(section.box);
+        const style = box ? ({ ...colours, ...box.vars } as CSSProperties) : colours;
         const builder = slot ? { "data-section-id": section.id, "data-builder-slot-item": slot } : {};
         return (
-          <div key={section.id} id={`s-${section.id}`} className={cls || (style ? "flow-root" : "contents")} style={style} data-section={section.type} data-spacing={sp} {...builder}>
+          <div key={section.id} id={`s-${section.id}`} className={cls || (colours ? "flow-root" : "contents")} style={style} data-section={section.type} data-spacing={sp} {...box?.attrs} {...builder}>
             {node}
           </div>
         );

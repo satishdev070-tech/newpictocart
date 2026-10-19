@@ -2478,3 +2478,63 @@ a.sf-spot-add-square {
 html[data-builder-canvas] [data-preview-banner] {
   display: none;
 }
+
+/* ---------------------------------------------------------------------------
+ * Per-section size & spacing (section envelope `box`, schema/section-box.ts). SectionList sets the
+ * validated custom properties + data attributes on the section wrapper only when a value is set,
+ * so sections without overrides get none of these rules. Unlayered, after data-spacing, so an
+ * explicit px value wins over the spacing preset (the preset still applies to unset sides).
+ * --------------------------------------------------------------------------- */
+
+/* Content size: rescale Tailwind's type scale and spacing unit (gaps, paddings, icon/avatar sizes),
+   the inherited font size, and the content width; layout stays fluid (no zoom / transform). */
+[data-sf-scale] {
+  --spacing: calc(0.25rem * var(--sf-scale));
+  --text-xs: calc(0.75rem * var(--sf-scale));
+  --text-sm: calc(0.875rem * var(--sf-scale));
+  --text-base: calc(1rem * var(--sf-scale));
+  --text-lg: calc(1.125rem * var(--sf-scale));
+  --text-xl: calc(1.25rem * var(--sf-scale));
+  --text-2xl: calc(1.5rem * var(--sf-scale));
+  --text-3xl: calc(1.875rem * var(--sf-scale));
+  --text-4xl: calc(2.25rem * var(--sf-scale));
+  --text-5xl: calc(3rem * var(--sf-scale));
+  --text-6xl: calc(3.75rem * var(--sf-scale));
+  --text-7xl: calc(4.5rem * var(--sf-scale));
+  --text-8xl: calc(6rem * var(--sf-scale));
+  --text-9xl: calc(8rem * var(--sf-scale));
+  font-size: calc(1rem * var(--sf-scale));
+}
+[data-sf-scale] .sf-container {
+  max-width: min(100%, calc(var(--sf-container) * var(--sf-scale)));
+}
+[data-sf-scale] .sf-eyebrow {
+  font-size: calc(0.72rem * var(--sf-scale));
+}
+
+/* Padding replaces the section's own block padding (.sf-section); sections without one get it on
+   their root element. Margin goes on the wrapper, or its first/last child while it is display:contents
+   (keeps sticky headers sticky to the page). */
+[data-section][data-sf-pt=""] .sf-section { padding-top: var(--sf-pt); }
+[data-section][data-sf-pb=""] .sf-section { padding-bottom: var(--sf-pb); }
+.contents[data-sf-pt=""]:not(:has(.sf-section)) > :first-child,
+[data-sf-pt=""]:not(.contents):not(:has(.sf-section)) { padding-top: var(--sf-pt); }
+.contents[data-sf-pb=""]:not(:has(.sf-section)) > :last-child,
+[data-sf-pb=""]:not(.contents):not(:has(.sf-section)) { padding-bottom: var(--sf-pb); }
+.contents[data-sf-mt=""] > :first-child,
+[data-sf-mt=""]:not(.contents) { margin-top: var(--sf-mt); }
+.contents[data-sf-mb=""] > :last-child,
+[data-sf-mb=""]:not(.contents) { margin-bottom: var(--sf-mb); }
+
+@container (max-width: 47.99rem) {
+  [data-section][data-sf-pt] .sf-section { padding-top: var(--sf-pt-m); }
+  [data-section][data-sf-pb] .sf-section { padding-bottom: var(--sf-pb-m); }
+  .contents[data-sf-pt]:not(:has(.sf-section)) > :first-child,
+  [data-sf-pt]:not(.contents):not(:has(.sf-section)) { padding-top: var(--sf-pt-m); }
+  .contents[data-sf-pb]:not(:has(.sf-section)) > :last-child,
+  [data-sf-pb]:not(.contents):not(:has(.sf-section)) { padding-bottom: var(--sf-pb-m); }
+  .contents[data-sf-mt] > :first-child,
+  [data-sf-mt]:not(.contents) { margin-top: var(--sf-mt-m); }
+  .contents[data-sf-mb] > :last-child,
+  [data-sf-mb]:not(.contents) { margin-bottom: var(--sf-mb-m); }
+}

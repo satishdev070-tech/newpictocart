@@ -4,6 +4,7 @@ import { SECTION_TYPES, type SectionGroup, type SectionInstance, type SectionTyp
 import { HEX_COLOR_RE, SECTION_ID_RE, STORAGE_PATH_RE } from "./primitives";
 import { headerSettingsSchema, productCardSchema, tokensSchema, type HeaderSettings, type ProductCardSettings, type ThemeTokens } from "./tokens";
 import { themeMenusSchema, type ThemeMenu } from "./links";
+import { parseSectionBox } from "./section-box";
 import { MAX_POPUPS, MAX_THEME_PAGES, RESERVED_PAGE_HANDLES, builtinTitlesSchema, embedsSchema, pageMetaSchema, popupSchema, type BuiltinTitles, type Embeds, type PageMeta, type Popup } from "./site";
 
 /**
@@ -44,6 +45,8 @@ const sectionEnvelope = z.object({
   settings: z.record(z.string(), z.unknown()).default({}),
   visibility: visibilitySchema.prefault({}),
   style: sectionStyleSchema.optional(),
+  /** Size & spacing overrides; validated separately (schema/section-box.ts) so a bad value never drops the section on render. */
+  box: z.unknown().optional(),
 });
 
 export type ThemePage = PageMeta & { sections: SectionInstance[] };
@@ -122,7 +125,10 @@ function parseSectionList(raw: unknown, group: SectionGroup, path: string, issue
     seenIds.add(id);
     if (def.singleton) seenSingletons.add(type);
     const style = env.data.style && (env.data.style.background || env.data.style.text || env.data.style.accent) ? env.data.style : undefined;
-    out.push({ id, type, settings: parsed.data as Record<string, unknown>, visibility, ...(style ? { style } : {}) });
+    const boxed = parseSectionBox(env.data.box);
+    if (boxed.error) issues.push(...formatIssues(`${at}.box`, boxed.error)); // render: section kept without the box
+    const box = boxed.box;
+    out.push({ id, type, settings: parsed.data as Record<string, unknown>, visibility, ...(style ? { style } : {}), ...(box ? { box } : {}) });
   });
   return out;
 }
