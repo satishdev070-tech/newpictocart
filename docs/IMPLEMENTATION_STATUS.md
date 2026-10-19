@@ -1,6 +1,25 @@
 # Implementation Status
 
-_Last updated: 2026-10-19 (informative sites, marketplace, editor controls and AI-credit ledger)_
+_Last updated: 2026-10-19 (Sarvam voice onboarding → ready store)_
+
+## Sarvam voice onboarding → ready store (2026-10-19)
+
+- **Auth gate:** `/onboarding` blocks voice and store create until email is confirmed (password
+  signup). Google OAuth and existing name/email/password register/login are unchanged; sellers can
+  resend the confirmation link from the verify panel.
+- **Language + method:** after verify, sellers pick any Sarvam STT locale (`SARVAM_LOCALES`, 23
+  codes) then **Talk with Tara** or the classic business form.
+- **Tara voice:** `voiceTurnAction` runs STT → Sarvam-105B chat → Bulbul TTS (when supported),
+  extracts name / category / siteMode / tagline, rate-limits by user, and falls back to typed input
+  or the form. Pre-store turns are rate-limited only; AI credits debit on the ready-store seed.
+- **Build & ready:** `saveBusinessAction` creates a draft store then continues to **Building**, which
+  calls `seedReadyStore` (curated theme + 4 categories / 8 products / nav / homepage / blogs /
+  testimonials). Theme and plan steps are optional; Ready offers **Change theme**.
+- **Sarvam client:** `src/lib/sarvam/{locales,client}.ts` + `SARVAM_API_KEY` (server-only). Seed
+  pipeline lives under `src/features/onboarding/seed/`.
+- **Tests:** steps resolution, voice fact→industry mapping, existing onboarding action redirects.
+- **Verification:** `pnpm typecheck` ✅, `pnpm lint` ✅, `pnpm test` ✅ (91 files, 1,247 tests),
+  `pnpm build` ✅.
 
 ## Informative sites, marketplace, editor controls and AI credits (2026-10-19)
 

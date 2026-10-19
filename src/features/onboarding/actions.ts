@@ -23,6 +23,9 @@ import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { findPlan } from "@/features/marketing-site/plans";
 import { applyMarketplaceThemeToDraft } from "@/features/theme/server/apply-marketplace";
 import { listOwnedStores, ownerContext } from "./server";
+import { assertEmailVerifiedForOnboarding } from "./email-gate";
+import { seedReadyStore } from "./seed/pipeline";
+import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
 import { cleanPlanCode, onboardingHref, UUID_RE } from "./steps";
 
 /**
@@ -74,11 +77,12 @@ async function setSiteMode(tenantId: string, siteMode: "ecommerce" | "informativ
   if (error) throw mapDbError(error);
 }
 
-/** Step 2: create the store (or, with `store`, update its category when the seller went Back). */
+/** Create the store (or, with `store`, update its category when the seller went Back). Continues to building/seed. */
 export async function saveBusinessAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   let target: string | null = null;
   const result = await runAction("onboarding.business", async () => {
     const user = await requireUser("/onboarding");
+    await assertEmailVerifiedForOnboarding();
     const raw = formToObject(fd);
 
     if (typeof raw.store === "string" && raw.store) {
@@ -87,7 +91,7 @@ export async function saveBusinessAction(_prev: ActionResult | null, fd: FormDat
       if (!ctx) throw new AppError("FORBIDDEN");
       assertPermission(ctx, "settings.write");
       await setCategory(ctx.tenantId, input.category);
-      target = onboardingHref("theme", ctx.tenantId, input);
+      target = onboardingHref("building", ctx.tenantId, input);
       return;
     }
 
@@ -115,7 +119,75 @@ export async function saveBusinessAction(_prev: ActionResult | null, fd: FormDat
     if (!tenantId) throw new AppError("INTERNAL");
     await setSiteMode(tenantId, input.siteMode);
     await setActiveTenant(tenantId);
-    target = onboardingHref("theme", tenantId, input);
+    // Optional tagline / locale from voice confirm.
+    if (typeof raw.tagline === "string" && raw.tagline.trim()) {
+      const { error: tagErr } = await supabase.from("stores").update({ tagline: raw.tagline.trim().slice(0, 160) }).eq("tenant_id", tenantId);
+      if (tagErr) logger.warn("onboarding.tagline_failed", { tenantId, code: tagErr.code });
+    }
+    if (typeof raw.locale === "string" && isSarvamLocaleCode(raw.locale)) {
+      const { error: locErr } = await supabase.auth.updateUser({ data: { onboarding_locale: raw.locale } });
+      if (locErr) logger.warn("onboarding.locale_after_create_failed", { code: locErr.code });
+    }
+    target = onboardingHref("building", tenantId, input);
+  });
+  if (result.ok && target) redirect(target);
+  return result;
+}
+
+const seedSchema = z.object({
+  store: z.string().regex(UUID_RE),
+  locale: z.string().optional(),
+  brief: z.string().max(4000).optional(),
+  skip: z.string().optional(),
+  plan: choiceSchema.plan,
+  theme: choiceSchema.theme,
+});
+
+/**
+ * After create_tenant: generate catalogue / nav / homepage / blogs / testimonials and apply a
+ * curated theme. Idempotent per tenant. On skip, still applies best-fit theme when possible.
+ */
+export async function seedReadyStoreAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  let target: string | null = null;
+  const result = await runAction("onboarding.seed", async () => {
+    const user = await requireUser("/onboarding");
+    await assertEmailVerifiedForOnboarding();
+    const input = parseInput(seedSchema, formToObject(fd));
+    const ctx = await ownerContext(user, input.store);
+    if (!ctx) throw new AppError("FORBIDDEN");
+    await rateLimit("onboarding-seed", ctx.tenantId, 5, 3600);
+
+    const owned = (await listOwnedStores(user.id)).find((s) => s.tenantId === ctx.tenantId);
+    if (!owned) throw new AppError("FORBIDDEN");
+
+    if (input.skip) {
+      if (owned.category) {
+        const { applyBestFitTheme } = await import("./seed/theme-pick");
+        assertPermission(ctx, "theme.edit");
+        await applyBestFitTheme(ctx, owned.category, input.theme);
+      }
+      target = onboardingHref("ready", ctx.tenantId, input);
+      return;
+    }
+
+    if (!owned.category) throw new AppError("VALIDATION", { fieldErrors: { _form: ["Pick a business category before building the store."] } });
+
+    const locale =
+      typeof input.locale === "string" && isSarvamLocaleCode(input.locale)
+        ? input.locale
+        : ((await (await createSupabaseServerClient()).auth.getUser()).data.user?.user_metadata as { onboarding_locale?: string } | undefined)?.onboarding_locale;
+
+    await seedReadyStore(ctx, {
+      tenantId: ctx.tenantId,
+      storeName: owned.name,
+      industry: owned.category,
+      brief: input.brief,
+      locale: typeof locale === "string" ? locale : undefined,
+      applyTheme: true,
+      themeKey: input.theme ?? undefined,
+    });
+    await setActiveTenant(ctx.tenantId);
+    target = onboardingHref("ready", ctx.tenantId, { plan: input.plan, theme: input.theme });
   });
   if (result.ok && target) redirect(target);
   return result;
@@ -123,7 +195,7 @@ export async function saveBusinessAction(_prev: ActionResult | null, fd: FormDat
 
 const themeSchema = z.object({ store: z.string().regex(UUID_RE), choice: z.string().optional(), skip: z.string().optional(), plan: choiceSchema.plan });
 
-/** Step 3: apply the chosen theme as a DRAFT (or skip and keep the default theme). */
+/** Optional: apply a chosen theme as a DRAFT (or skip). Lands on Ready by default (plan is optional). */
 export async function chooseThemeAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   let target: string | null = null;
   const result = await runAction("onboarding.theme", async () => {
@@ -138,7 +210,8 @@ export async function chooseThemeAction(_prev: ActionResult | null, fd: FormData
       await audit({ tenantId: ctx.tenantId, actorUserId: user.id, action: "theme.marketplace_applied", entityType: "theme", entityId: theme.key, metadata: { theme: theme.key, version: theme.version, source: "onboarding" } });
     }
     await setActiveTenant(ctx.tenantId);
-    target = onboardingHref("plan", ctx.tenantId, { plan: input.plan });
+    // Plan is optional — Ready is the default landing after theme change.
+    target = onboardingHref("ready", ctx.tenantId, { plan: input.plan, theme: input.choice && isThemeKey(input.choice) ? input.choice : null });
   });
   if (result.ok && target) redirect(target);
   return result;

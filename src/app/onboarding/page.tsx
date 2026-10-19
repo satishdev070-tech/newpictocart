@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { platformIconMetadata } from "@/features/platform/server/public-config";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckCircle2, CreditCard, Eye, Package, Rocket, Truck } from "lucide-react";
+import { CheckCircle2, CreditCard, Eye, Package, Palette, Rocket, Truck } from "lucide-react";
 import { requireUser } from "@/lib/auth/session";
 import { publicEnv } from "@/lib/env/public";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isSarvamConfigured } from "@/lib/sarvam/client";
 import { INDUSTRIES, industryName } from "@/features/stores/industries";
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
 import { findTheme } from "@/features/marketing-site/themes";
@@ -14,6 +15,12 @@ import { findPlan, planHighlights, planPriceView } from "@/features/marketing-si
 import { buttonClass } from "@/features/marketing-site/components/ui";
 import { OnboardingShell, StepHeading } from "@/features/onboarding/components/shell";
 import { BusinessForm, PlanForm, ThemeForm, type ThemeOption } from "@/features/onboarding/components/forms";
+import { LanguagePicker } from "@/features/onboarding/components/language-picker";
+import { MethodPicker } from "@/features/onboarding/components/method-picker";
+import { VoiceSession } from "@/features/onboarding/components/voice-session";
+import { BuildingPanel } from "@/features/onboarding/components/building";
+import { VerifyEmailPanel } from "@/features/onboarding/components/verify-email";
+import { getEmailVerificationState } from "@/features/onboarding/email-gate";
 import { listOwnedStores, requestedChoices, type OnboardingStore } from "@/features/onboarding/server";
 import { onboardingHref, previousStep, resolveStep, UUID_RE } from "@/features/onboarding/steps";
 import { PreviewStoreButton } from "@/features/stores/components/launch-controls";
@@ -28,23 +35,66 @@ const dateFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeZone
 export default async function OnboardingPage({ searchParams }: PageProps<"/onboarding">) {
   const sp = await searchParams;
   const user = await requireUser("/onboarding");
+  const emailGate = await getEmailVerificationState();
+  if (emailGate.needsVerification) {
+    return (
+      <OnboardingShell step="account">
+        <VerifyEmailPanel email={emailGate.email} />
+      </OnboardingShell>
+    );
+  }
+
   const choice = await requestedChoices(sp);
   const owned = await listOwnedStores(user.id);
   const storeParam = typeof sp.store === "string" && UUID_RE.test(sp.store) ? owned.find((s) => s.tenantId === sp.store) : undefined;
   const wantsNew = sp.new === "1";
   const draft = owned.find((s) => s.launchStatus === "draft");
 
-  // Resume: an unfinished (draft) store continues where setup left off.
-  if (!storeParam && !wantsNew && draft) redirect(onboardingHref("theme", draft.tenantId, choice));
-  // Existing seller with only live stores: offer the dashboard or a new store, never a silent duplicate.
+  // Resume: unfinished draft → building if no theme yet, else ready.
+  if (!storeParam && !wantsNew && draft) {
+    redirect(onboardingHref(draft.draftThemeKey ? "ready" : "building", draft.tenantId, choice));
+  }
   if (!storeParam && !wantsNew && owned.length > 0) return <ExistingSeller stores={owned} choice={choice} />;
 
   const store = storeParam;
-  const step = resolveStep(sp.step, Boolean(store));
+  const step = resolveStep(sp.step, Boolean(store), { locale: choice.locale });
   const back = (s: typeof step) => {
-    const prev = previousStep(s);
+    const prev = previousStep(s, { locale: choice.locale, method: choice.method });
     return prev ? onboardingHref(prev, store?.tenantId, choice) : "/dashboard";
   };
+
+  if (step === "language") {
+    return (
+      <OnboardingShell step="language">
+        <StepHeading eyebrow="Language" title="Which language should Tara use?" description="Pick any Indian language Sarvam supports. You can still type if you prefer." />
+        <LanguagePicker selected={choice.locale} plan={choice.plan} theme={choice.theme} />
+      </OnboardingShell>
+    );
+  }
+
+  if (step === "method") {
+    if (!choice.locale) redirect(onboardingHref("language", null, choice));
+    return (
+      <OnboardingShell step="method">
+        <StepHeading eyebrow="How to start" title="Talk it through, or fill a form" description="Either path creates the same draft store." />
+        <MethodPicker locale={choice.locale} plan={choice.plan} theme={choice.theme} voiceAvailable={isSarvamConfigured()} />
+      </OnboardingShell>
+    );
+  }
+
+  if (step === "voice") {
+    if (!choice.locale) redirect(onboardingHref("language", null, choice));
+    const { data } = await (await createSupabaseServerClient()).auth.getUser();
+    const meta = (data.user?.user_metadata ?? {}) as { store_name?: unknown };
+    const fromQuery = typeof sp.name === "string" ? sp.name : "";
+    const defaultName = (fromQuery || (typeof meta.store_name === "string" ? meta.store_name : "")).slice(0, 120);
+    return (
+      <OnboardingShell step="voice" wide>
+        <StepHeading eyebrow="Talk with Tara" title="Tell us about your business" description="Hold the mic and speak, or type. Confirm details before we create the store." />
+        <VoiceSession locale={choice.locale} plan={choice.plan} theme={choice.theme} rootDomain={publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN} defaultName={defaultName} />
+      </OnboardingShell>
+    );
+  }
 
   if (step === "business") {
     const { data } = await (await createSupabaseServerClient()).auth.getUser();
@@ -54,7 +104,7 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
     const suggested = store?.category ?? (choice.theme ? findTheme(choice.theme)?.industry : undefined) ?? "";
     return (
       <OnboardingShell step="business">
-        <StepHeading eyebrow="Step 2 of 5" title="Tell us about your business" description="This sets up your store and its web address." />
+        <StepHeading eyebrow="Business" title="Tell us about your business" description="This sets up your store and its web address." />
         <BusinessForm
           rootDomain={publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN}
           categories={INDUSTRIES.map((i) => ({ value: i.slug, label: i.name }))}
@@ -63,42 +113,62 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
           plan={choice.plan}
           theme={choice.theme}
         />
+        {!store ? (
+          <p className="mt-4 text-sm text-muted">
+            Prefer voice?{" "}
+            <Link href={onboardingHref("voice", null, { ...choice, method: "voice" })} className="font-semibold text-brand underline-offset-2 hover:underline">
+              Talk with Tara
+            </Link>
+          </p>
+        ) : null}
+      </OnboardingShell>
+    );
+  }
+
+  if (step === "building") {
+    if (!store) redirect(onboardingHref("method", null, choice));
+    return (
+      <OnboardingShell step="building">
+        <StepHeading eyebrow="Building" title="Setting up your draft store" description="This usually takes less than a minute. Nothing goes live until you publish." />
+        <BuildingPanel storeId={store.tenantId} locale={choice.locale} plan={choice.plan} theme={choice.theme} />
       </OnboardingShell>
     );
   }
 
   if (step === "theme") {
-    const themes = themeOptions(store!, choice.theme);
-    const selected = choice.theme ?? store!.draftThemeKey ?? themes[0]?.key ?? null;
+    if (!store) redirect(onboardingHref("method", null, choice));
+    const themes = themeOptions(store, choice.theme);
+    const selected = choice.theme ?? store.draftThemeKey ?? themes[0]?.key ?? null;
     return (
       <OnboardingShell step="theme" wide>
         <StepHeading
-          eyebrow="Step 3 of 5"
+          eyebrow="Change theme"
           title="Choose a theme"
-          description={store!.category ? `Themes made for ${industryName(store!.category)} stores. Nothing goes live until you publish.` : "Pick a starting design. Nothing goes live until you publish."}
+          description={store.category ? `Themes made for ${industryName(store.category)} stores. Nothing goes live until you publish.` : "Pick a starting design. Nothing goes live until you publish."}
         />
-        <ThemeForm store={store!.tenantId} themes={themes} selected={selected} plan={choice.plan} backHref={back("theme")} />
+        <ThemeForm store={store.tenantId} themes={themes} selected={selected} plan={choice.plan} backHref={onboardingHref("ready", store.tenantId, choice)} />
       </OnboardingShell>
     );
   }
 
   if (step === "plan") {
+    if (!store) redirect(onboardingHref("method", null, choice));
     const plans = await getMarketingPlans();
     const selected = findPlan(plans, choice.plan)?.code ?? null;
     return (
       <OnboardingShell step="plan" wide>
         <StepHeading
-          eyebrow="Step 4 of 5"
+          eyebrow="Plan (optional)"
           title="Which plan suits you?"
           description={
             <>
-              {store!.planName ? `Your store starts on the ${store!.planName} plan` : "Your store starts on our entry plan"}
-              {store!.trialEndsAt ? ` with a free trial until ${dateFmt.format(new Date(store!.trialEndsAt))}` : ""}. Plans can&apos;t be bought online yet, so nothing is charged: we&apos;ll save your choice and our team applies plan changes.
+              {store.planName ? `Your store starts on the ${store.planName} plan` : "Your store starts on our entry plan"}
+              {store.trialEndsAt ? ` with a free trial until ${dateFmt.format(new Date(store.trialEndsAt))}` : ""}. Plans can&apos;t be bought online yet, so nothing is charged: we&apos;ll save your choice and our team applies plan changes.
             </>
           }
         />
         <PlanForm
-          store={store!.tenantId}
+          store={store.tenantId}
           plans={plans.map((p) => ({ code: p.code, name: p.name, description: p.description, price: `${planPriceView(p, "monthly").amount}/month`, highlights: planHighlights(p) }))}
           selected={selected}
           backHref={back("plan")}
@@ -107,7 +177,8 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
     );
   }
 
-  return <Ready store={store!} />;
+  if (!store) redirect(onboardingHref("method", null, choice));
+  return <Ready store={store} choice={choice} />;
 }
 
 /** Themes for the store's category (requested theme first), else a varied starter set. */
@@ -119,14 +190,21 @@ function themeOptions(store: OnboardingStore, requested: string | null): ThemeOp
   return list.slice(0, 9).map((t) => ({ key: t.key, name: t.name, tagline: t.tagline, preset: t.preset }));
 }
 
-function newStoreHref(choice: { plan: string | null; theme: string | null }): string {
+function newStoreHref(choice: { plan: string | null; theme: string | null; locale?: string | null }): string {
   const qs = new URLSearchParams({ new: "1" });
   if (choice.plan) qs.set("plan", choice.plan);
   if (choice.theme) qs.set("theme", choice.theme);
+  if (choice.locale) qs.set("lang", choice.locale);
   return `/onboarding?${qs}`;
 }
 
-function ExistingSeller({ stores, choice }: { stores: OnboardingStore[]; choice: { plan: string | null; theme: string | null } }) {
+function ExistingSeller({
+  stores,
+  choice,
+}: {
+  stores: OnboardingStore[];
+  choice: { plan: string | null; theme: string | null; locale: string | null };
+}) {
   return (
     <OnboardingShell step="business">
       <StepHeading eyebrow="Welcome back" title={stores.length === 1 ? "You already have a store" : `You already have ${stores.length} stores`} description="Go to your dashboard, or set up an additional store." />
@@ -153,7 +231,13 @@ function ExistingSeller({ stores, choice }: { stores: OnboardingStore[]; choice:
   );
 }
 
-function Ready({ store }: { store: OnboardingStore }) {
+function Ready({
+  store,
+  choice,
+}: {
+  store: OnboardingStore;
+  choice: { plan: string | null; theme: string | null; locale: string | null };
+}) {
   const tasks = isInformative(store.siteMode)
     ? [
         { icon: Package, title: "Tell your story", body: "Add your services, portfolio and business details.", href: "/dashboard/theme", cta: "Customize your website" },
@@ -161,9 +245,9 @@ function Ready({ store }: { store: OnboardingStore }) {
         { icon: Eye, title: "Preview your website", body: "Check every page before you publish it.", href: "/dashboard/theme", cta: "Open builder" },
       ]
     : [
-    { icon: Package, title: "Add your products", body: "Photos, prices, variants and stock.", href: "/dashboard/products/new", cta: "Add a product" },
-    { icon: CreditCard, title: "Set up payments", body: "Turn on cash on delivery or connect Razorpay, Cashfree or PayU.", href: "/dashboard/settings/payments", cta: "Payment settings" },
-    { icon: Truck, title: "Set up shipping", body: "Shipping rates, PIN code rules or a courier account.", href: "/dashboard/settings/shipping", cta: "Shipping settings" },
+        { icon: Package, title: "Review sample products", body: "We seeded starter products — edit photos, prices and stock.", href: "/dashboard/products", cta: "View products" },
+        { icon: CreditCard, title: "Set up payments", body: "Turn on cash on delivery or connect Razorpay, Cashfree or PayU.", href: "/dashboard/settings/payments", cta: "Payment settings" },
+        { icon: Truck, title: "Set up shipping", body: "Shipping rates, PIN code rules or a courier account.", href: "/dashboard/settings/shipping", cta: "Shipping settings" },
       ];
   return (
     <OnboardingShell step="ready" wide>
@@ -172,15 +256,16 @@ function Ready({ store }: { store: OnboardingStore }) {
           <CheckCircle2 className="size-6" />
         </span>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Step 5 of 5</p>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Ready</p>
           <h1 className="mt-1 font-brand text-2xl font-extrabold tracking-tight text-brand-ink sm:text-3xl">{store.name} is set up</h1>
           <p className="mt-2 text-muted">
             {store.launchStatus === "draft"
-              ? "Your store is a private draft. Visitors see a ‘coming soon’ page until you publish it from your dashboard."
+              ? "Your store is a private draft with starter content and a curated theme. Visitors see a ‘coming soon’ page until you publish it from your dashboard."
               : isInformative(store.siteMode)
                 ? "Finish these steps to publish your informative website."
                 : "Finish these steps to start taking orders."}
           </p>
+          {store.draftThemeKey ? <p className="mt-2 text-sm text-muted">Theme: {findTheme(store.draftThemeKey)?.name ?? store.draftThemeKey}</p> : null}
         </div>
       </div>
       <h2 className="font-brand text-lg font-bold text-brand-ink">Before you publish</h2>
@@ -202,6 +287,9 @@ function Ready({ store }: { store: OnboardingStore }) {
         <PreviewStoreButton />
       </div>
       <div className="mt-8 flex flex-wrap justify-end gap-3 border-t border-border pt-6">
+        <Link href={onboardingHref("theme", store.tenantId, choice)} className={buttonClass("secondary", "lg")}>
+          <Palette aria-hidden className="size-4" /> Change theme
+        </Link>
         <Link href="/dashboard?welcome=1" className={buttonClass("primary", "lg")}>
           <Rocket aria-hidden className="size-4" /> Go to my dashboard
         </Link>

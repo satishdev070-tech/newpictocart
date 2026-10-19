@@ -2,49 +2,106 @@
  * Seller onboarding steps (pure, unit tested). Account creation happens before /onboarding, so
  * it is always shown as done. Progress is derived from the database (an owned draft store means
  * onboarding is in progress), so it survives sign-out, other devices and email verification.
+ *
+ * Default path (no store): language → method → voice|business → building → ready.
+ * Theme and plan are optional (skipped by default); sellers can change theme from Ready.
  */
+
 export const ONBOARDING_STEPS = [
   { key: "account", label: "Account" },
-  { key: "business", label: "Business" },
-  { key: "theme", label: "Theme" },
-  { key: "plan", label: "Plan" },
+  { key: "language", label: "Language" },
+  { key: "setup", label: "Business" },
+  { key: "building", label: "Building" },
   { key: "ready", label: "Ready" },
 ] as const;
 
 export type OnboardingStepKey = (typeof ONBOARDING_STEPS)[number]["key"];
-export type WizardStep = Exclude<OnboardingStepKey, "account">;
 
-const WIZARD: readonly WizardStep[] = ["business", "theme", "plan", "ready"];
+/** Actual wizard screens (finer than the progress rail). */
+export type WizardStep = "language" | "method" | "voice" | "business" | "building" | "theme" | "plan" | "ready";
+
+const WIZARD: readonly WizardStep[] = ["language", "method", "voice", "business", "building", "theme", "plan", "ready"];
+
+const PRE_STORE: readonly WizardStep[] = ["language", "method", "voice", "business"];
 
 export function isWizardStep(v: unknown): v is WizardStep {
   return typeof v === "string" && (WIZARD as readonly string[]).includes(v);
 }
 
+/** Map a wizard screen onto the 5-step progress rail. */
+export function progressStep(step: WizardStep): OnboardingStepKey {
+  if (step === "language") return "language";
+  if (step === "method" || step === "voice" || step === "business") return "setup";
+  if (step === "building") return "building";
+  return "ready";
+}
+
 /**
- * The step to show. Without a store only "business" is possible; with one, the requested step
- * (default "theme"). "business" with a store means editing details via Back.
+ * The step to show.
+ * Without a store: language until a locale is chosen, then method / voice / business.
+ * With a store: default Ready (theme/plan optional via explicit ?step=).
  */
-export function resolveStep(requested: unknown, hasStore: boolean): WizardStep {
-  if (!hasStore) return "business";
-  return isWizardStep(requested) ? requested : "theme";
+export function resolveStep(
+  requested: unknown,
+  hasStore: boolean,
+  prefs: { locale?: string | null } = {},
+): WizardStep {
+  if (!hasStore) {
+    if (!prefs.locale) return "language";
+    if (requested === "language") return "language";
+    if (requested === "voice") return "voice";
+    if (requested === "business") return "business";
+    if (requested === "method") return "method";
+    // Ignore post-store steps until a store exists.
+    if (isWizardStep(requested) && (PRE_STORE as readonly string[]).includes(requested)) return requested;
+    return "method";
+  }
+  if (isWizardStep(requested)) {
+    if ((PRE_STORE as readonly string[]).includes(requested) && requested !== "business") return "ready";
+    return requested;
+  }
+  return "ready";
 }
 
 export function stepIndex(step: OnboardingStepKey): number {
   return ONBOARDING_STEPS.findIndex((s) => s.key === step);
 }
 
-export function previousStep(step: WizardStep): WizardStep | null {
-  const i = WIZARD.indexOf(step);
-  return i > 0 ? WIZARD[i - 1]! : null;
+export function previousStep(step: WizardStep, prefs: { locale?: string | null; method?: string | null } = {}): WizardStep | null {
+  switch (step) {
+    case "language":
+      return null;
+    case "method":
+      return "language";
+    case "voice":
+    case "business":
+      return "method";
+    case "building":
+      return prefs.method === "voice" ? "voice" : "business";
+    case "theme":
+      return "ready";
+    case "plan":
+      return "theme";
+    case "ready":
+      return null;
+    default:
+      return null;
+  }
 }
 
 /** URL of an onboarding step for a store, carrying the sign-up choices along. */
-export function onboardingHref(step: WizardStep, store?: string | null, choice: { plan?: string | null; theme?: string | null } = {}): string {
+export function onboardingHref(
+  step: WizardStep,
+  store?: string | null,
+  choice: { plan?: string | null; theme?: string | null; locale?: string | null; method?: string | null } = {},
+): string {
   const qs = new URLSearchParams();
-  if (step !== "business" || store) qs.set("step", step);
+  if (step !== "language" || store) qs.set("step", step);
   if (store) qs.set("store", store);
   if (choice.plan) qs.set("plan", choice.plan);
   if (choice.theme) qs.set("theme", choice.theme);
+  if (choice.locale) qs.set("lang", choice.locale);
+  if (choice.method) qs.set("method", choice.method);
   return qs.size ? `/onboarding?${qs}` : "/onboarding";
 }
 
