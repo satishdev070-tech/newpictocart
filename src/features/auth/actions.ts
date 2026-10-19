@@ -11,6 +11,8 @@ import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { clientIpKey, rateLimit } from "@/lib/rate-limit";
 import { platformOrigin } from "@/lib/platform/urls";
 import { ADMIN_LOGIN_PATH, SELLER_LOGIN_PATH, landingPathFor } from "@/lib/auth/landing";
+import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
+import { isStartIntentId } from "@/features/start/intents";
 import { forgotSchema, resetSchema, signInSchema, signUpSchema } from "./schemas";
 
 export async function signInAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
@@ -37,9 +39,12 @@ export async function signUpAction(_prev: ActionResult<{ needsConfirmation: bool
     const input = parseInput(signUpSchema, formToObject(fd));
     next = safeRedirectPath(input.next, "/onboarding");
     const qs = new URLSearchParams();
+    const lang = input.lang && isSarvamLocaleCode(input.lang) ? input.lang : null;
+    const intent = input.intent && isStartIntentId(input.intent) ? input.intent : null;
     if (input.storeName) qs.set("name", input.storeName);
     if (input.plan) qs.set("plan", input.plan);
     if (input.theme) qs.set("theme", input.theme);
+    if (lang) qs.set("lang", lang);
     const onboarding = qs.size ? `/onboarding?${qs}` : "/onboarding";
     await rateLimit("signup:ip", await clientIpKey(), 10, 3600);
     const supabase = await createSupabaseServerClient();
@@ -47,8 +52,15 @@ export async function signUpAction(_prev: ActionResult<{ needsConfirmation: bool
       email: input.email,
       password: input.password,
       options: {
-        // Plan/theme picked on the marketing site survive email confirmation via user metadata.
-        data: { display_name: input.displayName, store_name: input.storeName ?? null, requested_plan: input.plan ?? null, requested_theme: input.theme ?? null },
+        // Plan/theme/locale from marketing /start survive email confirmation via user metadata.
+        data: {
+          display_name: input.displayName,
+          store_name: input.storeName ?? null,
+          requested_plan: input.plan ?? null,
+          requested_theme: input.theme ?? null,
+          onboarding_locale: lang,
+          onboarding_intent: intent,
+        },
         emailRedirectTo: `${platformOrigin()}/auth/callback?next=${encodeURIComponent(input.next ? next : onboarding)}`,
       },
     });

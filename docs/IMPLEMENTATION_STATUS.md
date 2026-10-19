@@ -1,6 +1,12 @@
 # Implementation Status
 
-_Last updated: 2026-10-19 (Sarvam voice onboarding → ready store)_
+_Last updated: 2026-10-19 (prototype /start journey + Sarvam voice onboarding)_
+
+## Prototype start journey (2026-10-19)
+
+- Public CTAs (**Start Free**, **Create Your Free Store**) open **`/start`**: welcome
+  (“Let's begin”) → language picker → Tara intent → `/seller/register` with `lang` / `intent`.
+- Locale is stored on signup metadata (`onboarding_locale`) and carried into `/onboarding`.
 
 ## Sarvam voice onboarding → ready store (2026-10-19)
 

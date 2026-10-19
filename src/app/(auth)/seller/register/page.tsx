@@ -13,6 +13,8 @@ import { findTheme, isThemeKey } from "@/features/marketing-site/themes";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { findPlan, maxTrialDays } from "@/features/marketing-site/plans";
 import { cleanPlanCode } from "@/features/onboarding/steps";
+import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
+import { isStartIntentId } from "@/features/start/intents";
 
 export const metadata: Metadata = { title: "Create your store", robots: { index: false, follow: false } };
 
@@ -22,9 +24,12 @@ export default async function SellerRegisterPage({ searchParams }: PageProps<"/s
   const theme = typeof sp.theme === "string" && isThemeKey(sp.theme) ? sp.theme : null;
   const plans = await getMarketingPlans();
   const plan = findPlan(plans, cleanPlanCode(sp.plan))?.code ?? null;
+  const lang = typeof sp.lang === "string" && isSarvamLocaleCode(sp.lang) ? sp.lang : null;
+  const intent = typeof sp.intent === "string" && isStartIntentId(sp.intent) ? sp.intent : null;
   const qs = new URLSearchParams();
   if (plan) qs.set("plan", plan);
   if (theme) qs.set("theme", theme);
+  if (lang) qs.set("lang", lang);
   const onboarding = qs.size ? `/onboarding?${qs}` : "/onboarding";
 
   // Already signed in: continue setup (or the dashboard) instead of creating a second account.
@@ -41,12 +46,13 @@ export default async function SellerRegisterPage({ searchParams }: PageProps<"/s
   return (
     <AuthSplit variant="merchant" aside={<MerchantAside mode="register" />}>
       <AuthHeading
-        eyebrow="Step 1 of 5 · Account"
+        eyebrow="Create account"
         title="Create your store"
         description={trial > 0 ? `Start with a ${trial}-day free trial. No card details needed.` : "No card details needed."}
       />
-      {themeName || planName ? (
+      {themeName || planName || lang ? (
         <p className="-mt-4 mb-6 flex flex-wrap gap-2 text-caption" aria-label="Your selections">
+          {lang ? <span className="rounded-full bg-accent-soft px-2.5 py-1 font-semibold text-accent">Language: {lang}</span> : null}
           {themeName ? <span className="rounded-full bg-accent-soft px-2.5 py-1 font-semibold text-accent">Theme: {themeName}</span> : null}
           {planName ? <span className="rounded-full bg-accent-soft px-2.5 py-1 font-semibold text-accent">Plan: {planName}</span> : null}
         </p>
@@ -57,7 +63,7 @@ export default async function SellerRegisterPage({ searchParams }: PageProps<"/s
           <OrDivider />
         </>
       ) : null}
-      <SignUpForm next={next || undefined} plan={plan} theme={theme} />
+      <SignUpForm next={next || undefined} plan={plan} theme={theme} lang={lang} intent={intent} />
     </AuthSplit>
   );
 }
