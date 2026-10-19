@@ -161,7 +161,10 @@ const localeSchema = z.object({
 });
 
 /** Persist onboarding language on the auth user (survives email confirm / devices). */
-export async function saveOnboardingLocaleAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult<{ locale: string }>> {
+export async function saveOnboardingLocaleAction(
+  _prev: ActionResult<{ locale: string }> | null,
+  fd: FormData,
+): Promise<ActionResult<{ locale: string }>> {
   return runAction("onboarding.locale", async () => {
     const user = await requireUser("/onboarding");
     await assertEmailVerifiedForOnboarding();
@@ -196,7 +199,10 @@ export async function saveOnboardingMethodAction(_prev: ActionResult | null, fd:
 }
 
 /** Resend the signup confirmation email (existing confirm flow). */
-export async function resendOnboardingConfirmAction(_prev: ActionResult | null, _fd: FormData): Promise<ActionResult<{ sent: boolean }>> {
+export async function resendOnboardingConfirmAction(
+  _prev: ActionResult<{ sent: boolean }> | null,
+  _fd: FormData,
+): Promise<ActionResult<{ sent: boolean }>> {
   return runAction("onboarding.resendConfirm", async () => {
     const supabase = await createSupabaseServerClient();
     const { data } = await supabase.auth.getUser();

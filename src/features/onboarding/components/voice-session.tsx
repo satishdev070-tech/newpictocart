@@ -110,7 +110,11 @@ export function VoiceSession({
     }
   }, [runTurn, stopRecording]);
 
-  useEffect(() => () => mediaRef.current?.state === "recording" && mediaRef.current.stop(), []);
+  useEffect(() => {
+    return () => {
+      if (mediaRef.current?.state === "recording") mediaRef.current.stop();
+    };
+  }, []);
 
   if (done && facts.name && facts.category && facts.siteMode) {
     return (

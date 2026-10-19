@@ -4,6 +4,9 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "@/features/marketing-site/components/brand-logo";
 import { ONBOARDING_STEPS, progressStep, stepIndex, type OnboardingStepKey, type WizardStep } from "../steps";
+import { StepHeading } from "./step-heading";
+
+export { StepHeading };
 
 /** Brand-styled frame for onboarding: logo, step progress and a centred card. */
 export function OnboardingShell({
@@ -60,16 +63,6 @@ export function OnboardingShell({
       <main id="main" className="flex-1 px-4 py-10 sm:px-6">
         <div className={cn("mx-auto rounded-brand-lg border border-border bg-white p-6 shadow-brand-card sm:p-10", wide ? "max-w-5xl" : "max-w-xl")}>{children}</div>
       </main>
-    </div>
-  );
-}
-
-export function StepHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description?: ReactNode }) {
-  return (
-    <div className="mb-8">
-      <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">{eyebrow}</p>
-      <h1 className="mt-2 font-brand text-2xl font-extrabold tracking-tight text-brand-ink sm:text-3xl">{title}</h1>
-      {description ? <p className="mt-2 text-muted">{description}</p> : null}
     </div>
   );
 }

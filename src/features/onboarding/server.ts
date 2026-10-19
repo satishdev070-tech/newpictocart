@@ -79,7 +79,7 @@ export async function requestedChoices(sp: Record<string, string | string[] | un
   let plan = cleanPlanCode(q("plan"));
   let theme = isThemeKey(q("theme")) ? q("theme") : null;
   let locale = q("lang") && isSarvamLocaleCode(q("lang")!) ? (q("lang") as SarvamLocaleCode) : null;
-  let method: "voice" | "form" | null = q("method") === "voice" || q("method") === "form" ? q("method") : null;
+  let method: "voice" | "form" | null = q("method") === "voice" || q("method") === "form" ? (q("method") as "voice" | "form") : null;
   if (!plan || !theme || !locale || !method) {
     const { data } = await (await createSupabaseServerClient()).auth.getUser();
     const meta = (data.user?.user_metadata ?? {}) as Record<string, unknown>;

@@ -19,7 +19,7 @@ export function LanguagePicker({
 }) {
   const router = useRouter();
   const [locale, setLocale] = useState<SarvamLocaleCode | null>(selected);
-  const [state, action] = useActionState(saveOnboardingLocaleAction, null);
+  const [state, action] = useActionState(saveOnboardingLocaleAction, null as Awaited<ReturnType<typeof saveOnboardingLocaleAction>> | null);
   const [, startTransition] = useTransition();
   const errors = fieldErrors(state);
 

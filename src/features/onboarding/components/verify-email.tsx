@@ -4,11 +4,11 @@ import { useActionState } from "react";
 import { MailCheck } from "lucide-react";
 import { FormMessage, SubmitButton } from "@/components/ui/form";
 import { resendOnboardingConfirmAction } from "../voice/actions";
-import { StepHeading } from "./shell";
+import { StepHeading } from "./step-heading";
 
 /** Shown when a password-signup seller reaches /onboarding before confirming email. */
 export function VerifyEmailPanel({ email }: { email: string | null }) {
-  const [state, action] = useActionState(resendOnboardingConfirmAction, null);
+  const [state, action] = useActionState(resendOnboardingConfirmAction, null as Awaited<ReturnType<typeof resendOnboardingConfirmAction>> | null);
   return (
     <div className="space-y-6 text-center">
       <span className="mx-auto grid size-12 place-items-center rounded-full bg-success/10 text-success">
