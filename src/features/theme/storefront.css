@@ -902,6 +902,11 @@
   .sf-header {
     transition: box-shadow 200ms ease;
   }
+  .sf-menu-size nav[aria-label="Main"] { font-size: var(--sf-menu-size); }
+  .sf-menu-weight nav[aria-label="Main"] { font-weight: var(--sf-menu-weight); }
+  .sf-menu-tracking nav[aria-label="Main"] { letter-spacing: var(--sf-menu-tracking); }
+  .sf-menu-case nav[aria-label="Main"] { text-transform: var(--sf-menu-case); }
+  .sf-menu-colour nav[aria-label="Main"] { color: var(--sf-menu-colour); }
   :root[data-sf-scrolled] .sf-header.sticky {
     box-shadow: 0 6px 18px -12px rgb(0 0 0 / 0.25);
   }

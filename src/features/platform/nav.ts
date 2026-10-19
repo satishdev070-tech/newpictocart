@@ -37,6 +37,7 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
     icon: "monitoring",
     items: [
       { href: "/admin/usage", label: "Usage & storage", permission: "platform.usage.read", icon: "usage" },
+      { href: "/admin/ai-credits", label: "AI credits", permission: "platform.settings.manage", icon: "usage" },
       { href: "/admin/audit", label: "Audit log", permission: "platform.audit.read", icon: "audit" },
       { href: "/admin/integrations", label: "Store integrations", permission: "platform.settings.manage", icon: "integrations" },
       { href: "/admin/social-apps", label: "Social apps", permission: "platform.settings.manage", icon: "integrations" },

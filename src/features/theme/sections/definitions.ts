@@ -878,7 +878,9 @@ const trustBadges = {
   groups: ["home", "footer", "collection", "product"],
   schema: z.object({
     items: z
-      .array(z.object({ icon: z.enum(TRUST_ICONS).default("truck"), title: plainText(40).pipe(z.string().min(1, "Required")), text: txt(100) }))
+      // Legacy emoji-style names remain valid. New values are an allowlisted library icon
+      // (`icon:<name>`) or an owned image selected/uploaded in the Media library.
+      .array(z.object({ icon: z.union([z.enum(TRUST_ICONS), imagePath]).default("truck"), title: plainText(40).pipe(z.string().min(1, "Required")), text: txt(100) }))
       .min(1)
       .max(6)
       .default([
@@ -899,7 +901,7 @@ const trustBadges = {
       min: 1,
       max: 6,
       fields: [
-        { kind: "select", key: "icon", label: "Icon", options: opts(TRUST_ICONS, { cod: "Cash on delivery", india: "Made in India" }) },
+        { kind: "image", key: "icon", label: "Icon", help: "Choose from the icon library or upload an image from Media." },
         { kind: "text", key: "title", label: "Title", maxLength: 40 },
         { kind: "text", key: "text", label: "Text", maxLength: 100 },
       ],

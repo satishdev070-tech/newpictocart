@@ -6,6 +6,7 @@ import { logger } from "@/lib/observability/logger";
 import { isIndustry, type IndustrySlug } from "@/features/stores/industries";
 import { isThemeKey } from "@/features/marketing-site/themes";
 import { cleanPlanCode } from "./steps";
+import { parseSiteMode, type SiteMode } from "@/features/stores/site-mode";
 
 /** A store the signed-in user OWNS, as onboarding needs it. Read with the user's session (RLS). */
 export type OnboardingStore = {
@@ -17,12 +18,14 @@ export type OnboardingStore = {
   trialEndsAt: string | null;
   planName: string | null;
   draftThemeKey: string | null;
+  siteMode: SiteMode;
 };
 
 type StoreRow = {
   tenant_id: string;
   name: string;
   launch_status?: string | null;
+  site_mode?: unknown;
   store_categories: { slug: string } | { slug: string }[] | null;
   tenants: { slug: string; trial_ends_at: string | null; plans: { name: string } | { name: string }[] | null } | null;
 };
@@ -36,10 +39,11 @@ export async function listOwnedStores(userId: string): Promise<OnboardingStore[]
   const ids = owned.map((m) => m.tenantId);
   const supabase = await createSupabaseServerClient();
   const base = "tenant_id, name, store_categories(slug), tenants(slug, trial_ends_at, plans(name))";
-  let res = await supabase.from("stores").select(`${base}, launch_status`).in("tenant_id", ids);
+  let res = await supabase.from("stores").select(`${base}, launch_status, site_mode`).in("tenant_id", ids);
   if (res.error) {
     logger.warn("onboarding.launch_status_unavailable", { code: res.error.code });
-    res = (await supabase.from("stores").select(base).in("tenant_id", ids)) as typeof res;
+    res = (await supabase.from("stores").select(`${base}, launch_status`).in("tenant_id", ids)) as typeof res;
+    if (res.error) res = (await supabase.from("stores").select(base).in("tenant_id", ids)) as typeof res;
   }
   if (res.error) throw res.error;
   const drafts = await supabase.from("theme_versions").select("tenant_id, theme_key").in("tenant_id", ids).eq("status", "draft");
@@ -58,6 +62,7 @@ export async function listOwnedStores(userId: string): Promise<OnboardingStore[]
       trialEndsAt: t?.trial_ends_at ?? null,
       planName: one(t?.plans)?.name ?? null,
       draftThemeKey: draftKey.get(r.tenant_id) ?? null,
+      siteMode: parseSiteMode(r.site_mode),
     };
   });
 }

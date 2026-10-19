@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Eye, Search } from "lucide-react";
+import { ExternalLink, Search } from "lucide-react";
 import { ThemeMockup } from "../mockup";
 import { ApplyThemeButton } from "../apply-button";
-import { ThemePreviewDialog } from "./preview-dialog";
-import { THEME_STYLE_LABELS, type ThemePreset, type ThemeStyle } from "../types";
+import { THEME_STYLE_LABELS, themeSiteType, type ThemePreset, type ThemeSiteType, type ThemeStyle } from "../types";
 
 export type MarketplaceCard = {
   key: string;
@@ -14,6 +13,7 @@ export type MarketplaceCard = {
   tagline: string;
   industry: string;
   industryLabel: string;
+  siteType?: ThemeSiteType;
   style: ThemeStyle;
   bestFor: string[];
   added: string;
@@ -83,10 +83,10 @@ export function MarketplaceBrowser({
   canPublish: boolean;
 }) {
   const [industry, setIndustry] = useState(initialIndustry);
+  const [siteType, setSiteType] = useState<ThemeSiteType | "">("");
   const [style, setStyle] = useState<ThemeStyle | "">("");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>("featured");
-  const [preview, setPreview] = useState<MarketplaceCard | null>(null);
 
   const syncUrl = (next: string) => {
     const u = new URL(window.location.href);
@@ -101,6 +101,7 @@ export function MarketplaceBrowser({
     const needle = q.trim().toLowerCase();
     const out = themes.filter(
       (t) =>
+        (!siteType || themeSiteType(t) === siteType) &&
         (!industry || t.industry === industry) &&
         (!style || t.style === style) &&
         (!needle || [t.name, t.tagline, t.industryLabel, THEME_STYLE_LABELS[t.style], ...t.bestFor].join(" ").toLowerCase().includes(needle)),
@@ -113,14 +114,27 @@ export function MarketplaceBrowser({
       const rb = b.industry === recommended ? 0 : 1;
       return ra - rb || a.order - b.order;
     });
-  }, [themes, industry, style, q, sort, recommended]);
+  }, [themes, industry, siteType, style, q, sort, recommended]);
 
   const chip = (active: boolean) =>
     `relative inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-small whitespace-nowrap ${active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-surface hover:bg-surface-secondary"}`;
 
   return (
-    <div className="space-y-5">
-      <nav aria-label="Industries" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+    <div className="grid gap-6 xl:grid-cols-[12rem_minmax(0,1fr)]">
+      <aside className="xl:sticky xl:top-5 xl:self-start">
+        <nav aria-label="Website type">
+          <p className="px-1 text-caption font-semibold uppercase tracking-wide text-muted">Website type</p>
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 xl:block xl:space-y-1 xl:overflow-visible">
+            {([ ["", "All templates"], ["informative", "Informative website"], ["ecommerce", "Online store"] ] as const).map(([type, label]) => (
+              <button key={type || "all"} type="button" aria-pressed={siteType === type} onClick={() => { setSiteType(type); setIndustry(""); setStyle(""); }} className={`flex h-9 shrink-0 items-center justify-between gap-3 rounded-md px-3 text-small xl:w-full ${siteType === type ? "bg-primary text-primary-foreground" : "hover:bg-surface-secondary"}`}>
+                {label}<span className="text-caption opacity-70">{type ? themes.filter((t) => themeSiteType(t) === type).length : themes.length}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
+        <nav aria-label="Industries" className="mt-5 border-t border-border pt-5">
+          <p className="px-1 text-caption font-semibold uppercase tracking-wide text-muted">Business category</p>
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 xl:block xl:space-y-1 xl:overflow-visible">
         {[{ slug: "", label: "All industries", count: themes.length }, ...industries].map((i) => (
           <button
             key={i.slug || "all"}
@@ -131,7 +145,7 @@ export function MarketplaceBrowser({
               setStyle("");
               syncUrl(i.slug);
             }}
-            className={chip(industry === i.slug)}
+            className={`${chip(industry === i.slug)} xl:flex xl:w-full xl:justify-between`}
           >
             {i.label}
             <span className="text-caption opacity-70">
@@ -140,8 +154,11 @@ export function MarketplaceBrowser({
             </span>
           </button>
         ))}
-      </nav>
+          </div>
+        </nav>
+      </aside>
 
+      <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <label className="relative min-w-[220px] flex-1">
           <span className="sr-only">Search themes</span>
@@ -210,6 +227,7 @@ export function MarketplaceBrowser({
                   ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 text-caption">
+                  <span className="rounded-full bg-info/10 px-2 py-0.5 text-info">{themeSiteType(t) === "informative" ? "Informative" : "Online store"}</span>
                   <span className="rounded-full bg-surface-secondary px-2 py-0.5">{t.industryLabel}</span>
                   <span className="rounded-full border border-border px-2 py-0.5">{THEME_STYLE_LABELS[t.style]}</span>
                   <Link href={`/dashboard/themes/${t.key}`} aria-label={`${t.name} details`} className="ml-auto text-small text-accent hover:underline">
@@ -218,11 +236,7 @@ export function MarketplaceBrowser({
                 </div>
                 <p className="text-caption text-muted">Best for {t.bestFor.join(" · ")}</p>
                 <div className="mt-auto flex flex-wrap items-center gap-2">
-                  {t.previewUrl ? (
-                    <button type="button" onClick={() => setPreview(t)} aria-label={`Live preview of ${t.name}`} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-small hover:bg-surface-secondary">
-                      <Eye className="size-3.5" aria-hidden /> Live preview
-                    </button>
-                  ) : null}
+                  {t.previewUrl ? <a href={t.previewUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${t.name} preview in a new tab`} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-small hover:bg-surface-secondary">Preview <ExternalLink className="size-3.5" aria-hidden /></a> : null}
                   {enabled && t.status !== "live" ? <ApplyThemeButton themeKey={t.key} name={t.name} canPublish={canPublish} /> : null}
                 </div>
               </div>
@@ -234,15 +248,7 @@ export function MarketplaceBrowser({
           No themes match. {industry ? "More industries are being added." : "Try another search."}
         </div>
       )}
-
-      {preview?.previewUrl ? (
-        <ThemePreviewDialog
-          name={preview.name}
-          url={preview.previewUrl}
-          onClose={() => setPreview(null)}
-          actions={enabled && preview.status !== "live" ? <ApplyThemeButton themeKey={preview.key} name={preview.name} canPublish={canPublish} /> : null}
-        />
-      ) : null}
+      </div>
     </div>
   );
 }

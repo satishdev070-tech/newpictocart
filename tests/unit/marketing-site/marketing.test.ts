@@ -68,8 +68,8 @@ describe("marketing content & seo", () => {
 
 describe("public theme catalogue", () => {
   it("parses untrusted query params", () => {
-    expect(parseThemeQuery({ q: "  Minimal ", industry: "fashion", page: "2" })).toEqual({ q: "Minimal", industry: "fashion", page: 2 });
-    expect(parseThemeQuery({ industry: "weapons", page: "-4" })).toEqual({ q: "", industry: "", page: 1 });
+    expect(parseThemeQuery({ q: "  Minimal ", industry: "fashion", page: "2" })).toEqual({ q: "Minimal", industry: "fashion", siteType: "", page: 2 });
+    expect(parseThemeQuery({ industry: "weapons", page: "-4" })).toEqual({ q: "", industry: "", siteType: "", page: 1 });
     expect(parseThemeQuery({ q: ["a", "b"], page: "9999" }).page).toBe(50);
   });
   it("filters by category and search text, and paginates", () => {
@@ -80,6 +80,9 @@ describe("public theme catalogue", () => {
     expect(beauty.total).toBeGreaterThan(0);
     expect(beauty.items.every((t) => t.industry === "beauty")).toBe(true);
     expect(filterThemes({ q: "zzzz-no-match", industry: "", page: 1 }).total).toBe(0);
+    const informative = filterThemes({ q: "", industry: "", siteType: "informative", page: 1 });
+    expect(informative.total).toBeGreaterThan(0);
+    expect(informative.items.every((t) => t.siteType === "informative")).toBe(true);
     const last = filterThemes({ q: "", industry: "", page: 50 });
     expect(last.page).toBe(last.pages);
   });

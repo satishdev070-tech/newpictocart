@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 import { assetUrl } from "@/lib/storage/assets";
 import { MediaPicker } from "@/features/media/components/media-picker";
 import type { ThemeConfig } from "@/features/theme/schema/config";
-import { BUTTON_SHAPES, BUTTON_VARIANTS, CARD_RADII, CONTAINER_WIDTHS, FONT_KEYS, FONT_STACKS, LOGO_LIMITS, SPACING_SCALES, type FontKey, type HeaderSettings, type LogoPosition, type MobileLogoPosition, type ProductCardSettings, type ThemeTokens } from "@/features/theme/schema/tokens";
+import { BUTTON_SHAPES, BUTTON_VARIANTS, CARD_RADII, CONTAINER_WIDTHS, FONT_KEYS, FONT_STACKS, LOGO_LIMITS, MENU_FONT_WEIGHTS, MENU_LETTER_SPACINGS, MENU_TEXT_CASES, SPACING_SCALES, type FontKey, type HeaderSettings, type LogoPosition, type MobileLogoPosition, type ProductCardSettings, type ThemeTokens } from "@/features/theme/schema/tokens";
 import { AUTO_LOGO_HEIGHT } from "@/features/theme/render/logo-layout";
 import { DEFAULT_TYPE_SIZES, TYPE_FONTS, TYPE_LEVELS, TYPE_LEVEL_LABELS, TYPE_WEIGHTS, type TypeLevel, type TypeStyle } from "@/features/theme/schema/site";
 import type { MarketplaceTheme } from "@/features/theme/marketplace/types";
@@ -643,6 +643,13 @@ function HeaderTab() {
       <Group title="Menu">
         <Select label="Main menu" value={h.menuHandle} options={menus.map((m) => [m.value, m.label] as const)} onChange={(v) => setHeader("menuHandle", v || "main")} />
         <Select label="Menu on phones" value={h.mobileMenu} options={[["drawer", "Side drawer"], ["fullscreen", "Full screen"]] as const} onChange={(v) => setHeader("mobileMenu", v)} />
+      </Group>
+      <Group title="Menu text">
+        <SizeSlider label="Text size" value={h.menuFontSize} autoValue={14} limits={{ min: 12, max: 24 }} onChange={(v) => setHeader("menuFontSize", v)} />
+        <Select label="Weight" value={h.menuFontWeight} options={[["default", "Theme default"], ["400", "Regular"], ["500", "Medium"], ["600", "Semibold"], ["700", "Bold"], ["800", "Extra bold"]] as const satisfies readonly (readonly [(typeof MENU_FONT_WEIGHTS)[number], string])[]} onChange={(v) => setHeader("menuFontWeight", v)} />
+        <Select label="Letter spacing" value={h.menuLetterSpacing} options={[["default", "Theme default"], ["tight", "Tight"], ["normal", "Normal"], ["wide", "Wide"], ["wider", "Wider"]] as const satisfies readonly (readonly [(typeof MENU_LETTER_SPACINGS)[number], string])[]} onChange={(v) => setHeader("menuLetterSpacing", v)} />
+        <Select label="Capital letters" value={h.menuTextCase} options={[["default", "Theme default"], ["normal", "Normal"], ["uppercase", "UPPERCASE"]] as const satisfies readonly (readonly [(typeof MENU_TEXT_CASES)[number], string])[]} onChange={(v) => setHeader("menuTextCase", v)} />
+        <ColorInput label="Menu colour" allowEmpty value={h.menuTextColor} onChange={(v) => setHeader("menuTextColor", v)} />
       </Group>
       <Group title="Icons and behaviour">
         {HEADER_TOGGLES.map(([k, label]) => (

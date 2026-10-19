@@ -17,6 +17,7 @@ import { placeOrder } from "./place-order";
 import { quoteCart } from "./quote";
 import { orderTokenSchema, placeholderSafe, quoteSchema, razorpayConfirmSchema, checkoutSchema } from "./schemas";
 import { toCheckoutSummary, type CheckoutSummary } from "./summary";
+import { requireEcommerceSite } from "@/features/stores/site-mode-server";
 
 /** Live re-quote for the checkout page (PIN / shipping method / payment method changes). Read-only. */
 export async function quoteCheckoutAction(raw: { postalCode?: string; shippingRateId?: string; paymentMethod?: string }): Promise<ActionResult<CheckoutSummary>> {
@@ -24,6 +25,7 @@ export async function quoteCheckoutAction(raw: { postalCode?: string; shippingRa
     const input = parseInput(quoteSchema, placeholderSafe(raw));
     await rateLimit("checkout:quote", await clientIpKey(), 90, 60);
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     const cart = await resolveCart(tenant.tenantId);
     const lines = cart ? (await loadCartLines(tenant.tenantId, cart.id)).filter((l) => !l.savedForLater) : [];
     const quote = await quoteCart(tenant.tenantId, cart, lines, {
@@ -45,6 +47,7 @@ export async function placeOrderAction(_prev: ActionResult<{ redirectTo: string 
     await rateLimit("checkout:place:ip", await clientIpKey(), 12, 600);
     await rateLimit("checkout:place:email", input.email, 8, 600);
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     const placed = await placeOrder(tenant, input);
     // Carry the gateway chosen at checkout to the pay page, which pre-selects and starts it.
     const via = input.paymentMethod === "online" && input.gateway && placed.redirectTo.startsWith("/checkout/pay") ? `&via=${input.gateway}` : "";
@@ -60,6 +63,7 @@ export async function confirmRazorpayPaymentAction(raw: Record<string, string>):
     const input = parseInput(razorpayConfirmSchema, raw);
     await rateLimit("checkout:confirm", await clientIpKey(), 30, 600);
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     return confirmRazorpayPayment(tenant.tenantId, {
       token: input.t,
       razorpayOrderId: input.razorpay_order_id,
@@ -75,6 +79,7 @@ export async function startGatewayPaymentAction(raw: { t: string; provider: stri
     const input = parseInput(z.object({ t: z.string().min(10).max(500), provider: z.enum(["razorpay", "cashfree", "payu"]) }), raw);
     await rateLimit("checkout:gateway", await clientIpKey(), 30, 600);
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     const available = await onlinePaymentProviders(tenant.tenantId);
     if (!available.includes(input.provider)) throw new AppError("CONFLICT", { message: "That payment option isn't available. Please choose another." });
     return startGatewayPayment(tenant.tenantId, tenant.host, input.t, input.provider);
@@ -87,6 +92,7 @@ export async function completeTestPaymentAction(_prev: ActionResult | null, fd: 
   const result = await runAction("checkout.testPayment", async () => {
     const input = parseInput(orderTokenSchema, formToObject(fd));
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     target = (await completeTestPayment(tenant.tenantId, input.t)).redirectTo;
   });
   if (result.ok) redirect(target);

@@ -88,6 +88,9 @@ export const LOGO_POSITIONS = ["auto", "left", "center", "center-stacked", "righ
 export const MOBILE_LOGO_POSITIONS = ["auto", "left", "center"] as const;
 export type LogoPosition = (typeof LOGO_POSITIONS)[number];
 export type MobileLogoPosition = (typeof MOBILE_LOGO_POSITIONS)[number];
+export const MENU_FONT_WEIGHTS = ["default", "400", "500", "600", "700", "800"] as const;
+export const MENU_LETTER_SPACINGS = ["default", "tight", "normal", "wide", "wider"] as const;
+export const MENU_TEXT_CASES = ["default", "normal", "uppercase"] as const;
 
 function autoOrRange({ min, max }: { min: number; max: number }) {
   return z.coerce
@@ -115,6 +118,12 @@ export const headerSettingsSchema = z.object({
   /** Phone/tablet logo placement; "auto" follows the Header section's layout. */
   mobileLogoPosition: z.enum(MOBILE_LOGO_POSITIONS).default("auto"),
   menuHandle: menuHandle.default("main"),
+  /** Header menu typography. Defaults emit no additional CSS, preserving old themes. */
+  menuFontSize: z.coerce.number().int().min(0).max(24).default(0),
+  menuFontWeight: z.enum(MENU_FONT_WEIGHTS).default("default"),
+  menuLetterSpacing: z.enum(MENU_LETTER_SPACINGS).default("default"),
+  menuTextCase: z.enum(MENU_TEXT_CASES).default("default"),
+  menuTextColor: z.union([hexColor, z.literal("")]).default(""),
   showSearch: z.boolean().default(true),
   showAccount: z.boolean().default(true),
   showWishlist: z.boolean().default(true),

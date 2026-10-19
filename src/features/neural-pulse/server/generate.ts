@@ -9,6 +9,7 @@ import { getAiProviderOrder, getAppCredential } from "@/features/platform-apps/s
 import { DAILY_GENERATION_LIMIT, type AiProvider, type GenerationKind } from "../schemas";
 import type { Prompt } from "../prompts";
 import { LlmError, generateJson, resolveModel, type ProviderConfig } from "./llm";
+import { debitAiCredit, refundAiCredit } from "@/features/ai-credits/server";
 
 export const SETUP_MESSAGE = "AI writing isn't set up yet. A platform admin needs to add a Gemini, Groq or Anthropic API key in Admin → Social apps.";
 export const LIMIT_MESSAGE = `You've used today's ${DAILY_GENERATION_LIMIT} AI generations for this store. Try again tomorrow.`;
@@ -33,9 +34,11 @@ export async function configuredProviders(): Promise<AiProvider[]> {
 export type GenerationOutcome<T> = { id: string | null; data: T; provider: AiProvider; model: string; tokens: number | null };
 
 /**
- * One generation for an already authorised tenant: per-store daily limit, provider fallback,
- * schema validation, then a log row in ai_generations (admin client, the table has no insert grant
- * for sellers). Callers must have checked membership + marketing.write first.
+ * One generation for an already authorised tenant: per-store daily limit, durable credit debit,
+ * provider fallback and schema validation, then a log row in ai_generations. The debit occurs
+ * before the provider call and is refunded on every provider/schema failure. Until the additive
+ * credit migration is applied, debitAiCredit deliberately returns null so existing AI remains live.
+ * Callers must have checked membership + marketing.write first.
  */
 export async function runGeneration<S extends z.ZodType>(args: { tenantId: string; userId: string; kind: GenerationKind; input: Record<string, unknown>; prompt: Prompt; schema: S }): Promise<GenerationOutcome<z.output<S>>> {
   const providers = await loadProviders();
@@ -46,10 +49,12 @@ export async function runGeneration<S extends z.ZodType>(args: { tenantId: strin
     if (err instanceof AppError && err.code === "RATE_LIMITED") throw new AppError("RATE_LIMITED", { fieldErrors: { _form: [LIMIT_MESSAGE] } });
     throw err;
   }
+  const charge = await debitAiCredit(args.tenantId, args.kind);
   let result;
   try {
     result = await generateJson(providers, args.prompt, args.schema);
   } catch (err) {
+    await refundAiCredit(charge, err instanceof Error ? err.message : "AI generation failed");
     if (err instanceof LlmError) {
       logger.warn("neural_pulse.generation_failed", { tenantId: args.tenantId, kind: args.kind, failures: err.failures });
       throw new AppError("INTERNAL", { fieldErrors: { _form: [FAILED_MESSAGE] }, context: { failures: err.failures } });

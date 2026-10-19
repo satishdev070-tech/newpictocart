@@ -14,7 +14,7 @@ import { Carousel } from "./carousel";
 export const productPlaceholder = (stock: StockSet | null | undefined, product: Pick<ProductCardData, "id" | "imagePath">): ImageFallback | null =>
   stock && !product.imagePath ? pickStock(stock, "products", stockIndex(product.id)) : null;
 
-export function ProductCard({ product, settings, priority = false, placeholder = null }: { product: ProductCardData; settings: ProductCardSettings; priority?: boolean; placeholder?: ImageFallback | null }) {
+export function ProductCard({ product, settings, priority = false, placeholder = null, commerceEnabled = true }: { product: ProductCardData; settings: ProductCardSettings; priority?: boolean; placeholder?: ImageFallback | null; /** Informative catalogues keep product links, but never render cart or wishlist controls. */ commerceEnabled?: boolean }) {
   const pct = discountPercent(product.priceMinor, product.compareAtMinor);
   const hasAlt = settings.secondImageOnHover && !!product.hoverImagePath;
   const pill = settings.badgeStyle === "pill";
@@ -29,7 +29,7 @@ export function ProductCard({ product, settings, priority = false, placeholder =
   }
   const href = paths.product(product.slug);
   const trackItem = JSON.stringify({ item_id: product.id, item_name: product.title, price: product.priceMinor / 100, quantity: 1 });
-  const quickAdd = settings.showQuickAdd && product.inStock && (product.sizes.some((sz) => sz.inStock) || product.singleVariantId);
+  const quickAdd = commerceEnabled && settings.showQuickAdd && product.inStock && (product.sizes.some((sz) => sz.inStock) || product.singleVariantId);
   return (
     <article className={`sf-card group relative flex flex-col ${settings.textAlign === "center" ? "text-center" : ""}`}>
       {/* Media: the link, plus heart and quick add as siblings (never nested interactive elements). */}
@@ -47,7 +47,7 @@ export function ProductCard({ product, settings, priority = false, placeholder =
             ))}
           </div>
         ) : null}
-        {settings.showWishlist ? <CardWishlist productId={product.id} title={product.title} /> : null}
+        {commerceEnabled && settings.showWishlist ? <CardWishlist productId={product.id} title={product.title} /> : null}
         {quickAdd ? <CardQuickAdd title={product.title} sizes={product.sizes} singleVariantId={product.singleVariantId} /> : null}
       </div>
       <Link href={href} className="mt-3 block space-y-1" data-track-item={trackItem}>
@@ -80,24 +80,24 @@ export function ProductCard({ product, settings, priority = false, placeholder =
   );
 }
 
-export function ProductGrid({ products, settings, columns = 4, priorityCount = 0, stock = null }: { products: ProductCardData[]; settings: ProductCardSettings; columns?: number; priorityCount?: number; stock?: StockSet | null }) {
+export function ProductGrid({ products, settings, columns = 4, priorityCount = 0, stock = null, commerceEnabled = true }: { products: ProductCardData[]; settings: ProductCardSettings; columns?: number; priorityCount?: number; stock?: StockSet | null; commerceEnabled?: boolean }) {
   const cols = columns >= 4 ? "@[64rem]:grid-cols-4" : columns === 3 ? "@[64rem]:grid-cols-3" : "@[64rem]:grid-cols-2";
   return (
     <ul className={`grid grid-cols-2 gap-x-4 gap-y-8 @[48rem]:grid-cols-3 ${cols}`}>
       {products.map((p, i) => (
         <li key={p.id}>
-          <ProductCard product={p} settings={settings} priority={i < priorityCount} placeholder={productPlaceholder(stock, p)} />
+          <ProductCard product={p} settings={settings} priority={i < priorityCount} placeholder={productPlaceholder(stock, p)} commerceEnabled={commerceEnabled} />
         </li>
       ))}
     </ul>
   );
 }
 
-export function ProductRow({ products, settings, stock = null }: { products: ProductCardData[]; settings: ProductCardSettings; stock?: StockSet | null }) {
+export function ProductRow({ products, settings, stock = null, commerceEnabled = true }: { products: ProductCardData[]; settings: ProductCardSettings; stock?: StockSet | null; commerceEnabled?: boolean }) {
   return (
     <Carousel label="Products" itemClassName="w-[46%] @[48rem]:w-[31%] @[64rem]:w-[calc((100%-3.75rem)/4)]">
       {products.map((p) => (
-        <ProductCard key={p.id} product={p} settings={settings} placeholder={productPlaceholder(stock, p)} />
+        <ProductCard key={p.id} product={p} settings={settings} placeholder={productPlaceholder(stock, p)} commerceEnabled={commerceEnabled} />
       ))}
     </Carousel>
   );

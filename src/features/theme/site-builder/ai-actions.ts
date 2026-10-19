@@ -10,6 +10,7 @@ import { logger } from "@/lib/observability/logger";
 import { FAILED_MESSAGE, SETUP_MESSAGE, loadProviders } from "@/features/neural-pulse/server/generate";
 import { LlmError, generateJson } from "@/features/neural-pulse/server/llm";
 import { getStoreBrief } from "@/features/neural-pulse/server/context";
+import { debitAiCredit, refundAiCredit } from "@/features/ai-credits/server";
 import type { SectionType } from "@/features/theme/sections/types";
 import { aiOutputSchema, aiSectionTypes, buildSectionPrompt, fallbackSettings, retryPrompt, sanitizeSectionSettings } from "./ai-section";
 import { SLOT_KEY_RE, type ListKey } from "./slots";
@@ -62,11 +63,15 @@ export async function generateSectionAction(input: { prompt: string; list: strin
     const store = await getStoreBrief(ctx.tenantId);
     const prompt = buildSectionPrompt({ prompt: data.prompt, types, store, pageTitle: data.storeContext?.pageTitle ?? null });
     const schema = aiOutputSchema(types);
+    // One credit covers this user-visible request, including the internal repair attempt below.
+    // Debit immediately before the provider call so a context/read failure cannot consume one.
+    const charge = await debitAiCredit(ctx.tenantId, "section");
 
     let first;
     try {
       first = await generateJson(providers, prompt, schema);
     } catch (err) {
+      await refundAiCredit(charge, err instanceof Error ? err.message : "AI section generation failed");
       throw failed(err);
     }
     let type = first.data.type;

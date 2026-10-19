@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
+import type { HeaderSettings } from "@/features/theme/schema/tokens";
 import type { SectionSettings } from "@/features/theme/sections/definitions";
 import type { MenuNode } from "@/features/storefront/urls";
 import { assetUrl } from "@/lib/storage/assets";
@@ -13,6 +15,34 @@ import { HeartIcon, UserIcon } from "@/features/storefront/components/icons";
 import { CartDrawerContent } from "@/features/cart/components/cart-drawer-content";
 import { AnnouncementRotator } from "@/features/storefront/components/announcement-rotator";
 import { NewsletterForm } from "@/features/storefront/components/islands";
+import { effectiveHeader, isInformative } from "@/features/stores/site-mode";
+
+function headerMenuClass(header: HeaderSettings) {
+  const classes: string[] = [];
+  if (header.menuFontSize) classes.push("sf-menu-size");
+  if (header.menuFontWeight !== "default") classes.push("sf-menu-weight");
+  if (header.menuLetterSpacing !== "default") classes.push("sf-menu-tracking");
+  if (header.menuTextCase !== "default") classes.push("sf-menu-case");
+  if (header.menuTextColor) classes.push("sf-menu-colour");
+  return classes.length ? ` ${classes.join(" ")}` : "";
+}
+
+function headerMenuStyle(header: HeaderSettings): CSSProperties | undefined {
+  const letterSpacings: Partial<Record<HeaderSettings["menuLetterSpacing"], string>> = {
+    tight: "-0.02em",
+    normal: "0",
+    wide: "0.08em",
+    wider: "0.14em",
+  };
+  const letterSpacing = letterSpacings[header.menuLetterSpacing];
+  const style: Record<string, string> = {};
+  if (header.menuFontSize) style["--sf-menu-size"] = `${header.menuFontSize}px`;
+  if (header.menuFontWeight !== "default") style["--sf-menu-weight"] = header.menuFontWeight;
+  if (letterSpacing) style["--sf-menu-tracking"] = letterSpacing;
+  if (header.menuTextCase !== "default") style["--sf-menu-case"] = header.menuTextCase;
+  if (header.menuTextColor) style["--sf-menu-colour"] = header.menuTextColor;
+  return Object.keys(style).length ? (style as CSSProperties) : undefined;
+}
 
 function MenuLink({ node, className }: { node: MenuNode; className?: string }) {
   if (!node.href) return <span className={className}>{node.title}</span>;
@@ -216,15 +246,15 @@ function CenterMenu({ items }: { items: MenuNode[] }) {
 
 /** Opt-in layout "logo-left-nav-center": large logo + tagline, centred menu with mega panels, search and bag with count. */
 function HeaderLogoLeftNavCenter({ s, ctx }: { s: SectionSettings<"Header">; ctx: RenderContext }) {
-  const h = ctx.sf.theme.header;
+  const h = effectiveHeader(ctx.sf.theme.header, ctx.sf.siteMode);
   const menu = ctx.menus[h.menuHandle]?.items ?? [];
   const popular = menu.filter((n) => n.href && !n.external).slice(0, 8).map((n) => ({ label: n.title, href: n.href! }));
   return (
-    <header className={`sf-header sf-header-lnc sf-header-style-${s.style} sf-surface sf-border z-40 border-b ${h.sticky ? "sticky top-0" : ""}`}>
+    <header className={`sf-header sf-header-lnc${headerMenuClass(h)} sf-header-style-${s.style} sf-surface sf-border z-40 border-b ${h.sticky ? "sticky top-0" : ""}`} style={headerMenuStyle(h)}>
       {h.sticky ? <HeaderScrollState /> : null}
       <div className="sf-container sf-header-lnc-row">
         <div className="flex items-center gap-1">
-          <MobileNav items={menu} storeName={ctx.sf.store.name} signedIn={ctx.signedIn} alwaysVisible={s.menuStyle === "drawer"} />
+          <MobileNav items={menu} storeName={ctx.sf.store.name} signedIn={ctx.signedIn} showCommerceLinks={!isInformative(ctx.sf.siteMode)} alwaysVisible={s.menuStyle === "drawer"} />
           <BrandLockup ctx={ctx} />
         </div>
         <div className="sf-header-lnc-nav">{s.menuStyle !== "drawer" && menu.length ? <CenterMenu items={menu} /> : null}</div>
@@ -260,7 +290,7 @@ function HeaderLogoLeftNavCenter({ s, ctx }: { s: SectionSettings<"Header">; ctx
  * layout keeps its lockup and mega-menu dropdowns).
  */
 function HeaderPositioned({ s, ctx }: { s: SectionSettings<"Header">; ctx: RenderContext }) {
-  const h = ctx.sf.theme.header;
+  const h = effectiveHeader(ctx.sf.theme.header, ctx.sf.siteMode);
   const lnc = s.layout === "logo-left-nav-center";
   const pos = resolveLogoPositions(h, s.layout);
   const menu = ctx.menus[h.menuHandle]?.items ?? [];
@@ -282,11 +312,11 @@ function HeaderPositioned({ s, ctx }: { s: SectionSettings<"Header">; ctx: Rende
       </nav>
     );
   return (
-    <header className={`sf-header ${lnc ? "sf-header-lnc" : ""} sf-header-style-${s.style} sf-surface sf-border z-40 border-b ${h.sticky ? "sticky top-0" : ""}`}>
+    <header className={`sf-header${lnc ? " sf-header-lnc" : ""}${headerMenuClass(h)} sf-header-style-${s.style} sf-surface sf-border z-40 border-b ${h.sticky ? "sticky top-0" : ""}`} style={headerMenuStyle(h)}>
       {h.sticky ? <HeaderScrollState /> : null}
       <div className={`sf-container sf-hdr-pos sf-hdr-m-${pos.mobile} sf-hdr-d-${pos.desktop} py-2.5 @[64rem]:py-3`}>
         <div className="sf-hdr-start">
-          <MobileNav items={menu} storeName={ctx.sf.store.name} signedIn={ctx.signedIn} alwaysVisible={s.menuStyle === "drawer"} />
+          <MobileNav items={menu} storeName={ctx.sf.store.name} signedIn={ctx.signedIn} showCommerceLinks={!isInformative(ctx.sf.siteMode)} alwaysVisible={s.menuStyle === "drawer"} />
         </div>
         <div className="sf-hdr-logo">{lnc ? <BrandLockup ctx={ctx} /> : <Logo ctx={ctx} layout={s.layout} />}</div>
         {showMenu && first.length ? <div className="sf-hdr-menu">{renderMenu(first)}</div> : null}
@@ -319,7 +349,7 @@ export function Header({ s, ctx }: { s: SectionSettings<"Header">; ctx: RenderCo
   // Positions left on "auto" keep the original layouts below untouched (old themes render identically).
   if (hasCustomLogoPosition(ctx.sf.theme.header)) return <HeaderPositioned s={s} ctx={ctx} />;
   if (s.layout === "logo-left-nav-center") return <HeaderLogoLeftNavCenter s={s} ctx={ctx} />;
-  const h = ctx.sf.theme.header;
+  const h = effectiveHeader(ctx.sf.theme.header, ctx.sf.siteMode);
   const menu = ctx.menus[h.menuHandle]?.items ?? [];
   const popular = menu.filter((n) => n.href && !n.external).slice(0, 8).map((n) => ({ label: n.title, href: n.href! }));
   const search = h.showSearch ? <SearchOverlay popular={popular} /> : null;
@@ -344,11 +374,11 @@ export function Header({ s, ctx }: { s: SectionSettings<"Header">; ctx: RenderCo
     </div>
   );
   return (
-    <header className={`sf-header sf-header-style-${s.style} sf-surface sf-border z-40 border-b ${h.sticky ? "sticky top-0" : ""}`}>
+    <header className={`sf-header${headerMenuClass(h)} sf-header-style-${s.style} sf-surface sf-border z-40 border-b ${h.sticky ? "sticky top-0" : ""}`} style={headerMenuStyle(h)}>
       {h.sticky ? <HeaderScrollState /> : null}
       <div className={`sf-container grid items-center gap-3 py-2.5 @[64rem]:py-3 ${s.layout === "logo-center" ? "grid-cols-[1fr_auto_1fr]" : "grid-cols-[auto_1fr_auto]"}`}>
         <div className="flex items-center gap-0.5">
-          <MobileNav items={menu} storeName={ctx.sf.store.name} signedIn={ctx.signedIn} alwaysVisible={s.menuStyle === "drawer"} />
+          <MobileNav items={menu} storeName={ctx.sf.store.name} signedIn={ctx.signedIn} showCommerceLinks={!isInformative(ctx.sf.siteMode)} alwaysVisible={s.menuStyle === "drawer"} />
           {s.layout === "logo-center" ? search : <Logo ctx={ctx} layout={s.layout} />}
         </div>
         <div className={s.layout === "logo-center" ? "flex justify-center" : "hidden @[64rem]:block"}>
@@ -381,9 +411,10 @@ export function MegaMenu({ s, ctx }: { s: SectionSettings<"MegaMenu">; ctx: Rend
   if (!items.length) return null;
   const wide = s.variant === "mega-wide";
   const inverted = s.variant === "mega-inverted";
+  const header = effectiveHeader(ctx.sf.theme.header, ctx.sf.siteMode);
   const navClass = inverted ? "sf-mega-bar-inverted hidden @[64rem]:block" : `sf-surface sf-border hidden border-b @[64rem]:block${wide ? " relative" : ""}`;
   return (
-    <nav aria-label="Main" className={navClass}>
+    <nav aria-label="Main" className={`${navClass}${headerMenuClass(header)}`} style={headerMenuStyle(header)}>
       <ul className={`sf-container flex flex-wrap gap-x-8 text-sm ${inverted ? "justify-start" : "justify-center"} ${s.uppercase ? "uppercase tracking-[0.14em] text-xs" : ""}`}>
         {items.map((n) => (
           <li key={n.id} className={wide ? "group" : "group relative"}>

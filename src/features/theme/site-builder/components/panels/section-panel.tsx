@@ -12,6 +12,7 @@ import { useBuilder, type SectionRef, type SectionTab } from "../../context";
 import { copyItem, findSection, moveItem, removeItem, setSectionSettings, setSectionStyle, updateItems, updateSection } from "../../ops";
 import { blankItem, clearGroup, groupHasContent, itemGroups, itemHideField, itemLabel, primaryListField, sectionTabs, visibleFields, type ItemGroup, type ListField } from "../../field-groups";
 import { Field, VariantPicker } from "../fields";
+import { SectionSizeSpacing } from "./section-size";
 import { ColorInput, EmptyState, IconButton, MoreMenu, PanelFrame, Row, Toggle, useReorder } from "../ui";
 
 /**
@@ -155,6 +156,7 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
       {tab === "settings" ? (
         <div role="tabpanel" className="space-y-5">
           {tabs.settings.length ? renderFields(tabs.settings) : null}
+          <SectionSizeSpacing section={section} sectionRef={sectionRef} />
           <section className="space-y-2.5 border-t border-border pt-3 first:border-t-0 first:pt-0">
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Visibility</h3>
             {(["desktop", "mobile"] as const).map((d) => (

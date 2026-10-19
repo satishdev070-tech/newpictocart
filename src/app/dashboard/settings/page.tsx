@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui/layout";
 import { assetUrl } from "@/lib/storage/assets";
 import { StoreDetailsForm } from "@/features/dashboard-ui/forms";
 import { CloseStoreButton } from "@/features/stores/components/close-store";
+import { SiteModeForm } from "@/features/settings/ui/site-mode-form";
+import { parseSiteMode } from "@/features/stores/site-mode";
 
 export const metadata: Metadata = { title: "Store details" };
 
@@ -24,6 +26,13 @@ export default async function StoreSettingsPage() {
   return (
     <div>
       <PageHeader title="Store details" description="Your brand, contact information and invoice details." />
+      <section className="mb-6 rounded-lg border border-border p-5" aria-labelledby="website-type">
+        <h2 id="website-type" className="text-h3 font-semibold">Website type</h2>
+        <p className="mt-1 text-small text-muted">Choose whether visitors browse your business information or buy products online.</p>
+        <div className="mt-4">
+          {can(ctx, "settings.write") ? <SiteModeForm value={parseSiteMode(s.site_mode)} /> : <p className="text-sm text-muted">You can view but not change the website type.</p>}
+        </div>
+      </section>
       <BrandChecklist
         items={[
           { label: "Logo", done: Boolean(s.logo_path), href: "#logo", hint: "Shown in your store header, invoices and labels" },

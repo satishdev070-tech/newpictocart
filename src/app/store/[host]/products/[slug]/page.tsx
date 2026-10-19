@@ -24,6 +24,7 @@ import { PincodeCheck, RecentlyViewed, ReviewForm, WishlistButton } from "@/feat
 import { ProductRow } from "@/features/storefront/components/product-card";
 import { Stars } from "@/features/storefront/components/price";
 import { trackStoreEvent } from "@/features/storefront/server/events";
+import { isInformative } from "@/features/stores/site-mode";
 
 export async function generateMetadata({ params }: PageProps<"/store/[host]/products/[slug]">): Promise<Metadata> {
   const { host, slug } = await params;
@@ -48,6 +49,7 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
   const ctx = await getRenderContext(host);
   const { sf } = ctx;
   const tenantId = sf.tenant.tenantId;
+  const commerceEnabled = !isInformative(sf.siteMode);
   const p = await getProductBySlug(tenantId, slug);
   if (!p) return redirectOrNotFound(tenantId, paths.product(slug));
 
@@ -70,7 +72,7 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
   const trail = categoryTrail(categories, p.categoryId);
   const prices = p.variants.map((v) => v.priceMinor);
   const cod = sf.store.cod;
-  const codNote = sf.features.cod && cod.enabled ? `Cash on delivery available${cod.maxOrderMinor ? ` on orders up to ${formatMoney(cod.maxOrderMinor)}` : ""}${cod.feeMinor ? ` (${formatMoney(cod.feeMinor)} fee)` : ""}.` : null;
+  const codNote = commerceEnabled && sf.features.cod && cod.enabled ? `Cash on delivery available${cod.maxOrderMinor ? ` on orders up to ${formatMoney(cod.maxOrderMinor)}` : ""}${cod.feeMinor ? ` (${formatMoney(cod.feeMinor)} fee)` : ""}.` : null;
   const ld = productJsonLd({
     primaryHost: sf.tenant.primaryHost,
     path: paths.product(p.slug),
@@ -113,6 +115,7 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
           media={p.media}
           sizeChart={p.sizeChart}
           codNote={codNote}
+          commerceEnabled={commerceEnabled}
           rating={
             p.ratingCount > 0 ? (
               <a key="rating" href="#reviews" className="inline-flex" aria-label={`Rated ${p.ratingAvg.toFixed(1)} out of 5 from ${p.ratingCount} reviews`}>
@@ -159,7 +162,7 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
           ]}
           footer={
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-              <WishlistButton productId={p.id} initiallySaved={saved} compact />
+              {commerceEnabled ? <WishlistButton productId={p.id} initiallySaved={saved} compact /> : null}
               <ShareButton title={p.title} url={canonicalUrl(sf.tenant.primaryHost, paths.product(p.slug))} image={assetUrl(p.media[0]?.path)} />
             </div>
           }
@@ -223,7 +226,7 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
           <h2 id="related-h" className="sf-heading mb-6 text-3xl">
             You may also like
           </h2>
-          <ProductRow products={related.cards} settings={sf.theme.productCard} />
+          <ProductRow products={related.cards} settings={sf.theme.productCard} commerceEnabled={commerceEnabled} />
         </section>
       ) : null}
       <RecentlyViewed current={{ slug: p.slug, title: p.title }} />

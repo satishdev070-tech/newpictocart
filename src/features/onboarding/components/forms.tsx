@@ -8,6 +8,7 @@ import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
 import { ThemeMockup } from "@/features/theme/marketplace/mockup";
 import type { ThemePreset } from "@/features/theme/marketplace/types";
 import { chooseThemeAction, choosePlanAction, saveBusinessAction } from "../actions";
+import { SITE_MODE_LABELS, type SiteMode } from "@/features/stores/site-mode";
 
 function slugify(v: string) {
   return v.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "").slice(0, 63);
@@ -31,7 +32,7 @@ export function BusinessForm({
 }: {
   rootDomain: string;
   categories: { value: string; label: string }[];
-  defaults: { name: string; category: string; slug?: string };
+  defaults: { name: string; category: string; slug?: string; siteMode?: SiteMode };
   store?: { id: string; name: string; slug: string };
   plan: string | null;
   theme: string | null;
@@ -58,6 +59,21 @@ export function BusinessForm({
         </>
       ) : (
         <>
+          <fieldset>
+            <legend className="mb-2 text-sm font-medium text-brand-ink">What are you building?</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(["informative", "ecommerce"] as const).map((mode) => {
+                const option = SITE_MODE_LABELS[mode];
+                return (
+                  <label key={mode} className="cursor-pointer rounded-brand-md border border-border bg-white p-4 has-[:checked]:border-brand has-[:checked]:ring-2 has-[:checked]:ring-brand">
+                    <input type="radio" name="siteMode" value={mode} defaultChecked={(defaults.siteMode ?? "ecommerce") === mode} className="sr-only" />
+                    <span className="block font-semibold text-brand-ink">{option.title}</span>
+                    <span className="mt-1 block text-xs leading-relaxed text-muted">{option.description}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
           <TextField
             label="Business name"
             name="name"

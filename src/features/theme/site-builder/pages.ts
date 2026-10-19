@@ -1,4 +1,5 @@
 import type { ThemeConfig } from "@/features/theme/schema/config";
+import { builderGroupVisible, type SiteMode } from "@/features/stores/site-mode";
 import { paths } from "@/features/storefront/urls";
 import type { ListKey } from "./slots";
 
@@ -35,7 +36,7 @@ export type PageSources = {
   blog: boolean;
 };
 
-export function builderPages(config: ThemeConfig, src: PageSources): BuilderPage[] {
+export function builderPages(config: ThemeConfig, src: PageSources, siteMode?: SiteMode): BuilderPage[] {
   // A site-builder page set as the homepage is edited as the Home row ("/"), not as its own row.
   const homePage = config.homePageId ? config.pages.find((p) => p.id === config.homePageId) : undefined;
   const out: BuilderPage[] = [
@@ -62,7 +63,7 @@ export function builderPages(config: ThemeConfig, src: PageSources): BuilderPage
   out.push({ key: "reset-password", label: "Reset password", group: "members", path: "/account/forgot-password", list: "templates.account" });
 
   for (const p of config.popups) out.push({ key: `popup:${p.id}`, label: p.name, group: "popups", path: paths.home(), list: null, popupId: p.id });
-  return out;
+  return out.filter((page) => builderGroupVisible(page.group, siteMode));
 }
 
 /** The registry page for a canvas path (after in-canvas navigation), or null. */

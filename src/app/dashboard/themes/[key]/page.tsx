@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Check } from "lucide-react";
+import { Check, ExternalLink } from "lucide-react";
 import { can, requireTenantPermission } from "@/lib/tenant/membership";
 import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
 import { Badge, Card, PageHeader } from "@/components/ui/layout";
@@ -15,7 +15,6 @@ import { THEME_STYLE_LABELS } from "@/features/theme/marketplace/types";
 import { industryName } from "@/features/stores/industries";
 import { liveDemoOrigins } from "@/features/theme/marketplace/server";
 import { livePreviewUrl } from "@/features/theme/marketplace/live-preview";
-import { LivePreviewButton } from "@/features/theme/marketplace/components/preview-dialog";
 
 export async function generateMetadata({ params }: PageProps<"/dashboard/themes/[key]">): Promise<Metadata> {
   const t = await findAnyMarketplaceTheme((await params).key);
@@ -40,9 +39,7 @@ export default async function ThemeDetailPage({ params }: PageProps<"/dashboard/
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {live ? <Badge tone="success">Live on your store</Badge> : canApply ? <ApplyThemeButton themeKey={t.key} name={t.name} canPublish={can(ctx, "theme.publish")} size="md" /> : null}
-            {previewUrl ? (
-              <LivePreviewButton name={t.name} url={previewUrl} size="md" actions={canApply ? <ApplyThemeButton themeKey={t.key} name={t.name} canPublish={can(ctx, "theme.publish")} /> : null} />
-            ) : null}
+            {previewUrl ? <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-small hover:bg-surface-secondary">Preview in new tab <ExternalLink className="size-3.5" aria-hidden /></a> : null}
           </div>
         }
       />

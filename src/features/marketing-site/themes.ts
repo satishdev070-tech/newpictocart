@@ -1,4 +1,5 @@
 import { MARKETPLACE_THEMES, type MarketplaceTheme } from "@/features/theme/marketplace/catalog";
+import { themeSiteType, type ThemeSiteType } from "@/features/theme/marketplace/types";
 import { INDUSTRIES, isIndustry, industryShort, type IndustrySlug } from "@/features/stores/industries";
 import { INDUSTRY_SHOWCASE, SHOWCASE_STORES } from "@/features/theme/marketplace/showcase";
 
@@ -10,15 +11,17 @@ import { INDUSTRY_SHOWCASE, SHOWCASE_STORES } from "@/features/theme/marketplace
 
 export const THEMES_PER_PAGE = 24;
 
-export type ThemeQuery = { q: string; industry: IndustrySlug | ""; page: number };
+/** `siteType` is optional for compatibility with internal callers created before this filter. */
+export type ThemeQuery = { q: string; industry: IndustrySlug | ""; siteType?: ThemeSiteType | ""; page: number };
 
 /** Normalises untrusted search params. */
 export function parseThemeQuery(sp: Record<string, string | string[] | undefined>): ThemeQuery {
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");
   const q = one(sp.q).trim().slice(0, 60);
   const industry = one(sp.industry);
+  const siteType = one(sp.type);
   const page = Number.parseInt(one(sp.page), 10);
-  return { q, industry: isIndustry(industry) ? industry : "", page: Number.isFinite(page) && page > 0 ? Math.min(page, 50) : 1 };
+  return { q, industry: isIndustry(industry) ? industry : "", siteType: siteType === "informative" || siteType === "ecommerce" ? siteType : "", page: Number.isFinite(page) && page > 0 ? Math.min(page, 50) : 1 };
 }
 
 function matches(t: MarketplaceTheme, q: string): boolean {
@@ -28,16 +31,16 @@ function matches(t: MarketplaceTheme, q: string): boolean {
 }
 
 export function filterThemes(query: ThemeQuery, themes: readonly MarketplaceTheme[] = MARKETPLACE_THEMES) {
-  const all = themes.filter((t) => (!query.industry || t.industry === query.industry) && matches(t, query.q));
+  const all = themes.filter((t) => (!query.industry || t.industry === query.industry) && (!query.siteType || themeSiteType(t) === query.siteType) && matches(t, query.q));
   const pages = Math.max(1, Math.ceil(all.length / THEMES_PER_PAGE));
   const page = Math.min(query.page, pages);
   return { total: all.length, page, pages, items: all.slice((page - 1) * THEMES_PER_PAGE, page * THEMES_PER_PAGE) };
 }
 
 /** Industries that have at least one theme, with counts, in INDUSTRIES order. */
-export function themeIndustries(themes: readonly MarketplaceTheme[] = MARKETPLACE_THEMES) {
+export function themeIndustries(themes: readonly MarketplaceTheme[] = MARKETPLACE_THEMES, siteType: ThemeSiteType | "" = "") {
   const counts = new Map<string, number>();
-  for (const t of themes) counts.set(t.industry, (counts.get(t.industry) ?? 0) + 1);
+  for (const t of themes) if (!siteType || themeSiteType(t) === siteType) counts.set(t.industry, (counts.get(t.industry) ?? 0) + 1);
   return INDUSTRIES.filter((i) => counts.has(i.slug)).map((i) => ({ slug: i.slug, label: i.short, count: counts.get(i.slug)! }));
 }
 
@@ -72,6 +75,7 @@ export function themesHref(q: Partial<ThemeQuery>): string {
   const qs = new URLSearchParams();
   if (q.q) qs.set("q", q.q);
   if (q.industry) qs.set("industry", q.industry);
+  if (q.siteType) qs.set("type", q.siteType);
   if (q.page && q.page > 1) qs.set("page", String(q.page));
   return qs.size ? `/themes?${qs}` : "/themes";
 }

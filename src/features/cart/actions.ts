@@ -10,6 +10,7 @@ import { parseInput } from "@/lib/validation/common";
 import { AppError } from "@/lib/errors";
 import { clientIpKey, rateLimit } from "@/lib/rate-limit";
 import { getStoreCustomer } from "@/features/customer-account/session";
+import { requireEcommerceSite } from "@/features/stores/site-mode-server";
 import { trackCommerceEvent } from "@/features/checkout/analytics";
 import { discountCode, findDiscountByCode } from "@/features/checkout/discounts";
 import { quoteCart } from "@/features/checkout/quote";
@@ -31,6 +32,7 @@ export async function addToCartAction(_prev: ActionResult<AddToCartResult> | nul
     buyNow = input.buyNow === "1" || input.buyNow === "true";
     await rateLimit("cart:add", await clientIpKey(), 60, 60);
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     const added = await addItem(tenant.tenantId, input.variantId, input.quantity);
     const count = await countCartUnits(tenant.tenantId, added.cartId);
     const customer = await getStoreCustomer(tenant.tenantId);
@@ -64,6 +66,7 @@ export async function updateCartItemAction(_prev: ActionResult<{ quantity: numbe
     const input = parseInput(updateItemSchema, formToObject(fd));
     await rateLimit("cart:write", await clientIpKey(), 120, 60);
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     const r = await updateItemQuantity(tenant.tenantId, input.itemId, input.quantity);
     if (r.limited) throw new AppError("CONFLICT", { message: `Only ${r.quantity} available. We've updated the quantity.` });
     return { quantity: r.quantity };
@@ -77,6 +80,7 @@ export async function removeCartItemAction(_prev: ActionResult | null, fd: FormD
     const input = parseInput(itemSchema, formToObject(fd));
     await rateLimit("cart:write", await clientIpKey(), 120, 60);
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     await removeItem(tenant.tenantId, input.itemId);
   });
   if (result.ok) refresh();
@@ -88,6 +92,7 @@ export async function saveForLaterAction(_prev: ActionResult | null, fd: FormDat
     const input = parseInput(saveForLaterSchema, formToObject(fd));
     await rateLimit("cart:write", await clientIpKey(), 120, 60);
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     await setSavedForLater(tenant.tenantId, input.itemId, input.saved === "1");
   });
   if (result.ok) refresh();
@@ -102,6 +107,7 @@ export async function applyDiscountAction(_prev: ActionResult<{ code: string }> 
     // Codes are guessable: throttle per IP.
     await rateLimit("cart:coupon", await clientIpKey(), 15, 600);
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     const cart = await requireCart(tenant.tenantId);
     const discount = await findDiscountByCode(tenant.tenantId, parsed.data);
     if (!discount) throw new AppError("VALIDATION", { fieldErrors: { code: ["That code is invalid or has expired."] } });
@@ -120,6 +126,7 @@ export async function applyDiscountAction(_prev: ActionResult<{ code: string }> 
 export async function removeDiscountAction(_prev: ActionResult | null, _fd: FormData): Promise<ActionResult> {
   const result = await runAction("cart.removeDiscount", async () => {
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     await requireCart(tenant.tenantId);
     await updateCart(tenant.tenantId, { discount_code: null });
   });
@@ -132,6 +139,7 @@ export async function updateCartNoteAction(_prev: ActionResult | null, fd: FormD
     const input = parseInput(noteSchema, formToObject(fd));
     await rateLimit("cart:write", await clientIpKey(), 120, 60);
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     await requireCart(tenant.tenantId);
     await updateCart(tenant.tenantId, { note: input.note ?? null });
   });
@@ -152,6 +160,7 @@ export async function estimateShippingAction(_prev: ActionResult<ShippingEstimat
     const input = parseInput(pincodeSchema, formToObject(fd));
     await rateLimit("cart:pincode", await clientIpKey(), 30, 60);
     const tenant = await requireStoreTenant();
+    await requireEcommerceSite(tenant.tenantId);
     const cart = await resolveCart(tenant.tenantId);
     const lines = cart ? await loadCartLines(tenant.tenantId, cart.id) : [];
     const quote = await quoteCart(tenant.tenantId, cart, lines.filter((l) => !l.savedForLater), { pincode: input.pincode });

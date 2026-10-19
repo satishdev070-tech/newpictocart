@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Check, Eye } from "lucide-react";
+import { ArrowLeft, Check, ExternalLink, Eye } from "lucide-react";
 import { buildMarketingMetadata } from "@/features/marketing-site/seo";
 import { siteOrigin } from "@/features/marketing-site/site";
 import { findTheme, themePreviewHref, themesHref } from "@/features/marketing-site/themes";
@@ -56,8 +56,8 @@ export default async function ThemeDetailPage({ params }: PageProps<"/themes/[ke
                 <ButtonLink href={`/themes/${t.key}/use`} prefetch={false} size="lg" track={{ id: `use_${t.key}`, location: "theme_detail" }}>
                   Use This Theme
                 </ButtonLink>
-                <ButtonLink href={themePreviewHref(t.key)} variant="secondary" size="lg" track={{ event: "theme_preview", id: t.key, location: "theme_detail" }}>
-                  <Eye aria-hidden className="size-4" /> Preview Theme
+                <ButtonLink href={themePreviewHref(t.key)} external variant="secondary" size="lg" track={{ event: "theme_preview", id: t.key, location: "theme_detail" }}>
+                  <Eye aria-hidden className="size-4" /> Preview Theme <ExternalLink aria-hidden className="size-3.5" />
                 </ButtonLink>
               </div>
               <p className="mt-3 text-sm text-muted">Using a theme creates a draft for your store. Nothing goes live until you publish.</p>

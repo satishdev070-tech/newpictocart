@@ -163,7 +163,7 @@ export const calendarItemInput = z.object({
 export type CalendarItem = z.infer<typeof calendarItemInput>;
 export const addToCalendarInput = z.object({ mode: z.enum(["draft", "plan"]), items: z.array(calendarItemInput).min(1).max(40) });
 
-export type GenerationKind = "caption" | "hashtags" | "ideas" | "plan" | "review_reply" | "message_reply" | "profile";
+export type GenerationKind = "caption" | "hashtags" | "ideas" | "plan" | "review_reply" | "message_reply" | "profile" | "section";
 
 /** A past generation for the history list (no secrets; the output is re-validated before rendering). */
 export type GenerationRow = { id: string; kind: GenerationKind; provider: string; model: string | null; tokens: number | null; createdAt: string; input: unknown; output: unknown };

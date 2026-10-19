@@ -17,6 +17,7 @@ import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
 import { roleLabel } from "@/lib/permissions/labels";
 import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { navForSiteMode, parseSiteMode } from "@/features/stores/site-mode";
 
 /** Plan name and trial end of the active store (RLS: members read their tenant). Null on error. */
 async function trialInfo(tenantId: string): Promise<{ plan: string | null; endsAt: string | null } | null> {
@@ -53,7 +54,11 @@ function Monogram({ name, className = "size-7" }: { name: string; className?: st
 
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   const ctx = await requireTenant();
-  const groups = DASHBOARD_NAV.map((g) => ({ ...g, items: g.items.filter((i) => ctx.permissions.has(i.permission)) })).filter((g) => g.items.length);
+  const { data: storeMode } = await (await createSupabaseServerClient()).from("stores").select("site_mode").eq("tenant_id", ctx.tenantId).maybeSingle();
+  const groups = navForSiteMode(
+    DASHBOARD_NAV.map((g) => ({ ...g, items: g.items.filter((i) => ctx.permissions.has(i.permission)) })).filter((g) => g.items.length),
+    parseSiteMode(storeMode?.site_mode),
+  );
   const storeUrl = storeOrigin(storeSubdomain(ctx.tenantSlug));
   // Independent reads in parallel (the cookie store is needed only for the support banner).
   const [alerts, trial, cookieStore, bell] = await Promise.all([getDashboardAlerts(ctx), ctx.tenantStatus === "trial" ? trialInfo(ctx.tenantId) : Promise.resolve(null), cookies(), getBellData({ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId })]);

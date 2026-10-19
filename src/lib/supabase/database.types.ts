@@ -39,6 +39,159 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_credit_accounts: {
+        Row: {
+          balance: number
+          created_at: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_credit_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_credit_ledger: {
+        Row: {
+          balance_after: number
+          created_at: string
+          created_by: string | null
+          delta: number
+          id: string
+          kind: string
+          metadata: Json
+          note: string | null
+          reference_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          balance_after: number
+          created_at?: string
+          created_by?: string | null
+          delta: number
+          id?: string
+          kind: string
+          metadata?: Json
+          note?: string | null
+          reference_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          balance_after?: number
+          created_at?: string
+          created_by?: string | null
+          delta?: number
+          id?: string
+          kind?: string
+          metadata?: Json
+          note?: string | null
+          reference_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_credit_ledger_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_credit_ledger_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_credit_purchase_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          credits: number
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          method: string
+          pack: string
+          payment_reference: string | null
+          requested_by: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          credits: number
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          method: string
+          pack: string
+          payment_reference?: string | null
+          requested_by?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          credits?: number
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          method?: string
+          pack?: string
+          payment_reference?: string | null
+          requested_by?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_credit_purchase_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_credit_purchase_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_credit_purchase_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_generations: {
         Row: {
           created_at: string
@@ -3819,6 +3972,7 @@ export type Database = {
           order_prefix: string
           phone: string | null
           seo: Json
+          site_mode: string
           social: Json
           tagline: string | null
           tax_settings: Json
@@ -3850,6 +4004,7 @@ export type Database = {
           order_prefix?: string
           phone?: string | null
           seo?: Json
+          site_mode?: string
           social?: Json
           tagline?: string | null
           tax_settings?: Json
@@ -3881,6 +4036,7 @@ export type Database = {
           order_prefix?: string
           phone?: string | null
           seo?: Json
+          site_mode?: string
           social?: Json
           tagline?: string | null
           tax_settings?: Json
@@ -4645,6 +4801,11 @@ export type Database = {
     }
     Functions: {
       accept_invitation: { Args: { p_token_hash: string }; Returns: string }
+      ai_credit_debit: {
+        Args: { p_kind: string; p_reference?: string | null; p_tenant: string }
+        Returns: { balance: number; ledger_id: string }[]
+      }
+      ai_credit_refund: { Args: { p_ledger: string; p_note?: string | null }; Returns: number }
       adjust_inventory: {
         Args: {
           p_delta: number
@@ -4710,6 +4871,10 @@ export type Database = {
           title: string
           units: number
         }[]
+      }
+      decide_ai_credit_purchase: {
+        Args: { p_approve: boolean; p_note?: string | null; p_payment_reference?: string | null; p_request: string }
+        Returns: number
       }
       end_support_session: { Args: { p_session: string }; Returns: undefined }
       inventory_overview: {
@@ -4890,6 +5055,7 @@ export type Database = {
         }
         Returns: string
       }
+      request_ai_credit_purchase: { Args: { p_method: string; p_pack: string; p_tenant: string }; Returns: string }
       rollback_theme: { Args: { p_version: string }; Returns: string }
       save_discount: {
         Args: {
@@ -4909,6 +5075,7 @@ export type Database = {
         Args: { p_collection: string; p_product_ids: string[] }
         Returns: number
       }
+      grant_ai_credits: { Args: { p_credits: number; p_note: string; p_tenant: string }; Returns: number }
       set_inventory: {
         Args: {
           p_available: number

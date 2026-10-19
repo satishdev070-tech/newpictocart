@@ -9,19 +9,22 @@ import { istDayKey } from "@/features/social/planner";
 import { configuredProviders, countGenerationsToday, getBrandProfile, listGenerations } from "@/features/neural-pulse/server";
 import { DAILY_GENERATION_LIMIT, PROVIDER_LABELS } from "@/features/neural-pulse/schemas";
 import { NeuralPulseStudio } from "@/features/neural-pulse/components/studio";
+import { getAiCreditOverview } from "@/features/ai-credits/server";
+import { AiCreditSellerPanel } from "@/features/ai-credits/components";
 
 export const metadata: Metadata = { title: "Neural Pulse" };
 
 export default async function NeuralPulsePage() {
   const ctx = await requireTenantPermission("marketing.read");
   const supabase = await createSupabaseServerClient();
-  const [ent, providers, brand, history, usedToday, products] = await Promise.all([
+  const [ent, providers, brand, history, usedToday, products, credits] = await Promise.all([
     getEntitlements(ctx.tenantId),
     configuredProviders(),
     getBrandProfile(ctx.tenantId),
     listGenerations(ctx.tenantId),
     countGenerationsToday(ctx.tenantId),
     supabase.from("products").select("id, title").eq("tenant_id", ctx.tenantId).eq("status", "active").order("updated_at", { ascending: false }).limit(200),
+    getAiCreditOverview(ctx.tenantId),
   ]);
   const enabled = ent.isEnabled("social_media");
   const canWrite = can(ctx, "marketing.write") && enabled;
@@ -55,6 +58,7 @@ export default async function NeuralPulsePage() {
           </span>
         </p>
       )}
+      <AiCreditSellerPanel available={credits.available} balance={credits.balance} ledger={credits.ledger} purchases={credits.purchases} canManage={can(ctx, "billing.manage")} />
       <NeuralPulseStudio brand={brand} canWrite={canWrite} aiReady={aiReady} products={products.data ?? []} history={history} today={istDayKey(new Date().toISOString())} />
     </div>
   );

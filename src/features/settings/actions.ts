@@ -16,7 +16,7 @@ import { mapDbError } from "@/lib/supabase/errors";
 import { audit } from "@/lib/audit";
 import { revalidateStorefront } from "@/lib/cache/storefront";
 import type { Json } from "@/lib/supabase/database.types";
-import { seoSettingsSchema, codSettingsSchema, notificationTemplateSchema, pincodeRuleSchema, shippingRateSchema, storeDetailsSchema } from "./schemas";
+import { seoSettingsSchema, codSettingsSchema, notificationTemplateSchema, pincodeRuleSchema, shippingRateSchema, siteModeSchema, storeDetailsSchema } from "./schemas";
 import { minorToDb } from "./fields";
 
 async function settingsCtx(perm: "settings.write" | "payments.manage" = "settings.write") {
@@ -60,6 +60,20 @@ export async function saveStoreDetailsAction(_prev: ActionResult | null, fd: For
       .eq("tenant_id", ctx.tenantId);
     if (error) throw mapDbError(error);
     await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "settings.store_updated", entityType: "store", entityId: ctx.tenantId });
+    revalidateStorefront(ctx.tenantId);
+  });
+  if (result.ok) refresh();
+  return result;
+}
+
+/** Switch storefront purpose. Commerce data is retained and becomes available again if restored. */
+export async function saveSiteModeAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const result = await runAction("settings.siteMode", async () => {
+    const ctx = await settingsCtx();
+    const { siteMode } = parseInput(siteModeSchema, formToObject(fd));
+    const { error } = await (await createSupabaseServerClient()).from("stores").update({ site_mode: siteMode }).eq("tenant_id", ctx.tenantId);
+    if (error) throw mapDbError(error);
+    await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "settings.site_mode_updated", entityType: "store", entityId: ctx.tenantId, metadata: { site_mode: siteMode } });
     revalidateStorefront(ctx.tenantId);
   });
   if (result.ok) refresh();

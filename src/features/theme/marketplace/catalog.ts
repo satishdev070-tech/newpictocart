@@ -21,6 +21,7 @@ import { ORGANIC_THEMES } from "./themes/organic";
 import { GOURMET_THEMES } from "./themes/gourmet";
 import { GENERAL_THEMES } from "./themes/general";
 import { EXTENDED_THEMES } from "./themes/extended";
+import { INFORMATIVE_THEMES } from "./themes/informative";
 
 export type { HomeItem, MarketplaceTheme, ThemePreset, ThemeStyle } from "./types";
 
@@ -93,7 +94,7 @@ const ORIGINAL_THEMES: MarketplaceTheme[] = [
   },
 ];
 
-const RAW_THEMES: MarketplaceTheme[] = [...FASHION_THEMES, ...ORIGINAL_THEMES, ...ELECTRONICS_THEMES, ...BEAUTY_THEMES, ...FURNITURE_THEMES, ...GROCERY_THEMES, ...JEWELLERY_THEMES, ...FOOTWEAR_THEMES, ...HEALTH_THEMES, ...SPORTS_THEMES, ...KIDS_THEMES, ...BOOKS_THEMES, ...PETS_THEMES, ...AUTOMOTIVE_THEMES, ...SMART_HOME_THEMES, ...BAGS_THEMES, ...WATCHES_THEMES, ...ORGANIC_THEMES, ...GOURMET_THEMES, ...EXTENDED_THEMES, ...GENERAL_THEMES];
+const RAW_THEMES: MarketplaceTheme[] = [...INFORMATIVE_THEMES, ...FASHION_THEMES, ...ORIGINAL_THEMES, ...ELECTRONICS_THEMES, ...BEAUTY_THEMES, ...FURNITURE_THEMES, ...GROCERY_THEMES, ...JEWELLERY_THEMES, ...FOOTWEAR_THEMES, ...HEALTH_THEMES, ...SPORTS_THEMES, ...KIDS_THEMES, ...BOOKS_THEMES, ...PETS_THEMES, ...AUTOMOTIVE_THEMES, ...SMART_HOME_THEMES, ...BAGS_THEMES, ...WATCHES_THEMES, ...ORGANIC_THEMES, ...GOURMET_THEMES, ...EXTENDED_THEMES, ...GENERAL_THEMES];
 
 /**
  * Every theme gets its layout (section variants, header style, footer layout) from its industry's

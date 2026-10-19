@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, useState, type ReactNode } from "react";
 import type { ThemeConfig } from "@/features/theme/schema/config";
 import type { ThemeMenu } from "@/features/theme/schema/links";
+import type { SiteMode } from "@/features/stores/site-mode";
 import type { EditorPickers, ThemeVersionSummary } from "@/features/theme/server/queries";
 import { canRedo, canUndo, historyReducer, initHistory, isDirty } from "./history";
 import { builderPages, type BuilderPage, type PageSources } from "./pages";
@@ -39,6 +40,8 @@ export type BuilderData = {
   canPublish: boolean;
   issues: string[];
   store: { name: string; slug: string; origin: string; whatsapp: string | null };
+  /** Informative sites don't expose commerce-only pages in the editor. */
+  siteMode?: SiteMode;
   /** Database menus as theme menus (copied into the theme on first edit), by handle. */
   dbMenus: Record<string, ThemeMenu>;
   pageSources: PageSources;
@@ -93,7 +96,7 @@ export function BuilderProvider({ data, children }: { data: BuilderData; childre
     },
     [config],
   );
-  const pages = useMemo(() => builderPages(config, data.pageSources), [config, data.pageSources]);
+  const pages = useMemo(() => builderPages(config, data.pageSources, data.siteMode), [config, data.pageSources, data.siteMode]);
   const page = pages.find((p) => p.key === pageKey) ?? pages[0]!;
 
   const api: BuilderApi = {

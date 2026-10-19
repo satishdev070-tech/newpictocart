@@ -11,6 +11,8 @@ import type { ThemeConfig } from "@/features/theme/schema/config";
 import { readCodSettings, type CodSettings } from "../delivery";
 import { readSeo, type SeoFields } from "../seo";
 import { readAddress, readSocialLinks, type SocialLink, type StoreAddress } from "../store-profile";
+import { getStoreSiteMode } from "@/features/stores/site-mode-server";
+import type { SiteMode } from "@/features/stores/site-mode";
 
 /**
  * Per-request storefront context: tenant (from the verified host), public store profile,
@@ -45,6 +47,8 @@ export type Storefront = {
   /** Marketplace Live Preview on a demo store (in memory only). */
   themePreview: { key: string; name: string } | null;
   features: StoreFeatures;
+  /** Website purpose, read fail-open as ecommerce until migration 3300 is applied. */
+  siteMode: SiteMode;
 };
 
 const STORE_PROFILE_COLUMNS = "name, tagline, description, logo_path, favicon_path, email, phone, whatsapp, address, social, seo, cod_settings";
@@ -109,12 +113,13 @@ export const getStoreFeatures = cache(async (tenantId: string): Promise<StoreFea
 export const getStorefront = cache(async (host: string): Promise<Storefront | null> => {
   const tenant = await resolveStorefrontTenant(host);
   if (!tenant || storefrontAvailability(tenant.status) !== "open") return null;
-  const [store, theme, features] = await Promise.all([
+  const [store, theme, features, siteMode] = await Promise.all([
     getStoreProfile(tenant.tenantId, tenant.name),
     getStorefrontTheme(tenant.tenantId, tenant.slug),
     getStoreFeatures(tenant.tenantId),
+    getStoreSiteMode(tenant.tenantId),
   ]);
-  return { tenant, store, theme: theme.config, preview: theme.preview, themePreview: theme.themePreview, features };
+  return { tenant, store, theme: theme.config, preview: theme.preview, themePreview: theme.themePreview, features, siteMode };
 });
 
 /** For pages: the open storefront or the (generic) 404. */

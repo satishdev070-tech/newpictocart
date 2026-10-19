@@ -216,6 +216,7 @@ export function ProductPurchase({
   highlight,
   panels = [],
   footer,
+  commerceEnabled = true,
 }: {
   title: string;
   /** Small line above the title (store / brand name). */
@@ -232,6 +233,8 @@ export function ProductPurchase({
   panels?: PdpPanel[];
   /** Wishlist / share row under the accordions. */
   footer?: ReactNode;
+  /** Informative catalogues can retain product pages without exposing purchasing controls. */
+  commerceEnabled?: boolean;
 }) {
   const [sel, setSel] = useState<Selection>(() => initialSelection(variants, options));
   const [qty, setQty] = useState(1);
@@ -318,7 +321,7 @@ export function ProductPurchase({
             </p>
           ) : null}
 
-          <form action={action} className="space-y-3">
+          {commerceEnabled ? <form action={action} className="space-y-3">
             <input type="hidden" name="variantId" value={variant?.id ?? ""} />
             <input type="hidden" name="quantity" value={quantity} />
             <div>
@@ -351,7 +354,7 @@ export function ProductPurchase({
                 Added. <a href="/cart" className="sf-link">View bag ({state.data.count})</a>
               </p>
             ) : null}
-          </form>
+          </form> : <p className="sf-muted rounded-[var(--sf-radius-card)] border border-[var(--sf-border)] p-4 text-sm">This catalogue item is available to view. Contact the business for availability and enquiries.</p>}
         </div>
 
         {panels.length ? (

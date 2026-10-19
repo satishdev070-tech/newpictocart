@@ -17,6 +17,7 @@ import { clientIpKey, rateLimit } from "@/lib/rate-limit";
 import { audit } from "@/lib/audit";
 import { logger } from "@/lib/observability/logger";
 import { isIndustry } from "@/features/stores/industries";
+import { DEFAULT_SITE_MODE, SITE_MODES } from "@/features/stores/site-mode";
 import { isThemeKey } from "@/features/marketing-site/themes";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { findPlan } from "@/features/marketing-site/plans";
@@ -46,6 +47,7 @@ const businessSchema = z.object({
     .max(63, "Use 63 characters or fewer")
     .refine((v) => !v.includes("--"), "Don't use two hyphens in a row")
     .refine(isValidStoreSlug, "Use lowercase letters, numbers and single hyphens, starting and ending with a letter or number. Some names are reserved."),
+  siteMode: z.enum(SITE_MODES).default(DEFAULT_SITE_MODE),
   ...choiceSchema,
 });
 
@@ -64,6 +66,12 @@ async function markDraft(tenantId: string): Promise<void> {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("stores").update({ launch_status: "draft" }).eq("tenant_id", tenantId);
   if (error) logger.error("onboarding.draft_failed", { tenantId, code: error.code, error: error.message });
+}
+
+/** Site mode is written after create_tenant, which deliberately owns the tenant/store setup transaction. */
+async function setSiteMode(tenantId: string, siteMode: "ecommerce" | "informative"): Promise<void> {
+  const { error } = await (await createSupabaseServerClient()).from("stores").update({ site_mode: siteMode }).eq("tenant_id", tenantId);
+  if (error) throw mapDbError(error);
 }
 
 /** Step 2: create the store (or, with `store`, update its category when the seller went Back). */
@@ -105,6 +113,7 @@ export async function saveBusinessAction(_prev: ActionResult | null, fd: FormDat
       await setCategory(tenantId, input.category);
     }
     if (!tenantId) throw new AppError("INTERNAL");
+    await setSiteMode(tenantId, input.siteMode);
     await setActiveTenant(tenantId);
     target = onboardingHref("theme", tenantId, input);
   });

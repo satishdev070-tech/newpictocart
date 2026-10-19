@@ -4,6 +4,14 @@ import type { FooterLayout, HeaderStyle } from "../sections/variants";
 /** Visual direction of a theme (marketplace "Style" filter). */
 export const THEME_STYLES = ["minimal", "modern", "luxury", "editorial", "bold", "marketplace", "premium", "heritage", "conversion"] as const;
 export type ThemeStyle = (typeof THEME_STYLES)[number];
+/**
+ * A marketplace preset can be an online-shop design or a service / brochure website.
+ * The field is optional so previously published custom themes and every legacy preset remain
+ * eCommerce themes without a data migration.
+ */
+export const THEME_SITE_TYPES = ["ecommerce", "informative"] as const;
+export type ThemeSiteType = (typeof THEME_SITE_TYPES)[number];
+export const themeSiteType = (theme: Pick<MarketplaceTheme, "siteType">): ThemeSiteType => theme.siteType ?? "ecommerce";
 export const THEME_STYLE_LABELS: Record<ThemeStyle, string> = {
   minimal: "Minimal",
   modern: "Modern",
@@ -54,6 +62,8 @@ export type MarketplaceTheme = {
   description: string;
   industry: IndustrySlug;
   style: ThemeStyle;
+  /** Defaults to eCommerce for legacy and custom marketplace themes. */
+  siteType?: ThemeSiteType;
   bestFor: string[];
   features: string[];
   /** Showcase store used for Live Preview ({slug}.{platform root}); null when none yet. */

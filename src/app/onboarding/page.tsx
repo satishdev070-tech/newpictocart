@@ -17,6 +17,7 @@ import { BusinessForm, PlanForm, ThemeForm, type ThemeOption } from "@/features/
 import { listOwnedStores, requestedChoices, type OnboardingStore } from "@/features/onboarding/server";
 import { onboardingHref, previousStep, resolveStep, UUID_RE } from "@/features/onboarding/steps";
 import { PreviewStoreButton } from "@/features/stores/components/launch-controls";
+import { isInformative } from "@/features/stores/site-mode";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: "Set up your store", robots: { index: false, follow: false }, ...(await platformIconMetadata()) };
@@ -153,11 +154,17 @@ function ExistingSeller({ stores, choice }: { stores: OnboardingStore[]; choice:
 }
 
 function Ready({ store }: { store: OnboardingStore }) {
-  const tasks = [
+  const tasks = isInformative(store.siteMode)
+    ? [
+        { icon: Package, title: "Tell your story", body: "Add your services, portfolio and business details.", href: "/dashboard/theme", cta: "Customize your website" },
+        { icon: Truck, title: "Help visitors contact you", body: "Add a contact page, WhatsApp number and business address.", href: "/dashboard/settings", cta: "Store details" },
+        { icon: Eye, title: "Preview your website", body: "Check every page before you publish it.", href: "/dashboard/theme", cta: "Open builder" },
+      ]
+    : [
     { icon: Package, title: "Add your products", body: "Photos, prices, variants and stock.", href: "/dashboard/products/new", cta: "Add a product" },
     { icon: CreditCard, title: "Set up payments", body: "Turn on cash on delivery or connect Razorpay, Cashfree or PayU.", href: "/dashboard/settings/payments", cta: "Payment settings" },
     { icon: Truck, title: "Set up shipping", body: "Shipping rates, PIN code rules or a courier account.", href: "/dashboard/settings/shipping", cta: "Shipping settings" },
-  ];
+      ];
   return (
     <OnboardingShell step="ready" wide>
       <div className="mb-8 flex items-start gap-4">
@@ -168,7 +175,11 @@ function Ready({ store }: { store: OnboardingStore }) {
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Step 5 of 5</p>
           <h1 className="mt-1 font-brand text-2xl font-extrabold tracking-tight text-brand-ink sm:text-3xl">{store.name} is set up</h1>
           <p className="mt-2 text-muted">
-            {store.launchStatus === "draft" ? "Your store is a private draft. Visitors see a ‘coming soon’ page until you publish it from your dashboard." : "Finish these steps to start taking orders."}
+            {store.launchStatus === "draft"
+              ? "Your store is a private draft. Visitors see a ‘coming soon’ page until you publish it from your dashboard."
+              : isInformative(store.siteMode)
+                ? "Finish these steps to publish your informative website."
+                : "Finish these steps to start taking orders."}
           </p>
         </div>
       </div>

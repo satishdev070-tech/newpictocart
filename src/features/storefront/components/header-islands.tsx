@@ -278,7 +278,7 @@ export function SearchOverlay({ popular }: { popular: { label: string; href: str
 
 // ------------------------------------------------------------------ mobile navigation
 
-export function MobileNav({ items, storeName, signedIn, alwaysVisible = false }: { items: MenuNode[]; storeName: string; signedIn: boolean; alwaysVisible?: boolean }) {
+export function MobileNav({ items, storeName, signedIn, showCommerceLinks = true, alwaysVisible = false }: { items: MenuNode[]; storeName: string; signedIn: boolean; showCommerceLinks?: boolean; alwaysVisible?: boolean }) {
   const { ref, open, close } = useDialog();
   const [expanded, setExpanded] = useState<string | null>(null);
   return (
@@ -343,17 +343,19 @@ export function MobileNav({ items, storeName, signedIn, alwaysVisible = false }:
               ))}
             </ul>
           </nav>
-          <div className="sf-border space-y-3 border-t px-5 py-4 text-sm">
-            <Link href="/account" className="block">
-              {signedIn ? "My account" : "Sign in / Register"}
-            </Link>
-            <Link href="/account/wishlist" className="block">
-              Wishlist
-            </Link>
-            <Link href="/account/orders" className="block">
-              Track order
-            </Link>
-          </div>
+          {showCommerceLinks ? (
+            <div className="sf-border space-y-3 border-t px-5 py-4 text-sm">
+              <Link href="/account" className="block">
+                {signedIn ? "My account" : "Sign in / Register"}
+              </Link>
+              <Link href="/account/wishlist" className="block">
+                Wishlist
+              </Link>
+              <Link href="/account/orders" className="block">
+                Track order
+              </Link>
+            </div>
+          ) : null}
         </div>
       </dialog>
     </>

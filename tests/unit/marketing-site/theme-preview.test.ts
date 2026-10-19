@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_LANDING, parseLanding, THEMES_DEFAULT_COUNT, THEMES_MAX_COUNT, themesShown, validateLanding } from "@/features/marketing-site/landing";
-import { pickPreviewDemo, previewDemoCandidates, SHOWCASE_INDUSTRIES, showcaseThemes, themePreviewHref } from "@/features/marketing-site/themes";
+import { filterThemes, parseThemeQuery, pickPreviewDemo, previewDemoCandidates, SHOWCASE_INDUSTRIES, showcaseThemes, themePreviewHref } from "@/features/marketing-site/themes";
 import { sampleProducts, sampleStyle } from "@/features/marketing-site/sample-store";
 import { INDUSTRY_SHOWCASE, SHOWCASE_STORES } from "@/features/theme/marketplace/showcase";
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
@@ -51,6 +51,17 @@ describe("theme preview demo store", () => {
 
   it("links every theme to its on-site preview page", () => {
     expect(themePreviewHref("minimal-d2c")).toBe("/themes/minimal-d2c/preview");
+  });
+});
+
+describe("informative theme marketplace", () => {
+  it("filters the service-site catalogue separately from online-store themes", () => {
+    const query = parseThemeQuery({ type: "informative" });
+    expect(query.siteType).toBe("informative");
+    const result = filterThemes(query);
+    expect(result.total).toBeGreaterThanOrEqual(10);
+    expect(result.items.every((theme) => theme.siteType === "informative")).toBe(true);
+    expect(result.items.map((theme) => theme.key)).toContain("global-vision");
   });
 });
 

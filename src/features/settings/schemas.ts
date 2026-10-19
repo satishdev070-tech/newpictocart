@@ -2,6 +2,7 @@ import { z } from "zod";
 import { gstin, pincode } from "@/lib/validation/common";
 import { bool, intWithDefault, optionalHttpsUrl, optionalInt, optionalRupees, optionalText, rupeesOrZero } from "./fields";
 import { TEMPLATE_CHANNELS, TEMPLATE_KEYS } from "./notification-templates";
+import { SITE_MODES } from "@/features/stores/site-mode";
 
 /** Settings input schemas (pure). */
 
@@ -44,6 +45,9 @@ export const storeDetailsSchema = z.object({
   removeFavicon: bool,
 });
 export type StoreDetailsInput = z.infer<typeof storeDetailsSchema>;
+
+/** Changing site purpose never deletes products, orders or prior settings. */
+export const siteModeSchema = z.object({ siteMode: z.enum(SITE_MODES) });
 
 /** Store-level search engine settings (stores.seo). Verification values are the token only, not the meta tag. */
 export const seoSettingsSchema = z.object({

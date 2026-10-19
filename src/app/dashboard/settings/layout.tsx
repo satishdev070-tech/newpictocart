@@ -1,6 +1,8 @@
 import { can, requireTenantPermission } from "@/lib/tenant/membership";
 import type { TenantPermission } from "@/lib/permissions/matrix";
 import { SettingsNav, type SettingsNavGroup } from "@/features/settings/ui/settings-nav";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { navForSiteMode, parseSiteMode } from "@/features/stores/site-mode";
 
 const GROUPS: { label: string; items: { href: string; label: string; permission: TenantPermission }[] }[] = [
   {
@@ -44,7 +46,11 @@ const GROUPS: { label: string; items: { href: string; label: string; permission:
 /** Settings centre: one place for every store setting, filtered by the member's permissions. */
 export default async function SettingsLayout({ children }: LayoutProps<"/dashboard/settings">) {
   const ctx = await requireTenantPermission("store.read");
-  const groups: SettingsNavGroup[] = GROUPS.map((g) => ({ label: g.label, items: g.items.filter((i) => can(ctx, i.permission)).map(({ href, label }) => ({ href, label })) })).filter((g) => g.items.length);
+  const { data: store } = await (await createSupabaseServerClient()).from("stores").select("site_mode").eq("tenant_id", ctx.tenantId).maybeSingle();
+  const groups: SettingsNavGroup[] = navForSiteMode(
+    GROUPS.map((g) => ({ label: g.label, items: g.items.filter((i) => can(ctx, i.permission)).map(({ href, label }) => ({ href, label })) })).filter((g) => g.items.length),
+    parseSiteMode(store?.site_mode),
+  );
   return (
     <div className="grid gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
       <SettingsNav groups={groups} />

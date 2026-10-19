@@ -9,6 +9,7 @@ import { assetsBelongToTenant, parseThemeConfigStrict } from "../schema/config";
 import { getThemeEditorData } from "./queries";
 import { findAnyMarketplaceTheme } from "../marketplace/registry";
 import { applyThemePreset } from "../marketplace/apply";
+import { modeAfterThemeApply, parseSiteMode } from "@/features/stores/site-mode";
 
 /*
  * Server-only (NOT a server action): callers pass an already-authorised TenantContext. Used by
@@ -40,6 +41,25 @@ export async function applyMarketplaceThemeToDraft(ctx: TenantContext, key: stri
       .from("theme_versions")
       .insert({ tenant_id: ctx.tenantId, theme_key: theme.key, label: theme.name, version: (latest?.version ?? 0) + 1, status: "draft", config: parsed.config as unknown as Json, created_by: ctx.user.id });
     if (error) throw mapDbError(error);
+  }
+
+  // An informative preset turns a brand-new, empty store into a brochure website. Stores that
+  // already have products keep their selected mode, so applying a visual preset never hides an
+  // established shop. The column is additive; if an older database has not applied migration
+  // 3300 yet, applying a theme still succeeds exactly as it did before.
+  if (theme.siteType === "informative") {
+    const [{ data: store, error: storeError }, { count, error: productError }] = await Promise.all([
+      supabase.from("stores").select("site_mode").eq("tenant_id", ctx.tenantId).maybeSingle(),
+      supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", ctx.tenantId),
+    ]);
+    if (productError) throw mapDbError(productError);
+    if (!storeError && store) {
+      const nextMode = modeAfterThemeApply(parseSiteMode(store.site_mode), theme.siteType, (count ?? 0) > 0);
+      if (nextMode !== store.site_mode) {
+        const { error } = await supabase.from("stores").update({ site_mode: nextMode }).eq("tenant_id", ctx.tenantId);
+        if (error) throw mapDbError(error);
+      }
+    }
   }
   return { supabase, theme };
 }

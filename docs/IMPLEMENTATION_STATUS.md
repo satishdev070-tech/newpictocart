@@ -1,6 +1,34 @@
 # Implementation Status
 
-_Last updated: 2026-10-17 (seller site builder: full-screen visual theme editor)_
+_Last updated: 2026-10-19 (informative sites, marketplace, editor controls and AI-credit ledger)_
+
+## Informative sites, marketplace, editor controls and AI credits (2026-10-19)
+
+- **Website mode:** onboarding and Settings → General now support an **Informative website** or
+  **Online store** choice. Informative mode hides commerce-only storefront controls and blocks
+  cart, checkout and account routes, limits dashboard and builder navigation to relevant features,
+  and retains existing store data when changed. The additive `20261019003300_site_mode.sql`
+  migration must be applied before the choice is stored; the application safely retains the
+  existing online-store behaviour until then.
+- **Theme marketplace:** added ten informative templates (consultancy, interior, restaurant,
+  clinic, wedding, architecture, loans, visa, salon and cleaning), site-type/industry filters and
+  a persistent category sidebar. Theme previews open as a separate full-page tab; device previews
+  retain the true 390 × 844 phone frame.
+- **Site builder:** every section receives desktop and phone controls for content scale (80–130%),
+  content width, and top/bottom margin and padding. Header settings include menu font size,
+  weight, letter spacing, case and colour. The trust-strip icon field accepts the existing icon
+  library or a tenant-owned media image, retaining compatibility with old icon choices.
+- **AI credits:** the additive `20261019003400_ai_credits.sql` migration supplies a 100-credit
+  grant for newly created stores, an auditable ledger, debit/refund functions, purchase requests
+  and platform approval/manual-grant functions. Seller balance/history/purchase controls and the
+  platform review page are implemented. AI generation reserves credit first and refunds it on
+  provider failure. Until this migration is applied, current AI behaviour remains unchanged. The
+  "online" purchase route records a payment-verification request; automatic payment capture needs
+  a configured platform billing gateway.
+- **Verification:** `pnpm typecheck` ✅, `pnpm lint` ✅, `pnpm test` ✅ (88 files, 1,233 tests),
+  and `NEXT_BUNDLER=webpack pnpm build` ✅. The default Turbopack build was not allowed to finish
+  while the already-running local development server held the shared `.next` workspace; no source
+  errors were reported before it was stopped.
 
 ## Phase overview
 

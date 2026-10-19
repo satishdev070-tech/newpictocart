@@ -27,7 +27,9 @@ const eslintConfig = defineConfig([
     files: ["src/lib/supabase/**"],
     rules: { "no-restricted-imports": "off" },
   },
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "workers/**/dist/**"]),
+  // Local agent worktrees contain generated Next chunks from other checkouts; they are neither
+  // application source nor part of this repository's deliverable.
+  globalIgnores([".next/**", "out/**", "build/**", ".claude/**", "next-env.d.ts", "workers/**/dist/**"]),
 ]);
 
 export default eslintConfig;

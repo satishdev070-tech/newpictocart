@@ -34,6 +34,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/dashboard
       tagline: t.tagline,
       industry: t.industry,
       industryLabel: industryShort(t.industry),
+      siteType: t.siteType,
       style: t.style,
       bestFor: t.bestFor,
       added: t.added,

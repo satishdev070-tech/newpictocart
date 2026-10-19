@@ -7,6 +7,8 @@ vi.mock("@/features/platform-apps/server", () => ({
 }));
 const rateLimit = vi.hoisted(() => vi.fn(async () => {}));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit }));
+const credits = vi.hoisted(() => ({ debit: vi.fn(async () => ({ ledgerId: "credit-ledger-1", balance: 99 })), refund: vi.fn(async () => {}) }));
+vi.mock("@/features/ai-credits/server", () => ({ debitAiCredit: credits.debit, refundAiCredit: credits.refund }));
 const inserted = vi.hoisted(() => ({ rows: [] as unknown[] }));
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => ({
@@ -184,6 +186,8 @@ describe("provider selection and generation", () => {
     creds.value = {};
     inserted.rows = [];
     rateLimit.mockClear();
+    credits.debit.mockClear();
+    credits.refund.mockClear();
   });
 
   it("uses configured providers in platform order (gemini, groq, anthropic)", async () => {
@@ -204,8 +208,17 @@ describe("provider selection and generation", () => {
     const r = await runGeneration({ tenantId: "tenant-1", userId: "user-1", kind: "ideas", input: { focus: null }, prompt: ideasPrompt(ctx), schema: ideasOutput });
     spy.mockRestore();
     expect(rateLimit).toHaveBeenCalledWith("neural-pulse", "tenant-1", 30, 86400);
+    expect(credits.debit).toHaveBeenCalledWith("tenant-1", "ideas");
     expect(r.id).toBeTruthy();
     expect(inserted.rows[0]).toMatchObject({ tenant_id: "tenant-1", kind: "ideas", provider: "gemini", model: "gemini-3.8-flash", tokens: 321, created_by: "user-1" });
     expect(JSON.stringify(inserted.rows[0])).not.toContain('"k"');
+  });
+
+  it("refunds the durable credit when every provider fails", async () => {
+    creds.value = { gemini: { clientId: null, secret: "k", extra: {}, source: "db" } };
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("unavailable", { status: 503 }));
+    await expect(runGeneration({ tenantId: "tenant-1", userId: "user-1", kind: "ideas", input: {}, prompt: ideasPrompt(ctx), schema: ideasOutput })).rejects.toBeInstanceOf(AppError);
+    spy.mockRestore();
+    expect(credits.refund).toHaveBeenCalledWith({ ledgerId: "credit-ledger-1", balance: 99 }, expect.any(String));
   });
 });

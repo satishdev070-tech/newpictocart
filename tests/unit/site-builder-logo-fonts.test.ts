@@ -9,7 +9,7 @@ const OLD_HEADER = { logoPath: "", logoAlt: "", logoMaxWidth: 200, menuHandle: "
 describe("header logo settings", () => {
   it("parses old header settings with the new fields at their back-compatible defaults", () => {
     const h = headerSettingsSchema.parse(OLD_HEADER);
-    expect(h).toMatchObject({ logoMaxWidth: 200, logoWidth: 0, logoWidthMobile: 0, logoHeight: 0, logoHeightMobile: 0, logoPosition: "auto", mobileLogoPosition: "auto" });
+    expect(h).toMatchObject({ logoMaxWidth: 200, logoWidth: 0, logoWidthMobile: 0, logoHeight: 0, logoHeightMobile: 0, logoPosition: "auto", mobileLogoPosition: "auto", menuFontSize: 0, menuFontWeight: "default", menuLetterSpacing: "default", menuTextCase: "default", menuTextColor: "" });
     expect(headerSettingsSchema.parse({})).toMatchObject({ logoMaxWidth: 160, logoWidth: 0, logoPosition: "auto", mobileLogoPosition: "auto" });
     expect(hasCustomLogoSize(h)).toBe(false);
     expect(hasCustomLogoPosition(h)).toBe(false);
@@ -47,6 +47,9 @@ describe("header logo settings", () => {
     expect(headerSettingsSchema.safeParse({ logoPosition: "center-stacked", mobileLogoPosition: "center" }).success).toBe(true);
     expect(headerSettingsSchema.safeParse({ logoPosition: "middle" }).success).toBe(false);
     expect(headerSettingsSchema.safeParse({ mobileLogoPosition: "right" }).success).toBe(false);
+    expect(headerSettingsSchema.safeParse({ menuFontSize: 12, menuFontWeight: "700", menuLetterSpacing: "wide", menuTextCase: "uppercase", menuTextColor: "#112233" }).success).toBe(true);
+    expect(headerSettingsSchema.safeParse({ menuFontSize: 25 }).success).toBe(false);
+    expect(headerSettingsSchema.safeParse({ menuTextColor: "red" }).success).toBe(false);
   });
 
   it("resolves auto positions from the Header section layout", () => {

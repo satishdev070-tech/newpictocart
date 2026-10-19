@@ -6,6 +6,7 @@ import type { ProductCardData, ListArgs } from "@/features/storefront/server/cat
 import { listProducts } from "@/features/storefront/server/catalog";
 import { paths } from "@/features/storefront/urls";
 import { ProductCard, productPlaceholder } from "@/features/storefront/components/product-card";
+import { isInformative } from "@/features/stores/site-mode";
 import { Price, Stars } from "@/features/storefront/components/price";
 import { StoreArtImage, StoreImage, type ImageFallback } from "@/features/storefront/components/store-image";
 import { NewsletterForm } from "@/features/storefront/components/islands";
@@ -223,13 +224,13 @@ export async function ProductGridVariant({ ctx, args, variant, intro, cardRatio,
   return (
     <section className="sf-container sf-section">
       <Intro {...intro} />
-      {!cards.length ? <p className="sf-muted text-sm">Products will appear here soon.</p> : <ProductLayout cards={cards} variant={variant} settings={settings} stock={stock} columns={columns} />}
+      {!cards.length ? <p className="sf-muted text-sm">Products will appear here soon.</p> : <ProductLayout cards={cards} variant={variant} settings={settings} stock={stock} columns={columns} commerceEnabled={!isInformative(ctx.sf.siteMode)} />}
     </section>
   );
 }
 
-export function ProductLayout({ cards, variant, settings, stock, columns }: { cards: ProductCardData[]; variant: ProductGridVariant; settings: ProductCardSettings; stock: StockSet | null; columns: number }) {
-  const card = (p: ProductCardData, s = settings) => <ProductCard product={p} settings={s} placeholder={productPlaceholder(stock, p)} />;
+export function ProductLayout({ cards, variant, settings, stock, columns, commerceEnabled = true }: { cards: ProductCardData[]; variant: ProductGridVariant; settings: ProductCardSettings; stock: StockSet | null; columns: number; commerceEnabled?: boolean }) {
+  const card = (p: ProductCardData, s = settings) => <ProductCard product={p} settings={s} placeholder={productPlaceholder(stock, p)} commerceEnabled={commerceEnabled} />;
   switch (variant) {
     case "masonry": {
       const ratios = ["tall", "portrait", "square", "portrait"] as const;

@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
-import { Heart, Menu, Search, ShoppingBag, Star, User } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, CalendarDays, CheckCircle2, Heart, Menu, Phone, Search, ShoppingBag, Star, User } from "lucide-react";
 import { FONT_STACKS, type FontKey } from "@/features/theme/schema/tokens";
-import type { MarketplaceTheme } from "@/features/theme/marketplace/types";
+import { themeSiteType, type MarketplaceTheme } from "@/features/theme/marketplace/types";
 import { industryShort } from "@/features/stores/industries";
 import { formatMoney } from "@/lib/money";
 import { sampleProducts, sampleStyle } from "../sample-store";
@@ -15,6 +15,7 @@ export type SamplePhoto = { url: string; alt: string };
  * a wide frame and the mobile layout in the 390 px phone frame. Not interactive (links are inert).
  */
 export function ThemeSampleStore({ theme, photos }: { theme: MarketplaceTheme; photos: SamplePhoto[] }) {
+  if (themeSiteType(theme) === "informative") return <InformativeSampleStore theme={theme} photos={photos} />;
   const s = sampleStyle(theme.preset);
   const c = s.colors;
   const heading = FONT_STACKS[s.headingFont as FontKey]?.stack;
@@ -197,6 +198,103 @@ export function ThemeSampleStore({ theme, photos }: { theme: MarketplaceTheme; p
             </div>
           ))}
         </div>
+      </footer>
+    </div>
+  );
+}
+
+/** A service-site sample used by the full preview for informative marketplace themes. */
+function InformativeSampleStore({ theme, photos }: { theme: MarketplaceTheme; photos: SamplePhoto[] }) {
+  const s = sampleStyle(theme.preset);
+  const c = s.colors;
+  const heading = FONT_STACKS[s.headingFont as FontKey]?.stack;
+  const body = FONT_STACKS[s.bodyFont as FontKey]?.stack;
+  const name = theme.name.split(" ")[0]!;
+  const hero = photos[0];
+  const image = photos[1] ?? hero;
+  const rounded = s.cardRadius;
+  const headingStyle: CSSProperties = { fontFamily: heading, color: c.text, textTransform: s.uppercase ? "uppercase" : "none", letterSpacing: s.uppercase ? "0.045em" : undefined };
+  const button: CSSProperties = s.outlineButtons
+    ? { border: `1px solid ${c.primary}`, color: c.primary, borderRadius: s.buttonRadius }
+    : { background: c.primary, color: "#fff", borderRadius: s.buttonRadius };
+  const pad = Math.max(32, s.sectionGap * 0.75);
+
+  return (
+    <div className="@container min-h-full select-none" style={{ background: c.background, color: c.text, fontFamily: body }} aria-label={`Sample informative website in the ${theme.name} theme`}>
+      <div className="px-4 py-2 text-center text-[10px] font-medium tracking-[0.12em] uppercase" style={{ background: c.primary, color: "#fff" }}>
+        Independent advice · clear next steps · get in touch today
+      </div>
+      <header className="sticky top-0 z-10 border-b" style={{ background: c.background, borderColor: c.border }}>
+        <div className="relative mx-auto flex max-w-6xl items-center gap-4 px-4 py-4 @3xl:px-8">
+          <Menu aria-hidden className="size-5 @3xl:hidden" />
+          <span className={`text-xl font-semibold @3xl:text-2xl ${s.logoCenter ? "absolute left-1/2 -translate-x-1/2" : ""}`} style={{ ...headingStyle, color: c.primary }}>{name}</span>
+          <nav className="ml-auto hidden items-center gap-6 text-sm @3xl:flex" aria-label="Sample navigation">
+            <span>About us</span><span>Services</span><span>Our work</span><span>Insights</span><span>Contact</span>
+          </nav>
+          <span className="ml-auto inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold @3xl:ml-4" style={button}><CalendarDays aria-hidden className="size-3.5" /> Book a call</span>
+        </div>
+      </header>
+
+      <section className="relative isolate flex min-h-[400px] items-center overflow-hidden @3xl:min-h-[520px]" style={{ background: `linear-gradient(125deg, ${c.primary}, ${c.secondary})` }}>
+        {hero ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element -- preview-only remote Unsplash sample. */}
+            <img src={hero.url} alt={hero.alt} className="absolute inset-0 -z-10 size-full object-cover" />
+            <div className="absolute inset-0 -z-10" style={{ background: "rgba(0,0,0,.48)" }} />
+          </>
+        ) : null}
+        <div className={`mx-auto w-full max-w-6xl px-6 py-16 @3xl:px-12 ${s.heroCenter ? "text-center" : ""}`} style={{ color: "#fff" }}>
+          <p className="text-xs font-semibold tracking-[.18em] uppercase opacity-90">Welcome to {name}</p>
+          <h1 className={`mt-4 max-w-2xl text-4xl leading-tight @3xl:text-6xl ${s.heroCenter ? "mx-auto" : ""}`} style={{ ...headingStyle, color: "#fff" }}>{theme.tagline}</h1>
+          <p className={`mt-5 max-w-xl text-sm leading-relaxed opacity-90 @3xl:text-base ${s.heroCenter ? "mx-auto" : ""}`}>Practical expertise, thoughtful service and a team that makes every next step feel simpler.</p>
+          <span className="mt-8 inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold" style={{ background: "#fff", color: c.primary, borderRadius: s.buttonRadius }}>Start a conversation <ArrowRight aria-hidden className="size-4" /></span>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 @3xl:px-8" style={{ paddingTop: pad, paddingBottom: pad }}>
+        <p className="text-xs font-semibold tracking-[.16em] uppercase" style={{ color: c.accent }}>Why choose us</p>
+        <h2 className="mt-3 text-3xl @3xl:text-4xl" style={headingStyle}>Built around your goals</h2>
+        <div className="mt-8 grid gap-4 @3xl:grid-cols-3">
+          {theme.features.slice(0, 3).map((feature, i) => {
+            const Icon = [BriefcaseBusiness, CheckCircle2, Phone][i]!;
+            return (
+            <div key={feature} className="border p-5" style={{ borderColor: c.border, borderRadius: rounded }}>
+              <Icon aria-hidden className="size-6" style={{ color: c.primary }} />
+              <h3 className="mt-4 font-semibold">{feature}</h3>
+              <p className="mt-2 text-sm leading-relaxed opacity-75">Clear guidance and a personal experience from first question to confident decision.</p>
+            </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-6xl items-center gap-8 px-4 @3xl:grid-cols-2 @3xl:px-8" style={{ paddingTop: pad / 2, paddingBottom: pad }}>
+        <div className="overflow-hidden" style={{ aspectRatio: "4 / 3", borderRadius: rounded, background: c.border }}>
+          {image ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element -- preview-only remote Unsplash sample. */}
+              <img src={image.url} alt={image.alt} className="size-full object-cover" />
+            </>
+          ) : null}
+        </div>
+        <div>
+          <p className="text-xs font-semibold tracking-[.16em] uppercase" style={{ color: c.accent }}>Our approach</p>
+          <h2 className="mt-3 text-3xl @3xl:text-4xl" style={headingStyle}>Experienced people. Meaningful outcomes.</h2>
+          <p className="mt-4 text-sm leading-relaxed opacity-80">Use this theme to tell your own story, explain your services and make it easy for visitors to take the next step.</p>
+          <ul className="mt-5 space-y-2 text-sm">{theme.bestFor.map((item) => <li key={item} className="flex items-center gap-2"><CheckCircle2 aria-hidden className="size-4" style={{ color: c.accent }} /> {item}</li>)}</ul>
+        </div>
+      </section>
+
+      <section className="border-y" style={{ borderColor: c.border, background: c.primary, color: "#fff" }}>
+        <div className="mx-auto max-w-6xl px-4 py-12 text-center @3xl:px-8">
+          <p className="text-xs font-semibold tracking-[.16em] uppercase opacity-75">Ready when you are</p>
+          <h2 className="mt-3 text-3xl @3xl:text-4xl" style={{ fontFamily: heading }}>Let&apos;s make your next step simple.</h2>
+          <span className="mt-6 inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold" style={{ background: "#fff", color: c.primary, borderRadius: s.buttonRadius }}><Phone aria-hidden className="size-4" /> Contact us</span>
+        </div>
+      </section>
+
+      <footer style={{ background: s.footer === "dark" ? c.secondary : c.background, color: s.footer === "dark" ? "#fff" : c.text }}>
+        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 text-sm @3xl:grid-cols-4 @3xl:px-8"><div><p className="text-xl" style={{ fontFamily: heading }}>{name}</p><p className="mt-2 opacity-75">{theme.tagline}</p></div>{[["Explore", "About", "Services", "Insights"], ["Contact", "Call us", "Email us", "Visit us"], ["Follow", "Instagram", "LinkedIn", "Facebook"]].map(([title, ...links]) => <div key={title}><p className="font-semibold">{title}</p><ul className="mt-2 space-y-1.5 opacity-75">{links.map((link) => <li key={link}>{link}</li>)}</ul></div>)}</div>
       </footer>
     </div>
   );

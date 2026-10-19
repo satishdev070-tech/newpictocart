@@ -35,6 +35,7 @@ export function ListingView({
   pageSize,
   cardSettings,
   searchMode = false,
+  commerceEnabled = true,
 }: {
   basePath: string;
   filters: ListingFilters;
@@ -44,6 +45,7 @@ export function ListingView({
   pageSize: number;
   cardSettings: ProductCardSettings;
   searchMode?: boolean;
+  commerceEnabled?: boolean;
 }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const active = activeFilterCount(filters);
@@ -154,7 +156,7 @@ export function ListingView({
           </ul>
         ) : null}
         {products.length ? (
-          <ProductGrid products={products} settings={cardSettings} columns={3} priorityCount={3} />
+          <ProductGrid products={products} settings={cardSettings} columns={3} priorityCount={3} commerceEnabled={commerceEnabled} />
         ) : (
           <div className="sf-border rounded-[var(--sf-radius-card)] border p-10 text-center">
             <p className="sf-heading text-2xl">No products found</p>

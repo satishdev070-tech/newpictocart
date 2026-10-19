@@ -9,6 +9,7 @@ import { getCategoryImages } from "@/lib/unsplash";
 import { ThemeCard } from "@/features/marketing-site/components/theme-card";
 import { ButtonLink, Container } from "@/features/marketing-site/components/ui";
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { themeSiteType } from "@/features/theme/marketplace/types";
 import { industryName } from "@/features/stores/industries";
 
 export async function generateMetadata({ searchParams }: PageProps<"/themes">): Promise<Metadata> {
@@ -25,7 +26,7 @@ export async function generateMetadata({ searchParams }: PageProps<"/themes">): 
 
 export default async function ThemesPage({ searchParams }: PageProps<"/themes">) {
   const query = parseThemeQuery(await searchParams);
-  const industries = themeIndustries();
+  const industries = themeIndustries(MARKETPLACE_THEMES, query.siteType);
   const result = filterThemes(query);
   // Category photo per card, shown when the theme has no captured screenshot.
   const images = await getCategoryImages(result.items.map((t) => t.industry));
@@ -45,6 +46,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
           </div>
           <form role="search" action="/themes" method="get" className="mt-8 flex max-w-xl gap-2">
             {query.industry ? <input type="hidden" name="industry" value={query.industry} /> : null}
+            {query.siteType ? <input type="hidden" name="type" value={query.siteType} /> : null}
             <label htmlFor="theme-search" className="sr-only">
               Search themes
             </label>
@@ -67,24 +69,45 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
       </section>
 
       <Container className="pb-20">
-        <nav aria-label="Theme categories" className="relative -mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
-          <ul className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
-            <li>
-              <Link href={themesHref({ q: query.q })} aria-current={!query.industry ? "page" : undefined} className={chip(!query.industry)}>
-                All <span className="opacity-70">{MARKETPLACE_THEMES.length}</span>
-              </Link>
-            </li>
-            {industries.map((i) => (
-              <li key={i.slug}>
-                <Link href={themesHref({ q: query.q, industry: i.slug })} aria-current={query.industry === i.slug ? "page" : undefined} className={chip(query.industry === i.slug)}>
-                  {i.label} <span className="opacity-70">{i.count}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <div className="grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <nav aria-label="Website type">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Website type</p>
+              <ul className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible">
+                {[
+                  { value: "", label: "All templates", count: MARKETPLACE_THEMES.length },
+                  { value: "informative", label: "Informative website", count: MARKETPLACE_THEMES.filter((t) => themeSiteType(t) === "informative").length },
+                  { value: "ecommerce", label: "Online store", count: MARKETPLACE_THEMES.filter((t) => themeSiteType(t) === "ecommerce").length },
+                ].map((type) => (
+                  <li key={type.value || "all"}>
+                    <Link href={themesHref({ q: query.q, siteType: type.value as typeof query.siteType })} aria-current={query.siteType === type.value ? "page" : undefined} className={sidebarLink(query.siteType === type.value)}>
+                      <span>{type.label}</span><span className="text-xs opacity-65">{type.count}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <nav aria-label="Theme categories" className="mt-6 border-t border-border pt-6">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Business category</p>
+              <ul className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible">
+                <li>
+                  <Link href={themesHref({ q: query.q, siteType: query.siteType })} aria-current={!query.industry ? "page" : undefined} className={sidebarLink(!query.industry)}>
+                    <span>All categories</span><span className="text-xs opacity-65">{query.siteType ? MARKETPLACE_THEMES.filter((t) => themeSiteType(t) === query.siteType).length : MARKETPLACE_THEMES.length}</span>
+                  </Link>
+                </li>
+                {industries.map((i) => (
+                  <li key={i.slug}>
+                    <Link href={themesHref({ q: query.q, industry: i.slug, siteType: query.siteType })} aria-current={query.industry === i.slug ? "page" : undefined} className={sidebarLink(query.industry === i.slug)}>
+                      <span>{i.label}</span><span className="text-xs opacity-65">{i.count}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </aside>
 
-        <p className="mt-6 text-sm text-muted" role="status">
+          <div>
+        <p className="text-sm text-muted" role="status">
           {result.total === 0 ? "No themes found" : `${result.total} ${result.total === 1 ? "theme" : "themes"}`}
           {query.q ? ` for “${query.q}”` : ""}
           {query.industry ? ` in ${industryName(query.industry)}` : ""}
@@ -99,7 +122,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
             </ButtonLink>
           </div>
         ) : (
-          <ul className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {result.items.map((t) => (
               <li key={t.key} className="h-full">
                 <ThemeCard theme={t} image={images.get(t.industry) ?? null} headingLevel="h2" location="themes_page" />
@@ -118,14 +141,16 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
             ))}
           </nav>
         ) : null}
+          </div>
+        </div>
       </Container>
     </>
   );
 }
 
-function chip(active: boolean) {
+function sidebarLink(active: boolean) {
   return cn(
-    "inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
-    active ? "border-brand bg-brand text-white" : "border-border bg-white text-brand-ink hover:border-brand hover:text-brand",
+    "flex min-h-9 items-center justify-between gap-4 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
+    active ? "bg-brand text-white" : "text-brand-ink hover:bg-brand-soft hover:text-brand",
   );
 }

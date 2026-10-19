@@ -1,8 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Eye } from "lucide-react";
+import { ExternalLink, Eye } from "lucide-react";
 import { ThemeMockup } from "@/features/theme/marketplace/mockup";
 import { THEME_STYLE_LABELS, type MarketplaceTheme } from "@/features/theme/marketplace/types";
+import { themeSiteType } from "@/features/theme/marketplace/types";
 import { industryShort } from "@/features/stores/industries";
 import { analyticsAttributes } from "../analytics";
 import { buttonClass } from "./ui";
@@ -152,6 +153,7 @@ export function ThemeCard({ theme, headingLevel = "h3", location, image = null }
       </div>
       <div className="mt-4 flex flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-2">
+          <span className={`${PILL} bg-brand-ink/8 text-brand-ink`}>{themeSiteType(theme) === "informative" ? "Informative" : "Online store"}</span>
           <span className={`${PILL} bg-brand-soft text-brand`}>{industryShort(theme.industry)}</span>
           <span className={`${PILL} bg-brand-canvas text-muted`}>{THEME_STYLE_LABELS[theme.style]}</span>
         </div>
@@ -162,8 +164,8 @@ export function ThemeCard({ theme, headingLevel = "h3", location, image = null }
         </H>
         <p className="mt-1 line-clamp-2 min-h-[2lh] text-sm text-muted">{theme.tagline}</p>
         <div className="mt-auto grid gap-2 pt-5">
-          <Link href={themePreviewHref(theme.key)} prefetch={false} className={buttonClass("secondary", "sm", "w-full")} {...analyticsAttributes("theme_preview", theme.key, location)}>
-            <Eye aria-hidden className="size-3.5" /> Preview Theme<span className="sr-only">: {theme.name}</span>
+          <Link href={themePreviewHref(theme.key)} prefetch={false} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary", "sm", "w-full")} {...analyticsAttributes("theme_preview", theme.key, location)}>
+            <Eye aria-hidden className="size-3.5" /> Preview Theme <ExternalLink aria-hidden className="size-3" /><span className="sr-only">: {theme.name} (opens in a new tab)</span>
           </Link>
           <Link href={`/themes/${theme.key}/use`} prefetch={false} className={buttonClass("primary", "sm", "w-full")} {...analyticsAttributes("cta_click", `use_${theme.key}`, location)}>
             Use This Theme<span className="sr-only">: {theme.name}</span>

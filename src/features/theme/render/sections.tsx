@@ -15,6 +15,7 @@ import { CardQuickAdd } from "@/features/storefront/components/card-actions";
 import { Price } from "@/features/storefront/components/price";
 import { StoreArtImage, StoreImage, storeImageSrc } from "@/features/storefront/components/store-image";
 import { IconGlyph } from "@/lib/icons/icon-glyph";
+import { isInformative } from "@/features/stores/site-mode";
 import { parseIconValue } from "@/lib/icons/names";
 import { Stars } from "@/features/storefront/components/price";
 import { NewsletterForm } from "@/features/storefront/components/islands";
@@ -40,18 +41,19 @@ async function Products({ ctx, args, layout, columns, cardRatio }: { ctx: Render
   if (!cards.length) return <p className="sf-muted text-sm">Products will appear here soon.</p>;
   const settings = cardSettings(ctx.sf.theme.productCard, cardRatio);
   const stock = ctx.stockProducts ? ctx.stock : null;
+  const commerceEnabled = !isInformative(ctx.sf.siteMode);
   if (layout === "grid" && columns === 6) {
     return (
       <ul className="sf-grid-6 grid grid-cols-2 gap-x-4 gap-y-8 @[48rem]:grid-cols-3 @[64rem]:grid-cols-6">
         {cards.map((p) => (
           <li key={p.id}>
-            <ProductCard product={p} settings={settings} placeholder={productPlaceholder(stock, p)} />
+            <ProductCard product={p} settings={settings} placeholder={productPlaceholder(stock, p)} commerceEnabled={commerceEnabled} />
           </li>
         ))}
       </ul>
     );
   }
-  return layout === "carousel" ? <ProductRow products={cards} settings={settings} stock={stock} /> : <Grid products={cards} settings={settings} columns={columns} stock={stock} />;
+  return layout === "carousel" ? <ProductRow products={cards} settings={settings} stock={stock} commerceEnabled={commerceEnabled} /> : <Grid products={cards} settings={settings} columns={columns} stock={stock} commerceEnabled={commerceEnabled} />;
 }
 
 async function Hero({ s, ctx }: P<"Hero">) {
@@ -735,6 +737,20 @@ async function FAQ({ s, ctx }: P<"FAQ">) {
 
 const TRUST_GLYPHS: Record<string, string> = { truck: "🚚", return: "↺", cod: "₹", handmade: "✋", secure: "🔒", india: "🇮🇳", gift: "🎁", leaf: "🌿", sparkle: "✧" };
 
+/**
+ * Trust-strip icons began as a fixed emoji set. Keep those values rendering exactly as
+ * before, while allowing the shared Media picker to supply a safe library icon or an
+ * owned raster image. The schema validates all three forms before a theme is saved.
+ */
+function TrustIcon({ value, className }: { value: string; className?: string }) {
+  const library = parseIconValue(value);
+  if (library) return <IconGlyph name={library} className={className} />;
+  const legacy = TRUST_GLYPHS[value];
+  if (legacy) return legacy;
+  if (assetUrl(value)) return <StoreImage path={value} alt="" sizes="72px" className="object-contain p-1" />;
+  return "✓";
+}
+
 function TrustBadges({ s }: P<"TrustBadges">) {
   if (s.layout === "cards" || s.layout === "badges") {
     const cards = s.layout === "cards";
@@ -743,8 +759,8 @@ function TrustBadges({ s }: P<"TrustBadges">) {
         <ul className={`sf-container grid grid-cols-2 gap-3 py-10 @[48rem]:gap-5 ${s.items.length >= 4 ? "@[64rem]:grid-cols-4" : "@[64rem]:grid-cols-3"}`}>
           {s.items.map((t, i) => (
             <li key={i} className={cards ? "sf-usp-card flex items-start gap-3 p-5" : "flex flex-col items-center gap-3 text-center"}>
-              <span aria-hidden className={cards ? "sf-usp-icon" : "sf-usp-badge"}>
-                {TRUST_GLYPHS[t.icon] ?? "✓"}
+              <span aria-hidden className={`${cards ? "sf-usp-icon" : "sf-usp-badge"} relative overflow-hidden`}>
+                <TrustIcon value={t.icon} className={cards ? "size-5" : "size-8"} />
               </span>
               <span className="space-y-1">
                 <span className={`block font-medium ${cards ? "text-sm" : "sf-heading text-lg"}`}>{t.title}</span>
@@ -763,7 +779,7 @@ function TrustBadges({ s }: P<"TrustBadges">) {
           {s.items.map((t, i) => (
             <li key={i} className="flex items-center gap-2 text-sm">
               <span aria-hidden className="text-xs">
-                {TRUST_GLYPHS[t.icon] ?? "✓"}
+                <TrustIcon value={t.icon} className="size-4" />
               </span>
               <span>{t.title}</span>
             </li>
@@ -775,7 +791,7 @@ function TrustBadges({ s }: P<"TrustBadges">) {
   if (s.layout === "marquee") {
     const row = (copy: number) => s.items.map((t, i) => (
       <li key={`${copy}-${i}`} aria-hidden={copy > 0 || undefined} className="flex shrink-0 items-center gap-2 px-8">
-        <span aria-hidden className="text-lg">{TRUST_GLYPHS[t.icon] ?? "✓"}</span>
+        <span aria-hidden className="relative grid size-5 place-items-center overflow-hidden"><TrustIcon value={t.icon} className="size-4" /></span>
         <span className="text-sm font-medium">{t.title}</span>
         {t.text ? <span className="sf-muted text-xs">{t.text}</span> : null}
       </li>
@@ -997,7 +1013,8 @@ async function TileCarousel({ s, ctx }: P<"ProductCarousel">) {
 }
 
 /** Add-to-bag control for compact layouts: quick add for one-variant products, otherwise a link to choose options. */
-function AddToBag({ p, label, className }: { p: ProductCardData; label: string; className: string }) {
+function AddToBag({ p, label, className, commerceEnabled = true }: { p: ProductCardData; label: string; className: string; commerceEnabled?: boolean }) {
+  if (!commerceEnabled) return <Link href={paths.product(p.slug)} className={`${className} sf-add-link`}>View details</Link>;
   if (!p.inStock) return <span className={`${className} is-disabled`}>Sold out</span>;
   if (p.singleVariantId) {
     return (
@@ -1036,7 +1053,7 @@ async function CompactProducts({ s, ctx }: P<"CompactProducts">) {
                 </Link>
                 <Price priceMinor={p.priceMinor} compareAtMinor={p.compareAtMinor} fromPrice={p.hasPriceRange} showCompare showPercent={false} size="sm" />
               </div>
-              <AddToBag p={p} label={s.buttonLabel || "Add to bag"} className="sf-compact-add shrink-0" />
+              <AddToBag p={p} label={s.buttonLabel || "Add to bag"} className="sf-compact-add shrink-0" commerceEnabled={!isInformative(ctx.sf.siteMode)} />
             </li>
           ))}
         </ul>
@@ -1080,7 +1097,7 @@ async function CompactProducts({ s, ctx }: P<"CompactProducts">) {
                 {p.title}
               </Link>
               <Price priceMinor={p.priceMinor} compareAtMinor={p.compareAtMinor} fromPrice={p.hasPriceRange} showCompare showPercent={false} size="sm" />
-              <AddToBag p={p} label={s.buttonLabel || "Add to bag"} className="sf-compact-add" />
+              <AddToBag p={p} label={s.buttonLabel || "Add to bag"} className="sf-compact-add" commerceEnabled={!isInformative(ctx.sf.siteMode)} />
             </div>
           </li>
         ))}
@@ -1100,11 +1117,11 @@ async function ProductSpotlight({ s, ctx }: P<"ProductSpotlight">) {
     const text = (d?.shortDescription || d?.description || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     return text.length > 190 ? `${text.slice(0, 187).replace(/\s+\S*$/, "")}…` : text;
   });
-  return <SpotlightView s={s} items={items} blurbs={blurbs} />;
+  return <SpotlightView s={s} items={items} blurbs={blurbs} commerceEnabled={!isInformative(ctx.sf.siteMode)} />;
 }
 
 /** CSS-only switching (radio inputs + labels): no client JS beyond the add-to-bag island. */
-function SpotlightView({ s, items, blurbs }: { s: SectionSettings<"ProductSpotlight">; items: ProductCardData[]; blurbs: string[] }) {
+function SpotlightView({ s, items, blurbs, commerceEnabled }: { s: SectionSettings<"ProductSpotlight">; items: ProductCardData[]; blurbs: string[]; commerceEnabled: boolean }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const rid = (i: number) => `spot-${uid}-${(i + items.length) % items.length}`;
   const n = items.length;
@@ -1131,7 +1148,7 @@ function SpotlightView({ s, items, blurbs }: { s: SectionSettings<"ProductSpotli
                 <Price priceMinor={p.priceMinor} compareAtMinor={p.compareAtMinor} fromPrice={p.hasPriceRange} showCompare showPercent={false} />
                 {blurbs[i] ? <p className="sf-muted max-w-md text-sm leading-relaxed">{blurbs[i]}</p> : null}
                 {s.note ? <p className="sf-muted text-sm">{s.note}</p> : null}
-                <AddToBag p={p} label={s.buttonLabel || "Add to bag"} className={`sf-spot-add sf-spot-add-${s.buttonStyle}`} />
+                <AddToBag p={p} label={s.buttonLabel || "Add to bag"} className={`sf-spot-add sf-spot-add-${s.buttonStyle}`} commerceEnabled={commerceEnabled} />
                 {s.detailsLabel ? (
                   <Link href={paths.product(p.slug)} className="sf-underline-link">
                     {s.detailsLabel}
@@ -1196,7 +1213,7 @@ function SpotlightView({ s, items, blurbs }: { s: SectionSettings<"ProductSpotli
                   </div>
                 ) : null}
                 {s.note ? <p className="sf-muted text-sm">{s.note}</p> : null}
-                <AddToBag p={p} label={s.buttonLabel || "Add to bag"} className={`sf-spot-add sf-spot-add-${s.buttonStyle}`} />
+                <AddToBag p={p} label={s.buttonLabel || "Add to bag"} className={`sf-spot-add sf-spot-add-${s.buttonStyle}`} commerceEnabled={commerceEnabled} />
                 {s.detailsLabel ? (
                   <Link href={paths.product(p.slug)} className="sf-underline-link">
                     {s.detailsLabel}
@@ -1272,7 +1289,7 @@ async function FeatureBand({ s, ctx }: P<"FeatureBand">) {
             <ul className="sf-band-cards grid grid-cols-2 gap-3 @[48rem]:grid-cols-4">
               {cards.slice(0, s.limit).map((p) => (
                 <li key={p.id}>
-                  <ProductCard product={p} settings={settings} />
+                  <ProductCard product={p} settings={settings} commerceEnabled={!isInformative(ctx.sf.siteMode)} />
                 </li>
               ))}
             </ul>

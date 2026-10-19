@@ -9,6 +9,7 @@ import { menuHandles } from "@/features/theme/render/load";
 import { linkFromMenuRow, type ThemeMenu, type ThemeMenuItem } from "@/features/theme/schema/links";
 import { loadProviders } from "@/features/neural-pulse/server/generate";
 import { paths } from "@/features/storefront/urls";
+import { parseSiteMode } from "@/features/stores/site-mode";
 import type { BuilderData } from "../context";
 
 /**
@@ -24,7 +25,7 @@ export async function getBuilderData(ctx: TenantContext): Promise<BuilderData> {
     supabase.from("pages").select("id, title, slug").eq("tenant_id", tenantId).order("title").limit(100),
     supabase.from("products").select("slug").eq("tenant_id", tenantId).eq("status", "active").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("collections").select("slug").eq("tenant_id", tenantId).order("position").limit(1).maybeSingle(),
-    supabase.from("stores").select("name, whatsapp").eq("tenant_id", tenantId).maybeSingle(),
+    supabase.from("stores").select("name, whatsapp, site_mode").eq("tenant_id", tenantId).maybeSingle(),
     loadProviders().catch(() => []),
   ]);
   const dbMenus = await loadDbMenus(tenantId, menuHandles(data.config));
@@ -37,6 +38,7 @@ export async function getBuilderData(ctx: TenantContext): Promise<BuilderData> {
     canPublish: can(ctx, "theme.publish"),
     issues: data.issues.map((i) => `${i.path}: ${i.message}`),
     store: { name: store.data?.name ?? ctx.tenantName, slug: ctx.tenantSlug, origin: storeOrigin(storeSubdomain(ctx.tenantSlug)), whatsapp: store.data?.whatsapp ?? null },
+    siteMode: parseSiteMode(store.data?.site_mode),
     dbMenus,
     pageSources: {
       contentPages: (pages.data ?? []).map((p) => ({ id: p.id, title: p.title, slug: p.slug })),

@@ -4,6 +4,7 @@ import { collectAssetPaths } from "@/features/theme/schema/config";
 import { assetUrl } from "@/lib/storage/assets";
 import { ICON_CATEGORIES, ICON_NAMES, iconValue, isIconName, parseIconValue } from "@/lib/icons/names";
 import { ICON_COMPONENTS } from "@/lib/icons/registry";
+import { SECTION_DEFINITIONS } from "@/features/theme/sections/definitions";
 
 const PATH = "tenant/0b9d6c1e-2f3a-4b5c-8d7e-9f0a1b2c3d4e/theme/hero.webp";
 
@@ -66,5 +67,22 @@ describe("imagePath with icon values", () => {
   it("icon values are not storage paths", () => {
     expect(assetUrl("icon:truck")).toBeNull();
     expect(collectAssetPaths({ a: "icon:truck", b: [PATH, "icon:gift"] })).toEqual([PATH]);
+  });
+});
+
+describe("trust-strip icon choices", () => {
+  const schema = SECTION_DEFINITIONS.TrustBadges.schema;
+
+  it("keeps the legacy fixed icons while accepting media and library selections", () => {
+    for (const icon of ["truck", "icon:heart-pulse", PATH]) {
+      const result = schema.safeParse({ items: [{ icon, title: "Trusted", text: "" }] });
+      expect(result.success, icon).toBe(true);
+    }
+  });
+
+  it("does not permit arbitrary icon names, URLs or SVG markup", () => {
+    for (const icon of ["not-an-icon", "icon:not-an-icon", "https://example.com/icon.png", "<svg onload=alert(1)>"]) {
+      expect(schema.safeParse({ items: [{ icon, title: "Trusted", text: "" }] }).success, icon).toBe(false);
+    }
   });
 });
