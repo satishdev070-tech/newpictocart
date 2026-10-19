@@ -107,6 +107,12 @@ export const serverEnvSchema = publicEnvSchema.extend({
   GEMINI_API_KEY: z.string().min(10).optional(),
   GROQ_API_KEY: z.string().min(10).optional(),
   ANTHROPIC_API_KEY: z.string().min(10).optional(),
+  /**
+   * Sarvam AI API subscription key (speech, chat, TTS, translate). SERVER ONLY.
+   * Optional until voice onboarding is enabled; when unset, Sarvam helpers throw
+   * a validation AppError (`sarvam_not_configured`).
+   */
+  SARVAM_API_KEY: z.string().min(10).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
