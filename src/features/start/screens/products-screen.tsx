@@ -32,8 +32,6 @@ export function ProductsScreen({
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [sample, setSample] = useState<string | null>(null);
-  const host = draft.business.name.trim() ? `${draft.business.name.toLowerCase().replace(/\s+/g, "")}.${rootDomain}` : null;
-
   function addProduct() {
     if (draft.products.length >= 12) return;
     const t = title.trim() || SAMPLES.find((s) => s.id === sample)?.title || "";
@@ -112,7 +110,7 @@ export function ProductsScreen({
         </button>
       </div>
       <div className="hidden lg:block">
-        <LivePreview locale={draft.locale} host={host} productCount={draft.products.length} />
+        <LivePreview locale={draft.locale} rootDomain={rootDomain} draft={draft} />
       </div>
     </>
   );

@@ -11,6 +11,7 @@ import { callSaveProduct } from "@/features/catalog/server/products";
 import { saveCategory } from "@/features/catalog/server/categories";
 import { saveCollection } from "@/features/catalog/server/collections";
 import { defaultTypeForIndustry } from "@/features/catalog/product-types";
+import { revalidateStorefront } from "@/lib/cache/storefront";
 import { getThemeEditorData } from "@/features/theme/server/queries";
 import { parseThemeConfigStrict, assetsBelongToTenant, type ThemeConfig } from "@/features/theme/schema/config";
 import { defaultSettings } from "@/features/theme/sections/definitions";
@@ -404,6 +405,17 @@ async function mergeThemeContent(ctx: TenantContext, plan: ReadyStorePlan, ids: 
   if (error) throw mapDbError(error);
 }
 
+/** Publish the seeded draft so the public storefront matches the catalogue. A failure leaves the draft in place. */
+async function publishSeededTheme(tenantId: string): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("publish_theme", { p_tenant: tenantId, p_label: "Ready store" });
+  if (error) {
+    logger.warn("onboarding.seed_publish_skipped", { tenantId, code: error.code });
+    return;
+  }
+  revalidateStorefront(tenantId);
+}
+
 /** Persist a validated plan into the tenant (idempotent by slug / menu handle). */
 export async function persistReadyStore(
   ctx: TenantContext,
@@ -416,6 +428,7 @@ export async function persistReadyStore(
   await updateStoreSeo(ctx.tenantId, args.plan, args.storeName);
   const blogs = await ensureBlogs(ctx.tenantId, ctx.user.id, args.plan);
   await mergeThemeContent(ctx, args.plan, { categories: cats.ids, collections: cols.ids, products: prods.ids });
+  await publishSeededTheme(ctx.tenantId);
 
   return {
     categoryIds: Object.values(cats.ids),

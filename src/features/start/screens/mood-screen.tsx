@@ -22,7 +22,6 @@ export function MoodScreen({
 }) {
   const c = startCopy(draft.locale);
   const manual = progressFor("mood", draft.path, draft.locale).manual;
-  const host = draft.business.name.trim() ? `${draft.business.name.toLowerCase().replace(/\s+/g, "")}.${rootDomain}` : null;
   const hi = draft.locale === "hi-IN";
 
   return (
@@ -77,7 +76,7 @@ export function MoodScreen({
         </button>
       </div>
       <div className="hidden lg:block">
-        <LivePreview locale={draft.locale} host={host} productCount={draft.products.length} />
+        <LivePreview locale={draft.locale} rootDomain={rootDomain} draft={draft} />
       </div>
     </>
   );

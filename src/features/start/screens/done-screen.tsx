@@ -81,7 +81,7 @@ export function DoneScreen({
         </Link>
       </div>
       <div className="relative z-10 hidden lg:block">
-        <LivePreview locale={locale} host={host} />
+        <LivePreview locale={locale} rootDomain={rootDomain} liveSlug={slug} />
       </div>
     </section>
   );

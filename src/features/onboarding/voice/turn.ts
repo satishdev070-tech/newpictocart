@@ -50,11 +50,36 @@ function extractJsonObject(text: string): unknown {
   return null;
 }
 
+export type TaraHistoryTurn = { role: "seller" | "tara"; text: string };
+
+/** Prior turns sent as JSON from the browser. Invalid entries are dropped. */
+export function parseTaraHistory(raw: unknown): TaraHistoryTurn[] {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const turns: TaraHistoryTurn[] = [];
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") continue;
+      const role = (item as { role?: unknown }).role;
+      const text = (item as { text?: unknown }).text;
+      if ((role !== "seller" && role !== "tara") || typeof text !== "string") continue;
+      const trimmed = text.trim().slice(0, 800);
+      if (!trimmed) continue;
+      turns.push({ role, text: trimmed });
+    }
+    return turns.slice(-12);
+  } catch {
+    return [];
+  }
+}
+
 export type RunTaraTurnInput = {
   locale: SarvamLocaleCode;
   facts: VoiceFacts;
   text?: string;
   audio?: File | null;
+  history?: TaraHistoryTurn[];
 };
 
 /** STT → chat → TTS for one Tara turn (server-only). */
@@ -83,7 +108,7 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
   const turn = await chatTurn({
     messages: [
       { role: "system", content: taraSystemPrompt(input.locale) },
-      { role: "user", content: taraUserPrompt({ transcript, facts, locale: input.locale }) },
+      { role: "user", content: taraUserPrompt({ transcript, facts, locale: input.locale, history: input.history }) },
     ],
     responseFormat: "json",
     temperature: 0.35,

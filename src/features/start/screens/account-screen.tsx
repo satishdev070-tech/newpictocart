@@ -1,12 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { GoogleButton } from "@/components/auth/google-button";
 import { TextField } from "@/components/ui/field";
 import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
 import { PasswordField } from "@/components/ui/password-field";
-import { googleSignInAction, signInAction, signUpAction } from "@/features/auth/actions";
+import { googleSignInAction, requestStartEmailCodeAction, signInAction, signUpAction, verifyStartEmailCodeAction } from "@/features/auth/actions";
 import type { ActionResult } from "@/lib/actions/result";
 import { LivePreview } from "../components/live-preview";
 import { startCopy, type StartCopy } from "../copy";
@@ -19,12 +19,10 @@ export function AccountScreen({
   draft,
   rootDomain,
   googleAvailable,
-  host,
 }: {
   draft: StartDraft;
   rootDomain: string;
   googleAvailable: boolean;
-  host: string | null;
 }) {
   const c = startCopy(draft.locale);
   const [tab, setTab] = useState<"signup" | "signin">("signup");
@@ -66,75 +64,156 @@ export function AccountScreen({
           {tab === "signup" ? (
             <StartSignUpForm copy={c} draft={draft} storeName={storeName} />
           ) : (
-            <StartSignInForm copy={c} />
+            <StartSignInForm copy={c} draft={draft} storeName={storeName} />
           )}
         </div>
       </div>
       <div className="hidden lg:block">
-        <LivePreview locale={draft.locale} host={host ?? (draft.result ? `${draft.result.slug}.${rootDomain}` : null)} />
+        <LivePreview locale={draft.locale} rootDomain={rootDomain} draft={draft} />
       </div>
     </>
   );
 }
 
-function StartSignUpForm({ copy, draft, storeName }: { copy: StartCopy; draft: StartDraft; storeName: string }) {
-  const [state, action] = useActionState(signUpAction, null);
-  const errors = fieldErrors(state);
-  if (state?.ok && state.data.needsConfirmation) {
-    return (
-      <p role="status" className="text-sm text-[#5E5568]">
-        {copy.account.checkEmail}
-      </p>
-    );
-  }
+function hiddenJourneyFields(draft: StartDraft, storeName: string) {
   return (
-    <form action={action} className="space-y-4" noValidate>
+    <>
       <input type="hidden" name="next" value="/start" />
       <input type="hidden" name="storeName" value={storeName} />
       {draft.plan ? <input type="hidden" name="plan" value={draft.plan} /> : null}
       {draft.theme ? <input type="hidden" name="theme" value={draft.theme} /> : null}
       <input type="hidden" name="lang" value={draft.locale} />
       {draft.intent ? <input type="hidden" name="intent" value={draft.intent} /> : null}
+    </>
+  );
+}
+
+function StartSignUpForm({ copy, draft, storeName }: { copy: StartCopy; draft: StartDraft; storeName: string }) {
+  const [state, action] = useActionState(signUpAction, null);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [codeEmail, setCodeEmail] = useState<string | null>(null);
+  const errors = fieldErrors(state);
+  if (state?.ok && state.data.needsConfirmation && email) {
+    return <StartCodeForm copy={copy} email={email} type="signup" />;
+  }
+  if (codeEmail) {
+    return <StartCodeForm copy={copy} email={codeEmail} type="email" />;
+  }
+  return (
+    <div className="space-y-4">
+      <form action={action} className="space-y-4" noValidate>
+        {hiddenJourneyFields(draft, storeName)}
+        <FormMessage state={state} />
+        <TextField label={copy.account.name} name="displayName" autoComplete="name" required errors={errors.displayName} value={name} onChange={(e) => setName(e.target.value)} />
+        <TextField label={copy.account.email} name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required errors={errors.email} value={email} onChange={(e) => setEmail(e.target.value)} />
+        <PasswordField
+          label={copy.account.password}
+          name="password"
+          autoComplete="new-password"
+          required
+          errors={errors.password}
+          hint={copy.account.passwordHint}
+        />
+        <SubmitButton size="lg" className={submitClass}>
+          {copy.account.create}
+        </SubmitButton>
+        <p className="text-caption text-muted">
+          {copy.account.agree}{" "}
+          <Link href="/terms" className="underline underline-offset-2">
+            {copy.account.terms}
+          </Link>{" "}
+          {copy.account.and}{" "}
+          <Link href="/privacy" className="underline underline-offset-2">
+            {copy.account.privacy}
+          </Link>
+          .
+        </p>
+      </form>
+      <EmailCodeRequest copy={copy} draft={draft} storeName={storeName} email={email} displayName={name} onSent={setCodeEmail} />
+    </div>
+  );
+}
+
+function StartSignInForm({ copy, draft, storeName }: { copy: StartCopy; draft: StartDraft; storeName: string }) {
+  const [state, action] = useActionState(signInAction, null);
+  const [email, setEmail] = useState("");
+  const [codeEmail, setCodeEmail] = useState<string | null>(null);
+  const errors = fieldErrors(state);
+  if (codeEmail) {
+    return <StartCodeForm copy={copy} email={codeEmail} type="email" />;
+  }
+  return (
+    <div className="space-y-4">
+      <form action={action} className="space-y-4" noValidate>
+        <input type="hidden" name="next" value="/start" />
+        <FormMessage state={state as ActionResult<unknown> | null} />
+        <TextField label={copy.account.email} name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required errors={errors.email} value={email} onChange={(e) => setEmail(e.target.value)} />
+        <PasswordField label={copy.account.password} name="password" autoComplete="current-password" required errors={errors.password} />
+        <SubmitButton size="lg" className={submitClass}>
+          {copy.account.signInSubmit}
+        </SubmitButton>
+      </form>
+      <EmailCodeRequest copy={copy} draft={draft} storeName={storeName} email={email} onSent={setCodeEmail} />
+    </div>
+  );
+}
+
+function EmailCodeRequest({
+  copy,
+  draft,
+  storeName,
+  email,
+  displayName,
+  onSent,
+}: {
+  copy: StartCopy;
+  draft: StartDraft;
+  storeName: string;
+  email: string;
+  displayName?: string;
+  onSent: (email: string) => void;
+}) {
+  const [state, action] = useActionState(requestStartEmailCodeAction, null);
+  useEffect(() => {
+    if (state?.ok) onSent(state.data.email);
+  }, [state, onSent]);
+  return (
+    <form action={action} className="space-y-2">
+      {hiddenJourneyFields(draft, storeName)}
+      <input type="hidden" name="email" value={email} />
+      {displayName ? <input type="hidden" name="displayName" value={displayName} /> : null}
       <FormMessage state={state} />
-      <TextField label={copy.account.name} name="displayName" autoComplete="name" required errors={errors.displayName} />
-      <TextField label={copy.account.email} name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required errors={errors.email} />
-      <PasswordField
-        label={copy.account.password}
-        name="password"
-        autoComplete="new-password"
-        required
-        errors={errors.password}
-        hint={copy.account.passwordHint}
-      />
-      <SubmitButton size="lg" className={submitClass}>
-        {copy.account.create}
+      <SubmitButton size="md" variant="secondary" className="w-full" disabled={!email.trim()}>
+        {copy.account.sendCode}
       </SubmitButton>
-      <p className="text-caption text-muted">
-        {copy.account.agree}{" "}
-        <Link href="/terms" className="underline underline-offset-2">
-          {copy.account.terms}
-        </Link>{" "}
-        {copy.account.and}{" "}
-        <Link href="/privacy" className="underline underline-offset-2">
-          {copy.account.privacy}
-        </Link>
-        .
-      </p>
     </form>
   );
 }
 
-function StartSignInForm({ copy }: { copy: StartCopy }) {
-  const [state, action] = useActionState(signInAction, null);
+function StartCodeForm({ copy, email, type }: { copy: StartCopy; email: string; type: "signup" | "email" }) {
+  const [state, action] = useActionState(verifyStartEmailCodeAction, null);
   const errors = fieldErrors(state);
   return (
     <form action={action} className="space-y-4" noValidate>
+      <p role="status" className="text-sm text-[#5E5568]">
+        {copy.account.codeSent} {copy.account.checkEmail}
+      </p>
+      <input type="hidden" name="email" value={email} />
+      <input type="hidden" name="type" value={type} />
       <input type="hidden" name="next" value="/start" />
-      <FormMessage state={state as ActionResult<unknown> | null} />
-      <TextField label={copy.account.email} name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required errors={errors.email} />
-      <PasswordField label={copy.account.password} name="password" autoComplete="current-password" required errors={errors.password} />
+      <FormMessage state={state} />
+      <TextField
+        label={copy.account.codeLabel}
+        name="token"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        required
+        errors={errors.token}
+        hint={copy.account.codeHint}
+      />
       <SubmitButton size="lg" className={submitClass}>
-        {copy.account.signInSubmit}
+        {copy.account.codeSubmit}
       </SubmitButton>
     </form>
   );

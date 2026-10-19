@@ -1,5 +1,6 @@
 import "server-only";
 import { AppError } from "@/lib/errors";
+import { logger } from "@/lib/observability/logger";
 import { audit } from "@/lib/audit";
 import { assertPermission, type TenantContext } from "@/lib/tenant/membership";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -77,18 +78,30 @@ export async function seedReadyStore(ctx: TenantContext, raw: Omit<SeedReadyStor
 
   let themeKey: string | null = null;
   if (input.applyTheme) {
-    const theme = await applyBestFitTheme(ctx, industry, input.themeKey);
-    themeKey = theme.key;
-    await audit({
-      tenantId: ctx.tenantId,
-      actorUserId: ctx.user.id,
-      action: "theme.marketplace_applied",
-      entityType: "theme",
-      entityId: theme.key,
-      metadata: { theme: theme.key, version: theme.version, source: "onboarding_seed" },
-    });
+    try {
+      const theme = await applyBestFitTheme(ctx, industry, input.themeKey);
+      themeKey = theme.key;
+      await audit({
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.user.id,
+        action: "theme.marketplace_applied",
+        entityType: "theme",
+        entityId: theme.key,
+        metadata: { theme: theme.key, version: theme.version, source: "onboarding_seed" },
+      });
+    } catch (err) {
+      logger.warn("onboarding.seed_theme_skipped", {
+        tenantId: ctx.tenantId,
+        message: err instanceof Error ? err.message.slice(0, 200) : "unknown",
+      });
+      themeKey = input.themeKey ?? null;
+    }
   } else {
-    themeKey = input.themeKey ?? pickBestMarketplaceTheme(industry).key;
+    try {
+      themeKey = input.themeKey ?? pickBestMarketplaceTheme(industry).key;
+    } catch {
+      themeKey = input.themeKey ?? null;
+    }
   }
 
   let plan: ReadyStorePlan;
@@ -96,7 +109,16 @@ export async function seedReadyStore(ctx: TenantContext, raw: Omit<SeedReadyStor
   if (input.plan !== undefined) {
     plan = parseReadyStorePlan(input.plan);
   } else {
-    charge = await debitAiCredit(ctx.tenantId, SEED_CREDIT_KIND);
+    try {
+      charge = await debitAiCredit(ctx.tenantId, SEED_CREDIT_KIND);
+    } catch (err) {
+      // A brand-new store must still get a catalogue when credits are missing or the debit is refused.
+      charge = null;
+      logger.warn("onboarding.seed_credit_skipped", {
+        tenantId: ctx.tenantId,
+        message: err instanceof Error ? err.message.slice(0, 200) : "unknown",
+      });
+    }
     try {
       plan = await generateReadyStorePlan({
         storeName: input.storeName,

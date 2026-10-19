@@ -30,6 +30,9 @@ export type StartCopy = {
     continueManual: string;
     typePlaceholder: string;
     send: string;
+    micDenied: string;
+    micUnsupported: string;
+    thinking: string;
   };
   business: {
     title: string;
@@ -84,6 +87,11 @@ export type StartCopy = {
     password: string;
     passwordHint: string;
     signInSubmit: string;
+    sendCode: string;
+    codeLabel: string;
+    codeHint: string;
+    codeSubmit: string;
+    codeSent: string;
     agree: string;
     terms: string;
     and: string;
@@ -157,6 +165,9 @@ const EN: StartCopy = {
     continueManual: "Continue with manual setup",
     typePlaceholder: "Type your answer…",
     send: "Send",
+    micDenied: "Allow the microphone to talk with Tara, or type your answer.",
+    micUnsupported: "This browser can't record audio. Type your answer instead.",
+    thinking: "Tara is listening…",
   },
   business: {
     title: "Tell us about your ",
@@ -226,6 +237,11 @@ const EN: StartCopy = {
     password: "Password",
     passwordHint: "Use 10+ characters with a letter and a number.",
     signInSubmit: "Sign in",
+    sendCode: "Email me a code",
+    codeLabel: "Email code",
+    codeHint: "Enter the 6-digit code we emailed you.",
+    codeSubmit: "Confirm and continue",
+    codeSent: "We sent a code to your email.",
     agree: "By continuing you agree to the",
     terms: "Terms",
     and: "and",
@@ -304,6 +320,9 @@ const HI: StartCopy = {
     continueManual: "मैन्युअल सेटअप जारी रखें",
     typePlaceholder: "अपना जवाब लिखें…",
     send: "भेजें",
+    micDenied: "तारा से बात करने के लिए माइक्रोफ़ोन की अनुमति दें, या जवाब लिखें।",
+    micUnsupported: "यह ब्राउज़र आवाज़ रिकॉर्ड नहीं कर सकता। जवाब लिखें।",
+    thinking: "तारा सुन रही है…",
   },
   business: {
     title: "अपने ",
@@ -373,6 +392,11 @@ const HI: StartCopy = {
     password: "पासवर्ड",
     passwordHint: "10+ अक्षर, एक अक्षर और एक नंबर।",
     signInSubmit: "साइन इन",
+    sendCode: "कोड ईमेल करें",
+    codeLabel: "ईमेल कोड",
+    codeHint: "ईमेल में आया 6 अंकों का कोड लिखें।",
+    codeSubmit: "कन्फर्म करें और आगे बढ़ें",
+    codeSent: "हमने आपके ईमेल पर कोड भेज दिया है।",
     agree: "आगे बढ़कर आप सहमत होते हैं",
     terms: "नियम",
     and: "और",

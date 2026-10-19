@@ -28,7 +28,6 @@ export function BusinessScreen({
   const manual = progressFor("business", draft.path, draft.locale).manual;
   const [moreOpen, setMoreOpen] = useState(false);
   const b = draft.business;
-  const host = b.name.trim() ? `${b.name.toLowerCase().replace(/\s+/g, "")}.${rootDomain}` : null;
 
   async function writeTagline() {
     const fd = new FormData();
@@ -130,7 +129,7 @@ export function BusinessScreen({
         </button>
       </div>
       <div className="hidden lg:block">
-        <LivePreview locale={draft.locale} host={host} />
+        <LivePreview locale={draft.locale} rootDomain={rootDomain} draft={draft} />
       </div>
     </>
   );

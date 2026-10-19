@@ -17,7 +17,8 @@ _Last updated: 2026-10-19 (cache-first /start journey)_
   onboarding voice unchanged.
 - **Tests:** `tests/unit/start/*` (draft, flow, brief, register href) and `tests/unit/onboarding/seed-counts.test.ts`.
 - **Account step:** `/start` uses a compact sign-up / sign-in form (name, email, password, hidden store name from the draft, Google `next=/start`). Password guidance is one line of text. `Hint` renders as a `div` so richer hints on `/seller/register` stay valid HTML. The building timer runs once per visit and then finalizes or opens the account step.
-- **Verification:** `pnpm check` ✅ (typecheck, lint, 96 files / 1,261 tests, build). Browser walkthrough of `/start` was not run here: this environment has no Supabase URL or publishable key, so the app cannot boot.
+- **Tara on `/start`:** the mic asks for permission, records webm or mp4, and shows the conversation. Each turn sends the recent lines to Sarvam so Tara keeps collecting name, category, site mode, tagline, and city. Email sign-up can be confirmed with the code from the email, or the seller can request a code instead of a password. Store setup continues if the theme or AI-credit debit fails, then publishes the seeded theme. The side panel draws the draft store and, once a slug exists, loads `/store/{slug}.{domain}`. Finish errors show in a toast, with Try again.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, 96 files / 1,263 tests, build). Browser walkthrough of `/start` was not run here: this environment has no Supabase URL or publishable key, so the mic, email code, and live iframe were not exercised.
 
 ## Prototype start journey (2026-10-19, superseded routing)
 

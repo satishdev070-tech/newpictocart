@@ -13,7 +13,7 @@ import { platformOrigin } from "@/lib/platform/urls";
 import { ADMIN_LOGIN_PATH, SELLER_LOGIN_PATH, landingPathFor } from "@/lib/auth/landing";
 import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
 import { isStartIntentId } from "@/features/start/intents";
-import { forgotSchema, resetSchema, signInSchema, signUpSchema } from "./schemas";
+import { forgotSchema, resetSchema, signInSchema, signUpSchema, startEmailCodeSchema, verifyStartCodeSchema } from "./schemas";
 
 export async function signInAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   let next = "/dashboard";
@@ -74,6 +74,55 @@ export async function signUpAction(_prev: ActionResult<{ needsConfirmation: bool
     return { needsConfirmation: !data.session };
   });
   if (result.ok && confirmed) redirect(next);
+  return result;
+}
+
+/** Email a one-time code that creates the merchant account when it does not exist yet. */
+export async function requestStartEmailCodeAction(
+  _prev: ActionResult<{ email: string }> | null,
+  fd: FormData,
+): Promise<ActionResult<{ email: string }>> {
+  return runAction("auth.startEmailCode", async () => {
+    const input = parseInput(startEmailCodeSchema, formToObject(fd));
+    await rateLimit("start-otp:ip", await clientIpKey(), 10, 3600);
+    await rateLimit("start-otp:email", input.email, 5, 3600);
+    const lang = input.lang && isSarvamLocaleCode(input.lang) ? input.lang : null;
+    const intent = input.intent && isStartIntentId(input.intent) ? input.intent : null;
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email: input.email,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${platformOrigin()}/auth/callback?next=${encodeURIComponent(safeRedirectPath(input.next, "/start"))}`,
+        data: {
+          display_name: input.displayName?.trim() || null,
+          store_name: input.storeName ?? null,
+          requested_plan: input.plan ?? null,
+          requested_theme: input.theme ?? null,
+          onboarding_locale: lang,
+          onboarding_intent: intent,
+        },
+      },
+    });
+    if (error) {
+      throw new AppError("VALIDATION", { fieldErrors: { _form: ["Couldn't send a code. Try again in a moment."] } });
+    }
+    return { email: input.email };
+  });
+}
+
+/** Confirm the emailed code and return to /start with a verified session. */
+export async function verifyStartEmailCodeAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  let next = "/start";
+  const result = await runAction("auth.verifyStartCode", async () => {
+    const input = parseInput(verifyStartCodeSchema, formToObject(fd));
+    next = safeRedirectPath(input.next, "/start");
+    await rateLimit("start-otp-verify:email", input.email, 10, 600);
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.auth.verifyOtp({ email: input.email, token: input.token, type: input.type });
+    if (error) throw new AppError("VALIDATION", { fieldErrors: { token: ["That code is invalid or has expired."] } });
+  });
+  if (result.ok) redirect(next);
   return result;
 }
 

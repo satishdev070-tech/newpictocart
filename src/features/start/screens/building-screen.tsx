@@ -3,17 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import { startCopy } from "../copy";
 import { LivePreview } from "../components/live-preview";
+import type { StartDraft } from "../draft/schema";
 
 export function BuildingScreen({
-  locale,
-  host,
+  draft,
+  rootDomain,
   onComplete,
 }: {
-  locale: string;
-  host: string | null;
+  draft: StartDraft;
+  rootDomain: string;
   onComplete: () => void;
 }) {
-  const c = startCopy(locale);
+  const c = startCopy(draft.locale);
   const [step, setStep] = useState(0);
   const [pct, setPct] = useState(0);
   const doneRef = useRef(false);
@@ -51,7 +52,7 @@ export function BuildingScreen({
       window.clearInterval(tick);
       if (finish !== undefined) window.clearTimeout(finish);
     };
-  }, [locale, stepCount]);
+  }, [draft.locale, stepCount]);
 
   return (
     <section className="grid gap-8 lg:grid-cols-2">
@@ -72,7 +73,7 @@ export function BuildingScreen({
           <span className="text-sm font-mono text-[#6B6275]">{pct}%</span>
         </div>
       </div>
-      <LivePreview locale={locale} host={host} />
+      <LivePreview locale={draft.locale} rootDomain={rootDomain} draft={draft} liveSlug={draft.result?.slug} />
     </section>
   );
 }

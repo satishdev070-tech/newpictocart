@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/toast";
 import { finalizeStartDraftAction } from "../actions";
 import type { ActionResult } from "@/lib/actions/result";
 import type { FinalizeStartResult } from "../actions";
@@ -10,6 +11,7 @@ import { clearStartDraftStorage, setStartDraftCookie } from "../draft/storage";
 import type { StartScreen } from "../draft/schema";
 import { draftReadyToFinalize, draftHasProgress, backTarget } from "../flow";
 import { draftStoreName } from "../draft/schema";
+import { suggestSlugFromName } from "@/features/onboarding/voice/facts";
 import { StartShell, type StartLogo } from "./start-shell";
 import { WelcomeScreen } from "../screens/welcome-screen";
 import { LangScreen } from "../screens/lang-screen";
@@ -26,6 +28,7 @@ import { DoneScreen } from "../screens/done-screen";
 import type { StartIntentId } from "../intents";
 import type { SarvamLocaleCode } from "@/lib/sarvam/locales";
 import type { VoiceFacts } from "@/features/onboarding/voice/facts";
+import type { StartVoiceTurn } from "../draft/schema";
 import { emptyStartDraft } from "../draft/schema";
 import { mergeFacts } from "@/features/onboarding/voice/facts";
 
@@ -49,6 +52,7 @@ export function StartJourney({
   voiceReady: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const { draft, setDraft, patchDraft, hydrated } = useStartDraft({ plan, theme });
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [finalizeState, setFinalizeState] = useState<ActionResult<FinalizeStartResult> | null>(null);
@@ -66,9 +70,15 @@ export function StartJourney({
         setDraft((d) => ({ ...d, result: { slug: res.data.slug, name: res.data.name }, screen: "done" }));
       } else {
         finalizing.current = false;
+        const message =
+          res.error.fieldErrors?._form?.[0] ??
+          (res.error.message === "Something went wrong. Please try again."
+            ? "Your account is connected, but the store could not be finished. Try again."
+            : res.error.message);
+        toast.show({ tone: "error", message });
       }
     });
-  }, [draft, setDraft]);
+  }, [draft, setDraft, toast]);
 
   const go = useCallback(
     (screen: StartScreen) => {
@@ -101,17 +111,14 @@ export function StartJourney({
     finalize();
   }, [hydrated, draft, signedIn, finalize]);
 
+  const finishMessage = finalizeState && !finalizeState.ok;
+
   if (!hydrated || !draft) {
     return <div className="min-h-dvh bg-[#FBF6F1]" />;
   }
 
   const screen = draft.screen;
   const split = ["business", "products", "mood", "account"].includes(screen);
-  const previewHost = draft.result
-    ? `${draft.result.slug}.${rootDomain}`
-    : draft.business.name.trim()
-      ? `${draft.business.name.toLowerCase().replace(/[^a-z0-9]+/g, "")}.${rootDomain}`
-      : null;
 
   function syncVoiceToBusiness(facts: VoiceFacts) {
     if (!draft) return;
@@ -198,9 +205,9 @@ export function StartJourney({
         draft={draft}
         voiceReady={voiceReady}
         voiceEnabled={voiceEnabled}
-        onFacts={(facts, done) => {
+        onFacts={(facts, done, turns: StartVoiceTurn[]) => {
           patchDraft({
-            voice: { facts: mergeFacts(draft.voice.facts as VoiceFacts, facts), done },
+            voice: { facts: mergeFacts(draft.voice.facts as VoiceFacts, facts), done, turns },
           });
           syncVoiceToBusiness(facts);
         }}
@@ -273,8 +280,8 @@ export function StartJourney({
   if (screen === "building") {
     return shell(
       <BuildingScreen
-        locale={draft.locale}
-        host={previewHost}
+        draft={draft}
+        rootDomain={rootDomain}
         onComplete={() => {
           if (signedIn && draftReadyToFinalize(draft)) finalize();
           else if (!signedIn) go("account");
@@ -287,15 +294,9 @@ export function StartJourney({
   if (screen === "account") {
     return shell(
       <>
-        <AccountScreen draft={draft} rootDomain={rootDomain} googleAvailable={googleAvailable} host={previewHost} />
-        {finalizeState && !finalizeState.ok ? (
+        <AccountScreen draft={draft} rootDomain={rootDomain} googleAvailable={googleAvailable} />
+        {finishMessage ? (
           <div className="mt-4 space-y-3">
-            <p className="text-sm text-red-600" role="alert">
-              {finalizeState.error.fieldErrors?._form?.[0] ??
-                (finalizeState.error.message === "Something went wrong. Please try again."
-                  ? "Your account is connected, but the store could not be finished. Try again."
-                  : finalizeState.error.message)}
-            </p>
             <button
               type="button"
               onClick={() => finalize()}
@@ -310,7 +311,7 @@ export function StartJourney({
     );
   }
 
-  const slug = draft.result?.slug ?? (draftStoreName(draft).toLowerCase().replace(/[^a-z0-9]+/g, "") || "store");
+  const slug = draft.result?.slug ?? (suggestSlugFromName(draftStoreName(draft)) || "store");
   return shell(
     <DoneScreen
       locale={draft.locale}

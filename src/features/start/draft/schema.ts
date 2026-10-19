@@ -33,6 +33,13 @@ const voiceFactsSchema = z.object({
   city: z.string().max(80).nullable(),
 });
 
+const voiceTurnSchema = z.object({
+  role: z.enum(["seller", "tara"]),
+  text: z.string().max(800),
+});
+
+export type StartVoiceTurn = z.infer<typeof voiceTurnSchema>;
+
 const productSchema = z.object({
   id: z.string().min(1).max(40),
   title: z.string().max(160),
@@ -57,6 +64,8 @@ export const startDraftSchema = z.object({
   voice: z.object({
     facts: voiceFactsSchema,
     done: z.boolean(),
+    /** Recent Tara conversation. Missing on drafts saved before chat history existed. */
+    turns: z.array(voiceTurnSchema).max(12).optional().default([]),
   }),
   business: z.object({
     name: z.string().max(120),
@@ -96,6 +105,7 @@ export function emptyStartDraft(overrides?: Partial<Pick<StartDraft, "plan" | "t
     voice: {
       facts: { name: null, category: null, siteMode: null, tagline: null, city: null },
       done: false,
+      turns: [],
     },
     business: {
       name: "",
