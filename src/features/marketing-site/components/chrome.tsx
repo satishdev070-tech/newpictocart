@@ -11,7 +11,7 @@ import { ButtonLink, Container } from "./ui";
 /** Header (and, re-exported, footer) for every marketing page. Links and labels come from the landing CMS. */
 
 export function MarketingHeader({ header }: { header: LandingContent["header"] }) {
-  const ctaHref = header.ctaHref || "/seller/register";
+  const ctaHref = header.ctaHref || "/start";
   const loginHref = header.loginHref || "/seller/login";
   const mega = header.megaMenu.enabled && header.megaMenu.columns.length ? header.megaMenu : null;
   const isMegaTrigger = (label: string) => mega !== null && label.trim().toLowerCase() === mega.trigger.trim().toLowerCase();

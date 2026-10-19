@@ -72,7 +72,21 @@ export function SignInForm({ next, variant = "seller" }: { next?: string; varian
   );
 }
 
-export function SignUpForm({ next, defaultStoreName, plan, theme }: { next?: string; defaultStoreName?: string; plan?: string | null; theme?: string | null }) {
+export function SignUpForm({
+  next,
+  defaultStoreName,
+  plan,
+  theme,
+  lang,
+  intent,
+}: {
+  next?: string;
+  defaultStoreName?: string;
+  plan?: string | null;
+  theme?: string | null;
+  lang?: string | null;
+  intent?: string | null;
+}) {
   const [state, action] = useActionState(signUpAction, null);
   const [password, setPassword] = useState("");
   const errors = fieldErrors(state);
@@ -92,6 +106,8 @@ export function SignUpForm({ next, defaultStoreName, plan, theme }: { next?: str
       <input type="hidden" name="next" value={next ?? ""} />
       {plan ? <input type="hidden" name="plan" value={plan} /> : null}
       {theme ? <input type="hidden" name="theme" value={theme} /> : null}
+      {lang ? <input type="hidden" name="lang" value={lang} /> : null}
+      {intent ? <input type="hidden" name="intent" value={intent} /> : null}
       <FormMessage state={state} />
       <TextField label="Full name" name="displayName" autoComplete="name" placeholder="Asha Mehta" required errors={errors.displayName} />
       <TextField label="Email" name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@yourbusiness.in" required errors={errors.email} />

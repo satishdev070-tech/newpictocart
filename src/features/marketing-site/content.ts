@@ -27,7 +27,8 @@ export const SECTION_IDS = {
 
 export type NavLink = { label: string; href: string };
 
-export const SIGNUP_HREF = "/seller/register";
+/** Pre-auth Tara journey (welcome → language → intent), then register. */
+export const SIGNUP_HREF = "/start";
 export const LOGIN_HREF = "/seller/login";
 export const THEMES_HREF = "/themes";
 export const PRICING_HREF = "/pricing";

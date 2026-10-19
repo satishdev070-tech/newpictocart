@@ -52,7 +52,7 @@ describe("marketing content & seo", () => {
   });
   it("has FAQs and only relative, existing-route links", () => {
     expect(buildFaqs("pictocart.in").length).toBeGreaterThan(3);
-    const routes = ["/features", "/themes", "/how-it-works", "/pricing", "/seller/register", "/seller/login", "/seller/forgot-password", "/terms", "/privacy"];
+    const routes = ["/features", "/themes", "/how-it-works", "/pricing", "/start", "/seller/register", "/seller/login", "/seller/forgot-password", "/terms", "/privacy"];
     for (const l of [...NAV_LINKS, ...FOOTER_GROUPS.flatMap((g) => g.links)]) expect(routes).toContain(l.href);
   });
   it("never promises online plan purchase or card collection", () => {
@@ -60,9 +60,9 @@ describe("marketing content & seo", () => {
     expect(text).toContain("can't be bought online yet");
     expect(text).not.toMatch(/\d+ (merchants|sellers|stores) (trust|use)/i);
   });
-  it("carries plan and theme choices into sign-up", () => {
-    expect(signupHref()).toBe("/seller/register");
-    expect(signupHref({ plan: "growth", theme: "minimal-d2c" })).toBe("/seller/register?plan=growth&theme=minimal-d2c");
+  it("carries plan and theme choices into the start journey", () => {
+    expect(signupHref()).toBe("/start");
+    expect(signupHref({ plan: "growth", theme: "minimal-d2c" })).toBe("/start?plan=growth&theme=minimal-d2c");
   });
 });
 

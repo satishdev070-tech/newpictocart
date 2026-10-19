@@ -92,7 +92,7 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
           {content.body ? <p className={cn("mt-6 max-w-xl text-lg leading-relaxed text-white/75", enter("delay-150"))}>{content.body}</p> : null}
           <div className={cn("mt-8 flex flex-wrap items-center gap-x-6 gap-y-4", enter("delay-200"))}>
             {content.primaryCta.label ? (
-              <ButtonLink href={content.primaryCta.href || "/seller/register"} variant="cta" size="lg" className="rounded-xl shadow-[0_12px_30px_-10px_rgb(16_185_129/0.7)]" track={{ id: "create_store", location: "hero" }}>
+              <ButtonLink href={content.primaryCta.href || "/start"} variant="cta" size="lg" className="rounded-xl shadow-[0_12px_30px_-10px_rgb(16_185_129/0.7)]" track={{ id: "create_store", location: "hero" }}>
                 {content.primaryCta.label} <ArrowRight aria-hidden className="size-4" />
               </ButtonLink>
             ) : null}
@@ -317,7 +317,7 @@ export function Steps({ content }: { content: LandingContent["steps"] }) {
         </ol>
         {content.cta.label ? (
           <div className="mt-20 flex flex-col items-center gap-3 text-center">
-            <ButtonLink href={content.cta.href || "/seller/register"} variant="orange" size="lg" className="rounded-xl" track={{ id: "create_store", location: "steps" }}>
+            <ButtonLink href={content.cta.href || "/start"} variant="orange" size="lg" className="rounded-xl" track={{ id: "create_store", location: "steps" }}>
               {content.cta.label} <ArrowRight aria-hidden className="size-4" />
             </ButtonLink>
             {content.note ? <p className="text-xs text-subtle">{content.note}</p> : null}
@@ -692,7 +692,7 @@ export function LandingCta({ content }: { content: LandingContent["cta"] }) {
         {content.body ? <p className="mx-auto mt-4 max-w-xl text-lg text-white/80">{content.body}</p> : null}
         {content.button.label ? (
           <div className="mt-8 flex justify-center">
-            <ButtonLink href={content.button.href || "/seller/register"} variant="cta" size="lg" className="rounded-xl" track={{ id: "create_store", location: "final_cta" }}>
+            <ButtonLink href={content.button.href || "/start"} variant="cta" size="lg" className="rounded-xl" track={{ id: "create_store", location: "final_cta" }}>
               {content.button.label} <ArrowRight aria-hidden className="size-4" />
             </ButtonLink>
           </div>

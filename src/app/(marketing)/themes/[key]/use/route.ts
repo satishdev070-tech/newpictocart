@@ -13,7 +13,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext<"/them
   const { key } = await params;
   if (!isThemeKey(key)) return redirectTo("/themes");
   const user = await getSessionUser();
-  let target = `/seller/register?theme=${encodeURIComponent(key)}`;
+  let target = `/start?theme=${encodeURIComponent(key)}`;
   if (user) {
     const landing = await landingPathFor(user.id);
     target = landing === "/onboarding" ? `/onboarding?theme=${encodeURIComponent(key)}` : `/dashboard/themes/${encodeURIComponent(key)}`;
