@@ -79,6 +79,15 @@ export type StartCopy = {
     orEmail: string;
     create: string;
     checkEmail: string;
+    name: string;
+    email: string;
+    password: string;
+    passwordHint: string;
+    signInSubmit: string;
+    agree: string;
+    terms: string;
+    and: string;
+    privacy: string;
   };
   done: {
     badge: string;
@@ -212,6 +221,15 @@ const EN: StartCopy = {
     orEmail: "Or with email",
     create: "Create account and go live →",
     checkEmail: "Check your email to confirm, then return here — your draft is saved.",
+    name: "Full name",
+    email: "Email",
+    password: "Password",
+    passwordHint: "Use 10+ characters with a letter and a number.",
+    signInSubmit: "Sign in",
+    agree: "By continuing you agree to the",
+    terms: "Terms",
+    and: "and",
+    privacy: "Privacy Policy",
   },
   done: {
     badge: "Your store is live",
@@ -350,6 +368,15 @@ const HI: StartCopy = {
     orEmail: "या ईमेल से",
     create: "अकाउंट बनाएं और लाइव करें →",
     checkEmail: "ईमेल कन्फर्म करें, फिर यहाँ वापस आएँ — ड्राफ्ट सुरक्षित है।",
+    name: "पूरा नाम",
+    email: "ईमेल",
+    password: "पासवर्ड",
+    passwordHint: "10+ अक्षर, एक अक्षर और एक नंबर।",
+    signInSubmit: "साइन इन",
+    agree: "आगे बढ़कर आप सहमत होते हैं",
+    terms: "नियम",
+    and: "और",
+    privacy: "गोपनीयता नीति",
   },
   done: {
     badge: "आपकी दुकान लाइव है",

@@ -24,8 +24,9 @@ export function FieldError({ id, messages }: { id: string; messages?: string[] }
   );
 }
 
+/** Block container: hints may be text or richer guidance (a paragraph cannot wrap a div or list). */
 export function Hint({ children }: { children: ReactNode }) {
-  return <p className="mt-1.5 text-caption text-muted">{children}</p>;
+  return <div className="mt-1.5 text-caption text-muted">{children}</div>;
 }
 
 type FieldBase = { label: ReactNode; name: string; errors?: string[]; hint?: ReactNode; optional?: boolean };

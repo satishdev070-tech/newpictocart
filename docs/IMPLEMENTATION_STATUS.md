@@ -16,7 +16,8 @@ _Last updated: 2026-10-19 (cache-first /start journey)_
 - **Voice before auth:** `startVoiceTurnAction` (IP rate-limited) uses shared **`runTaraTurn`**; post-auth
   onboarding voice unchanged.
 - **Tests:** `tests/unit/start/*` (draft, flow, brief, register href) and `tests/unit/onboarding/seed-counts.test.ts`.
-- **Verification:** `pnpm check` ✅ (typecheck, lint, 96 files / 1,260 tests, build). Browser walkthrough of `/start` was not run here: this environment has no Supabase URL or publishable key, so the app cannot boot.
+- **Account step:** `/start` uses a compact sign-up / sign-in form (name, email, password, hidden store name from the draft, Google `next=/start`). Password guidance is one line of text. `Hint` renders as a `div` so richer hints on `/seller/register` stay valid HTML. The building timer runs once per visit and then finalizes or opens the account step.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, 96 files / 1,261 tests, build). Browser walkthrough of `/start` was not run here: this environment has no Supabase URL or publishable key, so the app cannot boot.
 
 ## Prototype start journey (2026-10-19, superseded routing)
 

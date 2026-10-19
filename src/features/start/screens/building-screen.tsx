@@ -17,23 +17,31 @@ export function BuildingScreen({
   const [step, setStep] = useState(0);
   const [pct, setPct] = useState(0);
   const doneRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  const stepCount = c.building.steps.length;
 
   useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    doneRef.current = false;
     const timers: number[] = [];
-    c.building.steps.forEach((_, i) => {
+    for (let i = 0; i < stepCount; i += 1) {
       timers.push(window.setTimeout(() => setStep(i), i * 600));
-    });
+    }
     const start = Date.now();
+    let finish: number | undefined;
     const tick = window.setInterval(() => {
       const elapsed = Date.now() - start;
       const p = Math.min(100, Math.round((elapsed / 3000) * 100));
       setPct(p);
       if (p >= 100) {
         window.clearInterval(tick);
-        window.setTimeout(() => {
+        finish = window.setTimeout(() => {
           if (!doneRef.current) {
             doneRef.current = true;
-            onComplete();
+            onCompleteRef.current();
           }
         }, 200);
       }
@@ -41,8 +49,9 @@ export function BuildingScreen({
     return () => {
       timers.forEach((t) => window.clearTimeout(t));
       window.clearInterval(tick);
+      if (finish !== undefined) window.clearTimeout(finish);
     };
-  }, [c.building.steps, onComplete]);
+  }, [locale, stepCount]);
 
   return (
     <section className="grid gap-8 lg:grid-cols-2">

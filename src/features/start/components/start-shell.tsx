@@ -51,7 +51,7 @@ export function StartShell({
               width={logo.width ?? undefined}
               height={logo.height ?? undefined}
               alt={logo.name}
-              className="h-8 max-w-[140px] w-auto object-contain object-left sm:h-10"
+              className="h-10 max-w-[220px] w-auto object-contain object-left sm:h-12"
             />
           </Link>
         </div>
