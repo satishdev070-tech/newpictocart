@@ -18,6 +18,8 @@ _Last updated: 2026-10-19 (Sarvam voice onboarding → ready store)_
 - **Sarvam client:** `src/lib/sarvam/{locales,client}.ts` + `SARVAM_API_KEY` (server-only). Seed
   pipeline lives under `src/features/onboarding/seed/`.
 - **Tests:** steps resolution, voice fact→industry mapping, existing onboarding action redirects.
+- **Verification:** `pnpm typecheck` ✅, `pnpm lint` ✅, `pnpm test` ✅ (91 files, 1,247 tests),
+  `pnpm build` ✅.
 
 ## Informative sites, marketplace, editor controls and AI credits (2026-10-19)
 
