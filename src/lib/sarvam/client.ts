@@ -83,11 +83,15 @@ export async function transcribeAudio(args: {
   const locale = getSarvamLocale(args.languageCode);
   if (!locale?.stt) throw new AppError("VALIDATION", { fieldErrors: { language: ["That language isn't supported for speech."] } });
 
-  const file = args.audio instanceof Blob ? args.audio : new Blob([args.audio as BlobPart], { type: "audio/webm" });
+  const blob = args.audio instanceof Blob ? args.audio : new Blob([args.audio as BlobPart], { type: "audio/webm" });
+  const filename = args.filename ?? "turn.webm";
+  // File.name is a getter on the FormData file Node hands us. Assigning it throws
+  // "Cannot set property name", so the filename travels beside the bytes instead.
+  const contentType = blob.type || (filename.endsWith(".mp4") ? "audio/mp4" : "audio/webm");
 
   try {
     const res = await client.speechToText.transcribe({
-      file: Object.assign(file, { name: args.filename ?? "turn.webm" }),
+      file: { data: blob, filename, contentType },
       model: "saaras:v4",
       language_code: args.languageCode,
       mode: "codemix",
@@ -95,7 +99,7 @@ export async function transcribeAudio(args: {
     return { transcript: res.transcript?.trim() ?? "", detectedLanguage: res.language_code ?? null };
   } catch (err) {
     logger.warn("sarvam.stt_failed", { language: args.languageCode, error: safeErrorMessage(err) });
-    throw new AppError("INTERNAL", { fieldErrors: { _form: ["Couldn't hear that clearly. Try again or type your answer."] } });
+    throw new AppError("VALIDATION", { fieldErrors: { _form: ["Couldn't hear that clearly. Try again or type your answer."] } });
   }
 }
 

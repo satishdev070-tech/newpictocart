@@ -34,6 +34,26 @@ export type StartCopy = {
     micUnsupported: string;
     thinking: string;
   };
+  quiz: {
+    step: (n: number, total: number) => string;
+    nameTitle: string;
+    nameHint: string;
+    categoryTitle: string;
+    more: string;
+    less: string;
+    siteTitle: string;
+    storeTitle: string;
+    storeDesc: string;
+    siteInfoTitle: string;
+    siteInfoDesc: string;
+    cityTitle: string;
+    cityHint: string;
+    taglineTitle: string;
+    taglineHint: string;
+    skip: string;
+    next: string;
+    finish: string;
+  };
   business: {
     title: string;
     titleAccent: string;
@@ -168,6 +188,26 @@ const EN: StartCopy = {
     micDenied: "Allow the microphone to talk with Tara, or type your answer.",
     micUnsupported: "This browser can't record audio. Type your answer instead.",
     thinking: "Tara is listening…",
+  },
+  quiz: {
+    step: (n, total) => `Question ${n} of ${total}`,
+    nameTitle: "What is your store called?",
+    nameHint: "e.g. Kia Garments",
+    categoryTitle: "What do you sell?",
+    more: "More categories",
+    less: "Fewer categories",
+    siteTitle: "What should we build?",
+    storeTitle: "Online store",
+    storeDesc: "A shop with a cart, checkout and orders.",
+    siteInfoTitle: "Business website",
+    siteInfoDesc: "A site where people learn about you and get in touch.",
+    cityTitle: "Which city are you in?",
+    cityHint: "e.g. Jaipur",
+    taglineTitle: "A short line for your store?",
+    taglineHint: "e.g. Handloom from the family workshop",
+    skip: "Skip",
+    next: "Next",
+    finish: "Build my store →",
   },
   business: {
     title: "Tell us about your ",
@@ -323,6 +363,26 @@ const HI: StartCopy = {
     micDenied: "तारा से बात करने के लिए माइक्रोफ़ोन की अनुमति दें, या जवाब लिखें।",
     micUnsupported: "यह ब्राउज़र आवाज़ रिकॉर्ड नहीं कर सकता। जवाब लिखें।",
     thinking: "तारा सुन रही है…",
+  },
+  quiz: {
+    step: (n, total) => `सवाल ${n} / ${total}`,
+    nameTitle: "आपकी दुकान का नाम क्या है?",
+    nameHint: "जैसे Kia Garments",
+    categoryTitle: "आप क्या बेचते हैं?",
+    more: "और कैटेगरी",
+    less: "कम कैटेगरी",
+    siteTitle: "हम क्या बनाएँ?",
+    storeTitle: "ऑनलाइन दुकान",
+    storeDesc: "कार्ट, चेकआउट और ऑर्डर वाली दुकान।",
+    siteInfoTitle: "बिज़नेस वेबसाइट",
+    siteInfoDesc: "जहाँ लोग आपके बारे में जानें और संपर्क करें।",
+    cityTitle: "आप किस शहर में हैं?",
+    cityHint: "जैसे जयपुर",
+    taglineTitle: "दुकान के लिए एक छोटी लाइन?",
+    taglineHint: "जैसे घर के करघे का हाथ का कपड़ा",
+    skip: "छोड़ें",
+    next: "आगे",
+    finish: "दुकान बनाएँ →",
   },
   business: {
     title: "अपने ",

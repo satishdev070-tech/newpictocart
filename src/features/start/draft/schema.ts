@@ -14,6 +14,7 @@ export const START_SCREENS = [
   "intent",
   "path",
   "voice",
+  "quiz",
   "business",
   "products",
   "mood",
@@ -66,6 +67,8 @@ export const startDraftSchema = z.object({
     done: z.boolean(),
     /** Recent Tara conversation. Missing on drafts saved before chat history existed. */
     turns: z.array(voiceTurnSchema).max(12).optional().default([]),
+    /** How the seller is answering Tara. Missing on drafts saved before the quiz. */
+    mode: z.enum(["talk", "quiz"]).optional().default("talk"),
   }),
   business: z.object({
     name: z.string().max(120),
@@ -106,6 +109,7 @@ export function emptyStartDraft(overrides?: Partial<Pick<StartDraft, "plan" | "t
       facts: { name: null, category: null, siteMode: null, tagline: null, city: null },
       done: false,
       turns: [],
+      mode: "talk",
     },
     business: {
       name: "",

@@ -1,6 +1,8 @@
 "use client";
 
 import { formatMoney } from "@/lib/money";
+import { publicEnv } from "@/lib/env/public";
+import { storefrontPreviewUrl } from "@/lib/platform/urls";
 import { industryShort, isIndustry } from "@/features/stores/industries";
 import { suggestSlugFromName } from "@/features/onboarding/voice/facts";
 import { startCopy } from "../copy";
@@ -52,7 +54,11 @@ export function LivePreview({
           <div className="border-b border-[#2A2233]/8 bg-white/70 px-4 py-2 text-center text-xs font-medium text-[#6B6275]">{host}</div>
         ) : null}
         {slug ? (
-          <iframe title={c.livePreview} src={`/store/${slug}.${rootDomain}`} className="min-h-[280px] w-full flex-1 bg-white lg:min-h-[420px]" />
+          <iframe
+            title={c.livePreview}
+            src={storefrontPreviewUrl(`${slug}.${rootDomain}`, publicEnv().NEXT_PUBLIC_PLATFORM_URL)}
+            className="min-h-[280px] w-full flex-1 bg-white lg:min-h-[420px]"
+          />
         ) : draft ? (
           <div className="flex flex-1 flex-col" style={{ background: bg }}>
             <div className="px-4 py-3" style={{ background: accent }}>

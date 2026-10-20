@@ -18,6 +18,7 @@ import { LangScreen } from "../screens/lang-screen";
 import { IntentScreen } from "../screens/intent-screen";
 import { PathScreen } from "../screens/path-screen";
 import { VoiceScreen } from "../screens/voice-screen";
+import { QuizScreen } from "../screens/quiz-screen";
 import { BusinessScreen } from "../screens/business-screen";
 import { ProductsScreen } from "../screens/products-screen";
 import { MoodScreen } from "../screens/mood-screen";
@@ -136,7 +137,7 @@ export function StartJourney({
       logo={logo}
       voiceEnabled={voiceEnabled}
       onVoiceToggle={() => setVoiceEnabled((v) => !v)}
-      onBack={opts?.back ? () => { const t = backTarget(screen, draft.path); if (t) go(t); } : undefined}
+      onBack={opts?.back ? () => { const t = backTarget(screen, draft.path, draft.voice.mode); if (t) go(t); } : undefined}
       onLangClick={() => go("lang")}
       layout={opts?.layout ?? (split ? "split" : "center")}
     >
@@ -202,7 +203,7 @@ export function StartJourney({
         voiceEnabled={voiceEnabled}
         onFacts={(facts, done, turns: StartVoiceTurn[]) => {
           patchDraft({
-            voice: { facts: mergeFacts(draft.voice.facts as VoiceFacts, facts), done, turns },
+            voice: { facts: mergeFacts(draft.voice.facts as VoiceFacts, facts), done, turns, mode: draft.voice.mode },
           });
           syncVoiceToBusiness(facts);
         }}
@@ -215,8 +216,33 @@ export function StartJourney({
           go("business");
         }}
         onQuiz={() => {
-          patchDraft({ path: "manual" });
-          go("business");
+          setDraft((d) => ({ ...d, screen: "quiz", voice: { ...d.voice, mode: "quiz" } }));
+          setStartDraftCookie();
+        }}
+      />,
+      { back: true },
+    );
+  }
+
+  if (screen === "quiz") {
+    return shell(
+      <QuizScreen
+        draft={draft}
+        onSave={(facts, done) => {
+          setDraft((d) => ({
+            ...d,
+            screen: done ? "building" : "quiz",
+            voice: { ...d.voice, facts, done: done || d.voice.done, mode: "quiz" },
+            business: {
+              ...d.business,
+              name: facts.name?.trim() || d.business.name,
+              tagline: facts.tagline?.trim() || d.business.tagline,
+              city: facts.city?.trim() || d.business.city,
+              category: facts.category ?? d.business.category,
+              siteMode: facts.siteMode ?? d.business.siteMode,
+            },
+          }));
+          if (done) setStartDraftCookie();
         }}
       />,
       { back: true },

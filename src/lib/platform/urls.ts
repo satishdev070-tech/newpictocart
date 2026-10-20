@@ -9,13 +9,22 @@ export function platformOrigin(): string {
 }
 
 /** Public URL of a storefront host (http for *.localhost in development). */
-export function storeOrigin(host: string): string {
+export function storeOrigin(host: string, platformUrl?: string | null): string {
   if (host === "localhost" || host.endsWith(".localhost")) {
     // Local dev: same port as the platform app (NEXT_PUBLIC_PLATFORM_URL=http://localhost:3001 → :3001).
-    const m = /^http:\/\/localhost:(\d+)/.exec(publicEnv().NEXT_PUBLIC_PLATFORM_URL ?? "");
+    const from = platformUrl === undefined ? publicEnv().NEXT_PUBLIC_PLATFORM_URL : platformUrl;
+    const m = /^https?:\/\/localhost:(\d+)/.exec(from ?? "");
     return `http://${host}:${m?.[1] ?? "3000"}`;
   }
   return `https://${host}`;
+}
+
+/**
+ * Address the live preview can load. The platform path `/store/{host}` is rejected unless the
+ * request host is that store, so the iframe must open the store host itself.
+ */
+export function storefrontPreviewUrl(host: string, platformUrl?: string | null): string {
+  return `${storeOrigin(host, platformUrl)}/`;
 }
 
 /** Platform subdomain for a store slug. */
