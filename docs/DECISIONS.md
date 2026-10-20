@@ -46,6 +46,8 @@ Inbound `x-paliya-host` headers from clients are stripped.
 
 **Addition (2026-10-18, storefront Instagram feed):** `features/social/server/instagram-feed.ts` reads the store's connected `instagram` integration (via `activeIntegration`, secret-key client) for the tenant resolved from the verified host, only when a SocialProof section has `source: "instagram"`. The Page token never leaves the server; only validated public media fields (https Instagram/Facebook CDN image, instagram.com permalink, caption) are cached (Data Cache, 1 h, tagged with the storefront tag) and rendered. Any failure falls back to the seller's manual posts.
 
+**Addition (2026-10-20, signup without an email provider):** `signUpAction` may call `auth.admin.createUser` (email already confirmed) and then `signInWithPassword` with the password the seller just chose, only when `resolveEmailProvider()` has no API key and Auth rejected signup solely because the confirmation email could not be sent. A configured provider that fails to send still surfaces an error and does not confirm the user. An existing account is confirmed if it is still unconfirmed, then signed in with that same password; the password is never replaced.
+
 ## ADR-007 — Edge → origin trust via HMAC-signed host · Accepted
 The Worker forwards the original hostname with `x-paliya-edge-{host,ts,sig}` where `sig = HMAC-SHA256(EDGE_SHARED_SECRET, host + "\n" + ts)`.
 The proxy accepts it only if the signature is valid and ≤ 300 s old; otherwise it falls back to the literal Host header. Anyone hitting the origin directly cannot claim a tenant host.
@@ -176,8 +178,9 @@ Instead of Supabase's mailer (or SMTP), Supabase calls `POST /api/auth/email-hoo
 `SEND_EMAIL_HOOK_SECRET`). We build the token-hash link on the callback that started the flow (platform `/auth/callback`
 or the store's `/account/auth/callback`, both accept `token_hash`), only for hosts we serve (platform or a verified store
 host; anything else falls back to `/auth/confirm`), brand it (store name/logo for shoppers, platform for sellers) and send it
-through `sendEmail()` (Resend, `email_log`, idempotency). If the email can't be sent we return an error to Supabase so the
-user sees a failure rather than waiting for a mail that never comes.
+through `sendEmail()` (Resend, `email_log`, idempotency). If Resend is not configured the hook logs that the message
+was not delivered and returns success, so Auth can finish creating the user. A real Resend failure still returns
+an error so the user is not left waiting for mail that failed to send.
 
 ## ADR-035 — Unsplash photos in the media library are imported copies · Accepted
 The media picker hands callers storage paths (`tenant/{id}/media/…`), and every image field resolves them with

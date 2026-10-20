@@ -6,8 +6,11 @@ import { senderDomain, listResendDomains } from "@/lib/email/resend";
 vi.mock("@/features/platform/server/public-config", () => ({ getPublicPlatformConfig: vi.fn(), brandImageView: vi.fn() }));
 vi.mock("@/features/notifications/email/channel", () => ({ loadStoreContext: vi.fn() }));
 vi.mock("@/lib/email/send", () => ({ sendEmail: vi.fn() }));
+vi.mock("@/lib/env/public", () => ({ publicEnv: () => ({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "pictocart.in", NEXT_PUBLIC_PLATFORM_URL: "https://pictocart.in" }) }));
 
-const { buildActionLink, otpTypeFor, parseAuthHookPayload } = await import("@/features/notifications/email/auth-hook");
+const { buildActionLink, otpTypeFor, parseAuthHookPayload, handleAuthEmailHook } = await import("@/features/notifications/email/auth-hook");
+const { sendEmail } = await import("@/lib/email/send");
+const { getPublicPlatformConfig, brandImageView } = await import("@/features/platform/server/public-config");
 
 const SECRET = `v1,whsec_${Buffer.from("0123456789abcdef0123456789abcdef").toString("base64")}`;
 
@@ -61,6 +64,37 @@ describe("auth email links", () => {
     expect(isAuthEmailAction("weird")).toBe(false);
     expect(parseAuthHookPayload({ user: { id: "u", email: "a@b.in" }, email_data: { email_action_type: "signup", token_hash: "h", redirect_to: "" } })).not.toBeNull();
     expect(parseAuthHookPayload({ user: {} })).toBeNull();
+  });
+});
+
+describe("auth email hook when mail cannot be delivered", () => {
+  const payload = {
+    user: { id: "user-1", email: "seller@shop.in", user_metadata: null },
+    email_data: {
+      token: "123456",
+      token_hash: "hash",
+      redirect_to: null,
+      email_action_type: "signup",
+      site_url: null,
+      token_new: null,
+      token_hash_new: null,
+    },
+  };
+
+  it("returns success when the provider is not configured", async () => {
+    vi.mocked(getPublicPlatformConfig).mockResolvedValue({ headerLogo: null } as never);
+    vi.mocked(brandImageView).mockReturnValue(null);
+    vi.mocked(sendEmail).mockResolvedValue({ status: "logged", error: "email provider not configured" });
+    const res = await handleAuthEmailHook(payload);
+    expect(res.ok).toBe(true);
+  });
+
+  it("still reports a real provider failure", async () => {
+    vi.mocked(getPublicPlatformConfig).mockResolvedValue({ headerLogo: null } as never);
+    vi.mocked(brandImageView).mockReturnValue(null);
+    vi.mocked(sendEmail).mockResolvedValue({ status: "failed", error: "resend down" });
+    const res = await handleAuthEmailHook(payload);
+    expect(res).toEqual({ ok: false, status: 502, message: "Email could not be sent" });
   });
 });
 

@@ -112,11 +112,6 @@ export function StartJourney({
   }, [hydrated, draft, signedIn, finalize]);
 
   const finishMessage = finalizeState && !finalizeState.ok;
-
-  if (!hydrated || !draft) {
-    return <div className="min-h-dvh bg-[#FBF6F1]" />;
-  }
-
   const screen = draft.screen;
   const split = ["business", "products", "mood", "account"].includes(screen);
 

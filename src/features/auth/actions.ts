@@ -2,18 +2,88 @@
 
 import { getPublicPlatformConfig } from "@/features/platform/server/public-config";
 import { redirect } from "next/navigation";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { runAction, type ActionResult } from "@/lib/actions/result";
 import { formToObject } from "@/lib/actions/form";
 import { parseInput } from "@/lib/validation/common";
 import { AppError } from "@/lib/errors";
+import { resolveEmailProvider } from "@/lib/email/send";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
+import { logger } from "@/lib/observability/logger";
 import { clientIpKey, rateLimit } from "@/lib/rate-limit";
 import { platformOrigin } from "@/lib/platform/urls";
 import { ADMIN_LOGIN_PATH, SELLER_LOGIN_PATH, landingPathFor } from "@/lib/auth/landing";
 import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
 import { isStartIntentId } from "@/features/start/intents";
+import { isConfirmationEmailFailure, signupFailureMessage } from "./signup-errors";
 import { forgotSchema, resetSchema, signInSchema, signUpSchema, startEmailCodeSchema, verifyStartCodeSchema } from "./schemas";
+
+type SignupIdentity = {
+  email: string;
+  password: string;
+  displayName: string;
+  storeName?: string;
+  plan?: string;
+  theme?: string;
+  lang: string | null;
+  intent: string | null;
+};
+
+function accountAlreadyExists(code: string | undefined, message: string): boolean {
+  const codeL = (code ?? "").toLowerCase();
+  const text = message.toLowerCase();
+  return codeL === "email_exists" || codeL === "user_already_exists" || text.includes("already") || text.includes("registered");
+}
+
+/**
+ * When signup failed only because no email provider could send the confirmation, create (or confirm)
+ * the user and sign them in with the password they just chose. A configured provider is never skipped,
+ * and an existing password is never replaced.
+ */
+async function signInWithoutEmailProvider(input: SignupIdentity): Promise<"signed-in" | "exists" | "failed"> {
+  const provider = await resolveEmailProvider();
+  if (provider.apiKey) return "failed";
+  const admin = createSupabaseAdminClient();
+  const metadata = {
+    display_name: input.displayName,
+    store_name: input.storeName ?? null,
+    requested_plan: input.plan ?? null,
+    requested_theme: input.theme ?? null,
+    onboarding_locale: input.lang,
+    onboarding_intent: input.intent,
+  };
+  const created = await admin.auth.admin.createUser({
+    email: input.email,
+    password: input.password,
+    email_confirm: true,
+    user_metadata: metadata,
+  });
+  if (created.error && !accountAlreadyExists(created.error.code, created.error.message)) {
+    logger.warn("auth.signup_confirm_failed", { code: created.error.code ?? null, detail: created.error.message.slice(0, 160) });
+    return "failed";
+  }
+  if (created.error) {
+    const found = await admin.auth.admin.generateLink({ type: "magiclink", email: input.email });
+    const userId = found.data?.user?.id;
+    if (!userId) {
+      logger.warn("auth.signup_confirm_lookup_failed", { code: found.error?.code ?? null });
+      return "failed";
+    }
+    const updated = await admin.auth.admin.updateUserById(userId, { email_confirm: true });
+    if (updated.error) {
+      logger.warn("auth.signup_confirm_update_failed", { code: updated.error.code ?? null, detail: updated.error.message.slice(0, 160) });
+      return "failed";
+    }
+  }
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithPassword({ email: input.email, password: input.password });
+  if (error) {
+    logger.warn("auth.signup_confirm_signin_failed", { code: error.code ?? null, detail: error.message.slice(0, 160) });
+    return created.error ? "exists" : "failed";
+  }
+  return "signed-in";
+}
 
 export async function signInAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   let next = "/dashboard";
@@ -65,7 +135,28 @@ export async function signUpAction(_prev: ActionResult<{ needsConfirmation: bool
       },
     });
     if (error) {
-      throw new AppError("VALIDATION", { fieldErrors: { _form: [error.message.includes("registered") ? "An account with this email already exists." : "Couldn't create your account. Please try again."] } });
+      logger.warn("auth.signup_failed", { code: error.code ?? null, detail: error.message.slice(0, 180) });
+      if (isConfirmationEmailFailure(error.code, error.message)) {
+        const recovered = await signInWithoutEmailProvider({
+          email: input.email,
+          password: input.password,
+          displayName: input.displayName,
+          storeName: input.storeName,
+          plan: input.plan,
+          theme: input.theme,
+          lang,
+          intent,
+        });
+        if (recovered === "signed-in") {
+          confirmed = true;
+          if (!input.next) next = onboarding;
+          return { needsConfirmation: false };
+        }
+        if (recovered === "exists") {
+          throw new AppError("VALIDATION", { fieldErrors: { _form: ["An account with this email already exists."] } });
+        }
+      }
+      throw new AppError("VALIDATION", { fieldErrors: { _form: [signupFailureMessage(error.code, error.message)] } });
     }
     confirmed = Boolean(data.session);
     // Signed in straight away (email confirmation off): continue to onboarding, where the seller

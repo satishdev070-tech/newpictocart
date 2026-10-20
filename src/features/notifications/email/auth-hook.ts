@@ -141,10 +141,15 @@ export async function handleAuthEmailHook(payload: AuthHookPayload): Promise<Aut
     const key = createHash("sha256").update(`auth:${action}:${payload.user.id}:${job.tokenHash || job.otp || ""}`).digest("hex").slice(0, 48);
     const result = await sendEmail({ tenantId, kind: `auth_${action}`, to: job.to, ...email, fromName: brand.storeName, replyTo, idempotencyKey: key });
     sent.push(result);
-    if (result.status === "failed" || result.status === "logged") {
+    if (result.status === "logged") {
+      // No provider (no Resend key): the message was not delivered. Returning success lets Auth
+      // finish creating the user instead of aborting signup. A real provider failure still errors.
+      logger.warn("auth_email.not_delivered", { action, status: result.status, tenantId, reason: "email provider not configured" });
+      continue;
+    }
+    if (result.status === "failed") {
       logger.warn("auth_email.not_sent", { action, status: result.status, tenantId });
-      // Tell Supabase so the user sees an error instead of waiting for an email that never comes.
-      return { ok: false, status: 502, message: result.status === "logged" ? "Email provider is not configured" : "Email could not be sent" };
+      return { ok: false, status: 502, message: "Email could not be sent" };
     }
   }
   return { ok: true, sent };
