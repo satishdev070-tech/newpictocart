@@ -2,6 +2,17 @@
  * Safe sentences for Auth signup failures. The raw GoTrue message is logged, never shown.
  */
 
+/**
+ * Confirm the new account without a delivered email when no provider is configured, and also on a
+ * local or non-production server when a saved Resend key still cannot send. Production with a
+ * configured provider keeps the email error.
+ */
+export function shouldConfirmWithoutEmail(hasProvider: boolean, nodeEnv: string, rootDomain: string): boolean {
+  if (!hasProvider) return true;
+  if (nodeEnv !== "production") return true;
+  return rootDomain === "localhost";
+}
+
 export function isConfirmationEmailFailure(code: string | undefined, message: string): boolean {
   const codeL = (code ?? "").toLowerCase();
   const text = message.toLowerCase();

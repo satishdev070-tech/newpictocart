@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isConfirmationEmailFailure, signupFailureMessage } from "@/features/auth/signup-errors";
+import { isConfirmationEmailFailure, shouldConfirmWithoutEmail, signupFailureMessage } from "@/features/auth/signup-errors";
 
 describe("signup failure messages", () => {
   it("names the usual Auth failures", () => {
@@ -17,6 +17,10 @@ describe("signup failure messages", () => {
     expect(isConfirmationEmailFailure(undefined, "Error sending confirmation email")).toBe(true);
     expect(signupFailureMessage(undefined, "Error sending confirmation email")).toBe("We couldn't send the confirmation email. Try again in a moment.");
     expect(isConfirmationEmailFailure("over_email_send_rate_limit", "email rate limit exceeded")).toBe(false);
+    expect(shouldConfirmWithoutEmail(false, "production", "pictocart.in")).toBe(true);
+    expect(shouldConfirmWithoutEmail(true, "development", "pictocart.in")).toBe(true);
+    expect(shouldConfirmWithoutEmail(true, "production", "localhost")).toBe(true);
+    expect(shouldConfirmWithoutEmail(true, "production", "pictocart.in")).toBe(false);
     expect(isConfirmationEmailFailure("unexpected_failure", "something else broke")).toBe(false);
   });
 });

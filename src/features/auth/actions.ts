@@ -9,6 +9,8 @@ import { formToObject } from "@/lib/actions/form";
 import { parseInput } from "@/lib/validation/common";
 import { AppError } from "@/lib/errors";
 import { resolveEmailProvider } from "@/lib/email/send";
+import { serverEnv } from "@/lib/env/server";
+import { publicEnv } from "@/lib/env/public";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { logger } from "@/lib/observability/logger";
 import { clientIpKey, rateLimit } from "@/lib/rate-limit";
@@ -16,7 +18,7 @@ import { platformOrigin } from "@/lib/platform/urls";
 import { ADMIN_LOGIN_PATH, SELLER_LOGIN_PATH, landingPathFor } from "@/lib/auth/landing";
 import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
 import { isStartIntentId } from "@/features/start/intents";
-import { isConfirmationEmailFailure, signupFailureMessage } from "./signup-errors";
+import { isConfirmationEmailFailure, shouldConfirmWithoutEmail, signupFailureMessage } from "./signup-errors";
 import { forgotSchema, resetSchema, signInSchema, signUpSchema, startEmailCodeSchema, verifyStartCodeSchema } from "./schemas";
 
 type SignupIdentity = {
@@ -37,13 +39,15 @@ function accountAlreadyExists(code: string | undefined, message: string): boolea
 }
 
 /**
- * When signup failed only because no email provider could send the confirmation, create (or confirm)
- * the user and sign them in with the password they just chose. A configured provider is never skipped,
- * and an existing password is never replaced.
+ * When signup failed only because the confirmation email could not be sent, create (or confirm)
+ * the user and sign them in with the password they just chose. An existing password is never replaced.
+ * Production with a working provider configured still refuses this path.
  */
 async function signInWithoutEmailProvider(input: SignupIdentity): Promise<"signed-in" | "exists" | "failed"> {
   const provider = await resolveEmailProvider();
-  if (provider.apiKey) return "failed";
+  const allow = shouldConfirmWithoutEmail(Boolean(provider.apiKey), serverEnv().NODE_ENV, publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN);
+  if (!allow) return "failed";
+  logger.warn("auth.signup_email_skipped", { reason: provider.apiKey ? "provider_failed" : "provider_missing" });
   const admin = createSupabaseAdminClient();
   const metadata = {
     display_name: input.displayName,
@@ -162,6 +166,21 @@ export async function signUpAction(_prev: ActionResult<{ needsConfirmation: bool
     // Signed in straight away (email confirmation off): continue to onboarding, where the seller
     // confirms the store address, category, theme and plan before the (draft) store is created.
     if (data.session && !input.next) next = onboarding;
+    if (!data.session && data.user) {
+      const provider = await resolveEmailProvider();
+      if (!provider.apiKey) {
+        const admin = createSupabaseAdminClient();
+        const updated = await admin.auth.admin.updateUserById(data.user.id, { email_confirm: true });
+        if (!updated.error) {
+          const signed = await supabase.auth.signInWithPassword({ email: input.email, password: input.password });
+          if (!signed.error && signed.data.session) {
+            confirmed = true;
+            if (!input.next) next = onboarding;
+            return { needsConfirmation: false };
+          }
+        }
+      }
+    }
     return { needsConfirmation: !data.session };
   });
   if (result.ok && confirmed) redirect(next);
