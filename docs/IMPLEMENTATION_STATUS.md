@@ -1,6 +1,16 @@
 # Implementation Status
 
-_Last updated: 2026-10-20 (cache-first /start journey)_
+_Last updated: 2026-10-20 (onboarding polish, contact, AI sections)_
+
+## Onboarding polish, contact pages, and AI sections (2026-10-20)
+
+- **Register and `/start` colour:** the seller register aside is top-aligned with the form. Onboarding screens use the logo orange (`#F97316` / `#C2410C`) for progress, buttons, and accents.
+- **Google and signed-in finish:** Continue with Google shows a spinner and “Opening Google…” while the form submits. A seller who is already signed in, with a draft ready to save, stays on the building screen until `finalizeStartDraftAction` returns, then sees Done. A failure returns to the account step with the existing toast.
+- **Manual product photos:** the product step offers four curated photos (food, fashion, furniture, handicrafts). The chosen photo shows in the form and on the live preview card. It is a local preview only; the draft product schema is unchanged.
+- **About and Contact:** `ensureInfoPages` publishes About (from the store story) and Contact when those slugs are missing. It runs from the ready-store seed and from the photo backfill, so an existing store gets the pages the next time `/start` finishes. A failed insert is logged and does not stop store creation. `/pages/contact` and `/contact` show a Google Maps search embed (no API key) and a contact form.
+- **Contact messages:** the form posts through `submitContactFormAction` (verified host, honeypot, rate limit). `submit_contact_message` is the only insert path. Staff with `content.write` read the latest 100 messages at **Content → Messages**. Apply `supabase/migrations/20261020003500_contact_messages.sql` before the form can store rows.
+- **Add with AI:** when Gemini, Groq, and Anthropic are missing or fail, `generateSectionAction` asks Sarvam for one JSON section, sanitizes it, and inserts it like any other section. One AI credit is debited before the model call and refunded only if every model fails. If Sarvam is also unset, the panel shows the existing setup sentence.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, 99 files / 1,277 tests, build). The local dev server returns `EnvValidationError` because Supabase env vars are unset, so the register, `/start`, contact, and site-builder screens were not clicked through in a browser. Apply the contact migration, then finish `/start` again so an existing store receives About and Contact.
 
 ## Cache-first `/start` journey (2026-10-19)
 

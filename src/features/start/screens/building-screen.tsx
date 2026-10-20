@@ -68,7 +68,7 @@ export function BuildingScreen({
         </ul>
         <div className="flex items-center gap-3">
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#2A2233]/10">
-            <div className="h-full rounded-full bg-linear-to-r from-[#C084FC] to-[#F97316] transition-all" style={{ width: `${pct}%` }} />
+            <div className="h-full rounded-full bg-linear-to-r from-[#FB923C] to-[#F97316] transition-all" style={{ width: `${pct}%` }} />
           </div>
           <span className="text-sm font-mono text-[#6B6275]">{pct}%</span>
         </div>

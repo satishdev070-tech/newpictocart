@@ -21,11 +21,14 @@ export function LivePreview({
   rootDomain,
   draft,
   liveSlug,
+  productPhotos,
 }: {
   locale: string;
   rootDomain: string;
   draft?: StartDraft | null;
   liveSlug?: string | null;
+  /** Product id → curated photo URL. Local preview only; not part of the draft. */
+  productPhotos?: Record<string, string>;
 }) {
   const c = startCopy(locale);
   const slug = liveSlug ?? draft?.result?.slug ?? null;
@@ -69,9 +72,15 @@ export function LivePreview({
               {(products.length ? products.slice(0, 4) : placeholders.slice(0, 3)).map((item, index) => {
                 const title = typeof item === "string" ? item : item.title;
                 const price = typeof item === "string" ? null : formatMoney(item.pricePaise);
+                const photo = typeof item === "string" ? undefined : productPhotos?.[item.id];
                 return (
                   <div key={`${title}-${index}`} className="rounded-xl bg-white/80 p-3 shadow-sm">
-                    <div className="mb-2 h-14 rounded-lg" style={{ background: `linear-gradient(135deg, ${accent}, ${mood?.accentB ?? "#FDBA74"})` }} />
+                    {photo ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- local onboarding preview, not a stored product image
+                      <img src={photo} alt="" className="mb-2 h-14 w-full rounded-lg object-cover" />
+                    ) : (
+                      <div className="mb-2 h-14 rounded-lg" style={{ background: `linear-gradient(135deg, ${accent}, ${mood?.accentB ?? "#FDBA74"})` }} />
+                    )}
                     <p className="text-xs font-medium text-[#2A2233]">{title}</p>
                     {price ? <p className="mt-1 text-xs text-[#6B6275]">{price}</p> : null}
                   </div>

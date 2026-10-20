@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getRenderContext } from "@/features/theme/render/load";
 import { getPagesByKind } from "@/features/storefront/server/content";
 import { formatAddress, telHref, whatsappUrl } from "@/features/storefront/store-profile";
+import { ContactPanel } from "@/features/storefront/components/contact-form";
 import { paths } from "@/features/storefront/urls";
 import { BUILTIN_TITLE_DEFAULTS } from "@/features/theme/schema/site";
 
@@ -56,6 +57,7 @@ export default async function ContactPage({ params }: PageProps<"/store/[host]/c
           </div>
         ) : null}
       </dl>
+      <ContactPanel storeName={s.name} address={s.address} />
       {[...contactPages, ...policies].length ? (
         <ul className="flex flex-wrap gap-2">
           {[...contactPages, ...policies].map((p) => (

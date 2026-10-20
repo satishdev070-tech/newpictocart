@@ -93,7 +93,7 @@ export function QuizScreen({
               </button>
             ))}
           </div>
-          <button type="button" onClick={() => setMore((v) => !v)} className="text-sm text-[#7C5AA6] underline">
+          <button type="button" onClick={() => setMore((v) => !v)} className="text-sm text-[#C2410C] underline">
             {more ? c.quiz.less : c.quiz.more}
           </button>
         </Question>

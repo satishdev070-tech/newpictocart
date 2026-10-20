@@ -27,6 +27,57 @@ export function aiOutputSchema(types: readonly SectionType[]) {
   return z.object({ type: z.enum(types as [SectionType, ...SectionType[]]), settings: z.record(z.string(), z.unknown()).default({}) });
 }
 
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Exclusive end index of the object that opens at `start`, ignoring braces inside strings. */
+function jsonObjectEnd(text: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i]!;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === "\\") escaped = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      continue;
+    }
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return -1;
+}
+
+/**
+ * First JSON object in a model reply (prose and code fences are ignored). `type` must be a
+ * non-empty string. `settings` must be an object, otherwise {}. Null when nothing usable is present.
+ */
+export function parseSectionJson(text: string): { type: string; settings: Record<string, unknown> } | null {
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== "{") continue;
+    const end = jsonObjectEnd(text, i);
+    if (end < 0) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text.slice(i, end));
+    } catch {
+      continue;
+    }
+    if (!isObj(parsed) || typeof parsed.type !== "string") continue;
+    const type = parsed.type.trim();
+    if (!type) continue;
+    return { type, settings: isObj(parsed.settings) ? parsed.settings : {} };
+  }
+  return null;
+}
+
 /** Field kinds the model never fills (ids, uploads, catalog pickers). */
 const SKIP = new Set<EditorField["kind"]>(["image", "video", "picker", "multiPicker", "tags"]);
 
@@ -98,8 +149,6 @@ export function retryPrompt(p: Prompt, issues: string[]): Prompt {
 // -----------------------------------------------------------------------------
 // Sanitising
 // -----------------------------------------------------------------------------
-
-const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** Keep only known keys; media → ""; skipped kinds (ids, pickers, tags) dropped so defaults apply. */
 function filterValues(fields: readonly EditorField[], raw: Record<string, unknown>): Record<string, unknown> {

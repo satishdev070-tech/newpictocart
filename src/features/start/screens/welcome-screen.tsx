@@ -23,7 +23,7 @@ const FLOATING = [
     meta: "From your shelf to the web",
     rotate: "5deg",
     pos: "left-[4%] bottom-[14%] hidden lg:block",
-    grad: "from-[#A78BFA] to-[#F97316]",
+    grad: "from-[#FDBA74] to-[#C2410C]",
   },
 ] as const;
 
@@ -47,8 +47,8 @@ export function WelcomeScreen({ locale, onBegin }: { locale: string; onBegin: ()
         </div>
       ))}
       <div className="relative size-24">
-        <div className="absolute -inset-6 rounded-full bg-[conic-gradient(from_0deg,#FFB98A,#E9C6FF,#B9DCFF,#FFB98A)] opacity-75 blur-[22px] motion-safe:animate-[startSpin_12s_linear_infinite]" />
-        <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_35%_30%,#fff_0,#FFE3CF_22%,#FDA872_55%,#C084FC_100%)] shadow-[inset_-10px_-16px_36px_rgba(120,60,200,0.35),0_20px_60px_-10px_rgba(249,115,22,0.45)] motion-safe:animate-[startBreathe_4s_ease-in-out_infinite]" />
+        <div className="absolute -inset-6 rounded-full bg-[conic-gradient(from_0deg,#FFB98A,#FDBA74,#FFE8D2,#FFB98A)] opacity-75 blur-[22px] motion-safe:animate-[startSpin_12s_linear_infinite]" />
+        <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_35%_30%,#fff_0,#FFE3CF_22%,#FDA872_55%,#F97316_100%)] shadow-[inset_-10px_-16px_36px_rgba(194,65,12,0.28),0_20px_60px_-10px_rgba(249,115,22,0.45)] motion-safe:animate-[startBreathe_4s_ease-in-out_infinite]" />
       </div>
       <h1 className="max-w-xl font-brand text-4xl font-normal leading-[1.1] tracking-tight text-balance sm:text-6xl lg:text-7xl">
         {c.welcome.headline}

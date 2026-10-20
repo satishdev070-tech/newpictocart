@@ -279,6 +279,102 @@ async function ensureBlogs(tenantId: string, userId: string, plan: ReadyStorePla
   return { ids, skipped };
 }
 
+function paragraphBlocks(texts: string[]): { type: "paragraph"; text: string }[] {
+  return texts.map((text) => ({ type: "paragraph", text }));
+}
+
+/** Story text → paragraph blocks. Blank story uses the independent-store fallback. */
+function aboutBlocks(story: string, storeName: string): { type: "paragraph"; text: string }[] {
+  const cleaned = story.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim();
+  const parts = cleaned
+    .split(/\n\s*\n/)
+    .map((part) => part.trim().slice(0, 5000))
+    .filter((part) => part.length > 0);
+  return paragraphBlocks(parts.length > 0 ? parts : [`${storeName} is an independent store.`]);
+}
+
+function contactBlocks(storeName: string): { type: "paragraph"; text: string }[] {
+  return paragraphBlocks([`Send a message and ${storeName} will get back to you.`.slice(0, 5000)]);
+}
+
+/**
+ * Publishes About and Contact when those slugs are missing. The contact form is rendered by the
+ * storefront, so the contact page body is only a short invitation paragraph. Insert failures are
+ * logged and do not abort store creation.
+ */
+export async function ensureInfoPages(tenantId: string, storeName: string, story: string): Promise<void> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: existing, error } = await supabase.from("pages").select("slug").eq("tenant_id", tenantId).in("slug", ["about", "contact"]);
+    if (error) throw mapDbError(error);
+    const have = new Set((existing ?? []).map((row) => row.slug));
+    const now = new Date().toISOString();
+    const name = storeName.trim() || "This store";
+    const rows: {
+      tenant_id: string;
+      title: string;
+      slug: string;
+      kind: string;
+      status: string;
+      published_at: string;
+      body: Json;
+      seo: Json;
+    }[] = [];
+    if (!have.has("about")) {
+      const body = aboutBlocks(story, name);
+      rows.push({
+        tenant_id: tenantId,
+        title: "About",
+        slug: "about",
+        kind: "about",
+        status: "published",
+        published_at: now,
+        body: body as unknown as Json,
+        seo: { title: `About ${name}`.slice(0, 120), description: body[0]!.text.slice(0, 320) },
+      });
+    }
+    if (!have.has("contact")) {
+      const body = contactBlocks(name);
+      rows.push({
+        tenant_id: tenantId,
+        title: "Contact",
+        slug: "contact",
+        kind: "contact",
+        status: "published",
+        published_at: now,
+        body: body as unknown as Json,
+        seo: { title: `Contact ${name}`.slice(0, 120), description: body[0]!.text.slice(0, 320) },
+      });
+    }
+    if (rows.length === 0) return;
+    const { error: insertError } = await supabase.from("pages").insert(rows);
+    if (insertError) {
+      logger.warn("onboarding.seed_pages_skipped", { tenantId, code: insertError.code, message: insertError.message.slice(0, 200) });
+    }
+  } catch (err) {
+    logger.warn("onboarding.seed_pages_skipped", {
+      tenantId,
+      message: err instanceof Error ? err.message.slice(0, 200) : "unknown",
+    });
+  }
+}
+
+/** Backfill path: the plan is gone, so About uses the saved store name and description. */
+async function ensureInfoPagesFromStore(tenantId: string): Promise<void> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.from("stores").select("name, description").eq("tenant_id", tenantId).maybeSingle();
+    if (error) throw mapDbError(error);
+    const storeName = data?.name?.trim() || "This store";
+    await ensureInfoPages(tenantId, storeName, data?.description?.trim() ?? "");
+  } catch (err) {
+    logger.warn("onboarding.seed_pages_skipped", {
+      tenantId,
+      message: err instanceof Error ? err.message.slice(0, 200) : "unknown",
+    });
+  }
+}
+
 async function updateStoreSeo(tenantId: string, plan: ReadyStorePlan, storeName: string): Promise<void> {
   const supabase = await createSupabaseServerClient();
   const { data: current, error } = await supabase.from("stores").select("seo, tagline, description").eq("tenant_id", tenantId).maybeSingle();
@@ -447,6 +543,9 @@ async function publishSeededTheme(tenantId: string): Promise<void> {
  * collection, and blog already has a photo. A download failure does not throw.
  */
 export async function backfillSeedImages(ctx: TenantContext, industry: string): Promise<void> {
+  // Runs on the already-seeded path and when /start skips a fresh seed, including stores whose
+  // photos are already attached (the image step returns early in that case).
+  await ensureInfoPagesFromStore(ctx.tenantId);
   try {
     const paths = await seedCatalogueImages({ tenantId: ctx.tenantId, userId: ctx.user.id, industry });
     if (!paths.attached) return;
@@ -471,6 +570,7 @@ export async function persistReadyStore(
   const prods = await ensureProducts(ctx.tenantId, args.industry, args.plan, args.storeName, cats.ids);
   const menu = await ensureMenu(ctx.tenantId, args.plan, cats.ids);
   await updateStoreSeo(ctx.tenantId, args.plan, args.storeName);
+  await ensureInfoPages(ctx.tenantId, args.storeName, args.plan.story);
   const blogs = await ensureBlogs(ctx.tenantId, ctx.user.id, args.plan);
   const ids = { categories: cats.ids, collections: cols.ids, products: prods.ids };
   const imagePaths = await seedCatalogueImages({

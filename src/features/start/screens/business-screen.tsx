@@ -61,7 +61,7 @@ export function BusinessScreen({
           <label className="block text-sm font-medium">
             <span className="flex items-center justify-between">
               {c.business.tagline}
-              <button type="button" onClick={() => void writeTagline()} className="text-xs font-semibold text-[#7C5AA6]">
+              <button type="button" onClick={() => void writeTagline()} className="text-xs font-semibold text-[#C2410C]">
                 {c.business.writeAi}
               </button>
             </span>

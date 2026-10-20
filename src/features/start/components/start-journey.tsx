@@ -63,6 +63,7 @@ export function StartJourney({
   const finalize = useCallback(() => {
     if (!draft || finalizing.current || draft.result) return;
     finalizing.current = true;
+    setFinalizeState(null);
     const fd = new FormData();
     fd.set("draftJson", JSON.stringify(draft));
     void finalizeStartDraftAction(null, fd).then((res) => {
@@ -115,6 +116,7 @@ export function StartJourney({
   const finishMessage = finalizeState && !finalizeState.ok;
   const screen = draft.screen;
   const split = ["business", "products", "mood", "account"].includes(screen);
+  const openingStore = signedIn && !draft.result && !finishMessage && draftReadyToFinalize(draft) && (screen === "account" || screen === "building");
 
   function syncVoiceToBusiness(facts: VoiceFacts) {
     if (!draft) return;
@@ -130,14 +132,14 @@ export function StartJourney({
     });
   }
 
-  const shell = (children: React.ReactNode, opts?: { back?: boolean; layout?: "center" | "split" }) => (
+  const shell = (children: React.ReactNode, opts?: { back?: boolean; layout?: "center" | "split"; backTo?: StartScreen; screen?: StartScreen }) => (
     <StartShell
       draft={draft}
-      screen={screen}
+      screen={opts?.screen ?? screen}
       logo={logo}
       voiceEnabled={voiceEnabled}
       onVoiceToggle={() => setVoiceEnabled((v) => !v)}
-      onBack={opts?.back ? () => { const t = backTarget(screen, draft.path, draft.voice.mode); if (t) go(t); } : undefined}
+      onBack={opts?.back ? () => { const t = backTarget(opts.backTo ?? screen, draft.path, draft.voice.mode); if (t) go(t); } : undefined}
       onLangClick={() => go("lang")}
       layout={opts?.layout ?? (split ? "split" : "center")}
     >
@@ -298,7 +300,7 @@ export function StartJourney({
     );
   }
 
-  if (screen === "building") {
+  if (!finishMessage && (screen === "building" || openingStore)) {
     return shell(
       <BuildingScreen
         draft={draft}
@@ -308,11 +310,11 @@ export function StartJourney({
           else if (!signedIn) go("account");
         }}
       />,
-      { back: true },
+      { back: !openingStore, layout: "center" },
     );
   }
 
-  if (screen === "account") {
+  if (screen === "account" || (screen === "building" && finishMessage)) {
     return shell(
       <>
         <AccountScreen draft={draft} rootDomain={rootDomain} googleAvailable={googleAvailable} />
@@ -328,7 +330,7 @@ export function StartJourney({
           </div>
         ) : null}
       </>,
-      { back: true, layout: "split" },
+      { back: true, layout: "split", backTo: finishMessage ? "building" : "account", screen: "account" },
     );
   }
 

@@ -158,7 +158,7 @@ export function VoiceScreen({
         <div className="max-h-80 space-y-2 overflow-y-auto rounded-2xl border border-white/90 bg-white/70 p-4 text-sm">
           {turns.length ? (
             turns.map((turn, i) => (
-              <p key={`${turn.role}-${i}`} className={turn.role === "tara" ? "text-[#7C5AA6]" : "text-[#2A2233]"}>
+              <p key={`${turn.role}-${i}`} className={turn.role === "tara" ? "text-[#C2410C]" : "text-[#2A2233]"}>
                 <span className="font-semibold">{turn.role === "tara" ? "Tara" : "You"}: </span>
                 {turn.text}
               </p>
@@ -175,7 +175,7 @@ export function VoiceScreen({
             </ul>
           ) : null}
         </div>
-        <button type="button" onClick={onManual} className="text-sm text-[#7C5AA6] underline">
+        <button type="button" onClick={onManual} className="text-sm text-[#C2410C] underline">
           {c.switchManual}
         </button>
       </div>
@@ -185,7 +185,7 @@ export function VoiceScreen({
           {Array.from({ length: 12 }).map((_, i) => (
             <span
               key={i}
-              className={cn("w-1 rounded-full bg-linear-to-t from-[#F97316] to-[#C084FC]", recording ? "animate-pulse" : "opacity-40")}
+              className={cn("w-1 rounded-full bg-linear-to-t from-[#FDBA74] to-[#F97316]", recording ? "animate-pulse" : "opacity-40")}
               style={{ height: `${12 + (i % 4) * 6}px` }}
             />
           ))}

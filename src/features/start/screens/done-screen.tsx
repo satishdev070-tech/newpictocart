@@ -44,7 +44,7 @@ export function DoneScreen({
             style={{
               left: `${(i * 17) % 100}%`,
               top: `${(i * 23) % 100}%`,
-              background: ["#F97316", "#C084FC", "#22C55E", "#3B82F6"][i % 4],
+              background: ["#F97316", "#FB923C", "#22C55E", "#FDBA74"][i % 4],
               transform: `rotate(${i * 15}deg)`,
             }}
           />
@@ -81,7 +81,7 @@ export function DoneScreen({
             {c.done.dashboard}
           </button>
         </div>
-        <Link href="/start" onClick={() => clearStartDraftStorage()} className="text-sm text-[#7C5AA6] underline">
+        <Link href="/start" onClick={() => clearStartDraftStorage()} className="text-sm text-[#C2410C] underline">
           {c.done.tryLook}
         </Link>
       </div>
