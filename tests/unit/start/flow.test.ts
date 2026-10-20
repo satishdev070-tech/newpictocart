@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { progressFor } from "@/features/start/flow";
+import { backTarget, progressFor } from "@/features/start/flow";
 import { emptyStartDraft } from "@/features/start/draft/schema";
 
 describe("start flow progress", () => {
@@ -26,5 +26,14 @@ describe("start flow progress", () => {
 
   it("hides progress on welcome", () => {
     expect(progressFor("welcome", null, "en-IN").overall).toBeNull();
+  });
+
+  it("treats the quiz as the AI step and returns to it from building", () => {
+    expect(progressFor("quiz", "ai", "en-IN").overall).toBe("Step 5 of 6");
+    expect(progressFor("quiz", "ai", "hi-IN").overall).toBe("चरण 5 / 6");
+    expect(backTarget("quiz", "ai", "quiz")).toBe("voice");
+    expect(backTarget("building", "ai", "quiz")).toBe("quiz");
+    expect(backTarget("building", "ai", "talk")).toBe("voice");
+    expect(backTarget("building", "manual")).toBe("payment");
   });
 });

@@ -27,7 +27,7 @@ export function MerchantAside({ mode }: { mode: "login" | "register" }) {
   return (
     <>
       <BrandLogo />
-      <div className="max-w-xl py-8 xl:py-10">
+      <div className="max-w-xl">
         <p className="mb-5 inline-flex rounded-full border border-brand/15 bg-white/75 px-3 py-1 text-caption font-semibold tracking-wide text-brand-ink shadow-xs">
           Built for independent businesses
         </p>
@@ -49,7 +49,7 @@ export function MerchantAside({ mode }: { mode: "login" | "register" }) {
         </ul>
       </div>
       {ASIDE_THEME ? (
-        <div className="hidden w-full max-w-xl self-start overflow-hidden rounded-brand-lg border border-white/80 bg-white p-1.5 shadow-brand-float [@media(min-height:1024px)]:block" aria-hidden>
+        <div className="mt-auto hidden w-full max-w-xl self-start overflow-hidden rounded-brand-lg border border-white/80 bg-white p-1.5 shadow-brand-float [@media(min-height:1024px)]:block" aria-hidden>
           <ThemeMockup preset={ASIDE_THEME.preset} name={ASIDE_THEME.name.split(" ")[0]!} />
         </div>
       ) : null}

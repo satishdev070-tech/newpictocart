@@ -51,7 +51,7 @@ export function StartShell({
               width={logo.width ?? undefined}
               height={logo.height ?? undefined}
               alt={logo.name}
-              className="h-8 max-w-[140px] w-auto object-contain object-left sm:h-10"
+              className="h-10 max-w-[220px] w-auto object-contain object-left sm:h-12"
             />
           </Link>
         </div>
@@ -77,7 +77,7 @@ export function StartShell({
           <div className="flex w-full max-w-md items-center gap-3 sm:mx-auto">
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#2A2233]/8">
               <div
-                className="h-full rounded-full bg-linear-to-r from-[#C084FC] to-[#F97316] transition-[width] duration-500"
+                className="h-full rounded-full bg-linear-to-r from-[#FB923C] to-[#F97316] transition-[width] duration-500"
                 style={{ width: `${progress.percent}%` }}
               />
             </div>
@@ -97,8 +97,8 @@ export function BackgroundBlobs() {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       <div className="absolute -left-40 -top-48 size-[680px] rounded-full bg-[#FFCFA8] opacity-85 blur-[90px] motion-safe:animate-[startDrift_18s_ease-in-out_infinite]" />
-      <div className="absolute -right-40 top-28 size-[620px] rounded-full bg-[#E3D0FF] opacity-85 blur-[90px] motion-safe:animate-[startDrift_22s_ease-in-out_infinite_reverse]" />
-      <div className="absolute bottom-[-320px] left-[20%] h-[520px] w-[700px] rounded-full bg-[#CDE5FF] opacity-90 blur-[100px]" />
+      <div className="absolute -right-40 top-28 size-[620px] rounded-full bg-[#FFD7B0] opacity-85 blur-[90px] motion-safe:animate-[startDrift_22s_ease-in-out_infinite_reverse]" />
+      <div className="absolute bottom-[-320px] left-[20%] h-[520px] w-[700px] rounded-full bg-[#FFE8D2] opacity-90 blur-[100px]" />
     </div>
   );
 }

@@ -30,6 +30,29 @@ export type StartCopy = {
     continueManual: string;
     typePlaceholder: string;
     send: string;
+    micDenied: string;
+    micUnsupported: string;
+    thinking: string;
+  };
+  quiz: {
+    step: (n: number, total: number) => string;
+    nameTitle: string;
+    nameHint: string;
+    categoryTitle: string;
+    more: string;
+    less: string;
+    siteTitle: string;
+    storeTitle: string;
+    storeDesc: string;
+    siteInfoTitle: string;
+    siteInfoDesc: string;
+    cityTitle: string;
+    cityHint: string;
+    taglineTitle: string;
+    taglineHint: string;
+    skip: string;
+    next: string;
+    finish: string;
   };
   business: {
     title: string;
@@ -79,6 +102,20 @@ export type StartCopy = {
     orEmail: string;
     create: string;
     checkEmail: string;
+    name: string;
+    email: string;
+    password: string;
+    passwordHint: string;
+    signInSubmit: string;
+    sendCode: string;
+    codeLabel: string;
+    codeHint: string;
+    codeSubmit: string;
+    codeSent: string;
+    agree: string;
+    terms: string;
+    and: string;
+    privacy: string;
   };
   done: {
     badge: string;
@@ -148,6 +185,29 @@ const EN: StartCopy = {
     continueManual: "Continue with manual setup",
     typePlaceholder: "Type your answer…",
     send: "Send",
+    micDenied: "Allow the microphone to talk with Tara, or type your answer.",
+    micUnsupported: "This browser can't record audio. Type your answer instead.",
+    thinking: "Tara is listening…",
+  },
+  quiz: {
+    step: (n, total) => `Question ${n} of ${total}`,
+    nameTitle: "What is your store called?",
+    nameHint: "e.g. Kia Garments",
+    categoryTitle: "What do you sell?",
+    more: "More categories",
+    less: "Fewer categories",
+    siteTitle: "What should we build?",
+    storeTitle: "Online store",
+    storeDesc: "A shop with a cart, checkout and orders.",
+    siteInfoTitle: "Business website",
+    siteInfoDesc: "A site where people learn about you and get in touch.",
+    cityTitle: "Which city are you in?",
+    cityHint: "e.g. Jaipur",
+    taglineTitle: "A short line for your store?",
+    taglineHint: "e.g. Handloom from the family workshop",
+    skip: "Skip",
+    next: "Next",
+    finish: "Build my store →",
   },
   business: {
     title: "Tell us about your ",
@@ -212,6 +272,20 @@ const EN: StartCopy = {
     orEmail: "Or with email",
     create: "Create account and go live →",
     checkEmail: "Check your email to confirm, then return here — your draft is saved.",
+    name: "Full name",
+    email: "Email",
+    password: "Password",
+    passwordHint: "Use 10+ characters with a letter and a number.",
+    signInSubmit: "Sign in",
+    sendCode: "Email me a code",
+    codeLabel: "Email code",
+    codeHint: "Enter the 6-digit code we emailed you.",
+    codeSubmit: "Confirm and continue",
+    codeSent: "We sent a code to your email.",
+    agree: "By continuing you agree to the",
+    terms: "Terms",
+    and: "and",
+    privacy: "Privacy Policy",
   },
   done: {
     badge: "Your store is live",
@@ -286,6 +360,29 @@ const HI: StartCopy = {
     continueManual: "मैन्युअल सेटअप जारी रखें",
     typePlaceholder: "अपना जवाब लिखें…",
     send: "भेजें",
+    micDenied: "तारा से बात करने के लिए माइक्रोफ़ोन की अनुमति दें, या जवाब लिखें।",
+    micUnsupported: "यह ब्राउज़र आवाज़ रिकॉर्ड नहीं कर सकता। जवाब लिखें।",
+    thinking: "तारा सुन रही है…",
+  },
+  quiz: {
+    step: (n, total) => `सवाल ${n} / ${total}`,
+    nameTitle: "आपकी दुकान का नाम क्या है?",
+    nameHint: "जैसे Kia Garments",
+    categoryTitle: "आप क्या बेचते हैं?",
+    more: "और कैटेगरी",
+    less: "कम कैटेगरी",
+    siteTitle: "हम क्या बनाएँ?",
+    storeTitle: "ऑनलाइन दुकान",
+    storeDesc: "कार्ट, चेकआउट और ऑर्डर वाली दुकान।",
+    siteInfoTitle: "बिज़नेस वेबसाइट",
+    siteInfoDesc: "जहाँ लोग आपके बारे में जानें और संपर्क करें।",
+    cityTitle: "आप किस शहर में हैं?",
+    cityHint: "जैसे जयपुर",
+    taglineTitle: "दुकान के लिए एक छोटी लाइन?",
+    taglineHint: "जैसे घर के करघे का हाथ का कपड़ा",
+    skip: "छोड़ें",
+    next: "आगे",
+    finish: "दुकान बनाएँ →",
   },
   business: {
     title: "अपने ",
@@ -350,6 +447,20 @@ const HI: StartCopy = {
     orEmail: "या ईमेल से",
     create: "अकाउंट बनाएं और लाइव करें →",
     checkEmail: "ईमेल कन्फर्म करें, फिर यहाँ वापस आएँ — ड्राफ्ट सुरक्षित है।",
+    name: "पूरा नाम",
+    email: "ईमेल",
+    password: "पासवर्ड",
+    passwordHint: "10+ अक्षर, एक अक्षर और एक नंबर।",
+    signInSubmit: "साइन इन",
+    sendCode: "कोड ईमेल करें",
+    codeLabel: "ईमेल कोड",
+    codeHint: "ईमेल में आया 6 अंकों का कोड लिखें।",
+    codeSubmit: "कन्फर्म करें और आगे बढ़ें",
+    codeSent: "हमने आपके ईमेल पर कोड भेज दिया है।",
+    agree: "आगे बढ़कर आप सहमत होते हैं",
+    terms: "नियम",
+    and: "और",
+    privacy: "गोपनीयता नीति",
   },
   done: {
     badge: "आपकी दुकान लाइव है",

@@ -19,6 +19,21 @@ describe("ready-store seed counts", () => {
     expect(plan.story).toContain("Rajasthan");
   });
 
+  it("keeps a long seller brief inside theme field limits", () => {
+    const brief = "Handloom cotton from Rajasthan. ".repeat(80);
+    const plan = buildFallbackReadyStorePlan({
+      storeName: "Kia Garments",
+      industry: "fashion",
+      brief,
+    });
+    expect(readyStorePlanSchema.safeParse(plan).success).toBe(true);
+    expect(plan.story.length).toBeLessThanOrEqual(1500);
+    for (const slide of plan.hero.slides) {
+      expect(slide.subheading.length).toBeLessThanOrEqual(240);
+      expect(slide.heading.length).toBeLessThanOrEqual(120);
+    }
+  });
+
   it("every product categorySlug exists on the fallback plan", () => {
     const plan = buildFallbackReadyStorePlan({
       storeName: "Loom & Thread",

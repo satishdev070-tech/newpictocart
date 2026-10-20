@@ -2,18 +2,92 @@
 
 import { getPublicPlatformConfig } from "@/features/platform/server/public-config";
 import { redirect } from "next/navigation";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { runAction, type ActionResult } from "@/lib/actions/result";
 import { formToObject } from "@/lib/actions/form";
 import { parseInput } from "@/lib/validation/common";
 import { AppError } from "@/lib/errors";
+import { resolveEmailProvider } from "@/lib/email/send";
+import { serverEnv } from "@/lib/env/server";
+import { publicEnv } from "@/lib/env/public";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
+import { logger } from "@/lib/observability/logger";
 import { clientIpKey, rateLimit } from "@/lib/rate-limit";
 import { platformOrigin } from "@/lib/platform/urls";
 import { ADMIN_LOGIN_PATH, SELLER_LOGIN_PATH, landingPathFor } from "@/lib/auth/landing";
 import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
 import { isStartIntentId } from "@/features/start/intents";
-import { forgotSchema, resetSchema, signInSchema, signUpSchema } from "./schemas";
+import { isConfirmationEmailFailure, shouldConfirmWithoutEmail, signupFailureMessage } from "./signup-errors";
+import { forgotSchema, resetSchema, signInSchema, signUpSchema, startEmailCodeSchema, verifyStartCodeSchema } from "./schemas";
+
+type SignupIdentity = {
+  email: string;
+  password: string;
+  displayName: string;
+  storeName?: string;
+  plan?: string;
+  theme?: string;
+  lang: string | null;
+  intent: string | null;
+};
+
+function accountAlreadyExists(code: string | undefined, message: string): boolean {
+  const codeL = (code ?? "").toLowerCase();
+  const text = message.toLowerCase();
+  return codeL === "email_exists" || codeL === "user_already_exists" || text.includes("already") || text.includes("registered");
+}
+
+/**
+ * When signup failed only because the confirmation email could not be sent, create (or confirm)
+ * the user and sign them in with the password they just chose. An existing password is never replaced.
+ * Production with a working provider configured still refuses this path.
+ */
+async function signInWithoutEmailProvider(input: SignupIdentity): Promise<"signed-in" | "exists" | "failed"> {
+  const provider = await resolveEmailProvider();
+  const allow = shouldConfirmWithoutEmail(Boolean(provider.apiKey), serverEnv().NODE_ENV, publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN);
+  if (!allow) return "failed";
+  logger.warn("auth.signup_email_skipped", { reason: provider.apiKey ? "provider_failed" : "provider_missing" });
+  const admin = createSupabaseAdminClient();
+  const metadata = {
+    display_name: input.displayName,
+    store_name: input.storeName ?? null,
+    requested_plan: input.plan ?? null,
+    requested_theme: input.theme ?? null,
+    onboarding_locale: input.lang,
+    onboarding_intent: input.intent,
+  };
+  const created = await admin.auth.admin.createUser({
+    email: input.email,
+    password: input.password,
+    email_confirm: true,
+    user_metadata: metadata,
+  });
+  if (created.error && !accountAlreadyExists(created.error.code, created.error.message)) {
+    logger.warn("auth.signup_confirm_failed", { code: created.error.code ?? null, detail: created.error.message.slice(0, 160) });
+    return "failed";
+  }
+  if (created.error) {
+    const found = await admin.auth.admin.generateLink({ type: "magiclink", email: input.email });
+    const userId = found.data?.user?.id;
+    if (!userId) {
+      logger.warn("auth.signup_confirm_lookup_failed", { code: found.error?.code ?? null });
+      return "failed";
+    }
+    const updated = await admin.auth.admin.updateUserById(userId, { email_confirm: true });
+    if (updated.error) {
+      logger.warn("auth.signup_confirm_update_failed", { code: updated.error.code ?? null, detail: updated.error.message.slice(0, 160) });
+      return "failed";
+    }
+  }
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithPassword({ email: input.email, password: input.password });
+  if (error) {
+    logger.warn("auth.signup_confirm_signin_failed", { code: error.code ?? null, detail: error.message.slice(0, 160) });
+    return created.error ? "exists" : "failed";
+  }
+  return "signed-in";
+}
 
 export async function signInAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   let next = "/dashboard";
@@ -65,15 +139,100 @@ export async function signUpAction(_prev: ActionResult<{ needsConfirmation: bool
       },
     });
     if (error) {
-      throw new AppError("VALIDATION", { fieldErrors: { _form: [error.message.includes("registered") ? "An account with this email already exists." : "Couldn't create your account. Please try again."] } });
+      logger.warn("auth.signup_failed", { code: error.code ?? null, detail: error.message.slice(0, 180) });
+      if (isConfirmationEmailFailure(error.code, error.message)) {
+        const recovered = await signInWithoutEmailProvider({
+          email: input.email,
+          password: input.password,
+          displayName: input.displayName,
+          storeName: input.storeName,
+          plan: input.plan,
+          theme: input.theme,
+          lang,
+          intent,
+        });
+        if (recovered === "signed-in") {
+          confirmed = true;
+          if (!input.next) next = onboarding;
+          return { needsConfirmation: false };
+        }
+        if (recovered === "exists") {
+          throw new AppError("VALIDATION", { fieldErrors: { _form: ["An account with this email already exists."] } });
+        }
+      }
+      throw new AppError("VALIDATION", { fieldErrors: { _form: [signupFailureMessage(error.code, error.message)] } });
     }
     confirmed = Boolean(data.session);
     // Signed in straight away (email confirmation off): continue to onboarding, where the seller
     // confirms the store address, category, theme and plan before the (draft) store is created.
     if (data.session && !input.next) next = onboarding;
+    if (!data.session && data.user) {
+      const provider = await resolveEmailProvider();
+      if (!provider.apiKey) {
+        const admin = createSupabaseAdminClient();
+        const updated = await admin.auth.admin.updateUserById(data.user.id, { email_confirm: true });
+        if (!updated.error) {
+          const signed = await supabase.auth.signInWithPassword({ email: input.email, password: input.password });
+          if (!signed.error && signed.data.session) {
+            confirmed = true;
+            if (!input.next) next = onboarding;
+            return { needsConfirmation: false };
+          }
+        }
+      }
+    }
     return { needsConfirmation: !data.session };
   });
   if (result.ok && confirmed) redirect(next);
+  return result;
+}
+
+/** Email a one-time code that creates the merchant account when it does not exist yet. */
+export async function requestStartEmailCodeAction(
+  _prev: ActionResult<{ email: string }> | null,
+  fd: FormData,
+): Promise<ActionResult<{ email: string }>> {
+  return runAction("auth.startEmailCode", async () => {
+    const input = parseInput(startEmailCodeSchema, formToObject(fd));
+    await rateLimit("start-otp:ip", await clientIpKey(), 10, 3600);
+    await rateLimit("start-otp:email", input.email, 5, 3600);
+    const lang = input.lang && isSarvamLocaleCode(input.lang) ? input.lang : null;
+    const intent = input.intent && isStartIntentId(input.intent) ? input.intent : null;
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email: input.email,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${platformOrigin()}/auth/callback?next=${encodeURIComponent(safeRedirectPath(input.next, "/start"))}`,
+        data: {
+          display_name: input.displayName?.trim() || null,
+          store_name: input.storeName ?? null,
+          requested_plan: input.plan ?? null,
+          requested_theme: input.theme ?? null,
+          onboarding_locale: lang,
+          onboarding_intent: intent,
+        },
+      },
+    });
+    if (error) {
+      throw new AppError("VALIDATION", { fieldErrors: { _form: ["Couldn't send a code. Try again in a moment."] } });
+    }
+    return { email: input.email };
+  });
+}
+
+/** Confirm the emailed code and return to /start with a verified session. */
+export async function verifyStartEmailCodeAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  let next = "/start";
+  const result = await runAction("auth.verifyStartCode", async () => {
+    const input = parseInput(verifyStartCodeSchema, formToObject(fd));
+    next = safeRedirectPath(input.next, "/start");
+    await rateLimit("start-otp-verify:email", input.email, 10, 600);
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.auth.verifyOtp({ email: input.email, token: input.token, type: input.type });
+    if (error) throw new AppError("VALIDATION", { fieldErrors: { token: ["That code is invalid or has expired."] } });
+  });
+  if (result.ok) redirect(next);
   return result;
 }
 

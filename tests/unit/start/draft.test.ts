@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyStartDraft, parseStartDraft, START_DRAFT_STORAGE_KEY } from "@/features/start/draft/schema";
+import { startPreviewHost } from "@/features/start/components/live-preview";
+import { storefrontPreviewUrl } from "@/lib/platform/urls";
 
 describe("start draft schema", () => {
   it("round-trips empty draft", () => {
@@ -18,5 +20,22 @@ describe("start draft schema", () => {
 
   it("exports storage key constant", () => {
     expect(START_DRAFT_STORAGE_KEY).toBe("pictocart.start.draft.v1");
+  });
+
+  it("keeps drafts saved before the conversation history field", () => {
+    const d = emptyStartDraft();
+    const stored = { ...d, voice: { facts: d.voice.facts, done: false } };
+    const again = parseStartDraft(stored);
+    expect(again?.voice.turns).toEqual([]);
+    expect(again?.voice.mode).toBe("talk");
+  });
+
+  it("loads the finished store on its own host", () => {
+    expect(storefrontPreviewUrl("kia-garments.localhost", "http://localhost:3000")).toBe("http://kia-garments.localhost:3000/");
+    expect(storefrontPreviewUrl("kia-garments.pictocart.in", "https://pictocart.in")).toBe("https://kia-garments.pictocart.in/");
+  });
+
+  it("uses the store slug in the preview address", () => {
+    expect(startPreviewHost("Radhika Jewellers", "localhost")).toBe("radhika-jewellers.localhost");
   });
 });

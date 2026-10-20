@@ -1,6 +1,16 @@
 # Implementation Status
 
-_Last updated: 2026-10-19 (cache-first /start journey)_
+_Last updated: 2026-10-20 (onboarding polish, contact, AI sections)_
+
+## Onboarding polish, contact pages, and AI sections (2026-10-20)
+
+- **Register and `/start` colour:** the seller register aside is top-aligned with the form. Onboarding screens use the logo orange (`#F97316` / `#C2410C`) for progress, buttons, and accents.
+- **Google and signed-in finish:** Continue with Google shows a spinner and “Opening Google…” while the form submits. A seller who is already signed in, with a draft ready to save, stays on the building screen until `finalizeStartDraftAction` returns, then sees Done. A failure returns to the account step with the existing toast.
+- **Manual product photos:** the product step offers four curated photos (food, fashion, furniture, handicrafts). The chosen photo shows in the form and on the live preview card. It is a local preview only; the draft product schema is unchanged.
+- **About and Contact:** `ensureInfoPages` publishes About (from the store story) and Contact when those slugs are missing. It runs from the ready-store seed and from the photo backfill, so an existing store gets the pages the next time `/start` finishes. A failed insert is logged and does not stop store creation. `/pages/contact` and `/contact` show a Google Maps search embed (no API key) and a contact form.
+- **Contact messages:** the form posts through `submitContactFormAction` (verified host, honeypot, rate limit). `submit_contact_message` is the only insert path. Staff with `content.write` read the latest 100 messages at **Content → Messages**. Apply `supabase/migrations/20261020003500_contact_messages.sql` before the form can store rows.
+- **Add with AI:** when Gemini, Groq, and Anthropic are missing or fail, `generateSectionAction` asks Sarvam for one JSON section, sanitizes it, and inserts it like any other section. One AI credit is debited before the model call and refunded only if every model fails. If Sarvam is also unset, the panel shows the existing setup sentence.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, 99 files / 1,277 tests, build). The local dev server returns `EnvValidationError` because Supabase env vars are unset, so the register, `/start`, contact, and site-builder screens were not clicked through in a browser. Apply the contact migration, then finish `/start` again so an existing store receives About and Contact.
 
 ## Cache-first `/start` journey (2026-10-19)
 
@@ -16,7 +26,11 @@ _Last updated: 2026-10-19 (cache-first /start journey)_
 - **Voice before auth:** `startVoiceTurnAction` (IP rate-limited) uses shared **`runTaraTurn`**; post-auth
   onboarding voice unchanged.
 - **Tests:** `tests/unit/start/*` (draft, flow, brief, register href) and `tests/unit/onboarding/seed-counts.test.ts`.
-- **Verification:** `pnpm check` ✅ (typecheck, lint, 96 files / 1,260 tests, build). Browser walkthrough of `/start` was not run here: this environment has no Supabase URL or publishable key, so the app cannot boot.
+- **Account step:** `/start` uses a compact sign-up / sign-in form (name, email, password, hidden store name from the draft, Google `next=/start`). Password guidance is one line of text. `Hint` renders as a `div` so richer hints on `/seller/register` stay valid HTML. The building timer runs once per visit and then finalizes or opens the account step.
+- **Tara on `/start`:** the mic asks for permission, records webm or mp4, and shows the conversation. Each turn sends the recent lines to Sarvam so Tara keeps collecting name, category, site mode, tagline, and city. The recording is uploaded with its filename beside the bytes, because Node's `File.name` cannot be assigned. **Quiz mode** asks those same facts by tapping, then continues into building. Email sign-up can be confirmed with the code from the email, or the seller can request a code instead of a password. Store setup continues if the theme or AI-credit debit fails, then publishes the seeded theme. The side panel draws the draft store and, once a slug exists, loads the store on its own host (`http://{slug}.localhost:3000` locally). Finish errors show in a toast, with Try again.
+- **Mic, signup, blank page:** `Permissions-Policy` allows `microphone=(self)` so Tara can ask for the mic (camera stays off). The Send Email hook returns success when Resend is not configured. If the confirmation email still cannot be sent, signup confirms the seller and signs them in: always when no provider is configured, and also on localhost or any non-production server when a saved Resend key fails to send. Production with a configured provider still shows the email error. `/start` paints the welcome shell immediately and replaces it with the saved draft after hydration; a bad draft falls back to welcome.
+- **Catalogue photos:** the ready-store seed copies curated photos for the store's industry into that store's media library and attaches them to products, categories, collections, blogs, and the homepage. A failed download does not stop store creation. A store that was seeded without photos gets them the next time `/start` finishes while the seller is signed in.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, 98 files / 1,273 tests, build). Browser signup was not run here: this environment has no Supabase URL. On localhost, a failed confirmation email now creates the account and signs the seller in. Pull this branch, restart `pnpm dev`, and finish `/start` again so an existing store receives its photos.
 
 ## Prototype start journey (2026-10-19, superseded routing)
 

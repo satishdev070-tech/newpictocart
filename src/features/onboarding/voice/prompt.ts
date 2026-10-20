@@ -32,12 +32,20 @@ export function taraUserPrompt(args: {
   transcript: string;
   facts: VoiceFacts;
   locale: SarvamLocaleCode;
+  history?: { role: "seller" | "tara"; text: string }[];
 }): string {
   const missing = missingFactLabels(args.facts);
+  const history = (args.history ?? [])
+    .slice(-12)
+    .map((turn) => `${turn.role === "tara" ? "Tara" : "Seller"}: ${turn.text.slice(0, 400)}`)
+    .join("\n");
   return [
     `Locale: ${args.locale}`,
     `Known facts so far: ${JSON.stringify(args.facts)}`,
     missing.length ? `Still need: ${missing.join(", ")}.` : "All required facts collected — confirm briefly and set done true.",
+    history ? `Conversation so far:\n${history}` : "",
     `Seller said: ${args.transcript}`,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

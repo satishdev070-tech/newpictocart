@@ -14,6 +14,7 @@ export const START_SCREENS = [
   "intent",
   "path",
   "voice",
+  "quiz",
   "business",
   "products",
   "mood",
@@ -32,6 +33,13 @@ const voiceFactsSchema = z.object({
   tagline: z.string().max(160).nullable(),
   city: z.string().max(80).nullable(),
 });
+
+const voiceTurnSchema = z.object({
+  role: z.enum(["seller", "tara"]),
+  text: z.string().max(800),
+});
+
+export type StartVoiceTurn = z.infer<typeof voiceTurnSchema>;
 
 const productSchema = z.object({
   id: z.string().min(1).max(40),
@@ -57,6 +65,10 @@ export const startDraftSchema = z.object({
   voice: z.object({
     facts: voiceFactsSchema,
     done: z.boolean(),
+    /** Recent Tara conversation. Missing on drafts saved before chat history existed. */
+    turns: z.array(voiceTurnSchema).max(12).optional().default([]),
+    /** How the seller is answering Tara. Missing on drafts saved before the quiz. */
+    mode: z.enum(["talk", "quiz"]).optional().default("talk"),
   }),
   business: z.object({
     name: z.string().max(120),
@@ -96,6 +108,8 @@ export function emptyStartDraft(overrides?: Partial<Pick<StartDraft, "plan" | "t
     voice: {
       facts: { name: null, category: null, siteMode: null, tagline: null, city: null },
       done: false,
+      turns: [],
+      mode: "talk",
     },
     business: {
       name: "",

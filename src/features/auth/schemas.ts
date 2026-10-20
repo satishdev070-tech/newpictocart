@@ -22,6 +22,22 @@ export const signUpSchema = z.object({
   lang: z.string().optional().catch(undefined),
   intent: z.string().optional().catch(undefined),
 });
+export const startEmailCodeSchema = z.object({
+  email,
+  displayName: z.string().trim().max(80).optional(),
+  storeName: z.string().trim().max(120).optional().transform((v) => v || undefined),
+  next: z.string().optional(),
+  plan: z.string().regex(/^[a-z0-9][a-z0-9-]{0,31}$/).optional().catch(undefined),
+  theme: z.string().regex(/^[a-z0-9-]{2,40}$/).optional().catch(undefined),
+  lang: z.string().optional().catch(undefined),
+  intent: z.string().optional().catch(undefined),
+});
+export const verifyStartCodeSchema = z.object({
+  email,
+  token: z.string().trim().regex(/^\d{6,10}$/, "Enter the code from the email"),
+  type: z.enum(["signup", "email"]),
+  next: z.string().optional(),
+});
 export const forgotSchema = z.object({ email });
 export const resetSchema = z
   .object({ password, confirm: z.string() })

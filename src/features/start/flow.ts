@@ -29,6 +29,7 @@ export function progressFor(screen: StartScreen, path: StartDraft["path"], local
     case "path":
       return { overall: step(3, 6), manual: null, percent: 50 };
     case "voice":
+    case "quiz":
       return { overall: step(5, 6), manual: null, percent: 83 };
     case "business":
       return { overall: step(4, 8), manual: manualStep(1, 4), percent: 50 };
@@ -80,18 +81,19 @@ export function nextScreenAfterPath(path: "ai" | "manual"): StartScreen {
   return path === "ai" ? "voice" : "business";
 }
 
-export function backTarget(screen: StartScreen, path: StartDraft["path"]): StartScreen | null {
+export function backTarget(screen: StartScreen, path: StartDraft["path"], voiceMode?: StartDraft["voice"]["mode"]): StartScreen | null {
   const order: Record<StartScreen, StartScreen | null> = {
     welcome: null,
     lang: "welcome",
     intent: "lang",
     path: "intent",
     voice: "path",
+    quiz: "voice",
     business: "path",
     products: "business",
     mood: "products",
     payment: "mood",
-    building: path === "ai" ? "voice" : "payment",
+    building: path === "manual" ? "payment" : voiceMode === "quiz" ? "quiz" : "voice",
     account: "building",
     done: null,
   };

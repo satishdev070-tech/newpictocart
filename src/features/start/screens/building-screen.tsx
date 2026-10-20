@@ -3,37 +3,46 @@
 import { useEffect, useRef, useState } from "react";
 import { startCopy } from "../copy";
 import { LivePreview } from "../components/live-preview";
+import type { StartDraft } from "../draft/schema";
 
 export function BuildingScreen({
-  locale,
-  host,
+  draft,
+  rootDomain,
   onComplete,
 }: {
-  locale: string;
-  host: string | null;
+  draft: StartDraft;
+  rootDomain: string;
   onComplete: () => void;
 }) {
-  const c = startCopy(locale);
+  const c = startCopy(draft.locale);
   const [step, setStep] = useState(0);
   const [pct, setPct] = useState(0);
   const doneRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  const stepCount = c.building.steps.length;
 
   useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+
+  useEffect(() => {
+    doneRef.current = false;
     const timers: number[] = [];
-    c.building.steps.forEach((_, i) => {
+    for (let i = 0; i < stepCount; i += 1) {
       timers.push(window.setTimeout(() => setStep(i), i * 600));
-    });
+    }
     const start = Date.now();
+    let finish: number | undefined;
     const tick = window.setInterval(() => {
       const elapsed = Date.now() - start;
       const p = Math.min(100, Math.round((elapsed / 3000) * 100));
       setPct(p);
       if (p >= 100) {
         window.clearInterval(tick);
-        window.setTimeout(() => {
+        finish = window.setTimeout(() => {
           if (!doneRef.current) {
             doneRef.current = true;
-            onComplete();
+            onCompleteRef.current();
           }
         }, 200);
       }
@@ -41,8 +50,9 @@ export function BuildingScreen({
     return () => {
       timers.forEach((t) => window.clearTimeout(t));
       window.clearInterval(tick);
+      if (finish !== undefined) window.clearTimeout(finish);
     };
-  }, [c.building.steps, onComplete]);
+  }, [draft.locale, stepCount]);
 
   return (
     <section className="grid gap-8 lg:grid-cols-2">
@@ -58,12 +68,12 @@ export function BuildingScreen({
         </ul>
         <div className="flex items-center gap-3">
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#2A2233]/10">
-            <div className="h-full rounded-full bg-linear-to-r from-[#C084FC] to-[#F97316] transition-all" style={{ width: `${pct}%` }} />
+            <div className="h-full rounded-full bg-linear-to-r from-[#FB923C] to-[#F97316] transition-all" style={{ width: `${pct}%` }} />
           </div>
           <span className="text-sm font-mono text-[#6B6275]">{pct}%</span>
         </div>
       </div>
-      <LivePreview locale={locale} host={host} />
+      <LivePreview locale={draft.locale} rootDomain={rootDomain} draft={draft} liveSlug={draft.result?.slug} />
     </section>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/toast";
 import { finalizeStartDraftAction } from "../actions";
 import type { ActionResult } from "@/lib/actions/result";
 import type { FinalizeStartResult } from "../actions";
@@ -10,12 +11,14 @@ import { clearStartDraftStorage, setStartDraftCookie } from "../draft/storage";
 import type { StartScreen } from "../draft/schema";
 import { draftReadyToFinalize, draftHasProgress, backTarget } from "../flow";
 import { draftStoreName } from "../draft/schema";
+import { suggestSlugFromName } from "@/features/onboarding/voice/facts";
 import { StartShell, type StartLogo } from "./start-shell";
 import { WelcomeScreen } from "../screens/welcome-screen";
 import { LangScreen } from "../screens/lang-screen";
 import { IntentScreen } from "../screens/intent-screen";
 import { PathScreen } from "../screens/path-screen";
 import { VoiceScreen } from "../screens/voice-screen";
+import { QuizScreen } from "../screens/quiz-screen";
 import { BusinessScreen } from "../screens/business-screen";
 import { ProductsScreen } from "../screens/products-screen";
 import { MoodScreen } from "../screens/mood-screen";
@@ -26,6 +29,7 @@ import { DoneScreen } from "../screens/done-screen";
 import type { StartIntentId } from "../intents";
 import type { SarvamLocaleCode } from "@/lib/sarvam/locales";
 import type { VoiceFacts } from "@/features/onboarding/voice/facts";
+import type { StartVoiceTurn } from "../draft/schema";
 import { emptyStartDraft } from "../draft/schema";
 import { mergeFacts } from "@/features/onboarding/voice/facts";
 
@@ -49,11 +53,34 @@ export function StartJourney({
   voiceReady: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const { draft, setDraft, patchDraft, hydrated } = useStartDraft({ plan, theme });
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [finalizeState, setFinalizeState] = useState<ActionResult<FinalizeStartResult> | null>(null);
   const finalizing = useRef(false);
   const routedEmpty = useRef(false);
+
+  const finalize = useCallback(() => {
+    if (!draft || finalizing.current || draft.result) return;
+    finalizing.current = true;
+    setFinalizeState(null);
+    const fd = new FormData();
+    fd.set("draftJson", JSON.stringify(draft));
+    void finalizeStartDraftAction(null, fd).then((res) => {
+      setFinalizeState(res);
+      if (res.ok) {
+        setDraft((d) => ({ ...d, result: { slug: res.data.slug, name: res.data.name }, screen: "done" }));
+      } else {
+        finalizing.current = false;
+        const message =
+          res.error.fieldErrors?._form?.[0] ??
+          (res.error.message === "Something went wrong. Please try again."
+            ? "Your account is connected, but the store could not be finished. Try again."
+            : res.error.message);
+        toast.show({ tone: "error", message });
+      }
+    });
+  }, [draft, setDraft, toast]);
 
   const go = useCallback(
     (screen: StartScreen) => {
@@ -83,30 +110,13 @@ export function StartJourney({
     const shouldFinalize =
       (draft.screen === "building" || draft.screen === "account") && draftReadyToFinalize(draft);
     if (!shouldFinalize) return;
-    finalizing.current = true;
-    const fd = new FormData();
-    fd.set("draftJson", JSON.stringify(draft));
-    void finalizeStartDraftAction(null, fd).then((res) => {
-      setFinalizeState(res);
-      if (res.ok) {
-        setDraft((d) => ({ ...d, result: { slug: res.data.slug, name: res.data.name }, screen: "done" }));
-      } else {
-        finalizing.current = false;
-      }
-    });
-  }, [hydrated, draft, signedIn, setDraft]);
+    finalize();
+  }, [hydrated, draft, signedIn, finalize]);
 
-  if (!hydrated || !draft) {
-    return <div className="min-h-dvh bg-[#FBF6F1]" />;
-  }
-
+  const finishMessage = finalizeState && !finalizeState.ok;
   const screen = draft.screen;
   const split = ["business", "products", "mood", "account"].includes(screen);
-  const previewHost = draft.result
-    ? `${draft.result.slug}.${rootDomain}`
-    : draft.business.name.trim()
-      ? `${draft.business.name.toLowerCase().replace(/[^a-z0-9]+/g, "")}.${rootDomain}`
-      : null;
+  const openingStore = signedIn && !draft.result && !finishMessage && draftReadyToFinalize(draft) && (screen === "account" || screen === "building");
 
   function syncVoiceToBusiness(facts: VoiceFacts) {
     if (!draft) return;
@@ -122,14 +132,14 @@ export function StartJourney({
     });
   }
 
-  const shell = (children: React.ReactNode, opts?: { back?: boolean; layout?: "center" | "split" }) => (
+  const shell = (children: React.ReactNode, opts?: { back?: boolean; layout?: "center" | "split"; backTo?: StartScreen; screen?: StartScreen }) => (
     <StartShell
       draft={draft}
-      screen={screen}
+      screen={opts?.screen ?? screen}
       logo={logo}
       voiceEnabled={voiceEnabled}
       onVoiceToggle={() => setVoiceEnabled((v) => !v)}
-      onBack={opts?.back ? () => { const t = backTarget(screen, draft.path); if (t) go(t); } : undefined}
+      onBack={opts?.back ? () => { const t = backTarget(opts.backTo ?? screen, draft.path, draft.voice.mode); if (t) go(t); } : undefined}
       onLangClick={() => go("lang")}
       layout={opts?.layout ?? (split ? "split" : "center")}
     >
@@ -193,9 +203,9 @@ export function StartJourney({
         draft={draft}
         voiceReady={voiceReady}
         voiceEnabled={voiceEnabled}
-        onFacts={(facts, done) => {
+        onFacts={(facts, done, turns: StartVoiceTurn[]) => {
           patchDraft({
-            voice: { facts: mergeFacts(draft.voice.facts as VoiceFacts, facts), done },
+            voice: { facts: mergeFacts(draft.voice.facts as VoiceFacts, facts), done, turns, mode: draft.voice.mode },
           });
           syncVoiceToBusiness(facts);
         }}
@@ -208,8 +218,33 @@ export function StartJourney({
           go("business");
         }}
         onQuiz={() => {
-          patchDraft({ path: "manual" });
-          go("business");
+          setDraft((d) => ({ ...d, screen: "quiz", voice: { ...d.voice, mode: "quiz" } }));
+          setStartDraftCookie();
+        }}
+      />,
+      { back: true },
+    );
+  }
+
+  if (screen === "quiz") {
+    return shell(
+      <QuizScreen
+        draft={draft}
+        onSave={(facts, done) => {
+          setDraft((d) => ({
+            ...d,
+            screen: done ? "building" : "quiz",
+            voice: { ...d.voice, facts, done: done || d.voice.done, mode: "quiz" },
+            business: {
+              ...d.business,
+              name: facts.name?.trim() || d.business.name,
+              tagline: facts.tagline?.trim() || d.business.tagline,
+              city: facts.city?.trim() || d.business.city,
+              category: facts.category ?? d.business.category,
+              siteMode: facts.siteMode ?? d.business.siteMode,
+            },
+          }));
+          if (done) setStartDraftCookie();
         }}
       />,
       { back: true },
@@ -265,50 +300,41 @@ export function StartJourney({
     );
   }
 
-  if (screen === "building") {
+  if (!finishMessage && (screen === "building" || openingStore)) {
     return shell(
       <BuildingScreen
-        locale={draft.locale}
-        host={previewHost}
+        draft={draft}
+        rootDomain={rootDomain}
         onComplete={() => {
-          if (signedIn && draftReadyToFinalize(draft)) {
-            /* finalize effect handles */
-            if (!finalizing.current) {
-              finalizing.current = true;
-              const fd = new FormData();
-              fd.set("draftJson", JSON.stringify(draft));
-              void finalizeStartDraftAction(null, fd).then((res) => {
-                setFinalizeState(res);
-                if (res.ok) {
-                  setDraft((d) => ({ ...d, result: { slug: res.data.slug, name: res.data.name }, screen: "done" }));
-                } else {
-                  finalizing.current = false;
-                  go("account");
-                }
-              });
-            }
-          } else if (!signedIn) {
-            go("account");
-          }
+          if (signedIn && draftReadyToFinalize(draft)) finalize();
+          else if (!signedIn) go("account");
         }}
       />,
-      { back: true },
+      { back: !openingStore, layout: "center" },
     );
   }
 
-  if (screen === "account") {
+  if (screen === "account" || (screen === "building" && finishMessage)) {
     return shell(
       <>
-        <AccountScreen draft={draft} rootDomain={rootDomain} googleAvailable={googleAvailable} host={previewHost} />
-        {finalizeState && !finalizeState.ok ? (
-          <p className="mt-4 text-sm text-red-600">{finalizeState.error?.message ?? "Could not finish setup. Try again after signing in."}</p>
+        <AccountScreen draft={draft} rootDomain={rootDomain} googleAvailable={googleAvailable} />
+        {finishMessage ? (
+          <div className="mt-4 space-y-3">
+            <button
+              type="button"
+              onClick={() => finalize()}
+              className="rounded-full bg-linear-to-br from-[#FB923C] to-[#F97316] px-5 py-2.5 text-sm font-semibold text-white"
+            >
+              Try again
+            </button>
+          </div>
         ) : null}
       </>,
-      { back: true, layout: "split" },
+      { back: true, layout: "split", backTo: finishMessage ? "building" : "account", screen: "account" },
     );
   }
 
-  const slug = draft.result?.slug ?? (draftStoreName(draft).toLowerCase().replace(/[^a-z0-9]+/g, "") || "store");
+  const slug = draft.result?.slug ?? (suggestSlugFromName(draftStoreName(draft)) || "store");
   return shell(
     <DoneScreen
       locale={draft.locale}

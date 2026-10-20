@@ -7,6 +7,7 @@ const TABS = [
   ["menus", "Navigation"],
   ["faqs", "FAQs"],
   ["locations", "Store locations"],
+  ["messages", "Messages"],
   ["redirects", "Redirects"],
 ] as const;
 

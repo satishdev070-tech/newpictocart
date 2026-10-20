@@ -18,8 +18,8 @@ export function AuthSplit({ variant, aside, children, back }: { variant: "mercha
     <div data-theme={merchant ? "light" : undefined} className={cn("grid min-h-dvh flex-1", merchant ? "theme-brand bg-brand-canvas lg:grid-cols-[3fr_2fr]" : "theme-console lg:grid-cols-[3fr_2fr]")}>
       {merchant ? (
         <aside className="relative hidden overflow-hidden bg-brand-soft lg:flex">
-          <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_78%_12%,rgba(249,115,22,0.20),transparent_30%),radial-gradient(circle_at_12%_88%,rgba(79,70,229,0.14),transparent_32%)]" />
-          <div className="relative z-10 flex w-full flex-col justify-between p-10 text-brand-ink xl:p-14 2xl:p-16">{aside}</div>
+          <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_78%_12%,rgba(249,115,22,0.22),transparent_34%),radial-gradient(circle_at_12%_88%,rgba(249,115,22,0.12),transparent_36%)]" />
+          <div className="relative z-10 flex w-full flex-col items-start gap-8 p-10 text-brand-ink xl:p-14 2xl:p-16">{aside}</div>
         </aside>
       ) : (
         <aside data-theme="dark" className="relative hidden overflow-hidden bg-[#080b10] lg:flex">

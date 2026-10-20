@@ -34,6 +34,8 @@ export const voiceTurnInputSchema = z.object({
   factsJson: z.string().max(4000).optional(),
   /** Optional typed message when the seller falls back from mic. */
   text: z.string().trim().max(1000).optional(),
+  /** Prior seller/Tara turns so the next reply continues the same conversation. */
+  historyJson: z.string().max(12_000).optional(),
   /** Audio blob from MediaRecorder (webm/ogg/wav). */
   audio: z.any().optional(),
 });

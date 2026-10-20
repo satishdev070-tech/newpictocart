@@ -11,6 +11,7 @@ import type { Database } from "./database.types";
  *   - verified payment/shipping webhooks after signature verification
  *   - platform (super admin) operations after an explicit platform-permission check
  *   - background jobs
+ *   - confirming a new seller only when signup failed because no email provider is configured
  *
  * Every call site must scope queries by an already-resolved tenant id and must
  * never pass through a tenant id taken from the browser. `server-only` makes any

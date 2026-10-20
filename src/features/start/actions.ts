@@ -24,8 +24,9 @@ import { minorToDb } from "@/features/settings/fields";
 import { assertEmailVerifiedForOnboarding } from "@/features/onboarding/email-gate";
 import { listOwnedStores, ownerContext } from "@/features/onboarding/server";
 import { seedReadyStore } from "@/features/onboarding/seed/pipeline";
+import { backfillSeedImages } from "@/features/onboarding/seed/persist";
 import { suggestSlugFromName } from "@/features/onboarding/voice/facts";
-import { runTaraTurn } from "@/features/onboarding/voice/turn";
+import { parseTaraHistory, runTaraTurn } from "@/features/onboarding/voice/turn";
 import { voiceTurnInputSchema } from "@/features/onboarding/voice/schemas";
 import type { VoiceTurnData } from "@/features/onboarding/voice/actions";
 import { EMPTY_FACTS, mergeFacts, mapCategoryToIndustry, mapSiteMode, type VoiceFacts } from "@/features/onboarding/voice/facts";
@@ -66,7 +67,7 @@ export async function startVoiceTurnAction(
     const locale = input.locale as SarvamLocaleCode;
     const facts = parseFactsJson(input.factsJson);
     const audio = raw.audio instanceof File ? raw.audio : null;
-    return runTaraTurn({ locale, facts, text: input.text, audio });
+    return runTaraTurn({ locale, facts, text: input.text, audio, history: parseTaraHistory(raw.historyJson) });
   });
 }
 
@@ -137,7 +138,7 @@ async function setCategory(tenantId: string, slug: string): Promise<void> {
 
 async function setSiteMode(tenantId: string, siteMode: "ecommerce" | "informative"): Promise<void> {
   const { error } = await (await createSupabaseServerClient()).from("stores").update({ site_mode: siteMode }).eq("tenant_id", tenantId);
-  if (error) throw mapDbError(error);
+  if (error) logger.warn("start.site_mode_failed", { tenantId, code: error.code });
 }
 
 function resolveSlug(name: string): string {
@@ -262,6 +263,24 @@ async function createOrResumeStore(userId: string, name: string, slug: string): 
   return { tenantId, slug };
 }
 
+function finishError(err: unknown): never {
+  const context = err instanceof AppError ? err.context : undefined;
+  logger.error("start.finalize_failed", {
+    code: err instanceof AppError ? err.code : "throw",
+    context,
+    message: err instanceof Error ? err.message.slice(0, 300) : "unknown",
+  });
+  if (err instanceof AppError) {
+    const line = err.fieldErrors?._form?.[0] ?? err.fieldErrors?.slug?.[0];
+    if (line) throw err;
+    throw new AppError(err.code === "INTERNAL" ? "VALIDATION" : err.code, {
+      fieldErrors: { _form: [err.code === "INTERNAL" ? "The store could not be finished. Try again." : err.publicMessage] },
+      context,
+    });
+  }
+  throw new AppError("VALIDATION", { fieldErrors: { _form: ["The store could not be finished. Try again."] } });
+}
+
 export type FinalizeStartResult = { slug: string; name: string };
 
 export async function finalizeStartDraftAction(
@@ -291,47 +310,52 @@ export async function finalizeStartDraftAction(
     const siteMode = draftSiteMode(draft) ?? DEFAULT_SITE_MODE;
     const slugWanted = resolveSlug(storeName);
 
-    const owned = await listOwnedStores(user.id);
     let tenantId: string;
     let slug: string;
     let name = storeName;
+    try {
+      const owned = await listOwnedStores(user.id);
+      if (owned.length > 0) {
+        const match = owned.find((s) => s.slug === slugWanted) ?? owned[0]!;
+        tenantId = match.tenantId;
+        slug = match.slug;
+        name = match.name;
+      } else {
+        const created = await createOrResumeStore(user.id, storeName, slugWanted);
+        tenantId = created.tenantId;
+        slug = created.slug;
+        await markDraft(tenantId);
+        await setCategory(tenantId, industry);
+        await setSiteMode(tenantId, siteMode);
+      }
 
-    if (owned.length > 0) {
-      const match = owned.find((s) => s.slug === slugWanted) ?? owned[0]!;
-      tenantId = match.tenantId;
-      slug = match.slug;
-      name = match.name;
-    } else {
-      const created = await createOrResumeStore(user.id, storeName, slugWanted);
-      tenantId = created.tenantId;
-      slug = created.slug;
-      await markDraft(tenantId);
-      await setCategory(tenantId, industry);
-      await setSiteMode(tenantId, siteMode);
-    }
+      const ctx = await ownerContext(user, tenantId);
+      if (!ctx) throw new AppError("FORBIDDEN", { fieldErrors: { _form: ["You don't have permission to finish this store."] } });
 
-    const ctx = await ownerContext(user, tenantId);
-    if (!ctx) throw new AppError("FORBIDDEN");
+      if (owned.length === 0 || !(await shouldSkipSeed(tenantId))) {
+        await setCategory(tenantId, industry);
+        await setSiteMode(tenantId, siteMode);
+      }
 
-    if (owned.length === 0 || !(await shouldSkipSeed(tenantId))) {
-      await setCategory(tenantId, industry);
-      await setSiteMode(tenantId, siteMode);
-    }
+      await applyOptionalPrefs(tenantId, draft);
 
-    await applyOptionalPrefs(tenantId, draft);
-
-    const skipSeed = await shouldSkipSeed(tenantId);
-    if (!skipSeed) {
-      const themeKey = draft.theme && isThemeKey(draft.theme) ? draft.theme : undefined;
-      await seedReadyStore(ctx, {
-        tenantId,
-        storeName: name,
-        industry,
-        brief: buildSeedBrief(draft),
-        locale: draft.locale,
-        applyTheme: true,
-        themeKey,
-      });
+      const skipSeed = await shouldSkipSeed(tenantId);
+      if (!skipSeed) {
+        const themeKey = draft.theme && isThemeKey(draft.theme) ? draft.theme : undefined;
+        await seedReadyStore(ctx, {
+          tenantId,
+          storeName: name,
+          industry,
+          brief: buildSeedBrief(draft),
+          locale: draft.locale,
+          applyTheme: true,
+          themeKey,
+        });
+      } else {
+        await backfillSeedImages(ctx, industry);
+      }
+    } catch (err) {
+      finishError(err);
     }
 
     await setActiveTenant(tenantId);
