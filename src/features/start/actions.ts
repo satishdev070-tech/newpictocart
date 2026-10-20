@@ -24,6 +24,7 @@ import { minorToDb } from "@/features/settings/fields";
 import { assertEmailVerifiedForOnboarding } from "@/features/onboarding/email-gate";
 import { listOwnedStores, ownerContext } from "@/features/onboarding/server";
 import { seedReadyStore } from "@/features/onboarding/seed/pipeline";
+import { backfillSeedImages } from "@/features/onboarding/seed/persist";
 import { suggestSlugFromName } from "@/features/onboarding/voice/facts";
 import { parseTaraHistory, runTaraTurn } from "@/features/onboarding/voice/turn";
 import { voiceTurnInputSchema } from "@/features/onboarding/voice/schemas";
@@ -350,6 +351,8 @@ export async function finalizeStartDraftAction(
           applyTheme: true,
           themeKey,
         });
+      } else {
+        await backfillSeedImages(ctx, industry);
       }
     } catch (err) {
       finishError(err);

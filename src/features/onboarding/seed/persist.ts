@@ -17,6 +17,7 @@ import { parseThemeConfigStrict, assetsBelongToTenant, type ThemeConfig } from "
 import { defaultSettings } from "@/features/theme/sections/definitions";
 import type { SectionInstance, SectionType } from "@/features/theme/sections/types";
 import type { IndustrySlug } from "@/features/stores/industries";
+import { fillEmptyThemeImages, seedCatalogueImages, type SeedImagePaths } from "./images";
 import type { ReadyStorePlan, SeedReadyStoreResult } from "./schemas";
 
 type Ids = { categories: Record<string, string>; collections: Record<string, string>; products: string[] };
@@ -299,8 +300,20 @@ async function updateStoreSeo(tenantId: string, plan: ReadyStorePlan, storeName:
   if (uErr) throw mapDbError(uErr);
 }
 
-function patchHomeSections(config: ThemeConfig, plan: ReadyStorePlan, ids: Ids): ThemeConfig {
-  const home = config.templates.home.map((section) => patchSection(section, plan, ids));
+type ThemeSeedImages = { hero: string | null; categoryBySlug: Record<string, string>; collectionById: Record<string, string> };
+
+function themeSeedImages(plan: ReadyStorePlan, ids: Ids, paths: SeedImagePaths): ThemeSeedImages {
+  const categoryBySlug: Record<string, string> = {};
+  for (const category of plan.categories) {
+    const id = ids.categories[category.slug];
+    const path = id ? paths.categoryById[id] : undefined;
+    if (path) categoryBySlug[category.slug] = path;
+  }
+  return { hero: paths.hero, categoryBySlug, collectionById: paths.collectionById };
+}
+
+function patchHomeSections(config: ThemeConfig, plan: ReadyStorePlan, ids: Ids, images: ThemeSeedImages): ThemeConfig {
+  const home = config.templates.home.map((section) => patchSection(section, plan, ids, images));
   return { ...config, templates: { ...config.templates, home }, header: { ...config.header, menuHandle: config.header.menuHandle || "main" } };
 }
 
@@ -308,7 +321,7 @@ function clip(value: string, max: number): string {
   return value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim().slice(0, max);
 }
 
-function patchSection(section: SectionInstance, plan: ReadyStorePlan, ids: Ids): SectionInstance {
+function patchSection(section: SectionInstance, plan: ReadyStorePlan, ids: Ids, images: ThemeSeedImages): SectionInstance {
   const type = section.type as SectionType;
   const settings = { ...(section.settings as Record<string, unknown>) };
   if (type === "Hero") {
@@ -316,7 +329,7 @@ function patchSection(section: SectionInstance, plan: ReadyStorePlan, ids: Ids):
     const baseSlide = defaults.slides[0] ?? {};
     settings.slides = plan.hero.slides.slice(0, 5).map((s) => ({
       ...baseSlide,
-      imagePath: typeof (baseSlide as { imagePath?: string }).imagePath === "string" ? (baseSlide as { imagePath: string }).imagePath : "",
+      imagePath: images.hero ?? "",
       mobileImagePath: "",
       alt: clip(s.heading, 200),
       eyebrow: clip(s.eyebrow, 60),
@@ -331,7 +344,7 @@ function patchSection(section: SectionInstance, plan: ReadyStorePlan, ids: Ids):
     settings.heading = settings.heading || "Shop by category";
     settings.items = plan.categories.map((c) => ({
       id: ids.categories[c.slug] ?? "",
-      imagePath: "",
+      imagePath: images.categoryBySlug[c.slug] ?? "",
       label: "",
       subtitle: "",
     }));
@@ -341,7 +354,7 @@ function patchSection(section: SectionInstance, plan: ReadyStorePlan, ids: Ids):
       settings.mode = "manual";
       settings.eyebrow = settings.eyebrow || "Curated";
       settings.heading = settings.heading || "Shop the edit";
-      settings.items = colEntries.slice(0, 4).map(([, id]) => ({ id, imagePath: "", label: "", subtitle: "" }));
+      settings.items = colEntries.slice(0, 4).map(([, id]) => ({ id, imagePath: images.collectionById[id] ?? "", label: "", subtitle: "" }));
     }
   } else if (type === "Testimonials") {
     settings.heading = settings.heading || "Loved by our customers";
@@ -359,18 +372,17 @@ function patchSection(section: SectionInstance, plan: ReadyStorePlan, ids: Ids):
   return { ...section, settings };
 }
 
-async function mergeThemeContent(ctx: TenantContext, plan: ReadyStorePlan, ids: Ids): Promise<void> {
-  const data = await getThemeEditorData(ctx.tenantId);
-  const next = patchHomeSections(data.config, plan, ids);
+async function writeThemeDraft(ctx: TenantContext, next: ThemeConfig): Promise<boolean> {
   const parsed = parseThemeConfigStrict(next);
   if (!parsed.ok) {
     // Catalogue, navigation and SEO are already saved. A theme-shape mismatch must not
     // block account creation; the seller can edit the homepage in the builder.
     logger.warn("onboarding.seed_theme_merge_skipped", { tenantId: ctx.tenantId, issues: parsed.issues.slice(0, 8) });
-    return;
+    return false;
   }
   if (!assetsBelongToTenant(parsed.config, ctx.tenantId)) {
-    throw new AppError("VALIDATION", { fieldErrors: { _form: ["Some theme images don't belong to this store."] } });
+    logger.warn("onboarding.seed_theme_merge_skipped", { tenantId: ctx.tenantId, reason: "asset_owner" });
+    return false;
   }
   const supabase = await createSupabaseServerClient();
   const { data: draft, error: draftError } = await supabase.from("theme_versions").select("id").eq("tenant_id", ctx.tenantId).eq("status", "draft").maybeSingle();
@@ -383,7 +395,7 @@ async function mergeThemeContent(ctx: TenantContext, plan: ReadyStorePlan, ids: 
       .eq("tenant_id", ctx.tenantId)
       .eq("status", "draft");
     if (error) throw mapDbError(error);
-    return;
+    return true;
   }
   const { data: latest, error: latestError } = await supabase
     .from("theme_versions")
@@ -403,6 +415,20 @@ async function mergeThemeContent(ctx: TenantContext, plan: ReadyStorePlan, ids: 
     created_by: ctx.user.id,
   });
   if (error) throw mapDbError(error);
+  return true;
+}
+
+async function mergeThemeContent(ctx: TenantContext, plan: ReadyStorePlan, ids: Ids, images: ThemeSeedImages): Promise<void> {
+  const data = await getThemeEditorData(ctx.tenantId);
+  await writeThemeDraft(ctx, patchHomeSections(data.config, plan, ids, images));
+}
+
+/** Puts imported catalogue photos on empty homepage slots. The caller publishes when this writes a draft. */
+async function paintSeedTheme(ctx: TenantContext, paths: SeedImagePaths): Promise<boolean> {
+  const data = await getThemeEditorData(ctx.tenantId);
+  const filled = fillEmptyThemeImages(data.config, paths);
+  if (!filled.changed) return false;
+  return writeThemeDraft(ctx, filled.config);
 }
 
 /** Publish the seeded draft so the public storefront matches the catalogue. A failure leaves the draft in place. */
@@ -416,6 +442,25 @@ async function publishSeededTheme(tenantId: string): Promise<void> {
   revalidateStorefront(tenantId);
 }
 
+/**
+ * Fills photos on a catalogue that was seeded without them. No-ops once every product, category,
+ * collection, and blog already has a photo. A download failure does not throw.
+ */
+export async function backfillSeedImages(ctx: TenantContext, industry: string): Promise<void> {
+  try {
+    const paths = await seedCatalogueImages({ tenantId: ctx.tenantId, userId: ctx.user.id, industry });
+    if (!paths.attached) return;
+    const painted = await paintSeedTheme(ctx, paths);
+    if (painted) await publishSeededTheme(ctx.tenantId);
+    else revalidateStorefront(ctx.tenantId);
+  } catch (err) {
+    logger.warn("onboarding.seed_images_skipped", {
+      tenantId: ctx.tenantId,
+      message: err instanceof Error ? err.message.slice(0, 200) : "unknown",
+    });
+  }
+}
+
 /** Persist a validated plan into the tenant (idempotent by slug / menu handle). */
 export async function persistReadyStore(
   ctx: TenantContext,
@@ -427,7 +472,22 @@ export async function persistReadyStore(
   const menu = await ensureMenu(ctx.tenantId, args.plan, cats.ids);
   await updateStoreSeo(ctx.tenantId, args.plan, args.storeName);
   const blogs = await ensureBlogs(ctx.tenantId, ctx.user.id, args.plan);
-  await mergeThemeContent(ctx, args.plan, { categories: cats.ids, collections: cols.ids, products: prods.ids });
+  const ids = { categories: cats.ids, collections: cols.ids, products: prods.ids };
+  const imagePaths = await seedCatalogueImages({
+    tenantId: ctx.tenantId,
+    userId: ctx.user.id,
+    industry: args.industry,
+    order: {
+      categoryIds: args.plan.categories.flatMap((category) => {
+        const id = cats.ids[category.slug];
+        return id ? [id] : [];
+      }),
+      collectionIds: Object.values(cols.ids),
+      productIds: prods.ids,
+      blogIds: blogs.ids,
+    },
+  });
+  await mergeThemeContent(ctx, args.plan, ids, themeSeedImages(args.plan, ids, imagePaths));
   await publishSeededTheme(ctx.tenantId);
 
   return {

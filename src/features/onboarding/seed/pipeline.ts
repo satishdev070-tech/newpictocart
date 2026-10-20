@@ -7,7 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { debitAiCredit, refundAiCredit } from "@/features/ai-credits/server";
 import type { IndustrySlug } from "@/features/stores/industries";
 import { generateReadyStorePlan, parseReadyStorePlan } from "./generate";
-import { persistReadyStore } from "./persist";
+import { backfillSeedImages, persistReadyStore } from "./persist";
 import { applyBestFitTheme, pickBestMarketplaceTheme } from "./theme-pick";
 import { READY_STORE_COUNTS } from "./counts";
 import { seedReadyStoreInputSchema, type ReadyStorePlan, type SeedReadyStoreInput, type SeedReadyStoreResult } from "./schemas";
@@ -57,6 +57,7 @@ export async function seedReadyStore(ctx: TenantContext, raw: Omit<SeedReadyStor
       supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", ctx.tenantId),
     ]);
     if ((catCount ?? 0) >= READY_STORE_COUNTS.categories && (productCount ?? 0) >= READY_STORE_COUNTS.products) {
+      await backfillSeedImages(ctx, industry);
       return {
         themeKey: input.themeKey ?? pickBestMarketplaceTheme(industry).key,
         categoryIds: [],
