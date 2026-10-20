@@ -70,7 +70,7 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
       <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_15%_10%,rgb(79_70_229/0.45),transparent_70%),radial-gradient(50%_60%_at_85%_80%,rgb(124_58_237/0.4),transparent_70%),radial-gradient(40%_40%_at_70%_20%,rgb(5_150_105/0.18),transparent_70%)]" />
       <div aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,rgb(255_255_255/0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgb(255_255_255/0.04)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]" />
       <div aria-hidden className="absolute -top-24 left-1/3 -z-10 size-72 rounded-full bg-[#7c3aed]/25 blur-3xl motion-safe:animate-pulse [animation-duration:6s]" />
-      <Container className="grid items-center gap-12 py-14 sm:py-20 lg:grid-cols-[1.05fr_1fr] lg:py-24">
+      <Container className="grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-[0.88fr_1.22fr] lg:gap-8 lg:py-24">
         <div>
           {content.badge ? (
             <p className={cn("inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs font-medium text-white/85 backdrop-blur", enter())}>
@@ -181,7 +181,7 @@ function HeroVisual({ content, themes }: { content: LandingContent["hero"]; them
   }
   if (!themes.length) return null;
   return (
-    <figure className="relative pb-2 lg:pl-4">
+    <figure className="relative w-full pb-1">
       {glow}
       <HeroSlideshow
         label="Theme previews"
@@ -189,7 +189,7 @@ function HeroVisual({ content, themes }: { content: LandingContent["hero"]; them
         autoplay={content.autoplay}
         captions={themes.map((t) => `${t.name} theme, with sample products`)}
         slides={themes.map((t, i) => (
-          <div key={t.key} className="relative rounded-2xl bg-white/[0.03] p-2 pb-10 ring-1 ring-white/10">
+          <div key={t.key} className="relative rounded-2xl bg-white/[0.03] p-1.5 ring-1 ring-white/10 sm:p-2">
             <ThemeDevicePreview theme={t} size="large" eager={i === 0} />
           </div>
         ))}
