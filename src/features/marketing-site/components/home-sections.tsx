@@ -57,12 +57,12 @@ export function Hero({ theme, previewUrl, trialDays }: { theme: MarketplaceTheme
           </ul>
         </div>
         {theme ? (
-          <figure className="relative pb-6 lg:pl-3">
+          <figure className="relative w-full pb-4">
             <div className="absolute -inset-x-4 -top-6 bottom-2 -z-0 rounded-[40px] bg-brand-accent-soft" aria-hidden />
             <div className="relative">
               <ThemeDevicePreview theme={theme} previewUrl={previewUrl} size="large" eager live />
             </div>
-            <figcaption className="relative mt-10 text-center text-sm text-muted">
+            <figcaption className="relative mt-8 text-center text-sm text-muted">
               Shown: the{" "}
               <Link href={`/themes/${theme.key}`} className="font-semibold text-brand underline-offset-2 hover:underline">
                 {theme.name}

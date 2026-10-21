@@ -12,7 +12,20 @@ export const PHONE_VIEWPORT = { width: 390, height: 844 } as const;
  * The iframe only mounts once the frame nears the viewport, and `fallback` (the token mockup)
  * stays visible until the page has loaded, or for good if it never does.
  */
-export function LiveFrame({ src, viewport, fallback, eager = false }: { src: string; viewport: { width: number; height: number }; fallback: ReactNode; eager?: boolean }) {
+export function LiveFrame({
+  src,
+  viewport,
+  fallback,
+  eager = false,
+  fill = false,
+}: {
+  src: string;
+  viewport: { width: number; height: number };
+  fallback: ReactNode;
+  eager?: boolean;
+  /** Fill a parent frame (e.g. a height-capped phone) instead of sizing from the viewport aspect ratio. */
+  fill?: boolean;
+}) {
   const frame = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
   const [visible, setVisible] = useState(eager);
@@ -45,7 +58,11 @@ export function LiveFrame({ src, viewport, fallback, eager = false }: { src: str
   }, [eager, viewport.width]);
 
   return (
-    <div ref={frame} className="relative w-full overflow-hidden bg-white" style={{ aspectRatio: `${viewport.width} / ${viewport.height}` }}>
+    <div
+      ref={frame}
+      className={`relative overflow-hidden bg-white ${fill ? "size-full" : "w-full"}`}
+      style={fill ? undefined : { aspectRatio: `${viewport.width} / ${viewport.height}` }}
+    >
       <div className={`absolute inset-0 transition-opacity duration-300 ${loaded ? "opacity-0" : "opacity-100"}`}>{fallback}</div>
       {visible && scale ? (
         <iframe

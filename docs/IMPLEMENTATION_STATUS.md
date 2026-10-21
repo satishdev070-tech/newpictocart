@@ -1,6 +1,11 @@
 # Implementation Status
 
-_Last updated: 2026-10-20 (onboarding polish, contact, AI sections)_
+_Last updated: 2026-10-20 (hero device frames)_
+
+## Marketing hero device frames (2026-10-20)
+
+- **Desktop wider:** the landing hero grid gives more width to the theme preview column (`0.88fr / 1.22fr`).
+- **Phone shorter:** the large device preview sizes the phone by height (about half the desktop, max ~15rem) at a 9:16 frame instead of a skinny width on a full 390×844 ratio, so it reads as a handset beside a wider desktop.
 
 ## Onboarding polish, contact pages, and AI sections (2026-10-20)
 

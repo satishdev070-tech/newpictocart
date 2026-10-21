@@ -76,16 +76,15 @@ function Devices({ desktop, phone, size }: { desktop: ReactNode; phone: ReactNod
       </div>
     );
   }
+  // Large (hero): desktop fills the stage; phone is height-capped so it reads as a handset, not a tall strip.
   return (
-    <div className="relative" aria-hidden>
+    <div className="relative w-full" aria-hidden>
       <div className="overflow-hidden rounded-brand-md border border-border bg-white shadow-brand-card">
         {DOTS}
         {desktop}
       </div>
-      {/* Keep the phone recognisably mobile without letting its 390:844 aspect ratio dominate
-          the desktop canvas on wider marketing layouts. */}
-      <div className="absolute -bottom-6 right-3 w-[20%] min-w-20 max-w-36 sm:right-5">
-        <div className="overflow-hidden rounded-[22px] border-[6px] border-brand-ink bg-brand-ink shadow-brand-float">{phone}</div>
+      <div className="absolute right-2 bottom-2 aspect-[9/16] h-[52%] max-h-52 overflow-hidden rounded-[18px] border-[5px] border-brand-ink bg-brand-ink shadow-brand-float sm:right-4 sm:bottom-3 sm:h-[56%] sm:max-h-60 sm:rounded-[20px] sm:border-[6px]">
+        <div className="size-full overflow-hidden rounded-[13px] sm:rounded-[14px]">{phone}</div>
       </div>
     </div>
   );
@@ -98,11 +97,12 @@ function Devices({ desktop, phone, size }: { desktop: ReactNode; phone: ReactNod
  */
 export function ThemeDevicePreview({ theme, previewUrl = null, size = "card", eager = false, live = false, image = null }: { theme: MarketplaceTheme; previewUrl?: string | null; size?: "card" | "large"; eager?: boolean; live?: boolean; image?: CategoryImage | null }) {
   const card = size === "card";
+  // Phone frames are always height-capped by Devices; fill so the shot crops instead of forcing a tall ratio.
   const still = (
     <Devices
       size={size}
       desktop={card ? <CardDesktop theme={theme} image={image} /> : <Still theme={theme} device="desktop" size={size} eager={eager} />}
-      phone={<Still theme={theme} device="phone" size={size} eager={eager} fill={card} />}
+      phone={<Still theme={theme} device="phone" size={size} eager={eager} fill />}
     />
   );
   if (!live || !previewUrl) return still;
@@ -110,7 +110,7 @@ export function ThemeDevicePreview({ theme, previewUrl = null, size = "card", ea
     <Devices
       size={size}
       desktop={<LiveFrame src={previewUrl} viewport={DESKTOP_VIEWPORT} fallback={<Still theme={theme} device="desktop" size={size} eager />} eager />}
-      phone={<LiveFrame src={previewUrl} viewport={PHONE_VIEWPORT} fallback={<Still theme={theme} device="phone" size={size} eager />} eager />}
+      phone={<LiveFrame src={previewUrl} viewport={PHONE_VIEWPORT} fallback={<Still theme={theme} device="phone" size={size} eager fill />} eager fill />}
     />
   );
   return <ClickToLive still={still} live={liveView} label="Live preview" />;
