@@ -1,6 +1,11 @@
 # Implementation Status
 
-_Last updated: 2026-10-20 (hero device frames)_
+_Last updated: 2026-10-21 (Vercel Next.js deploy config)_
+
+## Vercel Next.js deploy config (2026-10-21)
+
+- **Cause of Production fail:** the Vercel project still expected a static `dist` output (`STATIC_BUILD_NO_OUT_DIR`) after a successful Next build. `vercel.json` now sets `framework: nextjs` with `pnpm install` / `pnpm build` and does not set `outputDirectory`.
+- **Dashboard still required:** clear Output Directory if it is `dist`, set Framework to Next.js, and replace old `VITE_*` / bare `SUPABASE_*` env names with `NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SECRET_KEY`, platform URL vars, `APP_SECRET`, and `CRON_SECRET` for the new Supabase project.
 
 ## Marketing hero device frames (2026-10-20)
 
