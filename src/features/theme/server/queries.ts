@@ -10,7 +10,7 @@ import { cachedStorefront, storefrontTag } from "@/lib/cache/storefront";
 import type { Json } from "@/lib/supabase/database.types";
 import { DEFAULT_THEME_CONFIG } from "../default-theme";
 import { resolveThemeConfig, type ThemeConfig, type ThemeIssue } from "../schema/config";
-import { PREVIEW_COOKIE } from "../preview";
+import { PREVIEW_COOKIE, hasUnpublishedChanges } from "../preview";
 import { verifyPreviewToken } from "./preview";
 import { THEME_PREVIEW_HEADER } from "@/lib/tenant/routing";
 import { findAnyMarketplaceTheme } from "../marketplace/registry";
@@ -75,6 +75,8 @@ async function getDraftThemeConfig(tenantId: string): Promise<ThemeConfig | null
 export type StorefrontTheme = {
   config: ThemeConfig;
   preview: boolean;
+  /** Under a draft preview: the draft differs from the published theme. */
+  unpublished: boolean;
   /** Marketplace theme rendered in memory on a demo store (Live Preview); never persisted. */
   themePreview: { key: string; name: string } | null;
 };
@@ -88,8 +90,10 @@ export type StorefrontTheme = {
 export const getStorefrontTheme = cache(async (tenantId: string, slug = ""): Promise<StorefrontTheme> => {
   const token = (await cookies()).get(PREVIEW_COOKIE)?.value;
   if (token && verifyPreviewToken(token, tenantId)) {
-    const draft = await getDraftThemeConfig(tenantId);
-    return { config: draft ?? (await getPublishedThemeConfig(tenantId)), preview: true, themePreview: null };
+    const [draft, published] = await Promise.all([getDraftThemeConfig(tenantId), getPublishedThemeConfig(tenantId)]);
+    // Publishing keeps the draft row (a copy of what went live), so "a draft exists" isn't the same as
+    // "there are unpublished changes" (Bugs 2.0 #12).
+    return { config: draft ?? published, preview: true, unpublished: hasUnpublishedChanges(draft, published), themePreview: null };
   }
   const published = await getPublishedThemeConfig(tenantId);
   const key = (await headers()).get(THEME_PREVIEW_HEADER);
@@ -97,9 +101,9 @@ export const getStorefrontTheme = cache(async (tenantId: string, slug = ""): Pro
   if (theme) {
     const { config, issues } = resolveThemeConfig(applyThemePreset(published, theme.preset));
     if (issues.length) logger.warn("theme.live_preview_issues", { tenantId, key, issues: issues.slice(0, 5) });
-    return { config, preview: false, themePreview: { key: theme.key, name: theme.name } };
+    return { config, preview: false, unpublished: false, themePreview: { key: theme.key, name: theme.name } };
   }
-  return { config: published, preview: false, themePreview: null };
+  return { config: published, preview: false, unpublished: false, themePreview: null };
 });
 
 // -----------------------------------------------------------------------------

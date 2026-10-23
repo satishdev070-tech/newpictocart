@@ -27,7 +27,8 @@ export type HostMessage =
 
 export type CanvasMessage =
   | { tag: typeof CANVAS_TAG; type: "ready"; path: string; slots: string[] }
-  | { tag: typeof CANVAS_TAG; type: "rendered"; rev: number; ok: boolean; error?: string }
+  /** `code` "forbidden" = the preview cookie is missing or expired (the builder re-enters the preview). */
+  | { tag: typeof CANVAS_TAG; type: "rendered"; rev: number; ok: boolean; error?: string; code?: "forbidden" | "failed" }
   | { tag: typeof CANVAS_TAG; type: "select"; slot: string; sectionId: string }
   | { tag: typeof CANVAS_TAG; type: "action"; slot: string; sectionId: string; action: SectionAction }
   /** "+" (or "Add with AI") at a position: insert relative to `sectionId` (null = start of slot). */
@@ -51,7 +52,16 @@ export function parseCanvasMessage(data: unknown): CanvasMessage | null {
         ? { tag: CANVAS_TAG, type: "ready", path: data.path.slice(0, 300), slots: data.slots.filter((s): s is string => typeof s === "string" && SLOT.test(s)).slice(0, 12) }
         : null;
     case "rendered":
-      return typeof data.rev === "number" ? { tag: CANVAS_TAG, type: "rendered", rev: data.rev, ok: data.ok === true, ...(typeof data.error === "string" ? { error: data.error.slice(0, 200) } : {}) } : null;
+      return typeof data.rev === "number"
+        ? {
+            tag: CANVAS_TAG,
+            type: "rendered",
+            rev: data.rev,
+            ok: data.ok === true,
+            ...(typeof data.error === "string" ? { error: data.error.slice(0, 200) } : {}),
+            ...(data.code === "forbidden" || data.code === "failed" ? { code: data.code } : {}),
+          }
+        : null;
     case "select":
       return slot && sectionId ? { tag: CANVAS_TAG, type: "select", slot, sectionId } : null;
     case "action":

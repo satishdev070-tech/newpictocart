@@ -923,3 +923,29 @@ above and in `docs/THEME_BUILDER.md`):
   appear; configure the documented Supabase Send Email Hook/Resend credentials for branded auth messages;
   configure Google OAuth client credentials/redirects to test Google login; and add an Unsplash access key for
   live stock-photo search beyond its fallback results.
+
+## Bugs 2.0 #11–#16: site builder preview (2026-10-23, branch `claude/bugs-2-0-builder`)
+
+- **#11 edits not reaching the canvas.** `changedLists` (site-builder/ops.ts) ignored `embeds` (WhatsApp, back-to-top…)
+  and `builtinTitles`, and returned `[]` for edits outside the section lists (e.g. a page renamed), so nothing was posted.
+  These now re-render every slot. The canvas maps each slot to the list it actually shows (`slotListOf` in slots.ts:
+  home slot → chosen homepage, handle slots → their page) before deciding what to re-render.
+- **#12 "Previewing your unpublished theme" after publishing.** Publishing keeps the draft row, so the banner showed forever.
+  `getStorefrontTheme` now reports `unpublished` (draft ≠ published, `hasUnpublishedChanges` in theme/preview.ts); the
+  banner says "unpublished changes" only then, and is hidden inside the builder canvas.
+- **#13 / #14 / #16 stuck "Updating…", slow refresh, "Preview couldn't be updated".** Server actions from one page run one
+  after another; a render per edit built a backlog. The canvas (canvas-bridge.tsx) now runs one render at a time and merges
+  edits that arrive meanwhile (union of changed lists, newest document), applying results in order. The builder
+  (canvas-frame.tsx) arms a 20 s watchdog per render; a lost or failed render reloads the canvas automatically (up to 2 times
+  in a row), then shows the error with **Retry**. Debounce 250 → 150 ms.
+- **#14.2 / #15 "You don't have permission".** The canvas render is authorised by the 2 h preview cookie. A FORBIDDEN render
+  now reports `code: "forbidden"`; the builder mints a new preview token and reloads the canvas, re-sending unsaved edits.
+- **#14.1 margin back to 0.** Spacing CSS handles 0 correctly (section-box.ts); the stale preview was the render backlog above.
+- **#0.5 Google sign-in shows `ugbjlpdhktrlkyuijkfc.supabase.co`.** Configuration, not code: Google names the domain that
+  handles the OAuth callback. Fix = Supabase **Custom Domain** add-on (e.g. `auth.pictocart.in`, Supabase Pro), then update
+  the Google OAuth client's authorised redirect URI and `NEXT_PUBLIC_SUPABASE_URL`. Also set the app name/logo/home page on
+  the Google OAuth consent screen (Google Cloud → APIs & Services → OAuth consent screen).
+- **#4 (from PR #19) still open on the live DB:** the `free` plan has `trial_days = 90` on v2pictocart, so new stores open as
+  trials. Migration `20261023003600_free_plan.sql` sets it to 0 and makes `create_tenant` open trial-less plans as active.
+- Tests: `tests/unit/bugs-2-0-builder.test.ts`, `tests/unit/site-builder-sections.test.ts` (changedLists).
+- Not verified in a signed-in browser session (needs a super-admin / seller login).

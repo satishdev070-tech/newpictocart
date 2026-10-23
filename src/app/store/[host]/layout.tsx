@@ -90,7 +90,7 @@ export default async function StorefrontLayout({ children, params }: LayoutProps
       </a>
       {ctx.sf.preview ? (
         <div role="status" data-preview-banner className="bg-amber-100 px-4 py-2 text-center text-xs text-amber-900">
-          Previewing your unpublished theme.{" "}
+          {ctx.sf.previewUnpublished ? "Previewing your unpublished changes." : "Preview mode: this matches your live store."}{" "}
           <Link href="/preview?exit=1" className="underline">
             Exit preview
           </Link>

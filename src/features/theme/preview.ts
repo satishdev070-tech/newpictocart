@@ -44,3 +44,12 @@ export function previewEntryUrl(storeOrigin: string, token: string, path = "/"):
   const safePath = path.startsWith("/") && !path.startsWith("//") ? path : "/";
   return `${storeOrigin}/preview?token=${encodeURIComponent(token)}&path=${encodeURIComponent(safePath)}`;
 }
+
+/**
+ * Whether a draft has changes that aren't live yet (no draft = nothing unpublished). Publishing
+ * keeps the draft row as a copy of what went live, so only a differing draft counts. Compared as
+ * resolved documents (both come from resolveThemeConfig, so key order matches).
+ */
+export function hasUnpublishedChanges(draft: unknown, published: unknown): boolean {
+  return draft != null && JSON.stringify(draft) !== JSON.stringify(published);
+}
