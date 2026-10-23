@@ -3,7 +3,7 @@ import Link from "next/link";
 import { CircleAlert } from "lucide-react";
 import { buildMarketingMetadata } from "@/features/marketing-site/seo";
 import { siteOrigin, storeRootDomain } from "@/features/marketing-site/site";
-import { maxTrialDays } from "@/features/marketing-site/plans";
+import { entryPlan, isFreeForeverPlan, signupTrialDays } from "@/features/marketing-site/plans";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { CTA_CREATE, PRICING_HREF, SIGNUP_HREF, THEMES_HREF } from "@/features/marketing-site/content";
 import { ButtonLink, Container, SectionHeading } from "@/features/marketing-site/components/ui";
@@ -44,7 +44,9 @@ function guide(rootDomain: string): Guide[] {
 }
 
 export default async function HowItWorksPage() {
-  const trialDays = maxTrialDays(await getMarketingPlans());
+  const plans = await getMarketingPlans();
+  const trialDays = signupTrialDays(plans);
+  const freeForever = Boolean(entryPlan(plans) && isFreeForeverPlan(entryPlan(plans)!));
   const steps = guide(storeRootDomain());
   return (
     <>
@@ -95,7 +97,7 @@ export default async function HowItWorksPage() {
           </ol>
         </Container>
       </section>
-      <FinalCta trialDays={trialDays} />
+      <FinalCta trialDays={trialDays} freeForever={freeForever} />
     </>
   );
 }

@@ -301,13 +301,15 @@ export function StartJourney({
   }
 
   if (!finishMessage && (screen === "building" || openingStore)) {
+    const waitForFinalize = Boolean(signedIn && draftReadyToFinalize(draft) && !draft.result);
     return shell(
       <BuildingScreen
         draft={draft}
         rootDomain={rootDomain}
+        waitForFinalize={waitForFinalize}
         onComplete={() => {
-          if (signedIn && draftReadyToFinalize(draft)) finalize();
-          else if (!signedIn) go("account");
+          // Signed-in finalize is started by the effect above; only advance unsigned journeys here.
+          if (!signedIn) go("account");
         }}
       />,
       { back: !openingStore, layout: "center" },

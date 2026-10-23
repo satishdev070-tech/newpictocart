@@ -11,7 +11,7 @@ import { AuthHeading, AuthSplit } from "@/components/auth/auth-split";
 import { MerchantAside } from "@/components/auth/auth-asides";
 import { findTheme, isThemeKey } from "@/features/marketing-site/themes";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
-import { findPlan, maxTrialDays } from "@/features/marketing-site/plans";
+import { entryPlan, findPlan, isFreeForeverPlan, signupTrialDays } from "@/features/marketing-site/plans";
 import { cleanPlanCode } from "@/features/onboarding/steps";
 import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
 import { isStartIntentId } from "@/features/start/intents";
@@ -40,7 +40,8 @@ export default async function SellerRegisterPage({ searchParams }: PageProps<"/s
   }
 
   const google = await googleSignInAvailable("sellers");
-  const trial = maxTrialDays(plans);
+  const trial = signupTrialDays(plans);
+  const freeForever = Boolean(entryPlan(plans) && isFreeForeverPlan(entryPlan(plans)!));
   const themeName = theme ? findTheme(theme)?.name : null;
   const planName = plan ? findPlan(plans, plan)?.name : null;
   return (
@@ -48,7 +49,13 @@ export default async function SellerRegisterPage({ searchParams }: PageProps<"/s
       <AuthHeading
         eyebrow="Create account"
         title="Create your store"
-        description={trial > 0 ? `Start with a ${trial}-day free trial. No card details needed.` : "No card details needed."}
+        description={
+          freeForever
+            ? "Free forever for up to 10 products. No card details needed."
+            : trial > 0
+              ? `Start with a ${trial}-day free trial. No card details needed.`
+              : "No card details needed."
+        }
       />
       {themeName || planName || lang ? (
         <p className="-mt-4 mb-6 flex flex-wrap gap-2 text-caption" aria-label="Your selections">

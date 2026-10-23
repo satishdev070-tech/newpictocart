@@ -1,24 +1,13 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { cn } from "@/lib/cn";
 import { startVoiceTurnAction } from "../actions";
 import { startCopy } from "../copy";
 import type { StartDraft, StartVoiceTurn } from "../draft/schema";
 import { TaraOrb } from "../components/tara-orb";
 import { factsComplete, type VoiceFacts } from "@/features/onboarding/voice/facts";
-
-function recorderMime(): string | null {
-  if (typeof MediaRecorder === "undefined") return null;
-  if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) return "audio/webm;codecs=opus";
-  if (MediaRecorder.isTypeSupported("audio/webm")) return "audio/webm";
-  if (MediaRecorder.isTypeSupported("audio/mp4")) return "audio/mp4";
-  return null;
-}
-
-function fileExtension(mime: string): string {
-  return mime.includes("mp4") ? "mp4" : "webm";
-}
+import { fileExtension, useVoiceRecorder } from "@/features/onboarding/voice/use-voice-recorder";
 
 export function VoiceScreen({
   draft,
@@ -39,10 +28,7 @@ export function VoiceScreen({
 }) {
   const c = startCopy(draft.locale);
   const [text, setText] = useState("");
-  const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
-  const mediaRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
   const [error, setError] = useState<string | null>(null);
   const turns = draft.voice.turns;
 
@@ -104,39 +90,14 @@ export function VoiceScreen({
     [c.voice.typePlaceholder, draft.locale, draft.voice.facts, onFacts, playSpeech, text, turns],
   );
 
-  async function toggleRecord() {
-    if (!voiceEnabled || !voiceReady || busy) return;
-    if (recording && mediaRef.current) {
-      mediaRef.current.stop();
-      setRecording(false);
-      return;
-    }
-    const mime = recorderMime();
-    if (!mime || !navigator.mediaDevices?.getUserMedia) {
-      setError(c.voice.micUnsupported);
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rec = new MediaRecorder(stream, { mimeType: mime });
-      chunksRef.current = [];
-      rec.ondataavailable = (e) => {
-        if (e.data.size) chunksRef.current.push(e.data);
-      };
-      rec.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: mime });
-        void submitTurn(blob);
-      };
-      mediaRef.current = rec;
-      rec.start();
-      setRecording(true);
-      setError(null);
-    } catch (err) {
-      const name = err instanceof DOMException ? err.name : "";
-      setError(name === "NotAllowedError" || name === "PermissionDeniedError" ? c.voice.micDenied : c.voice.micUnsupported);
-    }
-  }
+  const { recording, toggle } = useVoiceRecorder({
+    onRecordingComplete: (blob) => {
+      void submitTurn(blob);
+    },
+    onError: (kind) => {
+      setError(kind === "denied" ? c.voice.micDenied : c.voice.micUnsupported);
+    },
+  });
 
   if (!voiceReady) {
     return (
@@ -195,7 +156,10 @@ export function VoiceScreen({
         {voiceEnabled ? (
           <button
             type="button"
-            onClick={() => void toggleRecord()}
+            onClick={() => {
+              if (!voiceEnabled || !voiceReady || busy) return;
+              void toggle();
+            }}
             disabled={busy}
             className={cn(
               "grid size-20 place-items-center rounded-full bg-[#F97316] text-white shadow-lg disabled:opacity-50",

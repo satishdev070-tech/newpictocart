@@ -64,11 +64,13 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   // Independent reads in parallel (the cookie store is needed only for the support banner).
   const [alerts, trial, cookieStore, bell, aiCreditBalance] = await Promise.all([
     getDashboardAlerts(ctx),
+    // Free forever (active, no trial end) must not show a trial banner.
     ctx.tenantStatus === "trial" ? trialInfo(ctx.tenantId) : Promise.resolve(null),
     cookies(),
     getBellData({ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId }),
     ctx.permissions.has("marketing.read") ? getAiCreditBalance(ctx.tenantId) : Promise.resolve(null),
   ]);
+  const showTrialBanner = ctx.tenantStatus === "trial" && Boolean(trial?.endsAt);
   const displayName = ctx.user.displayName ?? ctx.user.email ?? "Account";
 
   const brand = <PanelLogo href="/dashboard" label="Pictocart seller dashboard" />;
@@ -185,7 +187,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         </Link>{" "}
         or contact support to restore it.
       </div>
-    ) : ctx.tenantStatus === "trial" ? (
+    ) : showTrialBanner ? (
       <div className="border-b border-border bg-accent-soft px-5 py-2 text-small text-foreground">
         {trialMessage(trial)}{" "}
         <Link href="/dashboard/settings/plan" className="font-medium underline underline-offset-2">

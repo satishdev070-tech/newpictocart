@@ -98,11 +98,14 @@ export function builderGroupVisible(group: string, mode: SiteMode | null | undef
 // ---- Marketplace -------------------------------------------------------------------------------
 
 /**
- * Marketplace hand-off: applying a theme built for informative websites switches an eCommerce
- * store to informative mode only when it has no products (nothing to sell yet). Stores with
- * products keep their mode; the seller can switch in Settings → General.
+ * Marketplace hand-off:
+ * - Informative preset + empty ecommerce store → informative (brochure) mode.
+ * - Ecommerce preset + informative store → restore ecommerce (theme apply undoes an accidental flip).
+ * Stores with products keep ecommerce when an informative preset is applied; the seller can switch
+ * in Settings → General.
  */
 export function modeAfterThemeApply(current: SiteMode, themeKind: unknown, hasProducts: boolean): SiteMode {
   if (themeKind === "informative" && current === "ecommerce" && !hasProducts) return "informative";
+  if (themeKind !== "informative" && current === "informative") return "ecommerce";
   return current;
 }

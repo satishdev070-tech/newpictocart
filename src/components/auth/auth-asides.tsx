@@ -40,7 +40,7 @@ export function MerchantAside({ mode }: { mode: "login" | "register" }) {
       </div>
       {ASIDE_THEME ? (
         <div className="mt-auto hidden w-full max-w-xl self-start overflow-hidden rounded-brand-lg border border-white/80 bg-white p-1.5 shadow-brand-float [@media(min-height:1024px)]:block" aria-hidden>
-          <ThemeMockup preset={ASIDE_THEME.preset} name={ASIDE_THEME.name.split(" ")[0]!} />
+          <ThemeMockup preset={ASIDE_THEME.preset} name={ASIDE_THEME.name.split(" ")[0]!} tagline={ASIDE_THEME.tagline} />
         </div>
       ) : null}
     </>

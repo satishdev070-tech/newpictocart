@@ -19,9 +19,19 @@ const BENEFIT_ICONS: Record<BenefitKey, typeof Check> = {
   seo: BarChart3,
 };
 
-export function Hero({ theme, previewUrl, trialDays }: { theme: MarketplaceTheme | undefined; previewUrl: string | null; trialDays: number }) {
+export function Hero({
+  theme,
+  previewUrl,
+  trialDays,
+  freeForever = false,
+}: {
+  theme: MarketplaceTheme | undefined;
+  previewUrl: string | null;
+  trialDays: number;
+  freeForever?: boolean;
+}) {
   const assurances = [
-    trialDays > 0 ? `${trialDays}-day free trial, no card details` : "No card details to sign up",
+    freeForever ? "Free forever for up to 10 products, no card details" : trialDays > 0 ? `${trialDays}-day free trial, no card details` : "No card details to sign up",
     "UPI and cards through your own payment account, plus COD",
     "Free store address, custom domain on eligible plans",
   ];
@@ -141,7 +151,7 @@ function CategoryPreview({ theme, label }: { theme: MarketplaceTheme; label: str
         // eslint-disable-next-line @next/next/no-img-element -- static pre-sized WebP, no optimizer needed
         <img src={shot} alt="" width={DESKTOP_VIEWPORT.width} height={DESKTOP_VIEWPORT.height} loading="lazy" decoding="async" className="block size-full object-cover object-top" />
       ) : (
-        <ThemeMockup preset={theme.preset} name={label} />
+        <ThemeMockup preset={theme.preset} name={label} tagline={theme.tagline} />
       )}
     </div>
   );
@@ -226,7 +236,7 @@ export function FaqSection({ faqs, title = "Questions sellers ask" }: { faqs: Fa
   );
 }
 
-export function FinalCta({ trialDays }: { trialDays: number }) {
+export function FinalCta({ trialDays, freeForever = false }: { trialDays: number; freeForever?: boolean }) {
   return (
     <section className="bg-white px-4 pb-20 sm:px-6" aria-labelledby="final-cta-title">
       <div className="mx-auto max-w-6xl overflow-hidden rounded-brand-xl bg-brand-ink px-6 py-14 text-center text-white sm:px-12">
@@ -234,7 +244,12 @@ export function FinalCta({ trialDays }: { trialDays: number }) {
           Ready to open your online store?
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg text-white/80">
-          {trialDays > 0 ? `Create your store and try it free for ${trialDays} days. ` : "Create your store today. "}It stays private until you publish.
+          {freeForever
+            ? "Create your store free forever — up to 10 products, no card needed. "
+            : trialDays > 0
+              ? `Create your store and try it free for ${trialDays} days. `
+              : "Create your store today. "}
+          It stays private until you publish.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <ButtonLink href={SIGNUP_HREF} variant="light" size="lg" track={{ id: "create_store", location: "final_cta" }}>

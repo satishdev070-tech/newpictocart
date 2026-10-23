@@ -133,6 +133,19 @@ export function normalizePlans(rows: readonly PlanRow[]): MarketingPlan[] {
  */
 export const FALLBACK_PLANS: MarketingPlan[] = normalizePlans([
   {
+    code: "free",
+    name: "Free",
+    description: "Free forever for getting started — up to 10 products",
+    price_monthly: 0,
+    price_yearly: 0,
+    currency: "INR",
+    limits: { products: 10, staff: 1, storage_mb: 512, custom_domains: 0 },
+    features: { custom_domains: false, blog: true },
+    trial_days: 0,
+    sort_order: 0,
+    active: true,
+  },
+  {
     code: "starter",
     name: "Starter",
     description: "For new labels getting online",
@@ -195,6 +208,23 @@ export function maxTrialDays(plans: readonly MarketingPlan[]): number {
   return plans.reduce((max, p) => Math.max(max, p.trialDays), 0);
 }
 
+/** Entry plan (lowest sort_order) — what new stores get via create_tenant. */
+export function entryPlan(plans: readonly MarketingPlan[]): MarketingPlan | undefined {
+  return plans[0];
+}
+
+/**
+ * Trial days for signup messaging. Prefer the entry plan so a free-forever tier
+ * is not contradicted by a longer trial on a paid plan further up the ladder.
+ */
+export function signupTrialDays(plans: readonly MarketingPlan[]): number {
+  return entryPlan(plans)?.trialDays ?? 0;
+}
+
+export function isFreeForeverPlan(plan: MarketingPlan): boolean {
+  return plan.monthlyMinor === 0 && plan.yearlyMinor === 0 && plan.trialDays === 0;
+}
+
 const countFormat = new Intl.NumberFormat("en-IN");
 
 /** 2048 -> "2 GB", 51200 -> "50 GB", 500 -> "500 MB". */
@@ -245,6 +275,9 @@ export type PlanPriceView = {
 
 /** Everything the pricing card prints for one billing period. */
 export function planPriceView(plan: MarketingPlan, period: BillingPeriod): PlanPriceView {
+  if (isFreeForeverPlan(plan)) {
+    return { amount: "Free", unit: "", note: "Forever · no card needed" };
+  }
   if (period === "yearly") {
     return {
       amount: formatMoney(monthlyEquivalentMinor(plan.yearlyMinor)),
@@ -267,7 +300,10 @@ export function planComparison(plans: readonly MarketingPlan[]): ComparisonRow[]
   return [
     { label: "Monthly price", cells: plans.map((p) => `${formatMoney(p.monthlyMinor)}/month`) },
     { label: "Yearly price", cells: plans.map((p) => `${formatMoney(p.yearlyMinor)}/year`) },
-    { label: "Free trial", cells: plans.map((p) => (p.trialDays > 0 ? `${p.trialDays} days` : false)) },
+    {
+      label: "Free trial",
+      cells: plans.map((p) => (p.trialDays > 0 ? `${p.trialDays} days` : isFreeForeverPlan(p) ? "Free forever" : false)),
+    },
     { label: "Products", cells: plans.map((p) => count(p.limits.products)) },
     { label: "Staff accounts", cells: plans.map((p) => count(p.limits.staff)) },
     { label: "Media storage", cells: plans.map((p) => (p.limits.storageMb === null ? "No limit" : formatStorage(p.limits.storageMb))) },
@@ -279,9 +315,10 @@ export function planComparison(plans: readonly MarketingPlan[]): ComparisonRow[]
   ];
 }
 
-/** True when both billing periods have a real price, so the monthly/yearly switch is meaningful. */
+/** True when paid plans all have both prices, so the monthly/yearly switch is meaningful. */
 export function hasYearlyBilling(plans: readonly MarketingPlan[]): boolean {
-  return plans.length > 0 && plans.every((p) => p.yearlyMinor > 0 && p.monthlyMinor > 0);
+  const paid = plans.filter((p) => p.monthlyMinor > 0 || p.yearlyMinor > 0);
+  return paid.length > 0 && paid.every((p) => p.yearlyMinor > 0 && p.monthlyMinor > 0);
 }
 
 export function findPlan(plans: readonly MarketingPlan[], code: string | null | undefined): MarketingPlan | undefined {

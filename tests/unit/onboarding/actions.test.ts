@@ -15,15 +15,20 @@ const audit = vi.fn();
 vi.mock("@/lib/audit", () => ({ audit: (...a: unknown[]) => audit(...a) }));
 vi.mock("@/lib/observability/logger", () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() } }));
 vi.mock("@/lib/env/public", () => ({ publicEnv: () => ({ NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: "pictocart.in" }) }));
-const applyTheme = vi.fn(async (_ctx: unknown, key: string) => ({ theme: { key, version: "1.0.0" } }));
+const publishRpc = vi.fn(async () => ({ data: "version-1", error: null }));
+const applyTheme = vi.fn(async (_ctx: unknown, key: string) => ({
+  theme: { key, name: key, version: "1.0.0" },
+  supabase: { rpc: publishRpc },
+}));
 vi.mock("@/features/theme/server/apply-marketplace", () => ({ applyMarketplaceThemeToDraft: (ctx: unknown, key: string) => applyTheme(ctx, key) }));
+vi.mock("@/lib/cache/storefront", () => ({ revalidateStorefront: vi.fn() }));
 
 // Owned stores + owner context: the user owns t-own only.
 const OWN = "11111111-1111-4111-8111-111111111111";
 const OTHER = "22222222-2222-4222-8222-222222222222";
 vi.mock("@/features/onboarding/server", () => ({
   listOwnedStores: async () => [{ tenantId: OWN, slug: "asha-crafts", name: "Asha Crafts" }],
-  ownerContext: async (_u: unknown, id: string) => (id === OWN ? { tenantId: OWN, user, permissions: new Set(["theme.edit", "settings.write"]) } : null),
+  ownerContext: async (_u: unknown, id: string) => (id === OWN ? { tenantId: OWN, user, permissions: new Set(["theme.edit", "theme.publish", "settings.write"]) } : null),
 }));
 
 let rpcResult: { data: unknown; error: { code: string; message: string } | null } = { data: OWN, error: null };
@@ -44,6 +49,7 @@ beforeEach(() => {
   redirect.mockClear();
   audit.mockClear();
   applyTheme.mockClear();
+  publishRpc.mockClear();
   updateUser.mockClear();
   updates.length = 0;
   rpcResult = { data: OWN, error: null };
@@ -104,10 +110,11 @@ describe("saveBusinessAction", () => {
 });
 
 describe("chooseThemeAction / choosePlanAction", () => {
-  it("applies the theme as a draft on the owned store and lands on ready", async () => {
+  it("applies and publishes the theme on the owned store and lands on ready", async () => {
     const { chooseThemeAction } = await import("@/features/onboarding/actions");
     const to = await redirectedTo(chooseThemeAction(null, fd({ store: OWN, choice: "minimal-d2c", plan: "growth" })));
     expect(applyTheme).toHaveBeenCalledWith(expect.objectContaining({ tenantId: OWN }), "minimal-d2c");
+    expect(publishRpc).toHaveBeenCalledWith("publish_theme", { p_tenant: OWN, p_label: "minimal-d2c" });
     expect(to).toBe(`/onboarding?step=ready&store=${OWN}&plan=growth&theme=minimal-d2c`);
   });
 

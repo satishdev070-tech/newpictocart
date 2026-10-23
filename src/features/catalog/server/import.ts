@@ -145,7 +145,9 @@ export async function applyImport(tenantId: string, text: string, opts: { canWri
   if (plan.fatal) throw new AppError("VALIDATION", { fieldErrors: { file: [plan.fatal] } });
   const supabase = await createSupabaseServerClient();
   const valid = prepared.filter((p) => !p.errors.length);
-  const result: ImportResult = { created: 0, updated: 0, stockSet: 0, failed: [], skipped: prepared.length - valid.length, rowErrors: plan.rowErrors, productIds: [] };
+  type Ok = { ok: true; action: "create" | "update"; id: string; stockSet: number };
+  type Fail = { ok: false; handle: string; message: string };
+  const outcomes: Array<Ok | Fail> = [];
 
   const work = async (item: PreparedItem) => {
     try {
@@ -153,9 +155,7 @@ export async function applyImport(tenantId: string, text: string, opts: { canWri
       const payload = toSaveProductPayload(input, { allowInitialStock: opts.canWriteInventory });
       const { data: id, error } = await callSaveProduct(supabase, tenantId, payload);
       if (error) throw catalogDbError(error, { handle: item.handle });
-      result.productIds.push(id);
-      if (item.action === "create") result.created++;
-      else result.updated++;
+      let stockSet = 0;
       if (opts.canWriteInventory && item.stock.length) {
         const { data: vs, error: vErr } = await supabase.from("product_variants").select("id, sku, option1, option2, option3").eq("tenant_id", tenantId).eq("product_id", id);
         if (vErr) throw mapDbError(vErr);
@@ -164,13 +164,14 @@ export async function applyImport(tenantId: string, text: string, opts: { canWri
           if (!v) continue;
           const { error: sErr } = await supabase.rpc("set_inventory", { p_variant: v.id, p_available: s.qty, p_note: "CSV import" });
           if (sErr) throw mapDbError(sErr);
-          result.stockSet++;
+          stockSet++;
         }
       }
+      outcomes.push({ ok: true, action: item.action, id, stockSet });
     } catch (err) {
       const message = err instanceof AppError ? (err.fieldErrors ? Object.values(err.fieldErrors).flat()[0] : undefined) ?? err.publicMessage : "Could not be saved";
       if (!(err instanceof AppError)) logger.error("catalog.import_item_failed", { tenantId, handle: item.handle, error: err });
-      result.failed.push({ handle: item.handle, message });
+      outcomes.push({ ok: false, handle: item.handle, message });
     }
   };
 
@@ -180,5 +181,22 @@ export async function applyImport(tenantId: string, text: string, opts: { canWri
       for (let item = queue.shift(); item; item = queue.shift()) await work(item);
     }),
   );
-  return result;
+
+  // Tally once after workers finish so concurrent increments can't drift.
+  let created = 0;
+  let updated = 0;
+  let stockSet = 0;
+  const productIds: string[] = [];
+  const failed: ImportResult["failed"] = [];
+  for (const o of outcomes) {
+    if (!o.ok) {
+      failed.push({ handle: o.handle, message: o.message });
+      continue;
+    }
+    productIds.push(o.id);
+    stockSet += o.stockSet;
+    if (o.action === "create") created++;
+    else updated++;
+  }
+  return { created, updated, stockSet, failed, skipped: prepared.length - valid.length, rowErrors: plan.rowErrors, productIds };
 }

@@ -43,8 +43,9 @@ export async function uploadTenantImage(tenantId: string, area: UploadArea, file
     upsert: false,
   });
   if (error) throw new AppError("FORBIDDEN", { message: "Upload was not permitted.", context: { storage: error.message } });
-  // Pre-sized WebP copies for the storefront (lib/images/loader). Best effort: /api/img makes any that fail.
-  await createVariantsOnUpload(supabase, path, bytes);
+  // Pre-sized WebP copies for the storefront (lib/images/loader). Fire-and-forget so multi-file
+  // uploads aren't blocked on Sharp; /api/img creates any that fail or are still pending.
+  void createVariantsOnUpload(supabase, path, bytes);
   const { error: dbError } = await supabase.from("media_assets").insert({ tenant_id: tenantId, storage_path: path, mime_type: kind.mime, bytes: file.size });
   if (dbError) throw new AppError("INTERNAL", { context: { db: dbError.message } });
   return { path, mime: kind.mime, bytes: file.size };

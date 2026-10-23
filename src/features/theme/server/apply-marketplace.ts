@@ -10,6 +10,7 @@ import { getThemeEditorData } from "./queries";
 import { findAnyMarketplaceTheme } from "../marketplace/registry";
 import { applyThemePreset } from "../marketplace/apply";
 import { modeAfterThemeApply, parseSiteMode } from "@/features/stores/site-mode";
+import { themeSiteType } from "../marketplace/types";
 
 /*
  * Server-only (NOT a server action): callers pass an already-authorised TenantContext. Used by
@@ -43,22 +44,19 @@ export async function applyMarketplaceThemeToDraft(ctx: TenantContext, key: stri
     if (error) throw mapDbError(error);
   }
 
-  // An informative preset turns a brand-new, empty store into a brochure website. Stores that
-  // already have products keep their selected mode, so applying a visual preset never hides an
-  // established shop. The column is additive; if an older database has not applied migration
-  // 3300 yet, applying a theme still succeeds exactly as it did before.
-  if (theme.siteType === "informative") {
-    const [{ data: store, error: storeError }, { count, error: productError }] = await Promise.all([
-      supabase.from("stores").select("site_mode").eq("tenant_id", ctx.tenantId).maybeSingle(),
-      supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", ctx.tenantId),
-    ]);
-    if (productError) throw mapDbError(productError);
-    if (!storeError && store) {
-      const nextMode = modeAfterThemeApply(parseSiteMode(store.site_mode), theme.siteType, (count ?? 0) > 0);
-      if (nextMode !== store.site_mode) {
-        const { error } = await supabase.from("stores").update({ site_mode: nextMode }).eq("tenant_id", ctx.tenantId);
-        if (error) throw mapDbError(error);
-      }
+  // Informative presets can flip an empty shop to brochure mode; ecommerce presets restore
+  // ecommerce if the store was left on informative. Stores with products keep ecommerce when an
+  // informative look is applied. Additive column: missing migration 3300 still succeeds.
+  const [{ data: store, error: storeError }, { count, error: productError }] = await Promise.all([
+    supabase.from("stores").select("site_mode").eq("tenant_id", ctx.tenantId).maybeSingle(),
+    supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", ctx.tenantId),
+  ]);
+  if (productError) throw mapDbError(productError);
+  if (!storeError && store) {
+    const nextMode = modeAfterThemeApply(parseSiteMode(store.site_mode), themeSiteType(theme), (count ?? 0) > 0);
+    if (nextMode !== parseSiteMode(store.site_mode)) {
+      const { error } = await supabase.from("stores").update({ site_mode: nextMode }).eq("tenant_id", ctx.tenantId);
+      if (error) throw mapDbError(error);
     }
   }
   return { supabase, theme };

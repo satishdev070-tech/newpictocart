@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { buildMarketingMetadata, faqJsonLd, serializeJsonLd, softwareApplicationJsonLd } from "@/features/marketing-site/seo";
 import { siteOrigin } from "@/features/marketing-site/site";
-import { maxTrialDays } from "@/features/marketing-site/plans";
+import { entryPlan, isFreeForeverPlan, signupTrialDays } from "@/features/marketing-site/plans";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { PricingTable } from "@/features/marketing-site/components/pricing-table";
 import { PlanComparison } from "@/features/marketing-site/components/plan-comparison";
@@ -20,15 +20,17 @@ export function generateMetadata(): Metadata {
   });
 }
 
-/** Billing answers that describe the product as it is: trial on signup, no online plan purchase yet. */
-function pricingFaqs(trialDays: number): Faq[] {
+/** Billing answers that describe the product as it is: free forever entry or trial on signup, no online plan purchase yet. */
+function pricingFaqs(trialDays: number, freeForever: boolean, productLimit: number | null): Faq[] {
+  const freeLine = freeForever
+    ? `Your store starts on our Free plan${productLimit ? ` (up to ${productLimit} products)` : ""} — free forever, no card details.`
+    : trialDays > 0
+      ? `Your store starts on a ${trialDays}-day free trial of our entry plan. You won't be asked for card details.`
+      : "Your store starts on our entry plan. You won't be asked for card details.";
   return [
     {
       question: "What happens when I sign up?",
-      answer:
-        trialDays > 0
-          ? `Your store starts on a ${trialDays}-day free trial of our entry plan. You won't be asked for card details.`
-          : "Your store starts on our entry plan. You won't be asked for card details.",
+      answer: freeLine,
     },
     {
       question: "Can I pay for a plan online?",
@@ -51,14 +53,21 @@ function pricingFaqs(trialDays: number): Faq[] {
 
 export default async function PricingPage() {
   const plans = await getMarketingPlans();
-  const trialDays = maxTrialDays(plans);
-  const faqs = pricingFaqs(trialDays);
+  const entry = entryPlan(plans);
+  const trialDays = signupTrialDays(plans);
+  const freeForever = Boolean(entry && isFreeForeverPlan(entry));
+  const faqs = pricingFaqs(trialDays, freeForever, entry?.limits.products ?? null);
+  const headingBody = freeForever
+    ? "Prices in Indian rupees. Start free forever with up to 10 products — no card details needed."
+    : trialDays > 0
+      ? `Prices in Indian rupees. New stores start with a ${trialDays}-day free trial — no card details needed.`
+      : "Prices in Indian rupees. No card details needed to sign up.";
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd([softwareApplicationJsonLd(siteOrigin(), plans), faqJsonLd(faqs)]) }} />
       <section className="bg-gradient-to-b from-brand-soft/70 to-white pt-16 pb-6 sm:pt-20" aria-labelledby="pricing-title">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <SectionHeading as="h1" id="pricing-title" eyebrow="Pricing" title="Simple plans for every stage of your business" body={trialDays > 0 ? `Prices in Indian rupees. New stores start with a ${trialDays}-day free trial — no card details needed.` : "Prices in Indian rupees. No card details needed to sign up."} />
+          <SectionHeading as="h1" id="pricing-title" eyebrow="Pricing" title="Simple plans for every stage of your business" body={headingBody} />
           <div className="mt-12">
             <PricingTable plans={plans} headingLevel="h2" />
           </div>
@@ -72,7 +81,7 @@ export default async function PricingPage() {
         <p className="mt-4 text-center text-sm text-muted">All plans include the theme editor, checkout, order management, discounts, GST invoices and cash on delivery.</p>
       </Section>
       <FaqSection faqs={faqs} title="Plans and billing" />
-      <FinalCta trialDays={trialDays} />
+      <FinalCta trialDays={trialDays} freeForever={freeForever} />
     </>
   );
 }
