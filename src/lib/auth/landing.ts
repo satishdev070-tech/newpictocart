@@ -1,6 +1,7 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/observability/logger";
+import { isNextControlFlowError } from "@/lib/next/control-flow";
 
 /** Where the platform sends people to sign in. Sellers and platform staff have separate entry points. */
 export const SELLER_LOGIN_PATH = "/seller/login";
@@ -28,6 +29,7 @@ export async function landingPathFor(userId: string): Promise<string> {
     if (platform.data?.status === "active") return "/admin";
     return "/onboarding";
   } catch (err) {
+    if (isNextControlFlowError(err)) throw err;
     logger.warn("auth.landing_unavailable", { error: err });
     return "/onboarding";
   }

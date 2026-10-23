@@ -28,6 +28,13 @@ describe("getSessionUser resilience", () => {
     expect(await getSessionUser()).toBeNull();
   });
 
+  it("rethrows Next.js dynamic-server bailouts so routes stay dynamic", async () => {
+    const bailout = Object.assign(new Error("Dynamic server usage: cookies"), { digest: "DYNAMIC_SERVER_USAGE" });
+    serverClient = bailout;
+    const { getSessionUser } = await import("@/lib/auth/session");
+    await expect(getSessionUser()).rejects.toBe(bailout);
+  });
+
   it("returns the user when claims and profile are healthy", async () => {
     serverClient = {
       auth: { getClaims: async () => ({ data: { claims: { sub: "u1", email: "a@example.com" } }, error: null }) },
