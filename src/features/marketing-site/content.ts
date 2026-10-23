@@ -165,7 +165,7 @@ export function buildFaqs(rootDomain: string, trialDays = 0): Faq[] {
       answer:
         trialDays > 0
           ? `Plans differ in product, staff, storage and custom-domain limits; see the pricing page for details. New stores start with a ${trialDays}-day free trial. Plans can't be bought online yet, so you won't be asked for card details when you sign up.`
-          : "Plans differ in product, staff, storage and custom-domain limits; see the pricing page for details. Plans can't be bought online yet, so you won't be asked for card details when you sign up.",
+          : "Plans differ in product, staff, storage and custom-domain limits; see the pricing page for details. New stores start on our Free plan (free forever for up to 10 products). Plans can't be bought online yet, so you won't be asked for card details when you sign up.",
     },
     {
       question: "Can my team help run the store?",

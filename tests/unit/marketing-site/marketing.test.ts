@@ -32,13 +32,15 @@ describe("marketing plans", () => {
   it("builds the comparison table from limits and features only", () => {
     const rows = planComparison(FALLBACK_PLANS);
     const domains = rows.find((r) => r.label === "Custom domains")!;
-    expect(domains.cells).toEqual([false, "1", "3"]);
-    expect(rows.find((r) => r.label === "Products")!.cells).toEqual(["200", "2,000", "20,000"]);
-    expect(rows.find((r) => r.label === "Analytics CSV exports")!.cells).toEqual([false, false, true]);
+    expect(domains.cells).toEqual([false, false, "1", "3"]);
+    expect(rows.find((r) => r.label === "Products")!.cells).toEqual(["10", "200", "2,000", "20,000"]);
+    expect(rows.find((r) => r.label === "Free trial")!.cells[0]).toBe("Free forever");
+    expect(rows.find((r) => r.label === "Analytics CSV exports")!.cells).toEqual([false, false, false, true]);
     for (const r of rows) expect(r.cells).toHaveLength(FALLBACK_PLANS.length);
   });
   it("finds plans by code without trusting unknown codes", () => {
     expect(findPlan(FALLBACK_PLANS, "growth")?.name).toBe("Growth");
+    expect(findPlan(FALLBACK_PLANS, "free")?.name).toBe("Free");
     expect(findPlan(FALLBACK_PLANS, "free-forever")).toBeUndefined();
     expect(findPlan(FALLBACK_PLANS, null)).toBeUndefined();
   });
@@ -59,6 +61,9 @@ describe("marketing content & seo", () => {
     const text = buildFaqs("x.in", 14).map((f) => f.answer).join(" ");
     expect(text).toContain("can't be bought online yet");
     expect(text).not.toMatch(/\d+ (merchants|sellers|stores) (trust|use)/i);
+    const free = buildFaqs("x.in", 0).map((f) => f.answer).join(" ");
+    expect(free).toContain("free forever");
+    expect(free).not.toMatch(/\d+-day free trial/i);
   });
   it("carries plan and theme choices into the start journey", () => {
     expect(signupHref()).toBe("/start");

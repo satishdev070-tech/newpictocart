@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { createProductTypeAction, saveProductAction } from "@/features/catalog/actions";
 import type { ProductDraft } from "@/features/catalog/types";
@@ -61,6 +62,7 @@ export function ProductEditor({
   const [types, setTypes] = useState<ProductTypeDef[]>(initialTypes);
   const [newType, setNewType] = useState<string | null>(null);
   const [typeError, setTypeError] = useState<string | null>(null);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
   const [creatingType, startCreateType] = useTransition();
   const tpl = templateFor(d.productType, types);
   const groups = groupTypesForPicker(types, industry, d.productType);
@@ -99,8 +101,19 @@ export function ProductEditor({
   const setVariant = (i: number, patch: Partial<VariantDraft>) => set({ variants: d.variants.map((v, j) => (j === i ? { ...v, ...patch } : v)) });
   const regenerate = () => {
     const options = cleanOptions(d.options);
+    const incomplete = d.options.some((o) => o.name.trim() || o.values.some((v) => v.value.trim()));
+    if (options.length === 0 && incomplete) {
+      setOptionsError("Give each option a name and at least one value before generating variants.");
+      return;
+    }
+    setOptionsError(null);
     const base = d.variants[0] ?? emptyVariant();
-    const next = options.length ? generateVariantMatrix(options, d.variants, { price: base.price, compareAtPrice: base.compareAtPrice, weightGrams: base.weightGrams }) : [d.variants[0] ?? emptyVariant()];
+    if (options.length === 0) {
+      // Truly empty options → keep the draft options untouched; refresh the default variant only.
+      set({ variants: [d.variants[0] ?? emptyVariant()] });
+      return;
+    }
+    const next = generateVariantMatrix(options, d.variants, { price: base.price, compareAtPrice: base.compareAtPrice, weightGrams: base.weightGrams });
     set({ options, variants: next });
   };
 
@@ -218,14 +231,25 @@ export function ProductEditor({
               </datalist>
               <div className="flex flex-wrap gap-2">
                 {d.options.length < 3 ? (
-                  <Button variant="secondary" onClick={() => setOptions([...d.options, { name: optionNames.find((n) => !d.options.some((o) => o.name.toLowerCase() === n.toLowerCase())) ?? "", values: [] }])}>
-                    Add option
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setOptionsError(null);
+                      setOptions([...d.options, { name: optionNames.find((n) => !d.options.some((o) => o.name.toLowerCase() === n.toLowerCase())) ?? "", values: [] }]);
+                    }}
+                  >
+                    Configure Variant
                   </Button>
                 ) : null}
                 <Button variant="secondary" onClick={regenerate}>
                   Generate variants
                 </Button>
               </div>
+              {optionsError ? (
+                <p role="alert" className="text-sm text-error">
+                  {optionsError}
+                </p>
+              ) : null}
             </div>
           </Card>
 
@@ -284,7 +308,16 @@ export function ProductEditor({
                       </td>
                       <td className="py-2 pr-2">
                         {v.id ? (
-                          <span className="tabular-nums">{stock[v.id] ?? 0}</span>
+                          canWriteInventory ? (
+                            <span className="inline-flex flex-col gap-0.5">
+                              <span className="tabular-nums">{stock[v.id] ?? 0}</span>
+                              <Link href={`/dashboard/inventory/${v.id}`} className="text-xs text-accent underline underline-offset-2">
+                                Edit stock
+                              </Link>
+                            </span>
+                          ) : (
+                            <span className="tabular-nums">{stock[v.id] ?? 0}</span>
+                          )
                         ) : canWriteInventory ? (
                           <input aria-label="Opening stock" inputMode="numeric" className={input} value={v.initialStock} onChange={(e) => setVariant(i, { initialStock: e.target.value })} />
                         ) : (

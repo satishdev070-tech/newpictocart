@@ -68,7 +68,8 @@ describe("platform_create_tenant", () => {
     await as(admin, async (q) => {
       const id = one(await q<{ id: string }>("select public.platform_create_tenant($1, 'Kesar Looms', 'kesar', 'localhost') as id", [USERS.shopper])).id;
       const t = one(await q<{ status: string; created_by: string }>("select status, created_by from tenants where id = $1", [id]));
-      expect(t.status).toBe("trial");
+      // Entry plan is free forever (trial_days 0) → active, not a timed trial.
+      expect(t.status).toBe("active");
       expect(t.created_by).toBe(USERS.platformAdmin);
       const d = one(await q<{ hostname: string; is_primary: boolean }>("select hostname, is_primary from domains where tenant_id = $1", [id]));
       expect(d).toEqual({ hostname: "kesar.localhost", is_primary: true });

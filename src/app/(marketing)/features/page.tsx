@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { buildMarketingMetadata } from "@/features/marketing-site/seo";
 import { siteOrigin, storeRootDomain } from "@/features/marketing-site/site";
-import { maxTrialDays } from "@/features/marketing-site/plans";
+import { entryPlan, isFreeForeverPlan, signupTrialDays } from "@/features/marketing-site/plans";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { CTA_CREATE, SIGNUP_HREF } from "@/features/marketing-site/content";
 import { ButtonLink, Container, Section, SectionHeading } from "@/features/marketing-site/components/ui";
@@ -32,7 +32,9 @@ const GROUPS: { title: string; items: string[] }[] = [
 ];
 
 export default async function FeaturesPage() {
-  const trialDays = maxTrialDays(await getMarketingPlans());
+  const plans = await getMarketingPlans();
+  const trialDays = signupTrialDays(plans);
+  const freeForever = Boolean(entryPlan(plans) && isFreeForeverPlan(entryPlan(plans)!));
   return (
     <>
       <section className="bg-gradient-to-b from-brand-soft/70 to-white pt-16 sm:pt-20">
@@ -62,7 +64,7 @@ export default async function FeaturesPage() {
           ))}
         </div>
       </Section>
-      <FinalCta trialDays={trialDays} />
+      <FinalCta trialDays={trialDays} freeForever={freeForever} />
     </>
   );
 }

@@ -134,7 +134,10 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
   } catch (err) {
     if (err instanceof AppError) throw err;
     logger.warn("sarvam.chat_failed", { language: sellerLocale, error: safeErrorMessage(err) });
-    throw new AppError("INTERNAL", { fieldErrors: { _form: ["Tara couldn't reply just now. Please try again."] } });
+    throw new AppError("VALIDATION", {
+      fieldErrors: { _form: ["Tara couldn't reply just now. Please try again or type your answer."] },
+      context: { reason: "sarvam_chat_failed" },
+    });
   }
 }
 

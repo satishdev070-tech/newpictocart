@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { hasYearlyBilling, maxYearlySavingsPercent, planHighlights, planPriceView, recommendedPlanCode, yearlySavingsPercent, type BillingPeriod, type MarketingPlan } from "../plans";
+import { hasYearlyBilling, isFreeForeverPlan, maxYearlySavingsPercent, planHighlights, planPriceView, recommendedPlanCode, yearlySavingsPercent, type BillingPeriod, type MarketingPlan } from "../plans";
 import { signupHref } from "../content";
 import { analyticsAttributes } from "../analytics";
 import { buttonClass } from "./ui";
@@ -59,7 +59,11 @@ export function PricingTable({ plans, headingLevel = "h3" }: { plans: MarketingP
                 {v.note}
                 {period === "yearly" && saving > 0 ? ` · saves ${saving}%` : ""}
               </p>
-              {plan.trialDays ? <p className="mt-3 inline-flex w-fit rounded-full bg-brand-mint px-3 py-1 text-xs font-semibold text-[#15803d]">{plan.trialDays}-day free trial</p> : null}
+              {isFreeForeverPlan(plan) ? (
+                <p className="mt-3 inline-flex w-fit rounded-full bg-brand-mint px-3 py-1 text-xs font-semibold text-[#15803d]">Free forever</p>
+              ) : plan.trialDays ? (
+                <p className="mt-3 inline-flex w-fit rounded-full bg-brand-mint px-3 py-1 text-xs font-semibold text-[#15803d]">{plan.trialDays}-day free trial</p>
+              ) : null}
               <ul className="mt-6 flex-1 space-y-2.5 text-sm text-brand-ink">
                 {planHighlights(plan).map((h) => (
                   <li key={h} className="flex gap-2.5">

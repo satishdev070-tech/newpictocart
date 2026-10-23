@@ -10,7 +10,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/observability/logger";
 import { isSarvamConfigured } from "@/lib/sarvam/client";
-import { runTaraTurn } from "./turn";
+import { parseTaraHistory, runTaraTurn } from "./turn";
 import { isSarvamLocaleCode, type SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { assertEmailVerifiedForOnboarding } from "../email-gate";
 import { EMPTY_FACTS, mapCategoryToIndustry, mapSiteMode, mergeFacts, type VoiceFacts } from "./facts";
@@ -65,7 +65,13 @@ export async function voiceTurnAction(_prev: ActionResult<VoiceTurnData> | null,
     const facts = parseFactsJson(input.factsJson);
 
     const audio = raw.audio instanceof File ? raw.audio : null;
-    return runTaraTurn({ locale, facts, text: input.text, audio });
+    return runTaraTurn({
+      locale,
+      facts,
+      text: input.text,
+      audio,
+      history: parseTaraHistory(raw.historyJson ?? input.historyJson),
+    });
   });
 }
 

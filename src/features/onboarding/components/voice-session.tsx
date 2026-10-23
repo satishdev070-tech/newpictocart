@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { Mic, MicOff, Send } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { buttonClass } from "@/features/marketing-site/components/ui";
@@ -10,6 +10,7 @@ import { SITE_MODE_LABELS, type SiteMode } from "@/features/stores/site-mode";
 import type { SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { voiceTurnAction, type VoiceTurnData } from "../voice/actions";
 import { EMPTY_FACTS, suggestSlugFromName, type VoiceFacts } from "../voice/facts";
+import { fileExtension, useVoiceRecorder } from "../voice/use-voice-recorder";
 import { onboardingHref } from "../steps";
 import { saveBusinessAction } from "../actions";
 import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
@@ -49,12 +50,9 @@ export function VoiceSession({
     { role: "tara", text: "Hi, I’m Tara. Tell me about your business — what’s the name?" },
   ]);
   const [text, setText] = useState("");
-  const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
-  const mediaRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
 
   const runTurn = useCallback(
     (payload: { text?: string; audio?: Blob }) => {
@@ -63,11 +61,23 @@ export function VoiceSession({
         const fd = new FormData();
         fd.set("locale", locale);
         fd.set("factsJson", JSON.stringify(facts));
+        fd.set(
+          "historyJson",
+          JSON.stringify(
+            bubbles.slice(-12).map((b) => ({
+              role: b.role === "tara" ? ("tara" as const) : ("seller" as const),
+              text: b.text.slice(0, 800),
+            })),
+          ),
+        );
         if (payload.text) fd.set("text", payload.text);
-        if (payload.audio) fd.set("audio", payload.audio, "turn.webm");
+        if (payload.audio) {
+          const mime = payload.audio.type || "audio/webm";
+          fd.set("audio", payload.audio, `turn.${fileExtension(mime)}`);
+        }
         const result = await voiceTurnAction(null, fd);
         if (!result.ok) {
-          setError(result.error.message);
+          setError(result.error.fieldErrors?._form?.[0] ?? result.error.message);
           return;
         }
         const data = result.data as VoiceTurnData;
@@ -77,44 +87,19 @@ export function VoiceSession({
         if (data.audioBase64 && data.audioMimeType) playBase64Audio(data.audioBase64, data.audioMimeType);
       });
     },
-    [facts, locale],
+    [bubbles, facts, locale],
   );
 
-  const stopRecording = useCallback(() => {
-    mediaRef.current?.stop();
-    setRecording(false);
-  }, []);
-
-  const startRecording = useCallback(async () => {
-    setError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
-        if (blob.size > 0) runTurn({ audio: blob });
-      };
-      mediaRef.current = recorder;
-      recorder.start();
-      setRecording(true);
-      window.setTimeout(() => {
-        if (mediaRef.current?.state === "recording") stopRecording();
-      }, 28_000);
-    } catch {
-      setError("Microphone access is needed for voice. You can type instead, or use the form.");
-    }
-  }, [runTurn, stopRecording]);
-
-  useEffect(() => {
-    return () => {
-      if (mediaRef.current?.state === "recording") mediaRef.current.stop();
-    };
-  }, []);
+  const { recording, toggle } = useVoiceRecorder({
+    onRecordingComplete: (blob) => runTurn({ audio: blob }),
+    onError: (kind) => {
+      setError(
+        kind === "denied"
+          ? "Microphone access is needed for voice. You can type instead, or use the form."
+          : "Voice recording isn't available in this browser. You can type instead, or use the form.",
+      );
+    },
+  });
 
   if (done && facts.name && facts.category && facts.siteMode) {
     return (
@@ -145,7 +130,7 @@ export function VoiceSession({
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
-          onClick={() => (recording ? stopRecording() : startRecording())}
+          onClick={() => void toggle()}
           disabled={pending}
           className={cn(
             "grid size-14 place-items-center rounded-full transition",

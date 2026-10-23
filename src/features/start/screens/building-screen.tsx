@@ -9,10 +9,13 @@ export function BuildingScreen({
   draft,
   rootDomain,
   onComplete,
+  /** When true (signed-in finalize in flight), never claim 100% / call onComplete until the parent navigates away. */
+  waitForFinalize = false,
 }: {
   draft: StartDraft;
   rootDomain: string;
   onComplete: () => void;
+  waitForFinalize?: boolean;
 }) {
   const c = startCopy(draft.locale);
   const [step, setStep] = useState(0);
@@ -33,11 +36,14 @@ export function BuildingScreen({
     }
     const start = Date.now();
     let finish: number | undefined;
+    // Soft ceiling while waiting on the server; only unsigned journeys finish on the timer.
+    const softCap = waitForFinalize ? 92 : 100;
     const tick = window.setInterval(() => {
       const elapsed = Date.now() - start;
-      const p = Math.min(100, Math.round((elapsed / 3000) * 100));
+      // Progress over ~3s up to softCap; stay there until finalize returns when waitForFinalize.
+      const p = Math.min(softCap, Math.round((elapsed / 3000) * softCap));
       setPct(p);
-      if (p >= 100) {
+      if (!waitForFinalize && p >= 100) {
         window.clearInterval(tick);
         finish = window.setTimeout(() => {
           if (!doneRef.current) {
@@ -52,7 +58,7 @@ export function BuildingScreen({
       window.clearInterval(tick);
       if (finish !== undefined) window.clearTimeout(finish);
     };
-  }, [draft.locale, stepCount]);
+  }, [draft.locale, stepCount, waitForFinalize]);
 
   return (
     <section className="grid gap-8 lg:grid-cols-2">
@@ -72,6 +78,7 @@ export function BuildingScreen({
           </div>
           <span className="text-sm font-mono text-[#6B6275]">{pct}%</span>
         </div>
+        {waitForFinalize ? <p className="text-sm text-[#6B6275]">Finishing your store…</p> : null}
       </div>
       <LivePreview locale={draft.locale} rootDomain={rootDomain} draft={draft} liveSlug={draft.result?.slug} />
     </section>
