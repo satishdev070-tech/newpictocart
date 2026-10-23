@@ -1,6 +1,16 @@
 # Implementation Status
 
-_Last updated: 2026-10-23 (Admin login brand + seller login resilience)_
+_Last updated: 2026-10-23 (Bugs 2.0 #1–#10)_
+
+## Bugs 2.0 tester fixes #1–#10 (2026-10-23)
+
+- **1–3 Tara / login:** Clearer voice errors (no INTERNAL for chat); building waits on finalize; prompt never re-asks Known facts; onboarding sends `historyJson`; shared silence auto-stop + max record length.
+- **4 Free forever:** Migration `20261023003600_free_plan.sql` — free plan (10 products, `trial_days` 0); new free stores `active` with null trial end; trial banner only when trial + `trial_ends_at`.
+- **5 Home URL:** Dashboard home shows truncated storefront host + Copy next to View store.
+- **6–7 Themes:** Ecommerce best-fit skips informative; choose-theme publishes; ecommerce apply restores `site_mode`; mockups use name/tagline.
+- **8 CSV:** Import mode on submit buttons; atomic create/update tally; clearer “matched by handle” copy.
+- **9 Stock/variants:** “Configure Variant”; Generate validates instead of wiping; stock links to inventory.
+- **10 Multi-image:** Direct Storage upload + attach; Server Action caps multi/oversize; sharp variants fire-and-forget.
 
 ## Admin login brand + seller login resilience (2026-10-23)
 
