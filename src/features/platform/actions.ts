@@ -45,7 +45,8 @@ import {
   updatePlatformSetting,
   updatePlatformUser,
 } from "./server/mutations";
-import { clearBrandImage, revalidatePublicConfig, uploadBrandImage } from "./server/public-config";
+import { clearBrandImage, uploadBrandImage } from "./server/branding-images";
+import { revalidatePublicConfig } from "./server/public-config";
 import { BRAND_SLOTS } from "./public-config";
 import { resetLandingContent, revalidateLanding, saveLandingContent } from "@/features/marketing-site/server/landing";
 

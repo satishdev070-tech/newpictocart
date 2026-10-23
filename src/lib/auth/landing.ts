@@ -1,5 +1,7 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/observability/logger";
+import { isNextControlFlowError } from "@/lib/next/control-flow";
 
 /** Where the platform sends people to sign in. Sellers and platform staff have separate entry points. */
 export const SELLER_LOGIN_PATH = "/seller/login";
@@ -17,12 +19,18 @@ export function loginPathFor(next: string): string {
  * Sellers → dashboard; platform staff without a store → admin console; nobody → onboarding.
  */
 export async function landingPathFor(userId: string): Promise<string> {
-  const supabase = await createSupabaseServerClient();
-  const [tenant, platform] = await Promise.all([
-    supabase.from("tenant_memberships").select("tenant_id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "active"),
-    supabase.from("platform_memberships").select("status").eq("user_id", userId).maybeSingle(),
-  ]);
-  if ((tenant.count ?? 0) > 0) return "/dashboard";
-  if (platform.data?.status === "active") return "/admin";
-  return "/onboarding";
+  try {
+    const supabase = await createSupabaseServerClient();
+    const [tenant, platform] = await Promise.all([
+      supabase.from("tenant_memberships").select("tenant_id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "active"),
+      supabase.from("platform_memberships").select("status").eq("user_id", userId).maybeSingle(),
+    ]);
+    if ((tenant.count ?? 0) > 0) return "/dashboard";
+    if (platform.data?.status === "active") return "/admin";
+    return "/onboarding";
+  } catch (err) {
+    if (isNextControlFlowError(err)) throw err;
+    logger.warn("auth.landing_unavailable", { error: err });
+    return "/onboarding";
+  }
 }

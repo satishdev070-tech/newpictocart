@@ -1,8 +1,8 @@
 # Pictocart brand system
 
-Applies to the public marketing site (`src/app/(marketing)`), seller sign-in / sign-up
-(`AuthSplit variant="merchant"`) and onboarding (`src/app/onboarding`). The seller dashboard,
-platform console and storefronts keep their own design systems.
+Applies to the public marketing site (`src/app/(marketing)`), seller and platform-staff sign-in
+(`AuthSplit` merchant and console variants), and onboarding (`src/app/onboarding`). The seller
+dashboard, post-login platform console (`.theme-panel`) and storefronts keep their own design systems.
 
 ## Logo
 

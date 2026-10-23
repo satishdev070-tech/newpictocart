@@ -7,12 +7,12 @@ _Platform UI (seller dashboard, platform console, auth, marketing). Storefronts 
 - **Light is the default.** Light / Dark / System via `AppearanceToggle` (`components/ui/appearance-toggle.tsx`), saved in
   `localStorage["paliya-appearance"]` per origin. An inline boot script (`lib/appearance`) applies dark before first paint (no flash).
 - Tokens live on `:root, [data-theme="light"]` and `[data-theme="dark"]` in `app/globals.css`. Any subtree can pin a theme with
-  `data-theme` (the auth side panels pin dark).
+  `data-theme` (seller and staff auth screens pin light under `.theme-brand`).
 - Dark is a separate palette (charcoal surfaces, softened text, brighter accent), not an inversion.
 - `.theme-panel` (added by `AppShell`) is the seller dashboard and super admin theme: Pictocart orange (`primary` #cc4a0c, `accent` #c2410c,
   `accent-soft`, vivid `accent-strong` #f97316 for non-text marks), warm-neutral surfaces, tinted fills `tint-{peach,lavender,mint,sky,rose,amber,teal}`
   (+ `-border`, `-ink`), a one-step larger type scale and Manrope headings. Light and dark.
-- `.theme-console` (cool slate + blue) remains only on the console sign-in panel.
+- Staff **sign-in** (`/admin/login`) uses the same Pictocart `.theme-brand` shell and logo as seller auth; copy and form behaviour stay staff-only. Legacy `.theme-console` tokens remain in CSS but are unused by current screens.
 - Storefronts are never switched: store origins have their own storage and use `--sf-*` tokens from the tenant theme.
 
 ## Semantic tokens (Tailwind colour names)
