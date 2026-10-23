@@ -19,10 +19,11 @@ import {
   setStockAction,
   setThresholdAction,
   updateProductImageAction,
-  uploadProductImageAction,
   attachProductMediaAction,
 } from "@/features/catalog/actions";
 import { MediaPicker } from "@/features/media/components/media-picker";
+import { Dropzone, UploadQueue } from "@/features/media/components/media-ui";
+import { useMediaUploads } from "@/features/media/components/use-media-uploads";
 import { ActionDialog, ActionForm, InlineAction } from "@/features/settings/ui/action-controls";
 import { CheckboxField, SelectField, TextAreaField, TextField, inputClassName as input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,19 @@ export function ProductMediaManager({ productId, media, variants }: { productId:
   const [pending, start] = useTransition();
   const byId = new Map(media.map((m) => [m.id, m]));
   const visible = order.filter((id) => byId.has(id));
+  const attachUploaded = (path: string) => {
+    setMessage(null);
+    start(async () => {
+      const r = await attachProductMediaAction(productId, [path]);
+      if (!r.ok) setMessage({ tone: "error", text: firstError(r.error) });
+      else if (r.data.added === 0) setMessage({ tone: "success", text: "That image is already on this product." });
+      else setMessage({ tone: "success", text: "Image added." });
+    });
+  };
+  const uploads = useMediaUploads({
+    folder: "products",
+    onUploaded: (item) => attachUploaded(item.path),
+  });
   const saveOrder = (next: string[]) => {
     setMessage(null);
     start(async () => {
@@ -87,7 +101,7 @@ export function ProductMediaManager({ productId, media, variants }: { productId:
     });
   };
   return (
-    <Card title="Images" description="JPG, PNG, WebP or AVIF up to 10 MB. The main image is the thumbnail on product cards and the image shown when the product is shared.">
+    <Card title="Images" description="JPG, PNG, WebP or AVIF up to 10 MB each. The main image is the thumbnail on product cards and the image shown when the product is shared.">
       {visible.length === 0 ? <p className="mb-4 text-small text-muted">No images yet. Add some from your media library or upload new ones.</p> : null}
       <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3" aria-busy={pending}>
         {visible.map((id, i) => {
@@ -157,18 +171,10 @@ export function ProductMediaManager({ productId, media, variants }: { productId:
           </p>
         ) : null}
       </div>
-      <div className="mt-4">
-        <ActionForm action={uploadProductImageAction} fields={{ productId }} submitLabel="Upload" success="Uploaded." encType="multipart/form-data" resetOnSuccess>
-          {(e) => (
-            <div>
-              <label htmlFor="img-file" className="mb-1 block text-sm font-medium">
-                Add images
-              </label>
-              <input id="img-file" name="file" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" multiple className="text-sm" />
-              {e.file ? <p className="mt-1 text-sm text-error">{e.file[0]}</p> : null}
-            </div>
-          )}
-        </ActionForm>
+      <div className="mt-4 space-y-3">
+        <p className="text-sm font-medium">Add images</p>
+        <Dropzone onFiles={uploads.addFiles} compact multiple />
+        <UploadQueue tasks={uploads.tasks} onCancel={uploads.cancel} onRetry={uploads.retry} onDismiss={uploads.dismiss} onClear={uploads.clearFinished} />
       </div>
     </Card>
   );
@@ -218,12 +224,10 @@ export function ProductBulkBar({ formId }: { formId: string }) {
 
 export function ImportProducts() {
   const [state, action, pending] = useActionState(importProductsAction, null);
-  const [mode, setMode] = useState<"preview" | "apply">("preview");
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   return (
     <form action={action} className="space-y-4" encType="multipart/form-data">
-      <input type="hidden" name="mode" value={mode} />
       <FormMessage state={state} />
       <label htmlFor="csv" className="block cursor-pointer rounded-lg border border-dashed border-border-strong bg-surface-secondary/40 p-5 text-center transition-colors hover:border-accent hover:bg-accent-soft/40">
         <span className="block text-sm font-semibold text-foreground">{fileName ?? "Choose a CSV file"}</span>
@@ -248,10 +252,10 @@ export function ImportProducts() {
       </label>
       {fileError ? <p role="alert" className="text-sm text-error">{fileError}</p> : null}
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" variant="secondary" disabled={Boolean(fileError)} pending={pending && mode === "preview"} onClick={() => setMode("preview")}>
+        <Button type="submit" name="mode" value="preview" variant="secondary" disabled={Boolean(fileError)} pending={pending}>
           Validate & preview
         </Button>
-        <Button type="submit" disabled={Boolean(fileError)} pending={pending && mode === "apply"} onClick={() => setMode("apply")}>
+        <Button type="submit" name="mode" value="apply" disabled={Boolean(fileError)} pending={pending}>
           Import
         </Button>
       </div>

@@ -119,13 +119,22 @@ export async function createProductTypeAction(input: { label: string; baseKey?: 
 
 // ------------------------------------------------------------------- media
 
+const MAX_PRODUCT_UPLOAD_BYTES = 20 * 1024 * 1024;
+
 export async function uploadProductImageAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const result = await runAction("catalog.uploadImage", async () => {
     const ctx = await writer();
     const input = parseInput(mediaUploadSchema, formToObject(fd));
     const images = fd.getAll("file").filter((f): f is File => f instanceof File && f.size > 0);
     if (!images.length) throw new AppError("VALIDATION", { fieldErrors: { file: ["Choose at least one image"] } });
-    for (const img of images.slice(0, 10)) await addProductImage(ctx.tenantId, input.productId, img, input.altText ?? null);
+    if (images.length > 1) {
+      throw new AppError("VALIDATION", { fieldErrors: { file: ["Upload one image at a time, or use Add images for multiple files."] } });
+    }
+    const total = images.reduce((sum, f) => sum + f.size, 0);
+    if (total > MAX_PRODUCT_UPLOAD_BYTES) {
+      throw new AppError("VALIDATION", { fieldErrors: { file: ["Images must total 20 MB or less"] } });
+    }
+    await addProductImage(ctx.tenantId, input.productId, images[0]!, input.altText ?? null);
   });
   if (result.ok) refresh();
   return result;
@@ -323,9 +332,22 @@ export async function importProductsAction(_prev: ActionResult<ImportState> | nu
     }
     const r = await applyImport(ctx.tenantId, text, { canWriteInventory: can(ctx, "inventory.write") });
     await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "product.imported", entityType: "product", metadata: { created: r.created, updated: r.updated, failed: r.failed.length } });
+    const parts: string[] = [];
+    if (r.created) parts.push(`${r.created} created`);
+    if (r.updated) {
+      parts.push(
+        r.created === 0
+          ? `${r.updated} existing product${r.updated === 1 ? "" : "s"} updated (matched by handle)`
+          : `${r.updated} updated`,
+      );
+    }
+    if (!r.created && !r.updated) parts.push("No products saved");
+    if (r.stockSet) parts.push(`${r.stockSet} stock levels set`);
+    if (r.failed.length) parts.push(`${r.failed.length} failed`);
+    if (r.skipped) parts.push(`${r.skipped} skipped`);
     return {
       mode,
-      summary: `${r.created} created, ${r.updated} updated, ${r.stockSet} stock levels set, ${r.failed.length} failed, ${r.skipped} skipped`,
+      summary: parts.join(", "),
       errors: [...r.failed.map((x) => `${x.handle}: ${x.message}`), ...r.rowErrors.slice(0, 50).map((e) => JSON.stringify(e))],
     };
   });

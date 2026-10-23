@@ -49,7 +49,7 @@ function ThemeCardPreview({ theme }: { theme: MarketplaceCard }) {
   }, [theme.previewUrl]);
 
   if (themeSiteType(theme) === "informative") return <InformativeThemeMockup theme={theme} />;
-  if (!theme.previewUrl) return <ThemeMockup preset={theme.preset} name={theme.name.split(" ")[0]!} />;
+  if (!theme.previewUrl) return <ThemeMockup preset={theme.preset} name={theme.name.split(" ")[0]!} tagline={theme.tagline} />;
 
   return (
     <div ref={frame} className="relative h-full overflow-hidden bg-white" aria-hidden>

@@ -13,6 +13,7 @@ import { orderNumberLabel } from "@/features/orders-admin/format";
 import { getLaunchStatusForMember } from "@/features/stores/launch";
 import { PreviewStoreButton, PublishStoreButton } from "@/features/stores/components/launch-controls";
 import { RecentActivityCard } from "@/features/notifications/inbox/components/recent-activity-card";
+import { CopyButton } from "@/features/domains/components/domain-controls";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -107,9 +108,15 @@ export default async function DashboardHome() {
         title={`${greeting()}${firstName ? `, ${firstName}` : ""}`}
         description={`${ctx.tenantName} · last 30 days`}
         actions={
-          <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-background">
-            View store ↗
-          </a>
+          <div className="flex max-w-full flex-wrap items-center gap-2">
+            <span className="max-w-[12rem] truncate text-sm text-muted sm:max-w-[18rem]" title={storeUrl}>
+              {storeUrl.replace(/^https?:\/\//, "")}
+            </span>
+            <CopyButton value={storeUrl} label="storefront URL" />
+            <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-background">
+              View store ↗
+            </a>
+          </div>
         }
       />
 

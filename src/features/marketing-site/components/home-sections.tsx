@@ -151,7 +151,7 @@ function CategoryPreview({ theme, label }: { theme: MarketplaceTheme; label: str
         // eslint-disable-next-line @next/next/no-img-element -- static pre-sized WebP, no optimizer needed
         <img src={shot} alt="" width={DESKTOP_VIEWPORT.width} height={DESKTOP_VIEWPORT.height} loading="lazy" decoding="async" className="block size-full object-cover object-top" />
       ) : (
-        <ThemeMockup preset={theme.preset} name={label} />
+        <ThemeMockup preset={theme.preset} name={label} tagline={theme.tagline} />
       )}
     </div>
   );

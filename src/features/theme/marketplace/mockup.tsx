@@ -76,7 +76,7 @@ function Photo({ src, style, radius = "0" }: { src: string; style?: CSSPropertie
   return <img src={src} alt="" loading="lazy" decoding="async" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", borderRadius: radius, ...style }} />;
 }
 
-export function ThemeMockup({ preset, name, size = "card" }: { preset: ThemePreset; name: string; size?: "card" | "large" | "phone" }) {
+export function ThemeMockup({ preset, name, tagline, size = "card" }: { preset: ThemePreset; name: string; tagline?: string; size?: "card" | "large" | "phone" }) {
   const t = preset.tokens as Record<string, unknown> & { colors: Record<string, string> };
   const c = t.colors;
   const heading = FONT_STACKS[(t.headingFont as FontKey) ?? "editorial-serif"]?.stack;
@@ -101,14 +101,18 @@ export function ThemeMockup({ preset, name, size = "card" }: { preset: ThemePres
   const heroH = large ? 210 : phone ? 150 : 104;
   const pad = large ? 20 : 12;
   const hType: CSSProperties = { fontFamily: heading, textTransform: upper ? "uppercase" : "none", lineHeight: 1.02 };
+  // Per-theme copy so marketplace cards don't all show the same "NEW SEASON / Made by hand".
+  const heroEyebrow = (name.split(/\s+/)[0] ?? name).toUpperCase();
+  const heroTitle = (tagline?.trim() || name).trim();
+  const announcement = (tagline?.trim() || `Discover ${name}`).trim().toUpperCase();
 
   const button = (light: boolean) => (
     <span style={{ display: "inline-block", marginTop: 6, padding: "3px 10px", borderRadius: btnRadius, background: outline ? "transparent" : light ? "#fff" : c.primary, color: outline ? "inherit" : light ? c.primary : "#fff", border: `1px solid ${light ? "#fff" : c.primary}`, fontSize: "0.8em" }}>Shop now</span>
   );
   const text = (light: boolean, big = false, align: "left" | "center" = "left") => (
     <div style={{ textAlign: align, color: light ? "#fff" : c.text }}>
-      <div style={{ fontSize: "0.7em", letterSpacing: "0.18em", opacity: 0.8 }}>NEW SEASON</div>
-      <div style={{ ...hType, fontSize: big ? (large ? "3em" : "2.2em") : large ? "2.3em" : "1.7em", margin: "3px 0 2px" }}>Made by hand</div>
+      <div style={{ fontSize: "0.7em", letterSpacing: "0.18em", opacity: 0.8 }}>{heroEyebrow}</div>
+      <div style={{ ...hType, fontSize: big ? (large ? "3em" : "2.2em") : large ? "2.3em" : "1.7em", margin: "3px 0 2px" }}>{heroTitle}</div>
       {button(light)}
     </div>
   );
@@ -149,7 +153,7 @@ export function ThemeMockup({ preset, name, size = "card" }: { preset: ThemePres
         <div style={{ height: heroH, background: panel }}>
           <div style={{ height: heroH * 0.48 }}><Photo src={hero[0]!} /></div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", padding: `6px ${pad}px` }}>
-            <div style={{ ...hType, fontSize: large ? "2.4em" : "1.6em", color: c.text }}>Made by hand</div>
+            <div style={{ ...hType, fontSize: large ? "2.4em" : "1.6em", color: c.text }}>{heroTitle}</div>
             {button(false)}
           </div>
         </div>
@@ -264,7 +268,7 @@ export function ThemeMockup({ preset, name, size = "card" }: { preset: ThemePres
   return (
     <div aria-hidden className="overflow-hidden select-none" style={{ background: c.background, color: c.text, fontFamily: body, fontSize: large ? 12 : 9 }}>
       <div style={{ background: preset.announcementTone === "accent" ? c.accent : preset.announcementTone === "light" ? c.background : c.primary, color: preset.announcementTone === "light" ? c.text : "#fff", textAlign: "center", padding: "3px 0", fontSize: "0.8em", letterSpacing: "0.08em" }}>
-        FREE SHIPPING ACROSS INDIA
+        {announcement}
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: center ? "center" : "space-between", gap: 12, padding: "8px 12px", ...headerStyle }}>
         <span style={{ ...hType, fontSize: hs === "editorial" ? "2em" : "1.5em", letterSpacing: upper ? "0.08em" : 0, color: hs === "inverted" ? "#fff" : c.primary }}>{name}</span>

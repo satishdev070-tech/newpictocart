@@ -22,6 +22,7 @@ import { isThemeKey } from "@/features/marketing-site/themes";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { findPlan } from "@/features/marketing-site/plans";
 import { applyMarketplaceThemeToDraft } from "@/features/theme/server/apply-marketplace";
+import { revalidateStorefront } from "@/lib/cache/storefront";
 import { listOwnedStores, ownerContext } from "./server";
 import { assertEmailVerifiedForOnboarding } from "./email-gate";
 import { seedReadyStore } from "./seed/pipeline";
@@ -195,7 +196,7 @@ export async function seedReadyStoreAction(_prev: ActionResult | null, fd: FormD
 
 const themeSchema = z.object({ store: z.string().regex(UUID_RE), choice: z.string().optional(), skip: z.string().optional(), plan: choiceSchema.plan });
 
-/** Optional: apply a chosen theme as a DRAFT (or skip). Lands on Ready by default (plan is optional). */
+/** Optional: apply a chosen theme and publish it so the storefront matches (or skip). Lands on Ready by default. */
 export async function chooseThemeAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   let target: string | null = null;
   const result = await runAction("onboarding.theme", async () => {
@@ -206,8 +207,19 @@ export async function chooseThemeAction(_prev: ActionResult | null, fd: FormData
     if (!input.skip) {
       if (!isThemeKey(input.choice)) throw new AppError("VALIDATION", { fieldErrors: { choice: ["Choose a theme, or skip this step."] } });
       assertPermission(ctx, "theme.edit");
-      const { theme } = await applyMarketplaceThemeToDraft(ctx, input.choice);
-      await audit({ tenantId: ctx.tenantId, actorUserId: user.id, action: "theme.marketplace_applied", entityType: "theme", entityId: theme.key, metadata: { theme: theme.key, version: theme.version, source: "onboarding" } });
+      assertPermission(ctx, "theme.publish");
+      const { supabase, theme } = await applyMarketplaceThemeToDraft(ctx, input.choice);
+      const { data: versionId, error } = await supabase.rpc("publish_theme", { p_tenant: ctx.tenantId, p_label: theme.name });
+      if (error) throw mapDbError(error);
+      revalidateStorefront(ctx.tenantId);
+      await audit({
+        tenantId: ctx.tenantId,
+        actorUserId: user.id,
+        action: "theme.marketplace_applied_and_published",
+        entityType: "theme_version",
+        entityId: versionId,
+        metadata: { theme: theme.key, version: theme.version, source: "onboarding" },
+      });
     }
     await setActiveTenant(ctx.tenantId);
     // Plan is optional — Ready is the default landing after theme change.

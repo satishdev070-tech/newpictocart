@@ -130,7 +130,7 @@ export function ThemeForm({ store, themes, selected, plan, backHref }: { store: 
             <label key={t.key} className={cn("cursor-pointer overflow-hidden rounded-brand-md border bg-white transition-shadow has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand", choice === t.key ? "border-brand ring-2 ring-brand" : "border-border hover:shadow-brand-card")}>
               <input type="radio" name="choice" value={t.key} checked={choice === t.key} onChange={() => setChoice(t.key)} className="sr-only" />
               <div className="h-40 overflow-hidden border-b border-border" aria-hidden>
-                <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} />
+                <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} />
               </div>
               <span className="block p-3">
                 <span className="block font-semibold text-brand-ink">{t.name}</span>

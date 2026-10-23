@@ -31,7 +31,7 @@ function Still({ theme, device, size, eager, fill = false }: { theme: Marketplac
         // eslint-disable-next-line @next/next/no-img-element
         <img src={shot} alt="" width={vp.width} height={vp.height} loading={eager ? "eager" : "lazy"} decoding="async" className="block size-full object-cover object-top" />
       ) : (
-        <ThemeMockup preset={theme.preset} name={mockName(theme)} size={device === "phone" ? "phone" : size === "large" ? "large" : "card"} />
+        <ThemeMockup preset={theme.preset} name={mockName(theme)} tagline={theme.tagline} size={device === "phone" ? "phone" : size === "large" ? "large" : "card"} />
       )}
     </div>
   );

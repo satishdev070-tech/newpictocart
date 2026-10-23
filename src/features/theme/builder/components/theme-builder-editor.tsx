@@ -349,10 +349,10 @@ export function ThemeBuilderEditor({ initial, published }: { initial: BuiltTheme
             </div>
           ) : device === "phone" ? (
             <div className="mx-auto w-[390px] max-w-full">
-              <ThemeMockup preset={preset} name={theme.name.split(" ")[0] || "Store"} size="phone" />
+              <ThemeMockup preset={preset} name={theme.name.split(" ")[0] || "Store"} tagline={theme.tagline} size="phone" />
             </div>
           ) : (
-            <ThemeMockup preset={preset} name={theme.name.split(" ")[0] || "Store"} size="large" />
+            <ThemeMockup preset={preset} name={theme.name.split(" ")[0] || "Store"} tagline={theme.tagline} size="large" />
           )}
         </div>
         <p className="text-caption text-muted">The preview shows sample products and photos. The theme recreates a visual style only: no logo, text or images from the reference are used.</p>
