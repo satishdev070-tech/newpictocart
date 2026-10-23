@@ -8,6 +8,7 @@ import { framingHeaders, platformFrameOrigins } from "@/lib/security/headers";
 import { platformOrigin } from "@/lib/platform/urls";
 import { platformHostAliases } from "@/lib/platform/hosts";
 import { EDGE_HOST_HEADER, EDGE_SIG_HEADER, EDGE_TS_HEADER, verifyEdgeHost } from "@/lib/tenant/edge-signature";
+import { logger } from "@/lib/observability/logger";
 
 /**
  * Request entry point (Next.js 16 "proxy", formerly middleware). Responsibilities:
@@ -65,19 +66,25 @@ export async function proxy(request: NextRequest) {
   const pendingCookies: PendingCookie[] = [];
   const pendingHeaders: Record<string, string> = {};
   if (hasSupabaseAuthCookie(request)) {
-    const supabase = createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll(cookiesToSet, headers) {
-          for (const c of cookiesToSet) {
-            request.cookies.set(c.name, c.value);
-            pendingCookies.push(c);
-          }
-          Object.assign(pendingHeaders, headers);
+    try {
+      const supabase = createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          setAll(cookiesToSet, headers) {
+            for (const c of cookiesToSet) {
+              request.cookies.set(c.name, c.value);
+              pendingCookies.push(c);
+            }
+            Object.assign(pendingHeaders, headers);
+          },
         },
-      },
-    });
-    await supabase.auth.getClaims();
+      });
+      await supabase.auth.getClaims();
+    } catch (err) {
+      // Corrupt/expired cookies or a brief Supabase outage must not 500 the whole request
+      // (seller/admin login and storefronts all pass through here when a session cookie exists).
+      logger.warn("proxy.session_refresh_failed", { error: err });
+    }
   }
 
   // (1) Build forwarded request headers AFTER cookie refresh so refreshed cookies flow downstream.

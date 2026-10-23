@@ -57,7 +57,7 @@ export function SignInForm({ next, variant = "seller" }: { next?: string; varian
       <FormMessage state={state} />
       <TextField label={variant === "admin" ? "Work email" : "Email"} name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@company.com" required errors={errors.email} />
       <PasswordField label="Password" name="password" autoComplete="current-password" required errors={errors.password} labelAside={forgotLink} hint={variant === "seller" ? "Use the password for this merchant account." : undefined} />
-      <SubmitButton size="lg" variant={variant === "admin" ? "accent" : "primary"} className={variant === "seller" ? merchantSubmitClass : "w-full"}>
+      <SubmitButton size="lg" variant={variant === "admin" ? "accent" : "primary"} className={merchantSubmitClass}>
         Sign in
       </SubmitButton>
       {variant === "seller" ? (

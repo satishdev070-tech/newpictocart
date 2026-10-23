@@ -1,6 +1,12 @@
 # Implementation Status
 
-_Last updated: 2026-10-21 (Vercel Next.js deploy config)_
+_Last updated: 2026-10-23 (Admin login brand + seller login resilience)_
+
+## Admin login brand + seller login resilience (2026-10-23)
+
+- **`/admin/login`:** Uses the Pictocart `.theme-brand` split (logo, orange radials, orange CTA) with a “Full command center” aside. Staff-only form behaviour unchanged (work email, no self-serve register).
+- **Seller login crash:** Proxy session refresh, `getSessionUser`, and `landingPathFor` fail soft instead of 500ing; `sharp` moved to write-only `branding-images.ts` so BrandLogo / auth metadata never load it; `(auth)/error.tsx` logs digests for diagnosis.
+- **Tests:** `tests/unit/auth/session-resilience.test.ts`, `proxy-session-refresh.test.ts`, `tests/unit/platform/public-config-no-sharp.test.ts`.
 
 ## Vercel Next.js deploy config (2026-10-21)
 
@@ -304,10 +310,10 @@ The Vercel Hobby team was paused for exceeding Image Optimization transformation
 
 ### Audit pass: changes
 
-- **Auth:** `/seller/login|register|forgot-password` (old URLs 308-redirect), `/admin/login` (console styling), role-based post-login landing, shopper forgot/reset password, store callback accepts token-hash links.
+- **Auth:** `/seller/login|register|forgot-password` (old URLs 308-redirect), `/admin/login` (Pictocart brand shell + staff copy), role-based post-login landing, shopper forgot/reset password, store callback accepts token-hash links.
 - **Storefront:** SVG icons, search overlay + `/search/suggest`, cart drawer with free-shipping progress, drawer mobile nav, header scroll state, carousel/hero layout fix, hero mobile image, PDP rating under title + SKU.
 - **Dashboard:** real home overview (`features/analytics/home.ts`), shared zero-filled `RevenueChart`, full-width theme editor with a true-width scaled preview.
-- **Admin:** `theme-console` palette, tenant table owner/products/orders/GMV (`platform_tenant_list_stats`).
+- **Admin:** post-login `.theme-panel` (Pictocart orange); sign-in uses `.theme-brand`; tenant table owner/products/orders/GMV (`platform_tenant_list_stats`).
 - **Platform:** Server Action / proxy body limit 25 MB (uploads over 1 MB failed before).
 - **Data:** seed fixed (GoTrue token columns, idempotent inserts); `scripts/dev/demo-media/run.mts` generates original demo imagery and publishes the demo theme.
 - **Tests:** `zeroFillDays`; admin stats RPC; shopper↔shopper and shopper→seller/platform isolation.
@@ -607,7 +613,7 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
 
 ## Panel theme and navigation speed: seller dashboard + super admin (2026-10-16)
 
-- **Theme.** Both panels render inside `.theme-panel` (added by `AppShell`): Pictocart orange on warm-neutral surfaces, soft tinted surfaces (`tint-peach|lavender|mint|sky|rose`, each with `-border` and `-ink`), semantic colours, light and dark. AA contrast: white on `--primary` (#cc4a0c) 4.6:1, `--accent` on `--accent-soft` 4.8:1, `--subtle` on the canvas 5.1:1; dark mode 6.8:1 / 7.5:1. Vivid `accent-strong` (#f97316) only for non-text marks. The console's cool-slate `.theme-console` is now used only by the console sign-in panel; the admin topbar shows an "Admin mode" marker instead.
+- **Theme.** Both panels render inside `.theme-panel` (added by `AppShell`): Pictocart orange on warm-neutral surfaces, soft tinted surfaces (`tint-peach|lavender|mint|sky|rose`, each with `-border` and `-ink`), semantic colours, light and dark. AA contrast: white on `--primary` (#cc4a0c) 4.6:1, `--accent` on `--accent-soft` 4.8:1, `--subtle` on the canvas 5.1:1; dark mode 6.8:1 / 7.5:1. Vivid `accent-strong` (#f97316) only for non-text marks. Staff and seller **sign-in** share `.theme-brand`; the admin topbar shows an "Admin mode" marker instead of a separate console palette.
 - **Type.** In panels the scale is one step larger (body 15/24, small 14/22, h1 26/34 …) via `--text-*-size` variables, and display/h1–h3 use Manrope 700 (`--font-heading`). Inter stays the UI font.
 - **Logo.** `PanelLogo` / `PanelMark` (`components/app-shell/panel-logo.tsx`) show the Pictocart logo (uploaded header logo first) linking to the panel home, on a white chip in dark mode; the square mark in the collapsed rail and the mobile topbar.
 - **Shell.** Seller nav regrouped as Dashboard · Catalog · Sales · Marketing · Storefront · Analytics · Settings. Multi-item groups are collapsible submenus (grid-rows animation, no measuring, `inert` when closed; the active group opens by default, choices saved per browser). Exactly one item is active (longest matching href). Breadcrumbs moved from the topbar into the content area; the topbar has the wide search, a light/dark toggle, notifications and account. Primitives: `StatCard` gained optional `tone` + `icon`, `Badge` a `brand` tone, `AppearanceQuickToggle`; cards/buttons are rounder.
