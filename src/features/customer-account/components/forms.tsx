@@ -4,12 +4,14 @@ import { UseMyLocation } from "@/features/geo/components/use-my-location";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { useActionState, useState } from "react";
+import { EmailCodeFlow } from "@/components/auth/email-code-flow";
 import {
   cancelMyOrderAction,
   requestOtpAction,
   requestReturnAction,
   saveAddressAction,
   storeForgotPasswordAction,
+  storeVerifyResetCodeAction,
   storeResetPasswordAction,
   storeSignInAction,
   storeSignUpAction,
@@ -71,8 +73,6 @@ function FormError({ state }: { state: ActionResult<unknown> | null }) {
 export function StoreSignIn({ next }: { next: string }) {
   const [mode, setMode] = useState<"password" | "code">("password");
   const [pw, pwAction, pwPending] = useActionState(storeSignInAction, null);
-  const [otp, otpAction, otpPending] = useActionState(requestOtpAction, null);
-  const [ver, verAction, verPending] = useActionState(verifyOtpAction, null);
   return (
     <div className="space-y-5">
       <div role="tablist" className="flex gap-4 text-sm">
@@ -98,26 +98,8 @@ export function StoreSignIn({ next }: { next: string }) {
             {pwPending ? "Signing in…" : "Sign in"}
           </button>
         </form>
-      ) : otp?.ok ? (
-        <form action={verAction} className="space-y-4" noValidate>
-          <input type="hidden" name="next" value={next} />
-          <input type="hidden" name="email" value={otp.data.email} />
-          <p className="text-sm">We sent a code to {otp.data.email}.</p>
-          <FormError state={ver} />
-          <Input label="Code" name="token" inputMode="numeric" autoComplete="one-time-code" required errors={errs(ver)} />
-          <button type="submit" disabled={verPending} className="sf-btn w-full">
-            Verify and sign in
-          </button>
-        </form>
       ) : (
-        <form action={otpAction} className="space-y-4" noValidate>
-          <input type="hidden" name="next" value={next} />
-          <FormError state={otp} />
-          <Input label="Email" name="email" type="email" autoComplete="email" required errors={errs(otp)} />
-          <button type="submit" disabled={otpPending} className="sf-btn w-full">
-            Send code
-          </button>
-        </form>
+        <EmailCodeFlow tone="store" requestAction={requestOtpAction} verifyAction={verifyOtpAction} hidden={{ next }} emailLabel="Email" submitLabel="Send code" verifyLabel="Verify and sign in" />
       )}
       <p className="text-center text-sm">
         New here?{" "}
@@ -133,9 +115,9 @@ export function StoreSignUp({ next }: { next: string }) {
   const [state, action, pending] = useActionState(storeSignUpAction, null);
   if (state?.ok && state.data.needsConfirmation) {
     return (
-      <div role="status" className="space-y-2 text-center">
-        <p className="sf-heading text-2xl">Check your inbox</p>
-        <p className="sf-muted text-sm">We sent a confirmation link. Open it on this device to finish creating your account.</p>
+      <div className="space-y-3">
+        <p className="sf-heading text-center text-2xl">Confirm your email</p>
+        <EmailCodeFlow tone="store" initialEmail={state.data.email} requestAction={requestOtpAction} verifyAction={verifyOtpAction} hidden={{ next }} verifyLabel="Confirm and continue" />
       </div>
     );
   }
@@ -317,27 +299,15 @@ export function ReturnRequestForm({ orderId, items }: { orderId: string; items: 
 }
 
 export function StoreForgotPassword() {
-  const [state, action, pending] = useActionState(storeForgotPasswordAction, null);
-  if (state?.ok) {
-    return (
-      <p role="status" className="text-center text-sm">
-        If an account exists for that email, we&apos;ve sent a link to reset your password.
-      </p>
-    );
-  }
   return (
-    <form action={action} className="space-y-4" noValidate>
-      <FormError state={state} />
-      <Input label="Email" name="email" type="email" autoComplete="email" required errors={errs(state)} />
-      <button type="submit" disabled={pending} className="sf-btn w-full">
-        {pending ? "Sending…" : "Send reset link"}
-      </button>
+    <div className="space-y-4">
+      <EmailCodeFlow tone="store" requestAction={storeForgotPasswordAction} verifyAction={storeVerifyResetCodeAction} emailLabel="Email" submitLabel="Send reset code" verifyLabel="Verify and set a new password" />
       <p className="text-center text-sm">
         <Link href="/account/login" className="sf-link">
           Back to sign in
         </Link>
       </p>
-    </form>
+    </div>
   );
 }
 

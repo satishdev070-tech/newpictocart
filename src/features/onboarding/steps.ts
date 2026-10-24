@@ -18,11 +18,12 @@ export const ONBOARDING_STEPS = [
 export type OnboardingStepKey = (typeof ONBOARDING_STEPS)[number]["key"];
 
 /** Actual wizard screens (finer than the progress rail). */
-export type WizardStep = "language" | "method" | "voice" | "business" | "building" | "theme" | "plan" | "ready";
+/** "type" = the first question: informative website or online store (the site mode). */
+export type WizardStep = "type" | "language" | "method" | "voice" | "business" | "building" | "theme" | "plan" | "ready";
 
-const WIZARD: readonly WizardStep[] = ["language", "method", "voice", "business", "building", "theme", "plan", "ready"];
+const WIZARD: readonly WizardStep[] = ["type", "language", "method", "voice", "business", "building", "theme", "plan", "ready"];
 
-const PRE_STORE: readonly WizardStep[] = ["language", "method", "voice", "business"];
+const PRE_STORE: readonly WizardStep[] = ["type", "language", "method", "voice", "business"];
 
 export function isWizardStep(v: unknown): v is WizardStep {
   return typeof v === "string" && (WIZARD as readonly string[]).includes(v);
@@ -31,6 +32,7 @@ export function isWizardStep(v: unknown): v is WizardStep {
 /** Map a wizard screen onto the 5-step progress rail. */
 export function progressStep(step: WizardStep): OnboardingStepKey {
   if (step === "language") return "language";
+  if (step === "type") return "setup";
   if (step === "method" || step === "voice" || step === "business") return "setup";
   if (step === "building") return "building";
   return "ready";
@@ -44,9 +46,11 @@ export function progressStep(step: WizardStep): OnboardingStepKey {
 export function resolveStep(
   requested: unknown,
   hasStore: boolean,
-  prefs: { locale?: string | null } = {},
+  prefs: { locale?: string | null; needsType?: boolean } = {},
 ): WizardStep {
   if (!hasStore) {
+    // New sellers answer "what are you building?" first (needsType: no site mode chosen yet).
+    if (requested === "type" || prefs.needsType) return "type";
     if (!prefs.locale) return "language";
     if (requested === "language") return "language";
     if (requested === "voice") return "voice";
@@ -69,8 +73,10 @@ export function stepIndex(step: OnboardingStepKey): number {
 
 export function previousStep(step: WizardStep, prefs: { locale?: string | null; method?: string | null } = {}): WizardStep | null {
   switch (step) {
-    case "language":
+    case "type":
       return null;
+    case "language":
+      return "type";
     case "method":
       return "language";
     case "voice":

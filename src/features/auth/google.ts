@@ -34,3 +34,32 @@ export async function googleSignInAvailable(audience: "sellers" | "shoppers"): P
   if (!(audience === "sellers" ? config.googleForSellers : config.googleForShoppers)) return false;
   return googleAuthEnabled();
 }
+
+let cachedClientId: { value: string | null; at: number } | null = null;
+const CLIENT_ID_RE = /^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/;
+
+/**
+ * Google OAuth client id for Google Identity Services sign-in (GoogleIdentityButton), or null to use
+ * the classic redirect. On only with GOOGLE_IDENTITY_SIGNIN=on (this site must first be an
+ * "Authorised JavaScript origin" of the client in Google Cloud). The id is
+ * NEXT_PUBLIC_GOOGLE_SIGNIN_CLIENT_ID, else read from the Location of Supabase's public
+ * /auth/v1/authorize?provider=google redirect (the same client Supabase verifies tokens for).
+ */
+export async function googleIdentityClientId(): Promise<string | null> {
+  if (process.env.GOOGLE_IDENTITY_SIGNIN !== "on") return null;
+  const fromEnv = process.env.NEXT_PUBLIC_GOOGLE_SIGNIN_CLIENT_ID?.trim();
+  if (fromEnv && CLIENT_ID_RE.test(fromEnv)) return fromEnv;
+  if (cachedClientId && Date.now() - cachedClientId.at < 12 * 3600_000) return cachedClientId.value;
+  const env = publicEnv();
+  let value: string | null = null;
+  try {
+    const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL.replace(/\/$/, "")}/auth/v1/authorize?provider=google`, { redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(4000) });
+    const location = res.headers.get("location");
+    const id = location ? new URL(location).searchParams.get("client_id") : null;
+    value = id && CLIENT_ID_RE.test(id) ? id : null;
+  } catch (err) {
+    logger.warn("auth.google_client_id_unavailable", { error: err });
+  }
+  cachedClientId = { value, at: Date.now() };
+  return value;
+}

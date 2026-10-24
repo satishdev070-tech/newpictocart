@@ -19,7 +19,8 @@ import { ADMIN_LOGIN_PATH, SELLER_LOGIN_PATH, landingPathFor } from "@/lib/auth/
 import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
 import { isStartIntentId } from "@/features/start/intents";
 import { isConfirmationEmailFailure, shouldConfirmWithoutEmail, signupFailureMessage } from "./signup-errors";
-import { forgotSchema, resetSchema, signInSchema, signUpSchema, startEmailCodeSchema, verifyStartCodeSchema } from "./schemas";
+import { forgotSchema, merchantCodeSchema, resetSchema, signInSchema, signUpSchema, startEmailCodeSchema, verifyMerchantCodeSchema, verifyResetCodeSchema, verifyStartCodeSchema } from "./schemas";
+import { authCodeFailureMessage, sendAuthCode } from "./server/auth-codes";
 
 type SignupIdentity = {
   email: string;
@@ -198,25 +199,22 @@ export async function requestStartEmailCodeAction(
     await rateLimit("start-otp:email", input.email, 5, 3600);
     const lang = input.lang && isSarvamLocaleCode(input.lang) ? input.lang : null;
     const intent = input.intent && isStartIntentId(input.intent) ? input.intent : null;
-    const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.auth.signInWithOtp({
+    // Sent by the app through Resend (auth-codes.ts), not Supabase's rate-limited mailer.
+    const sent = await sendAuthCode({
       email: input.email,
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo: `${platformOrigin()}/auth/callback?next=${encodeURIComponent(safeRedirectPath(input.next, "/start"))}`,
-        data: {
-          display_name: input.displayName?.trim() || null,
-          store_name: input.storeName ?? null,
-          requested_plan: input.plan ?? null,
-          requested_theme: input.theme ?? null,
-          onboarding_locale: lang,
-          onboarding_intent: intent,
-        },
+      kind: "signin",
+      createUser: true,
+      redirectTo: `${platformOrigin()}/auth/callback?next=${encodeURIComponent(safeRedirectPath(input.next, "/start"))}`,
+      userMetadata: {
+        display_name: input.displayName?.trim() || null,
+        store_name: input.storeName ?? null,
+        requested_plan: input.plan ?? null,
+        requested_theme: input.theme ?? null,
+        onboarding_locale: lang,
+        onboarding_intent: intent,
       },
     });
-    if (error) {
-      throw new AppError("VALIDATION", { fieldErrors: { _form: ["Couldn't send a code. Try again in a moment."] } });
-    }
+    if (sent.status !== "sent") throw new AppError("VALIDATION", { fieldErrors: { _form: [authCodeFailureMessage(sent)] } });
     return { email: input.email };
   });
 }
@@ -236,15 +234,76 @@ export async function verifyStartEmailCodeAction(_prev: ActionResult | null, fd:
   return result;
 }
 
-export async function forgotPasswordAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+export async function forgotPasswordAction(_prev: ActionResult<{ email: string }> | null, fd: FormData): Promise<ActionResult<{ email: string }>> {
   return runAction("auth.forgotPassword", async () => {
     const input = parseInput(forgotSchema, formToObject(fd));
     await rateLimit("reset:ip", await clientIpKey(), 5, 3600);
     await rateLimit("reset:email", input.email, 3, 3600);
-    const supabase = await createSupabaseServerClient();
-    // Always report success so the form doesn't reveal which emails have accounts.
-    await supabase.auth.resetPasswordForEmail(input.email, { redirectTo: `${platformOrigin()}/auth/callback?next=/reset-password` });
+    // Sent by the app through Resend. Unknown emails still report success (no account enumeration);
+    // only a real delivery failure is shown.
+    const sent = await sendAuthCode({ email: input.email, kind: "recovery", redirectTo: `${platformOrigin()}/auth/callback?next=/reset-password` });
+    if (sent.status === "failed") throw new AppError("VALIDATION", { fieldErrors: { _form: [authCodeFailureMessage(sent)] } });
+    return { email: input.email };
   });
+}
+
+/** Reset by code: verifies the code from the reset email, then the seller picks a new password. */
+export async function verifyResetCodeAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const result = await runAction("auth.verifyResetCode", async () => {
+    const input = parseInput(verifyResetCodeSchema, formToObject(fd));
+    await rateLimit("reset-verify:email", input.email, 10, 600);
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.auth.verifyOtp({ email: input.email, token: input.token, type: "recovery" });
+    if (error) throw new AppError("VALIDATION", { fieldErrors: { token: ["That code is invalid or has expired."] } });
+  });
+  if (result.ok) redirect("/reset-password");
+  return result;
+}
+
+/**
+ * Merchant sign-up / sign-in by email code (the new auth screens): one code for both. A new email
+ * gets an account (then onboarding: "What are you building?"); an existing one signs in.
+ */
+export async function requestMerchantCodeAction(_prev: ActionResult<{ email: string }> | null, fd: FormData): Promise<ActionResult<{ email: string }>> {
+  return runAction("auth.merchantCode", async () => {
+    const input = parseInput(merchantCodeSchema, formToObject(fd));
+    await rateLimit("merchant-otp:ip", await clientIpKey(), 15, 3600);
+    await rateLimit("merchant-otp:email", input.email, 6, 3600);
+    const lang = input.lang && isSarvamLocaleCode(input.lang) ? input.lang : null;
+    const intent = input.intent && isStartIntentId(input.intent) ? input.intent : null;
+    const next = safeRedirectPath(input.next, input.mode === "signup" ? "/onboarding" : "/dashboard");
+    const sent = await sendAuthCode({
+      email: input.email,
+      kind: "signin",
+      createUser: true,
+      redirectTo: `${platformOrigin()}/auth/callback?next=${encodeURIComponent(next)}`,
+      userMetadata: {
+        display_name: input.displayName?.trim() || null,
+        store_name: input.storeName ?? null,
+        requested_plan: input.plan ?? null,
+        requested_theme: input.theme ?? null,
+        onboarding_locale: lang,
+        onboarding_intent: intent,
+      },
+    });
+    if (sent.status !== "sent") throw new AppError("VALIDATION", { fieldErrors: { _form: [authCodeFailureMessage(sent)] } });
+    return { email: input.email };
+  });
+}
+
+export async function verifyMerchantCodeAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  let next = "/dashboard";
+  const result = await runAction("auth.verifyMerchantCode", async () => {
+    const input = parseInput(verifyMerchantCodeSchema, formToObject(fd));
+    await rateLimit("merchant-otp-verify:email", input.email, 10, 600);
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.verifyOtp({ email: input.email, token: input.token, type: "email" });
+    if (error || !data.user) throw new AppError("VALIDATION", { fieldErrors: { token: ["That code is invalid or has expired."] } });
+    // Explicit ?next wins; otherwise new sellers go to onboarding, existing ones to their dashboard.
+    next = input.next ? safeRedirectPath(input.next, "/dashboard") : await landingPathFor(data.user.id);
+  });
+  if (result.ok) redirect(next);
+  return result;
 }
 
 export async function resetPasswordAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
@@ -280,4 +339,27 @@ export async function googleSignInAction(fd: FormData): Promise<void> {
   });
   if (error || !data.url) redirect(`${SELLER_LOGIN_PATH}?error=google`);
   redirect(data.url);
+}
+
+/**
+ * Google sign-in through Google Identity Services (the button rendered by Google on OUR domain):
+ * the browser gets a Google ID token and Supabase verifies it (signInWithIdToken). Unlike the
+ * redirect flow, Google's consent shows pictocartdev.in instead of the Supabase project URL.
+ * `nonce` is the raw value whose SHA-256 was given to Google, so the token can't be replayed.
+ */
+export async function googleIdTokenSignInAction(input: { credential: string; nonce: string; next?: string }): Promise<ActionResult<{ next: string }>> {
+  return runAction("auth.googleIdToken", async () => {
+    await rateLimit("login:ip", await clientIpKey(), 20, 600);
+    if (!(await getPublicPlatformConfig()).googleForSellers) throw new AppError("FORBIDDEN", { message: "Google sign-in is turned off." });
+    if (typeof input.credential !== "string" || input.credential.length < 20 || input.credential.length > 4096) throw new AppError("VALIDATION");
+    if (typeof input.nonce !== "string" || !/^[A-Za-z0-9_-]{16,128}$/.test(input.nonce)) throw new AppError("VALIDATION");
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token: input.credential, nonce: input.nonce });
+    if (error || !data.user) {
+      logger.warn("auth.google_id_token_failed", { code: error?.code ?? null, detail: error?.message.slice(0, 160) ?? null });
+      throw new AppError("UNAUTHENTICATED", { message: "Google sign-in didn't complete. Please try again or use your email." });
+    }
+    const next = input.next ? safeRedirectPath(input.next, "/dashboard") : await landingPathFor(data.user.id);
+    return { next };
+  });
 }

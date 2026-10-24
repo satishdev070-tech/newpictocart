@@ -6,7 +6,8 @@ import { CheckCircle2, MailCheck } from "lucide-react";
 import { TextField } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
 import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
-import { forgotPasswordAction, resetPasswordAction, signInAction, signUpAction } from "./actions";
+import { forgotPasswordAction, resetPasswordAction, signInAction, signUpAction, verifyResetCodeAction } from "./actions";
+import { EmailCodeFlow } from "@/components/auth/email-code-flow";
 
 const forgotLink = (
   <Link href="/seller/forgot-password" className="text-small font-medium text-accent hover:underline">
@@ -137,31 +138,17 @@ export function SignUpForm({
   );
 }
 
+/** Email → reset code (or the link in the same email) → choose a new password. */
 export function ForgotPasswordForm() {
-  const [state, action] = useActionState(forgotPasswordAction, null);
-  const errors = fieldErrors(state);
-  if (state?.ok) {
-    return (
-      <div role="status" className="space-y-3 text-center">
-        <span className="mx-auto grid size-11 place-items-center rounded-full bg-success/10 text-success">
-          <MailCheck aria-hidden className="size-5" />
-        </span>
-        <h2 className="text-h2">Check your inbox</h2>
-        <p className="text-body text-muted">If an account exists for that email, a reset link is on its way. It expires in one hour.</p>
-        <Link href="/seller/login" className="inline-block pt-2 text-small font-medium text-accent hover:underline">
+  return (
+    <div className="space-y-4">
+      <EmailCodeFlow requestAction={forgotPasswordAction} verifyAction={verifyResetCodeAction} emailLabel="Email" submitLabel="Send reset code" verifyLabel="Verify and set a new password" />
+      <p className="text-center text-small">
+        <Link href="/seller/login" className="font-medium text-accent hover:underline">
           Back to sign in
         </Link>
-      </div>
-    );
-  }
-  return (
-    <form action={action} className="space-y-5" noValidate>
-      <FormMessage state={state} />
-      <TextField label="Email" name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@company.com" required errors={errors.email} />
-      <SubmitButton size="lg" className={merchantSubmitClass}>
-        Send reset link
-      </SubmitButton>
-    </form>
+      </p>
+    </div>
   );
 }
 

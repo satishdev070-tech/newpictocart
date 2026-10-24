@@ -25,7 +25,7 @@ export default async function CustomerPage({ params }: PageProps<"/dashboard/cus
         <StatCard label="Lifetime value" value={formatMoney(toMinor(c.total_spent))} />
         <StatCard label="Customer since" value={formatDate(c.created_at)} hint={c.accepts_marketing ? "Subscribed to email" : "Not subscribed"} />
       </div>
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card title="Orders">
           {d.orders.length ? (
             <Table caption="Customer orders">

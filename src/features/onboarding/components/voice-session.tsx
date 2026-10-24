@@ -35,16 +35,20 @@ export function VoiceSession({
   theme,
   rootDomain,
   defaultName,
+  defaultSiteMode,
 }: {
   locale: SarvamLocaleCode;
   plan: string | null;
   theme: string | null;
   rootDomain: string;
   defaultName: string;
+  /** Answer to "What are you building?" (onboarding step 1); Tara won't need to ask it. */
+  defaultSiteMode?: SiteMode | null;
 }) {
   const [facts, setFacts] = useState<VoiceFacts>(() => ({
     ...EMPTY_FACTS,
     name: defaultName || null,
+    ...(defaultSiteMode ? { siteMode: defaultSiteMode } : {}),
   }));
   const [bubbles, setBubbles] = useState<Bubble[]>([
     { role: "tara", text: "Hi, I’m Tara. Tell me about your business — what’s the name?" },

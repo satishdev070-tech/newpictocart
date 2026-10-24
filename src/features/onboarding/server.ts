@@ -1,4 +1,5 @@
 import "server-only";
+
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listMemberships, membershipPermissions, type TenantContext } from "@/lib/tenant/membership";
 import type { SessionUser } from "@/lib/auth/session";
@@ -7,7 +8,9 @@ import { isIndustry, type IndustrySlug } from "@/features/stores/industries";
 import { isThemeKey } from "@/features/marketing-site/themes";
 import { isSarvamLocaleCode, type SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { cleanPlanCode } from "./steps";
-import { parseSiteMode, type SiteMode } from "@/features/stores/site-mode";
+import { SITE_MODES, parseSiteMode, type SiteMode } from "@/features/stores/site-mode";
+
+const isSiteMode = (v: unknown): v is SiteMode => typeof v === "string" && (SITE_MODES as readonly string[]).includes(v);
 
 /** A store the signed-in user OWNS, as onboarding needs it. Read with the user's session (RLS). */
 export type OnboardingStore = {
@@ -74,21 +77,24 @@ export async function requestedChoices(sp: Record<string, string | string[] | un
   theme: string | null;
   locale: SarvamLocaleCode | null;
   method: "voice" | "form" | null;
+  siteMode: SiteMode | null;
 }> {
   const q = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : null);
   let plan = cleanPlanCode(q("plan"));
   let theme = isThemeKey(q("theme")) ? q("theme") : null;
   let locale = q("lang") && isSarvamLocaleCode(q("lang")!) ? (q("lang") as SarvamLocaleCode) : null;
   let method: "voice" | "form" | null = q("method") === "voice" || q("method") === "form" ? (q("method") as "voice" | "form") : null;
-  if (!plan || !theme || !locale || !method) {
+  let siteMode: SiteMode | null = isSiteMode(q("mode")) ? (q("mode") as SiteMode) : null;
+  if (!plan || !theme || !locale || !method || !siteMode) {
     const { data } = await (await createSupabaseServerClient()).auth.getUser();
     const meta = (data.user?.user_metadata ?? {}) as Record<string, unknown>;
     plan ??= cleanPlanCode(meta.requested_plan);
     theme ??= typeof meta.requested_theme === "string" && isThemeKey(meta.requested_theme) ? meta.requested_theme : null;
     locale ??= typeof meta.onboarding_locale === "string" && isSarvamLocaleCode(meta.onboarding_locale) ? meta.onboarding_locale : null;
     method ??= meta.onboarding_method === "voice" || meta.onboarding_method === "form" ? meta.onboarding_method : null;
+    siteMode ??= isSiteMode(meta.onboarding_site_mode) ? (meta.onboarding_site_mode as SiteMode) : null;
   }
-  return { plan, theme, locale, method };
+  return { plan, theme, locale, method, siteMode };
 }
 
 /**
