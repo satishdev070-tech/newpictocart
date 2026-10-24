@@ -43,7 +43,7 @@ export const forgotSchema = z.object({ email });
 export const merchantCodeSchema = startEmailCodeSchema.extend({ mode: z.enum(["signup", "signin"]).catch("signin") });
 export const verifyMerchantCodeSchema = z.object({
   email,
-  token: z.string().trim().regex(/^\d{6,10}$/, "Enter the 6-digit code from the email"),
+  token: z.string().trim().regex(/^\d{6,10}$/, "Enter the code from the email"),
   next: z.string().optional(),
 });
 /** Password reset by the code in the reset email (the link in the same email also works). */

@@ -16,7 +16,8 @@ import { TextField } from "@/components/ui/field";
  * six boxes (auto-advance, paste, backspace), Resend with a cooldown, Change email.
  */
 
-type RequestAction = (prev: ActionResult<{ email: string }> | null, fd: FormData) => Promise<ActionResult<{ email: string }>>;
+/** `codeLength`: digits in the emailed code (follows Supabase's "Email OTP Length"; 6 by default). */
+type RequestAction = (prev: ActionResult<{ email: string; codeLength?: number }> | null, fd: FormData) => Promise<ActionResult<{ email: string; codeLength?: number }>>;
 type VerifyAction = (prev: ActionResult | null, fd: FormData) => Promise<ActionResult>;
 
 export const CODE_LENGTH = 6;
@@ -36,6 +37,7 @@ export function EmailCodeFlow({
   verifyLabel = "Verify code",
   tone = "platform",
   initialEmail = null,
+  initialCodeLength,
 }: {
   requestAction: RequestAction;
   verifyAction: VerifyAction;
@@ -47,11 +49,13 @@ export function EmailCodeFlow({
   tone?: "platform" | "store";
   /** Start on the code step for this email (e.g. after a store sign-up sent the confirmation code). */
   initialEmail?: string | null;
+  initialCodeLength?: number;
 }) {
   const [reqState, request] = useActionState(requestAction, null);
   const [verState, verify] = useActionState(verifyAction, null);
   const [email, setEmail] = useState<string | null>(initialEmail);
   const [code, setCode] = useState("");
+  const [length, setLength] = useState(boxCount(initialCodeLength));
   const [cooldown, setCooldown] = useState(initialEmail ? RESEND_COOLDOWN_S : 0);
   const store = tone === "store";
   const [resendNote, setResendNote] = useState<string | null>(null);
@@ -64,6 +68,7 @@ export function EmailCodeFlow({
     setSeenReq(reqState);
     if (reqState?.ok) {
       setEmail(reqState.data.email);
+      setLength(boxCount(reqState.data.codeLength));
       setCode("");
       setCooldown(RESEND_COOLDOWN_S);
     }
@@ -86,7 +91,11 @@ export function EmailCodeFlow({
       for (const [k, v] of Object.entries(hidden)) if (v) fd.set(k, v);
       const r = await requestAction(null, fd);
       setResendNote(r.ok ? "We sent a new code." : (r.error.fieldErrors?._form?.[0] ?? r.error.message));
-      if (r.ok) setCooldown(RESEND_COOLDOWN_S);
+      if (r.ok) {
+        setCooldown(RESEND_COOLDOWN_S);
+        setLength(boxCount(r.data.codeLength));
+        setCode("");
+      }
     });
   };
 
@@ -126,6 +135,7 @@ export function EmailCodeFlow({
       </p>
       {store ? <StoreMessage state={verState} /> : <FormMessage state={verState} />}
       <CodeBoxes
+        length={length}
         value={code}
         onChange={setCode}
         onComplete={() => verifyForm.current?.requestSubmit()}
@@ -141,9 +151,9 @@ export function EmailCodeFlow({
       </p>
       {resendNote ? <p role="status" className={cn("text-xs", store ? "sf-muted" : "text-muted")}>{resendNote}</p> : null}
       {store ? (
-        <StoreSubmit disabled={code.length !== CODE_LENGTH}>{verifyLabel}</StoreSubmit>
+        <StoreSubmit disabled={code.length !== length}>{verifyLabel}</StoreSubmit>
       ) : (
-        <SubmitButton disabled={code.length !== CODE_LENGTH} className="w-full">
+        <SubmitButton disabled={code.length !== length} className="w-full">
           {verifyLabel}
         </SubmitButton>
       )}
@@ -182,21 +192,26 @@ function StoreMessage({ state }: { state: ActionResult<unknown> | null }) {
   ) : null;
 }
 
-function CodeBoxes({ value, onChange, onComplete, invalid, store }: { value: string; onChange: (v: string) => void; onComplete: () => void; invalid: boolean; store: boolean }) {
+/** Number of code boxes: 6 unless the emailed code is longer (up to 10). Pure. */
+export function boxCount(n: number | undefined): number {
+  return typeof n === "number" && Number.isInteger(n) ? Math.min(10, Math.max(CODE_LENGTH, n)) : CODE_LENGTH;
+}
+
+function CodeBoxes({ length, value, onChange, onComplete, invalid, store }: { length: number; value: string; onChange: (v: string) => void; onComplete: () => void; invalid: boolean; store: boolean }) {
   const refs = useRef<(HTMLInputElement | null)[]>([]);
-  const focus = (i: number) => refs.current[Math.max(0, Math.min(CODE_LENGTH - 1, i))]?.focus();
+  const focus = (i: number) => refs.current[Math.max(0, Math.min(length - 1, i))]?.focus();
 
   const set = (next: string) => {
     onChange(next);
-    if (next.length === CODE_LENGTH) setTimeout(onComplete, 0);
+    if (next.length === length) setTimeout(onComplete, 0);
   };
   const onInput = (i: number, raw: string) => {
-    const digits = cleanCode(raw);
+    const digits = cleanCode(raw, length);
     if (!digits) return;
     // Typing (or the OS filling one-time codes) can deliver several digits at once.
-    const chars = value.padEnd(CODE_LENGTH, " ").split("");
-    for (let k = 0; k < digits.length && i + k < CODE_LENGTH; k++) chars[i + k] = digits[k]!;
-    set(cleanCode(chars.join("")));
+    const chars = value.padEnd(length, " ").split("");
+    for (let k = 0; k < digits.length && i + k < length; k++) chars[i + k] = digits[k]!;
+    set(cleanCode(chars.join(""), length));
     focus(i + digits.length);
   };
   const onKey = (i: number, e: KeyboardEvent<HTMLInputElement>) => {
@@ -211,7 +226,7 @@ function CodeBoxes({ value, onChange, onComplete, invalid, store }: { value: str
     else if (e.key === "ArrowRight") focus(i + 1);
   };
   const onPaste = (e: ClipboardEvent<HTMLInputElement>) => {
-    const digits = cleanCode(e.clipboardData.getData("text"));
+    const digits = cleanCode(e.clipboardData.getData("text"), length);
     if (!digits) return;
     e.preventDefault();
     set(digits);
@@ -219,8 +234,8 @@ function CodeBoxes({ value, onChange, onComplete, invalid, store }: { value: str
   };
 
   return (
-    <div className="flex justify-center gap-2 sm:gap-2.5" role="group" aria-label="Verification code">
-      {Array.from({ length: CODE_LENGTH }, (_, i) => (
+    <div className={cn("flex justify-center", length > 6 ? "gap-1.5 sm:gap-2" : "gap-2 sm:gap-2.5")} role="group" aria-label="Verification code">
+      {Array.from({ length }, (_, i) => (
         <input
           key={i}
           ref={(el) => {
@@ -233,12 +248,13 @@ function CodeBoxes({ value, onChange, onComplete, invalid, store }: { value: str
           onFocus={(e) => e.target.select()}
           inputMode="numeric"
           autoComplete={i === 0 ? "one-time-code" : "off"}
-          maxLength={CODE_LENGTH}
+          maxLength={length}
           autoFocus={i === 0}
           aria-label={`Digit ${i + 1}`}
           aria-invalid={invalid || undefined}
           className={cn(
-            "size-11 text-center text-xl font-semibold tabular-nums sm:size-12",
+            length > 6 ? "size-9 text-lg sm:size-11 sm:text-xl" : "size-11 text-xl sm:size-12",
+            "text-center font-semibold tabular-nums",
             store
               ? cn("sf-input !px-0", invalid && "!border-[var(--sf-sale)]")
               : cn("rounded-lg border bg-white outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30", invalid ? "border-danger" : "border-border"),

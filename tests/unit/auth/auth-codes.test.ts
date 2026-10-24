@@ -29,7 +29,7 @@ describe("sendAuthCode", () => {
     const { sendAuthCode } = await import("@/features/auth/server/auth-codes");
     linkResults.push(ok(true));
     const r = await sendAuthCode({ email: "Seller@Example.com", kind: "signin", redirectTo: "https://pictocartdev.in/auth/callback?next=%2Fdashboard" });
-    expect(r).toEqual({ status: "sent" });
+    expect(r).toEqual({ status: "sent", codeLength: 6 });
     expect(generateLink).toHaveBeenCalledWith({ type: "magiclink", email: "seller@example.com", options: { redirectTo: "https://pictocartdev.in/auth/callback?next=%2Fdashboard" } });
     const [payload, opts] = handleAuthEmailHook.mock.calls[0] as unknown as [{ email_data: { token: string; token_hash: string; email_action_type: string } }, { linkType: string }];
     expect(payload.email_data).toMatchObject({ token: "855189", token_hash: "hash123", email_action_type: "magiclink" });
@@ -40,7 +40,7 @@ describe("sendAuthCode", () => {
     const { sendAuthCode } = await import("@/features/auth/server/auth-codes");
     linkResults.push({ data: null, error: { code: "user_not_found", message: "User not found" } }, ok(false));
     const r = await sendAuthCode({ email: "new@example.com", kind: "signin", createUser: true, redirectTo: "https://pictocartdev.in/auth/callback", userMetadata: { store_name: "Asha Crafts" } });
-    expect(r).toEqual({ status: "sent" });
+    expect(r).toEqual({ status: "sent", codeLength: 6 });
     expect(createUser).toHaveBeenCalledWith({ email: "new@example.com", email_confirm: false, user_metadata: { store_name: "Asha Crafts" } });
     expect((handleAuthEmailHook.mock.calls[0] as unknown as [{ email_data: { email_action_type: string } }])[0].email_data.email_action_type).toBe("signup");
   });
@@ -48,10 +48,18 @@ describe("sendAuthCode", () => {
   it("sends password reset codes with the recovery link type and hides unknown emails", async () => {
     const { sendAuthCode } = await import("@/features/auth/server/auth-codes");
     linkResults.push(ok(true));
-    expect(await sendAuthCode({ email: "a@example.com", kind: "recovery", redirectTo: "https://shop.pictocartdev.in/account/auth/callback" })).toEqual({ status: "sent" });
+    expect(await sendAuthCode({ email: "a@example.com", kind: "recovery", redirectTo: "https://shop.pictocartdev.in/account/auth/callback" })).toEqual({ status: "sent", codeLength: 6 });
     expect((handleAuthEmailHook.mock.calls[0] as unknown as [unknown, { linkType: string }])[1]).toEqual({ linkType: "recovery" });
     linkResults.push({ data: null, error: { code: "user_not_found", message: "User not found" } });
     expect(await sendAuthCode({ email: "nobody@example.com", kind: "recovery", redirectTo: "https://pictocartdev.in/auth/callback" })).toEqual({ status: "no-account" });
+  });
+
+  it("reports the real code length (8-digit Supabase setting)", async () => {
+    const { sendAuthCode, codeLengthOf, knownCodeLength } = await import("@/features/auth/server/auth-codes");
+    linkResults.push({ data: { user: { id: "u1", email_confirmed_at: "2026-10-01T00:00:00Z", user_metadata: {} }, properties: { email_otp: "21914449", hashed_token: "h" } }, error: null });
+    expect(await sendAuthCode({ email: "a@example.com", kind: "signin", redirectTo: "https://pictocartdev.in/auth/callback" })).toEqual({ status: "sent", codeLength: 8 });
+    expect(knownCodeLength()).toBe(8);
+    expect(codeLengthOf(null)).toBe(6);
   });
 
   it("reports a provider failure when the email could not be delivered", async () => {

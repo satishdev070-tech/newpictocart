@@ -975,3 +975,11 @@ above and in `docs/THEME_BUILDER.md`):
 - **Builder:** green "Updating 45%" chip + green progress bar, "✓ Updated" on success, amber + warning toast after 6 s, error toast.
   **Add with AI** is enabled when Sarvam is configured too (it was gated on Gemini/Groq/Anthropic only, showing "Coming soon").
 - Tests: `tests/unit/auth/auth-codes.test.ts`, `tests/unit/auth-ui-and-onboarding.test.ts`, onboarding steps.
+- **Follow-up (2026-10-24): code length + store Google sign-in.**
+  - Emails arrived with **8-digit** codes: Supabase's *Email OTP Length* is 8 on v2pictocart. The code boxes now follow the real
+    length (`codeLength` returned by the request actions, 6–10). To get 6-digit codes, set Supabase → Authentication → Sign In /
+    Providers → Email → **Email OTP Length = 6**.
+  - **Store Google sign-in** never returned to the store: Supabase only redirects to allow-listed URLs and store subdomains aren't
+    listed. Now relayed through the platform (`/auth/store-google` → Google → `/auth/store-google/callback` → single-use token →
+    the store's `/account/auth/callback`), which links the existing customer profile by email (or creates one) and opens
+    `/account`. `features/customer-account/server/google-relay.ts`; only stores we serve are accepted as return hosts.

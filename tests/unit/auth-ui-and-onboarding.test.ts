@@ -53,3 +53,15 @@ describe("auth code emails", () => {
     expect(renderAuthEmail({ action: "signup", brand, actionUrl: "https://pictocartdev.in/x", otp: null }).subject).toBe("Confirm your email for Pictocart");
   });
 });
+
+describe("code length follows the emailed code (Supabase 'Email OTP Length')", () => {
+  it("shows as many boxes as the code has digits, 6 by default", async () => {
+    const { boxCount } = await import("@/components/auth/email-code-flow");
+    expect(boxCount(undefined)).toBe(6);
+    expect(boxCount(6)).toBe(6);
+    expect(boxCount(8)).toBe(8);
+    expect(boxCount(12)).toBe(10);
+    expect(boxCount(4)).toBe(6);
+    expect(cleanCode("2191 4449", 8)).toBe("21914449");
+  });
+});
