@@ -20,7 +20,7 @@ import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
 import { isStartIntentId } from "@/features/start/intents";
 import { isConfirmationEmailFailure, shouldConfirmWithoutEmail, signupFailureMessage } from "./signup-errors";
 import { forgotSchema, merchantCodeSchema, resetSchema, signInSchema, signUpSchema, startEmailCodeSchema, verifyMerchantCodeSchema, verifyResetCodeSchema, verifyStartCodeSchema } from "./schemas";
-import { authCodeFailureMessage, sendAuthCode } from "./server/auth-codes";
+import { authCodeFailureMessage, knownCodeLength, sendAuthCode } from "./server/auth-codes";
 
 type SignupIdentity = {
   email: string;
@@ -190,9 +190,9 @@ export async function signUpAction(_prev: ActionResult<{ needsConfirmation: bool
 
 /** Email a one-time code that creates the merchant account when it does not exist yet. */
 export async function requestStartEmailCodeAction(
-  _prev: ActionResult<{ email: string }> | null,
+  _prev: ActionResult<{ email: string; codeLength?: number }> | null,
   fd: FormData,
-): Promise<ActionResult<{ email: string }>> {
+): Promise<ActionResult<{ email: string; codeLength?: number }>> {
   return runAction("auth.startEmailCode", async () => {
     const input = parseInput(startEmailCodeSchema, formToObject(fd));
     await rateLimit("start-otp:ip", await clientIpKey(), 10, 3600);
@@ -215,7 +215,7 @@ export async function requestStartEmailCodeAction(
       },
     });
     if (sent.status !== "sent") throw new AppError("VALIDATION", { fieldErrors: { _form: [authCodeFailureMessage(sent)] } });
-    return { email: input.email };
+    return { email: input.email, codeLength: sent.codeLength };
   });
 }
 
@@ -234,7 +234,7 @@ export async function verifyStartEmailCodeAction(_prev: ActionResult | null, fd:
   return result;
 }
 
-export async function forgotPasswordAction(_prev: ActionResult<{ email: string }> | null, fd: FormData): Promise<ActionResult<{ email: string }>> {
+export async function forgotPasswordAction(_prev: ActionResult<{ email: string; codeLength?: number }> | null, fd: FormData): Promise<ActionResult<{ email: string; codeLength?: number }>> {
   return runAction("auth.forgotPassword", async () => {
     const input = parseInput(forgotSchema, formToObject(fd));
     await rateLimit("reset:ip", await clientIpKey(), 5, 3600);
@@ -243,7 +243,7 @@ export async function forgotPasswordAction(_prev: ActionResult<{ email: string }
     // only a real delivery failure is shown.
     const sent = await sendAuthCode({ email: input.email, kind: "recovery", redirectTo: `${platformOrigin()}/auth/callback?next=/reset-password` });
     if (sent.status === "failed") throw new AppError("VALIDATION", { fieldErrors: { _form: [authCodeFailureMessage(sent)] } });
-    return { email: input.email };
+    return { email: input.email, codeLength: sent.status === "sent" ? sent.codeLength : knownCodeLength() };
   });
 }
 
@@ -264,7 +264,7 @@ export async function verifyResetCodeAction(_prev: ActionResult | null, fd: Form
  * Merchant sign-up / sign-in by email code (the new auth screens): one code for both. A new email
  * gets an account (then onboarding: "What are you building?"); an existing one signs in.
  */
-export async function requestMerchantCodeAction(_prev: ActionResult<{ email: string }> | null, fd: FormData): Promise<ActionResult<{ email: string }>> {
+export async function requestMerchantCodeAction(_prev: ActionResult<{ email: string; codeLength?: number }> | null, fd: FormData): Promise<ActionResult<{ email: string; codeLength?: number }>> {
   return runAction("auth.merchantCode", async () => {
     const input = parseInput(merchantCodeSchema, formToObject(fd));
     await rateLimit("merchant-otp:ip", await clientIpKey(), 15, 3600);
@@ -287,7 +287,7 @@ export async function requestMerchantCodeAction(_prev: ActionResult<{ email: str
       },
     });
     if (sent.status !== "sent") throw new AppError("VALIDATION", { fieldErrors: { _form: [authCodeFailureMessage(sent)] } });
-    return { email: input.email };
+    return { email: input.email, codeLength: sent.codeLength };
   });
 }
 

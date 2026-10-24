@@ -16,7 +16,8 @@ import type { AuthEmailAction } from "@/features/notifications/email/account-tem
  */
 
 export type AuthCodeKind = "signin" | "recovery";
-export type AuthCodeResult = { status: "sent" } | { status: "no-account" } | { status: "failed"; reason: "provider" | "auth" };
+/** `codeLength`: digits in the emailed code (Supabase's "Email OTP Length" setting, 6 by default). */
+export type AuthCodeResult = { status: "sent"; codeLength: number } | { status: "no-account" } | { status: "failed"; reason: "provider" | "auth" };
 
 /** verifyOtp type for a code sent with `kind`. */
 export function verifyTypeFor(kind: AuthCodeKind): "email" | "recovery" {
@@ -94,7 +95,20 @@ export async function sendAuthCode(input: {
   if (!result.ok) return { status: "failed", reason: "provider" };
   // "logged" = no email provider configured: nothing was delivered.
   if (result.sent.some((s) => s.status === "logged")) return { status: "failed", reason: "provider" };
-  return { status: "sent" };
+  lastCodeLength = codeLengthOf(props.email_otp);
+  return { status: "sent", codeLength: lastCodeLength };
+}
+
+let lastCodeLength = 6;
+/** Code length to report when nothing was sent (unknown email on reset), so the reply looks the same. */
+export function knownCodeLength(): number {
+  return lastCodeLength;
+}
+
+/** Length of the emailed code, clamped to what the code boxes support (6–10; 6 if unknown). Pure. */
+export function codeLengthOf(otp: string | null | undefined): number {
+  const n = typeof otp === "string" && /^\d+$/.test(otp) ? otp.length : 6;
+  return Math.min(10, Math.max(6, n));
 }
 
 /** Message for a failed send, shown on the form. */

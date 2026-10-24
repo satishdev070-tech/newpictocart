@@ -117,7 +117,7 @@ export function StoreSignUp({ next }: { next: string }) {
     return (
       <div className="space-y-3">
         <p className="sf-heading text-center text-2xl">Confirm your email</p>
-        <EmailCodeFlow tone="store" initialEmail={state.data.email} requestAction={requestOtpAction} verifyAction={verifyOtpAction} hidden={{ next }} verifyLabel="Confirm and continue" />
+        <EmailCodeFlow tone="store" initialEmail={state.data.email} initialCodeLength={state.data.codeLength} requestAction={requestOtpAction} verifyAction={verifyOtpAction} hidden={{ next }} verifyLabel="Confirm and continue" />
       </div>
     );
   }

@@ -12,14 +12,14 @@ import { parseInput } from "@/lib/validation/common";
 import { AppError } from "@/lib/errors";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { clientIpKey, rateLimit } from "@/lib/rate-limit";
-import { storeOrigin } from "@/lib/platform/urls";
+import { platformOrigin, storeOrigin } from "@/lib/platform/urls";
 import { requireStoreTenant } from "@/features/cart/context";
 import { mergeGuestCartIntoCustomer } from "@/features/cart/service";
 import { clearCartCookie } from "@/features/cart/token";
 import { emit } from "@/features/notifications/events";
 import { trackCommerceEvent } from "@/features/checkout/analytics";
 import { ensureStoreCustomer, getStoreCustomer } from "./session";
-import { authCodeFailureMessage, sendAuthCode } from "@/features/auth/server/auth-codes";
+import { authCodeFailureMessage, knownCodeLength, sendAuthCode } from "@/features/auth/server/auth-codes";
 import { flagClientEvent } from "@/features/tracking/server/flag";
 import {
   cancelOrderSchema,
@@ -102,9 +102,9 @@ export async function storeSignInAction(_prev: ActionResult | null, fd: FormData
 }
 
 export async function storeSignUpAction(
-  _prev: ActionResult<{ needsConfirmation: boolean; email: string }> | null,
+  _prev: ActionResult<{ needsConfirmation: boolean; email: string; codeLength?: number }> | null,
   fd: FormData,
-): Promise<ActionResult<{ needsConfirmation: boolean; email: string }>> {
+): Promise<ActionResult<{ needsConfirmation: boolean; email: string; codeLength?: number }>> {
   let next = "/account";
   return runAction("store.signUp", async () => {
     const input = parseInput(signUpSchema, formToObject(fd));
@@ -127,12 +127,12 @@ export async function storeSignUpAction(
     const sent = await sendAuthCode({ email: input.email, kind: "signin", redirectTo: callbackUrl(tenant.host, next) });
     if (sent.status !== "sent") throw new AppError("VALIDATION", { fieldErrors: { _form: [authCodeFailureMessage(sent)] } });
     await flagClientEvent("sign_up", "email");
-    return { needsConfirmation: true, email: input.email };
+    return { needsConfirmation: true, email: input.email, codeLength: sent.codeLength };
   });
 }
 
 /** Emails a password reset link that lands back on THIS store (never reveals whether the email exists). */
-export async function storeForgotPasswordAction(_prev: ActionResult<{ email: string }> | null, fd: FormData): Promise<ActionResult<{ email: string }>> {
+export async function storeForgotPasswordAction(_prev: ActionResult<{ email: string; codeLength?: number }> | null, fd: FormData): Promise<ActionResult<{ email: string; codeLength?: number }>> {
   return runAction("store.forgotPassword", async () => {
     const input = parseInput(forgotPasswordSchema, formToObject(fd));
     const tenant = await requireStoreTenant();
@@ -141,7 +141,7 @@ export async function storeForgotPasswordAction(_prev: ActionResult<{ email: str
     const sent = await sendAuthCode({ email: input.email, kind: "recovery", redirectTo: callbackUrl(tenant.host, "/account/reset-password") });
     // Unknown emails still look sent (no account enumeration); only a delivery failure is shown.
     if (sent.status === "failed") throw new AppError("VALIDATION", { fieldErrors: { _form: [authCodeFailureMessage(sent)] } });
-    return { email: input.email };
+    return { email: input.email, codeLength: sent.status === "sent" ? sent.codeLength : knownCodeLength() };
   });
 }
 
@@ -173,7 +173,7 @@ export async function storeResetPasswordAction(_prev: ActionResult | null, fd: F
   return result;
 }
 
-export async function requestOtpAction(_prev: ActionResult<{ email: string }> | null, fd: FormData): Promise<ActionResult<{ email: string }>> {
+export async function requestOtpAction(_prev: ActionResult<{ email: string; codeLength?: number }> | null, fd: FormData): Promise<ActionResult<{ email: string; codeLength?: number }>> {
   return runAction("store.otpRequest", async () => {
     const input = parseInput(otpRequestSchema, formToObject(fd));
     const tenant = await requireStoreTenant();
@@ -182,7 +182,7 @@ export async function requestOtpAction(_prev: ActionResult<{ email: string }> | 
     // The app emails a code + one-click link through Resend, branded as this store.
     const sent = await sendAuthCode({ email: input.email, kind: "signin", createUser: true, redirectTo: callbackUrl(tenant.host, input.next ?? "/account") });
     if (sent.status !== "sent") throw new AppError("VALIDATION", { fieldErrors: { _form: [authCodeFailureMessage(sent)] } });
-    return { email: input.email };
+    return { email: input.email, codeLength: sent.codeLength };
   });
 }
 
@@ -422,11 +422,11 @@ export async function storeGoogleSignInAction(fd: FormData): Promise<void> {
   const tenant = await requireStoreTenant();
   await rateLimit("store-login:ip", await clientIpKey(), 20, 600);
   if (!(await getPublicPlatformConfig()).googleForShoppers) redirect("/account/login?error=google");
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: { redirectTo: callbackUrl(tenant.host, next), queryParams: { prompt: "select_account" } },
-  });
-  if (error || !data.url) redirect("/account/login?error=google");
-  redirect(data.url);
+  // Relayed through the platform host: Supabase won't redirect back to store subdomains that aren't
+  // on its allow-list, so the platform finishes OAuth and hands the shopper back with a one-time token
+  // (features/customer-account/server/google-relay.ts). The store callback opens /account.
+  const relay = new URL("/auth/store-google", platformOrigin());
+  relay.searchParams.set("host", tenant.host);
+  relay.searchParams.set("next", next);
+  redirect(relay.toString());
 }
