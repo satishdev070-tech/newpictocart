@@ -267,7 +267,19 @@ export function setTokens(config: ThemeConfig, patch: Partial<ThemeConfig["token
 
 /** Lists whose rendering differs between two configs ("all" when shared parts changed). */
 export function changedLists(prev: ThemeConfig, next: ThemeConfig): string[] | "all" {
-  if (prev.tokens !== next.tokens || prev.header !== next.header || prev.productCard !== next.productCard || prev.menus !== next.menus || prev.popups !== next.popups || prev.homePageId !== next.homePageId) return "all";
+  // Theme-wide settings (embeds such as the WhatsApp button, renamed built-in pages in menus) re-render
+  // every slot; an edit that matched nothing here would never reach the canvas.
+  if (
+    prev.tokens !== next.tokens ||
+    prev.header !== next.header ||
+    prev.productCard !== next.productCard ||
+    prev.menus !== next.menus ||
+    prev.popups !== next.popups ||
+    prev.homePageId !== next.homePageId ||
+    prev.embeds !== next.embeds ||
+    prev.builtinTitles !== next.builtinTitles
+  )
+    return "all";
   const out: string[] = [];
   if (prev.layout.header !== next.layout.header) out.push("layout.header");
   if (prev.layout.footer !== next.layout.footer) out.push("layout.footer");
@@ -278,5 +290,8 @@ export function changedLists(prev: ThemeConfig, next: ThemeConfig): string[] | "
     // "/" renders the homepage's sections in the templates.home slot (see slots.ts slotList).
     if (next.homePageId && out.includes(`pages.${next.homePageId}`) && !out.includes("templates.home")) out.push("templates.home");
   }
+  // Something changed outside the section lists (a page renamed, a field added later): re-render all
+  // rather than leave the canvas stale.
+  if (!out.length && prev !== next) return "all";
   return out;
 }

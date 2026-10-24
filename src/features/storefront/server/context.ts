@@ -44,6 +44,8 @@ export type Storefront = {
   store: StoreProfile;
   theme: ThemeConfig;
   preview: boolean;
+  /** Under a draft preview: the draft has changes that aren't published yet. */
+  previewUnpublished: boolean;
   /** Marketplace Live Preview on a demo store (in memory only). */
   themePreview: { key: string; name: string } | null;
   features: StoreFeatures;
@@ -119,7 +121,7 @@ export const getStorefront = cache(async (host: string): Promise<Storefront | nu
     getStoreFeatures(tenant.tenantId),
     getStoreSiteMode(tenant.tenantId),
   ]);
-  return { tenant, store, theme: theme.config, preview: theme.preview, themePreview: theme.themePreview, features, siteMode };
+  return { tenant, store, theme: theme.config, preview: theme.preview, previewUnpublished: theme.unpublished, themePreview: theme.themePreview, features, siteMode };
 });
 
 /** For pages: the open storefront or the (generic) 404. */

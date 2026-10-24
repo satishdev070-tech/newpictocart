@@ -22,7 +22,11 @@ import { sectionChipLabels } from "../chip-labels";
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
 export const DEVICE_WIDTH = { desktop: 1280, mobile: 390 } as const;
-const THEME_DEBOUNCE_MS = 250;
+const THEME_DEBOUNCE_MS = 150;
+/** No "rendered" answer for this long → the render is treated as lost and the canvas recovers. */
+export const RENDER_WATCHDOG_MS = 20_000;
+/** Automatic recoveries (reload / new preview token) before the error is shown with a Retry button. */
+export const MAX_AUTO_RECOVERIES = 2;
 /** Refresh the preview token when it expires within this many seconds. */
 const TOKEN_MARGIN_S = 5 * 60;
 
@@ -96,6 +100,10 @@ export function CanvasFrame() {
   const rev = useRef(0);
   /** The next selection change came from the canvas (don't scroll it). */
   const selectFromCanvas = useRef(false);
+  /** Fires when a posted render never answers (Bugs 2.0 #13: "Updating…" forever). */
+  const watchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Automatic recoveries since the last successful render. */
+  const recoveries = useRef(0);
 
   // Measure the canvas area.
   useEffect(() => {
@@ -105,6 +113,40 @@ export function CanvasFrame() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  const clearWatchdog = () => {
+    if (watchdog.current) clearTimeout(watchdog.current);
+    watchdog.current = null;
+  };
+  const reload = () => {
+    clearWatchdog();
+    shown.current = null;
+    setTarget((t) => ({ path: canvasPathRef.current ?? b.page.path, n: t.n + 1 }));
+  };
+  /**
+   * The canvas couldn't render: reload it (with a fresh preview token when the old one was rejected,
+   * Bugs 2.0 #14/#15 "You don't have permission"). Unsaved edits are re-sent when it is ready again.
+   * After MAX_AUTO_RECOVERIES failures in a row the error stays with a Retry button.
+   */
+  const recover = useEffectEvent(({ expired, error }: { expired: boolean; error: string }) => {
+    clearWatchdog();
+    if (recoveries.current >= MAX_AUTO_RECOVERIES) {
+      setStatus({ updating: false, error });
+      return;
+    }
+    recoveries.current += 1;
+    if (expired) token.current = null;
+    setStatus({ updating: true, error: null });
+    reload();
+  });
+  const armWatchdog = useEffectEvent((r: number) => {
+    clearWatchdog();
+    watchdog.current = setTimeout(() => {
+      watchdog.current = null;
+      if (r === rev.current) recover({ expired: false, error: "The preview is taking too long to update." });
+    }, RENDER_WATCHDOG_MS);
+  });
+  useEffect(() => clearWatchdog, []);
 
   const post = useEffectEvent((msg: DistributiveOmit<HostMessage, "tag">) => {
     if (!origin) return;
@@ -122,6 +164,7 @@ export function CanvasFrame() {
     rev.current += 1;
     post({ type: "theme", rev: rev.current, config: JSON.stringify(config), changedLists: lists });
     setStatus({ updating: true, error: null });
+    armWatchdog(rev.current);
   });
 
   // Load the canvas at `target` (first load, page changes, reload).
@@ -220,7 +263,13 @@ export function CanvasFrame() {
         return;
       }
       case "rendered":
-        if (msg.rev === rev.current) setStatus({ updating: false, error: msg.ok ? null : (msg.error ?? "The canvas couldn't update.") });
+        if (msg.rev !== rev.current) return;
+        clearWatchdog();
+        if (msg.ok) {
+          recoveries.current = 0;
+          setStatus({ updating: false, error: null });
+        } else if (msg.code === "forbidden") recover({ expired: true, error: "Your preview session expired. Retry to continue." });
+        else recover({ expired: false, error: msg.error ?? "The canvas couldn't update." });
         return;
       case "select": {
         const list = listKeyOf(msg.slot);
@@ -292,9 +341,12 @@ export function CanvasFrame() {
     return () => window.removeEventListener("message", onMessage);
   }, [origin]);
 
-  const reload = () => {
-    shown.current = null;
-    setTarget((t) => ({ path: canvasPathRef.current ?? b.page.path, n: t.n + 1 }));
+  /** Manual retry: start the automatic recoveries over. */
+  const retry = () => {
+    recoveries.current = 0;
+    if (status.error?.includes("expired")) token.current = null;
+    setStatus({ updating: true, error: null });
+    reload();
   };
 
   // Device sizing: desktop renders 1280px wide scaled to fit; mobile is a 390px phone, never upscaled.
@@ -321,9 +373,12 @@ export function CanvasFrame() {
           </span>
         </div>
         {status.error ? (
-          <span role="alert" className="flex items-center gap-1 text-error" title={status.error}>
+          <span role="alert" className="flex items-center gap-1.5 text-error" title={status.error}>
             <AlertTriangle aria-hidden className="size-3.5" />
             <span className="max-w-60 truncate">{status.error}</span>
+            <button type="button" onClick={retry} className="rounded-md px-1.5 py-0.5 font-medium text-accent hover:bg-accent-soft">
+              Retry
+            </button>
           </span>
         ) : busy ? (
           <span role="status" className="flex items-center gap-1.5 rounded-full bg-accent-soft px-2 py-0.5 font-medium text-accent">

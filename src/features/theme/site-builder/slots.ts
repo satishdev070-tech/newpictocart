@@ -72,3 +72,20 @@ export function slotSections(config: ThemeConfig, slot: string): SectionInstance
   if (slot.endsWith(".after")) return splitAtPageContent(list)[1];
   return list;
 }
+
+/**
+ * The section list a page slot shows for `doc` (the builder's document). The home slot shows the
+ * chosen homepage ("pages.<id>") and handle slots show a builder page, so mapping by slot name alone
+ * missed their edits (Bugs 2.0 #11).
+ */
+export function slotListOf(doc: unknown, slot: string): string {
+  if (doc && typeof doc === "object" && Array.isArray((doc as { pages?: unknown }).pages)) {
+    try {
+      const key = slotList(doc as ThemeConfig, slot);
+      if (key) return key;
+    } catch {
+      // fall through to the slot name
+    }
+  }
+  return listKeyOf(slot) ?? slot;
+}

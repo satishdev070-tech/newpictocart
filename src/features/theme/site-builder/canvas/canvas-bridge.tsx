@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { usePathname } from "next/navigation";
 import { renderCanvasAction } from "../canvas-actions";
 import { CANVAS_TAG, parseHostMessage, type CanvasMessage, type SectionAction } from "../protocol";
-import { listKeyOf } from "../slots";
+import { listKeyOf, slotListOf } from "../slots";
 import { setSlotOverrides } from "./store";
 import { EMPTY_SLOT_INSERT_EVENT } from "./empty-slot";
 import { embedsSchema, popupSchema, type Popup } from "../../schema/site";
@@ -156,7 +156,6 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
   const toolbarRef = useRef<HTMLDivElement>(null);
   /** Id of the hovered section (read by the pointer listener). */
   const hoverId = useRef<string | null>(null);
-  const latestRev = useRef(0);
   const latestPopups = useRef<Popup[]>([]);
   const openPopup = useRef<string | null>(null);
   const styleEl = useRef<HTMLStyleElement | null>(null);
@@ -168,12 +167,74 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
     [platformOrigin],
   );
 
+  /** The next document to render (edits merged while a render runs), and whether one is running. */
+  const pending = useRef<{ rev: number; config: string; lists: string[] | "all" } | null>(null);
+  const running = useRef(false);
+
+  /** Renders queued documents one at a time, always applying results in order (see onMessage). */
+  const drain = useCallback(async () => {
+    if (running.current) return;
+    running.current = true;
+    try {
+      while (pending.current) {
+        const job = pending.current;
+        pending.current = null;
+        let doc: unknown = null;
+        try {
+          doc = JSON.parse(job.config);
+        } catch {
+          doc = null;
+        }
+        const slots = pageSlots().filter((s) => job.lists === "all" || job.lists.includes(slotListOf(doc, s)));
+        if (!slots.length) {
+          post({ type: "rendered", rev: job.rev, ok: true });
+          continue;
+        }
+        setBusy(job.lists === "all" ? "all" : slots);
+        try {
+          const r = await renderCanvasAction({ config: job.config, slots });
+          if (!r.ok) {
+            post({ type: "rendered", rev: job.rev, ok: false, error: r.error.message, code: r.error.code === "FORBIDDEN" ? "forbidden" : "failed" });
+            continue;
+          }
+          if (!styleEl.current) {
+            styleEl.current = document.createElement("style");
+            styleEl.current.dataset.builderTokens = "";
+            document.querySelector("[data-sf-root]")?.prepend(styleEl.current);
+          }
+          // The override must come after the server <style>; the root's first child is that style.
+          const root = document.querySelector("[data-sf-root]");
+          const server = root?.querySelector("style:not([data-builder-tokens])");
+          if (server && styleEl.current.previousElementSibling !== server) server.after(styleEl.current);
+          styleEl.current.textContent = r.data.css;
+          // Applied even when a newer edit is queued: that job only re-renders the lists changed since
+          // this one, so skipping this result would leave the other lists stale.
+          setSlotOverrides(r.data.slots);
+          post({ type: "rendered", rev: job.rev, ok: true });
+        } catch {
+          post({ type: "rendered", rev: job.rev, ok: false, error: "The preview couldn't be updated.", code: "failed" });
+        }
+      }
+    } finally {
+      running.current = false;
+      setBusy(null);
+    }
+  }, [post]);
+
   const pathname = usePathname();
   // "ready" on first load and after every in-canvas navigation (client-side links keep this mounted),
   // so the builder follows the page and re-sends unsaved edits for the new page's slots.
   useEffect(() => {
     if (window.parent === window) return;
     document.documentElement.dataset.builderCanvas = "";
+    // Inside the builder the draft IS what's being edited: the "Previewing your unpublished theme"
+    // strip is noise there (Bugs 2.0 #12). Outside the builder the layout decides whether to show it.
+    if (!document.getElementById("pc-builder-canvas-css")) {
+      const css = document.createElement("style");
+      css.id = "pc-builder-canvas-css";
+      css.textContent = "html[data-builder-canvas] [data-preview-banner]{display:none!important}";
+      document.head.append(css);
+    }
     const t = window.setTimeout(() => {
       setFramed(true);
       hoverId.current = null;
@@ -215,7 +276,6 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
         return;
       }
       // theme
-      latestRev.current = msg.rev;
       try {
         const doc = JSON.parse(msg.config) as { popups?: unknown; embeds?: unknown };
         const popups = doc.popups;
@@ -229,33 +289,19 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
       } catch {
         latestPopups.current = [];
       }
-      const slots = pageSlots().filter((s) => msg.changedLists === "all" || (s.startsWith("handle.") ? msg.changedLists.some((l) => l.startsWith("pages.")) : msg.changedLists.includes(listKeyOf(s) ?? "")));
-      setBusy(msg.changedLists === "all" ? "all" : slots);
-      try {
-        const r = await renderCanvasAction({ config: msg.config, slots });
-        if (msg.rev !== latestRev.current) return; // a newer edit is on its way
-        if (!r.ok) return post({ type: "rendered", rev: msg.rev, ok: false, error: r.error.message });
-        if (!styleEl.current) {
-          styleEl.current = document.createElement("style");
-          styleEl.current.dataset.builderTokens = "";
-          document.querySelector("[data-sf-root]")?.prepend(styleEl.current);
-        }
-        // The override must come after the server <style>; the root's first child is that style.
-        const root = document.querySelector("[data-sf-root]");
-        const server = root?.querySelector("style:not([data-builder-tokens])");
-        if (server && styleEl.current.previousElementSibling !== server) server.after(styleEl.current);
-        styleEl.current.textContent = r.data.css;
-        setSlotOverrides(r.data.slots);
-        post({ type: "rendered", rev: msg.rev, ok: true });
-      } catch {
-        post({ type: "rendered", rev: msg.rev, ok: false, error: "The preview couldn't be updated." });
-      } finally {
-        if (msg.rev === latestRev.current) setBusy(null);
-      }
+      // Queue the edit. Server actions from one page run one after another, so firing a render per
+      // keystroke built a backlog ("Updating…" for seconds, Bugs 2.0 #13/#14). Edits that arrive while a
+      // render is running are merged into one job (union of their changed lists) and only the newest
+      // document is rendered next.
+      const queued = pending.current;
+      const lists: string[] | "all" =
+        queued?.lists === "all" || msg.changedLists === "all" ? "all" : [...new Set([...(queued?.lists ?? []), ...msg.changedLists])];
+      pending.current = { rev: msg.rev, config: msg.config, lists };
+      void drain();
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [framed, platformOrigin, post]);
+  }, [framed, platformOrigin, post, drain]);
 
   // "Add a section" in an empty page slot (canvas/empty-slot.tsx): insert at the start of its list.
   useEffect(() => {

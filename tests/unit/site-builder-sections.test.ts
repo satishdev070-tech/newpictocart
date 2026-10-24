@@ -417,4 +417,16 @@ describe("ops", () => {
     const editedPage: ThemeConfig = { ...withPage, pages: withPage.pages.map((p) => ({ ...p, sections: [sec("sd00000001", "FAQ")] })) };
     expect(changedLists(withPage, editedPage)).toEqual(["pages.pabcdefghi"]);
   });
+
+  it("changedLists re-renders everything for theme-wide edits outside the section lists (Bugs 2.0 #11)", () => {
+    // Embeds (WhatsApp button, back-to-top…) and renamed built-in pages are drawn on every page.
+    expect(changedLists(base, { ...base, embeds: { ...base.embeds } })).toBe("all");
+    expect(changedLists(base, { ...base, builtinTitles: { ...base.builtinTitles } })).toBe("all");
+    // A page renamed (sections untouched) must still reach the canvas.
+    const withPage: ThemeConfig = { ...base, pages: [{ id: "pabcdefghi", handle: "about", title: "About", seoTitle: "", seoDescription: "", socialImagePath: "", noindex: false, sections: [] }] };
+    const renamed: ThemeConfig = { ...withPage, pages: withPage.pages.map((p) => ({ ...p, title: "About us" })) };
+    expect(changedLists(withPage, renamed)).toBe("all");
+    // Same document: nothing to send.
+    expect(changedLists(withPage, withPage)).toEqual([]);
+  });
 });
