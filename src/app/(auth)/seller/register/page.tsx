@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { SignUpForm } from "@/features/auth/forms";
+import { MerchantSignUp } from "@/features/auth/merchant-auth";
 import { googleSignInAction } from "@/features/auth/actions";
 import { GoogleButton, OrDivider } from "@/components/auth/google-button";
-import { googleSignInAvailable } from "@/features/auth/google";
+import { googleIdentityClientId, googleSignInAvailable } from "@/features/auth/google";
+import { GoogleIdentityButton } from "@/components/auth/google-identity";
 import { getSessionUser } from "@/lib/auth/session";
 import { landingPathFor } from "@/lib/auth/landing";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
@@ -40,6 +41,7 @@ export default async function SellerRegisterPage({ searchParams }: PageProps<"/s
   }
 
   const google = await googleSignInAvailable("sellers");
+  const gisClientId = google ? await googleIdentityClientId() : null;
   const trial = signupTrialDays(plans);
   const freeForever = Boolean(entryPlan(plans) && isFreeForeverPlan(entryPlan(plans)!));
   const themeName = theme ? findTheme(theme)?.name : null;
@@ -66,11 +68,21 @@ export default async function SellerRegisterPage({ searchParams }: PageProps<"/s
       ) : null}
       {google ? (
         <>
-          <GoogleButton action={googleSignInAction} next={next || onboarding} label="Sign up with Google" />
+          {gisClientId ? (
+            <GoogleIdentityButton clientId={gisClientId} next={next || onboarding} text="signup_with" fallback={<GoogleButton action={googleSignInAction} next={next || onboarding} label="Sign up with Google" />} />
+          ) : (
+            <GoogleButton action={googleSignInAction} next={next || onboarding} label="Sign up with Google" />
+          )}
           <OrDivider />
         </>
       ) : null}
-      <SignUpForm next={next || undefined} plan={plan} theme={theme} lang={lang} intent={intent} />
+      <MerchantSignUp next={next || undefined} plan={plan} theme={theme} lang={lang} intent={intent} />
+      <p className="mt-6 text-center text-small text-muted">
+        Already have a store?{" "}
+        <a href="/seller/login" className="font-semibold text-accent underline-offset-2 hover:underline">
+          Sign in
+        </a>
+      </p>
     </AuthSplit>
   );
 }

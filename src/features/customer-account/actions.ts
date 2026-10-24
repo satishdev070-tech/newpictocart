@@ -19,6 +19,7 @@ import { clearCartCookie } from "@/features/cart/token";
 import { emit } from "@/features/notifications/events";
 import { trackCommerceEvent } from "@/features/checkout/analytics";
 import { ensureStoreCustomer, getStoreCustomer } from "./session";
+import { authCodeFailureMessage, sendAuthCode } from "@/features/auth/server/auth-codes";
 import { flagClientEvent } from "@/features/tracking/server/flag";
 import {
   cancelOrderSchema,
@@ -100,47 +101,62 @@ export async function storeSignInAction(_prev: ActionResult | null, fd: FormData
   return result;
 }
 
-export async function storeSignUpAction(_prev: ActionResult<{ needsConfirmation: boolean }> | null, fd: FormData): Promise<ActionResult<{ needsConfirmation: boolean }>> {
+export async function storeSignUpAction(
+  _prev: ActionResult<{ needsConfirmation: boolean; email: string }> | null,
+  fd: FormData,
+): Promise<ActionResult<{ needsConfirmation: boolean; email: string }>> {
   let next = "/account";
-  let signedIn = false;
-  const result = await runAction("store.signUp", async () => {
+  return runAction("store.signUp", async () => {
     const input = parseInput(signUpSchema, formToObject(fd));
     next = safeRedirectPath(input.next, "/account");
     const tenant = await requireStoreTenant();
     await rateLimit("store-signup:ip", await clientIpKey(), 10, 3600);
-    const supabase = await createSupabaseServerClient();
     const displayName = [input.firstName, input.lastName].filter(Boolean).join(" ");
-    const { data, error } = await supabase.auth.signUp({
+    // The account is created unconfirmed with the chosen password; the confirmation code + link is
+    // sent by the app through Resend, branded as this store (auth-codes.ts), not Supabase's mailer.
+    const admin = createSupabaseAdminClient();
+    const created = await admin.auth.admin.createUser({
       email: input.email,
       password: input.password,
-      options: { data: { display_name: displayName }, emailRedirectTo: callbackUrl(tenant.host, next) },
+      email_confirm: false,
+      user_metadata: { display_name: displayName, accepts_marketing: Boolean(input.acceptsMarketing) },
     });
-    if (error) throw new AppError("VALIDATION", { fieldErrors: { _form: ["We couldn't create your account. If you've shopped with us before, try signing in instead."] } });
-    if (data.session) {
-      signedIn = true;
-      await flagClientEvent("sign_up", "email");
-      const linked = await afterSignIn(tenant.tenantId);
-      if (linked && input.acceptsMarketing) {
-        const customer = await getStoreCustomer(tenant.tenantId);
-        if (customer) await supabase.from("customers").update({ accepts_marketing: true, marketing_consent_at: new Date().toISOString() }).eq("id", customer.id);
-      }
+    if (created.error) {
+      throw new AppError("VALIDATION", { fieldErrors: { _form: ["We couldn't create your account. If you've shopped with us before, try signing in instead."] } });
     }
-    return { needsConfirmation: !data.session };
+    const sent = await sendAuthCode({ email: input.email, kind: "signin", redirectTo: callbackUrl(tenant.host, next) });
+    if (sent.status !== "sent") throw new AppError("VALIDATION", { fieldErrors: { _form: [authCodeFailureMessage(sent)] } });
+    await flagClientEvent("sign_up", "email");
+    return { needsConfirmation: true, email: input.email };
   });
-  if (result.ok && signedIn) redirect(next);
-  return result;
 }
 
 /** Emails a password reset link that lands back on THIS store (never reveals whether the email exists). */
-export async function storeForgotPasswordAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+export async function storeForgotPasswordAction(_prev: ActionResult<{ email: string }> | null, fd: FormData): Promise<ActionResult<{ email: string }>> {
   return runAction("store.forgotPassword", async () => {
     const input = parseInput(forgotPasswordSchema, formToObject(fd));
     const tenant = await requireStoreTenant();
     await rateLimit("store-reset:ip", await clientIpKey(), 5, 3600);
     await rateLimit("store-reset:email", input.email, 3, 3600);
-    const supabase = await createSupabaseServerClient();
-    await supabase.auth.resetPasswordForEmail(input.email, { redirectTo: callbackUrl(tenant.host, "/account/reset-password") });
+    const sent = await sendAuthCode({ email: input.email, kind: "recovery", redirectTo: callbackUrl(tenant.host, "/account/reset-password") });
+    // Unknown emails still look sent (no account enumeration); only a delivery failure is shown.
+    if (sent.status === "failed") throw new AppError("VALIDATION", { fieldErrors: { _form: [authCodeFailureMessage(sent)] } });
+    return { email: input.email };
   });
+}
+
+/** Reset by the code in the reset email (the link in the same email also works). */
+export async function storeVerifyResetCodeAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const result = await runAction("store.verifyResetCode", async () => {
+    const input = parseInput(otpVerifySchema, formToObject(fd));
+    await requireStoreTenant();
+    await rateLimit("store-reset-verify:email", input.email, 10, 600);
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.auth.verifyOtp({ email: input.email, token: input.token, type: "recovery" });
+    if (error) throw new AppError("VALIDATION", { fieldErrors: { token: ["That code is invalid or has expired."] } });
+  });
+  if (result.ok) redirect("/account/reset-password");
+  return result;
 }
 
 /** Sets a new password for the shopper signed in via the recovery link. */
@@ -163,9 +179,9 @@ export async function requestOtpAction(_prev: ActionResult<{ email: string }> | 
     const tenant = await requireStoreTenant();
     await rateLimit("store-otp:ip", await clientIpKey(), 10, 3600);
     await rateLimit("store-otp:email", input.email, 5, 3600);
-    const supabase = await createSupabaseServerClient();
-    // Report success either way (no account enumeration); Supabase emails a code + magic link.
-    await supabase.auth.signInWithOtp({ email: input.email, options: { shouldCreateUser: true, emailRedirectTo: callbackUrl(tenant.host, input.next ?? "/account") } });
+    // The app emails a code + one-click link through Resend, branded as this store.
+    const sent = await sendAuthCode({ email: input.email, kind: "signin", createUser: true, redirectTo: callbackUrl(tenant.host, input.next ?? "/account") });
+    if (sent.status !== "sent") throw new AppError("VALIDATION", { fieldErrors: { _form: [authCodeFailureMessage(sent)] } });
     return { email: input.email };
   });
 }
@@ -180,7 +196,13 @@ export async function verifyOtpAction(_prev: ActionResult | null, fd: FormData):
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.auth.verifyOtp({ email: input.email, token: input.token, type: "email" });
     if (error) throw new AppError("UNAUTHENTICATED", { fieldErrors: { token: ["That code is invalid or has expired."] } });
-    await afterSignIn(tenant.tenantId);
+    const linked = await afterSignIn(tenant.tenantId);
+    // Marketing consent ticked on the sign-up form (kept on the account until the email is confirmed).
+    const { data: u } = await supabase.auth.getUser();
+    if (linked && u.user?.user_metadata?.accepts_marketing === true) {
+      const customer = await getStoreCustomer(tenant.tenantId);
+      if (customer) await supabase.from("customers").update({ accepts_marketing: true, marketing_consent_at: new Date().toISOString() }).eq("id", customer.id).eq("accepts_marketing", false);
+    }
     await flagClientEvent("login", "otp");
   });
   if (result.ok) redirect(next);

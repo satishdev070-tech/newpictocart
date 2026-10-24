@@ -14,6 +14,7 @@ import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { findPlan, planHighlights, planPriceView } from "@/features/marketing-site/plans";
 import { buttonClass } from "@/features/marketing-site/components/ui";
 import { OnboardingShell, StepHeading } from "@/features/onboarding/components/shell";
+import { SiteTypePicker } from "@/features/onboarding/components/site-type-picker";
 import { BusinessForm, PlanForm, ThemeForm, type ThemeOption } from "@/features/onboarding/components/forms";
 import { LanguagePicker } from "@/features/onboarding/components/language-picker";
 import { MethodPicker } from "@/features/onboarding/components/method-picker";
@@ -57,11 +58,20 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
   if (!storeParam && !wantsNew && owned.length > 0) return <ExistingSeller stores={owned} choice={choice} />;
 
   const store = storeParam;
-  const step = resolveStep(sp.step, Boolean(store), { locale: choice.locale });
+  const step = resolveStep(sp.step, Boolean(store), { locale: choice.locale, needsType: !choice.siteMode && sp.step !== "language" });
   const back = (s: typeof step) => {
     const prev = previousStep(s, { locale: choice.locale, method: choice.method });
     return prev ? onboardingHref(prev, store?.tenantId, choice) : "/dashboard";
   };
+
+  if (step === "type") {
+    return (
+      <OnboardingShell step="setup">
+        <StepHeading eyebrow="Quick question" title="What are you building?" description="Pick one to start. We set up your store for it, and you can switch later." />
+        <SiteTypePicker selected={choice.siteMode} plan={choice.plan} theme={choice.theme} />
+      </OnboardingShell>
+    );
+  }
 
   if (step === "language") {
     return (
@@ -91,7 +101,7 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
     return (
       <OnboardingShell step="voice" wide>
         <StepHeading eyebrow="Talk with Tara" title="Tell us about your business" description="Hold the mic and speak, or type. Confirm details before we create the store." />
-        <VoiceSession locale={choice.locale} plan={choice.plan} theme={choice.theme} rootDomain={publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN} defaultName={defaultName} />
+        <VoiceSession locale={choice.locale} plan={choice.plan} theme={choice.theme} rootDomain={publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN} defaultName={defaultName} defaultSiteMode={choice.siteMode} />
       </OnboardingShell>
     );
   }
@@ -108,7 +118,7 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
         <BusinessForm
           rootDomain={publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN}
           categories={INDUSTRIES.map((i) => ({ value: i.slug, label: i.name }))}
-          defaults={{ name: defaultName, category: suggested }}
+          defaults={{ name: defaultName, category: suggested, siteMode: choice.siteMode ?? undefined }}
           store={store ? { id: store.tenantId, name: store.name, slug: store.slug } : undefined}
           plan={choice.plan}
           theme={choice.theme}

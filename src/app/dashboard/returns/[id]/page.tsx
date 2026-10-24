@@ -25,7 +25,7 @@ export default async function ReturnDetailPage({ params }: PageProps<"/dashboard
   return (
     <div className="space-y-6">
       <PageHeader title={`Return #${ret.return_number}`} description={`Order #${order.order_number} · ${formatDateTime(ret.created_at)}`} back={<Link href="/dashboard/returns" className="text-muted hover:text-foreground">← Returns</Link>} actions={<StatusBadge status={ret.status} />} />
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Card title="Items">
           <ul className="divide-y divide-border text-sm">
             {(d.items ?? []).map((i) => (

@@ -272,7 +272,7 @@ export function DocumentEditor({ table, value }: { table: "pages" | "blog_posts"
   return (
     <ActionForm action={saveDocumentAction} fields={{ table, blocks: JSON.stringify(blocks), ...(value.id ? { id: value.id } : {}) }} submitLabel="Save" encType="multipart/form-data">
       {(e) => (
-        <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="space-y-4">
             <TextField
               label="Title"

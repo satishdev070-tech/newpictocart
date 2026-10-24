@@ -40,12 +40,32 @@ function paragraphs(text: string): string {
 
 /** Supabase Auth email (sent by our Send Email hook through Resend). `otp` is shown when present. */
 export function renderAuthEmail(d: { action: AuthEmailAction; brand: EmailBrand; actionUrl: string | null; otp?: string | null }): RenderedEmail {
-  const c = copyFor(d.action, d.brand.storeName);
+  const base = copyFor(d.action, d.brand.storeName);
   const code = d.otp && /^[0-9A-Za-z]{4,12}$/.test(d.otp) ? d.otp : null;
-  const bodyText = code ? `${c.body}\n\nYour code: ${code}` : c.body;
-  const codeHtml = code ? `<p style="margin:0 0 16px;font-size:28px;letter-spacing:6px;font-weight:700;font-family:monospace">${escapeHtml(code)}</p>` : "";
+  // Code-first emails (sign-up, sign-in and reset codes typed into the page): the code leads, the
+  // link stays as a one-click alternative.
+  const c = code ? codeCopy(d.action, d.brand.storeName, code, base) : base;
+  const bodyText = code ? `${c.body}\n\nYour code: ${code}\n\nThis code is valid for 60 minutes.` : c.body;
+  const codeHtml = code
+    ? `<div style="margin:4px 0 8px;text-align:center"><span style="display:inline-block;padding:14px 26px;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;font-size:32px;line-height:1;letter-spacing:10px;font-weight:700;color:#111;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">${escapeHtml(code)}</span></div><p style="margin:0 0 16px;text-align:center;font-size:13px;color:#666">This code is valid for <strong>60 minutes</strong>.</p>`
+    : "";
   const layout = { brand: d.brand, heading: c.heading, preheader: c.subject, cta: c.cta && d.actionUrl ? { label: c.cta, url: d.actionUrl } : null, footnote: c.footnote };
   return { subject: c.subject, html: renderLayout({ ...layout, bodyHtml: paragraphs(c.body) + codeHtml }), text: renderLayoutText({ ...layout, bodyText }) };
+}
+
+/** Copy for emails that carry a code to type in. */
+function codeCopy(action: AuthEmailAction, name: string, code: string, base: Copy): Copy {
+  switch (action) {
+    case "signup":
+      return { subject: `${code} is your ${name} verification code`, heading: "One last step: confirm your email", body: `Welcome to ${name}! Enter the code below to confirm your email address and continue setting up.`, cta: "Or confirm with one click", footnote: "If you didn't sign up, you can safely ignore this email." };
+    case "magiclink":
+    case "email":
+      return { subject: `${code} is your ${name} sign-in code`, heading: "Your sign-in code", body: `Enter the code below to sign in to ${name}.`, cta: "Or sign in with one click", footnote: "If you didn't try to sign in, you can safely ignore this email." };
+    case "recovery":
+      return { subject: `${code} is your ${name} password reset code`, heading: "Reset your password", body: "Enter the code below to choose a new password, or use the button.", cta: "Choose a new password", footnote: "If you didn't ask for this, you can ignore this email. Your password won't change." };
+    default:
+      return base;
+  }
 }
 
 /** Sent when platform support creates a store for someone (new account → set-password link). */

@@ -76,7 +76,7 @@ export default async function AdminThemePage({ params }: PageProps<"/admin/theme
         <Badge>{THEME_STYLE_LABELS[t.style]}</Badge>
         {custom?.source === "ai" ? <Badge tone="info">AI from {custom.theme.reference.host ?? "screenshots"}</Badge> : null}
       </div>
-      <div className="grid gap-6 xl:grid-cols-[1fr_390px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
         <Card title="Desktop layout">
           <div className="overflow-hidden rounded-md border border-border">
             <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} size="large" />

@@ -38,7 +38,8 @@ describe("onboarding steps", () => {
     expect(previousStep("business")).toBe("method");
     expect(previousStep("building", { method: "voice" })).toBe("voice");
     expect(previousStep("building", { method: "form" })).toBe("business");
-    expect(previousStep("language")).toBeNull();
+    expect(previousStep("language")).toBe("type");
+    expect(previousStep("type")).toBeNull();
     expect(stepIndex("account")).toBe(0);
     expect(stepIndex("ready")).toBe(4);
   });

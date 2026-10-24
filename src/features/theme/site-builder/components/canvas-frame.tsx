@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import { AlertTriangle, LoaderCircle, Lock, RotateCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, LoaderCircle, Lock, RotateCw } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import type { ThemeConfig } from "@/features/theme/schema/config";
 import { refreshPreviewUrlAction } from "@/features/theme/actions";
@@ -360,6 +361,7 @@ export function CanvasFrame() {
   const loading = !!origin && !loadError && (loadedTarget !== target || !ready);
   const updating = ready && !status.error && (status.updating || (postedConfig !== null && postedConfig !== b.config));
   const busy = loading || updating;
+  const progress = useRenderProgress(busy, status.error);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-secondary">
@@ -381,14 +383,18 @@ export function CanvasFrame() {
             </button>
           </span>
         ) : busy ? (
-          <span role="status" className="flex items-center gap-1.5 rounded-full bg-accent-soft px-2 py-0.5 font-medium text-accent">
-            <LoaderCircle aria-hidden className="size-3 animate-spin motion-reduce:animate-none" /> {loading ? "Loading…" : "Updating…"}
+          <span role="status" aria-live="polite" className={cn("flex items-center gap-1.5 rounded-full px-2 py-0.5 font-medium tabular-nums", progress.slow ? "bg-warning/12 text-warning" : "bg-success/12 text-success")}>
+            <LoaderCircle aria-hidden className="size-3 animate-spin motion-reduce:animate-none" /> {loading ? "Loading" : progress.slow ? "Still working" : "Updating"} {progress.percent}%
+          </span>
+        ) : progress.done ? (
+          <span role="status" className="flex items-center gap-1 rounded-full bg-success/12 px-2 py-0.5 font-medium text-success">
+            <CheckCircle2 aria-hidden className="size-3.5" /> Updated
           </span>
         ) : null}
         <button type="button" onClick={reload} aria-label="Reload canvas" title="Reload canvas" className="grid size-6 place-items-center rounded-md text-muted hover:bg-surface-secondary hover:text-foreground">
           <RotateCw aria-hidden className="size-3.5" />
         </button>
-        <ProgressBar active={busy} />
+        <ProgressBar active={busy || progress.done} percent={progress.percent} slow={progress.slow} />
       </div>
 
       <div ref={box} className={cn("relative min-h-0 flex-1", mobile ? "overflow-auto" : "overflow-hidden")}>
@@ -439,28 +445,82 @@ export function CanvasFrame() {
   );
 }
 
-/** Indeterminate bar keyframes (a static bar when the user prefers reduced motion). */
+/** Bar shimmer (a static bar when the user prefers reduced motion). */
 const PROGRESS_CSS = `
-@keyframes sb-progress { 0% { transform: translateX(-110%); } 100% { transform: translateX(260%); } }
-.sb-progress-run { animation: sb-progress 1.1s cubic-bezier(.45,.05,.35,1) infinite; }
-.sb-progress-run2 { animation: sb-progress 1.1s cubic-bezier(.45,.05,.35,1) .55s infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .sb-progress-run, .sb-progress-run2 { animation: none; transform: none; width: 100% !important; opacity: .55; }
-  .sb-progress-run2 { display: none; }
-}`;
+@keyframes sb-shine { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+.sb-progress-shine { animation: sb-shine 1.2s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .sb-progress-shine { animation: none; display: none; } }`;
 
-/** Thin orange indeterminate progress bar along the bottom edge of the canvas address bar. */
-function ProgressBar({ active }: { active: boolean }) {
-  const seg = "absolute inset-y-0 left-0 w-2/5 rounded-full";
-  const look = { background: "linear-gradient(90deg, rgba(249,115,22,0), #fb923c 30%, #f97316 60%, #ea580c)", boxShadow: "0 0 10px rgba(249,115,22,.55)" };
+/** How long an edit may take before the builder says it's taking longer than usual. */
+export const SLOW_RENDER_MS = 6000;
+
+/**
+ * Percentage for the canvas update bar (Bugs 2.0 follow-up: "show progress in %, in green, with
+ * success / error / warning messages"). A render reports only start and finish, so the percentage
+ * eases towards 92% while busy and jumps to 100% when the canvas answers. Errors and slow renders
+ * also raise a toast; a finished update shows "Updated" briefly.
+ */
+export function nextPercent(p: number): number {
+  return Math.min(92, Math.round((p + Math.max(1, (92 - p) * 0.08)) * 10) / 10);
+}
+
+function useRenderProgress(busy: boolean, error: string | null): { percent: number; slow: boolean; done: boolean } {
+  const toast = useToast();
+  const [percent, setPercent] = useState(0);
+  const [slow, setSlow] = useState(false);
+  const [done, setDone] = useState(false);
+  const [wasBusy, setWasBusy] = useState(busy);
+  // Edge changes adjusted during render (start: reset; finish: 100% + "Updated").
+  if (busy !== wasBusy) {
+    setWasBusy(busy);
+    if (busy) {
+      setPercent(6);
+      setSlow(false);
+      setDone(false);
+    } else {
+      setPercent(100);
+      setDone(!error);
+    }
+  }
+  useEffect(() => {
+    if (!busy) return;
+    const tick = setInterval(() => setPercent(nextPercent), 140);
+    const warn = setTimeout(() => {
+      setSlow(true);
+      toast.show({ tone: "warning", message: "This change is taking longer than usual. It will appear as soon as it's ready." });
+    }, SLOW_RENDER_MS);
+    return () => {
+      clearInterval(tick);
+      clearTimeout(warn);
+    };
+  }, [busy, toast]);
+  useEffect(() => {
+    if (!done) return;
+    const t = setTimeout(() => setDone(false), 1800);
+    return () => clearTimeout(t);
+  }, [done]);
+  const [seenError, setSeenError] = useState(error);
+  if (error !== seenError) {
+    setSeenError(error);
+    if (error) toast.show({ tone: "error", message: error });
+  }
+  return { percent: Math.round(percent), slow, done };
+}
+
+/** Thin progress bar along the bottom of the canvas address bar: green, amber when slow. */
+function ProgressBar({ active, percent, slow }: { active: boolean; percent: number; slow: boolean }) {
   return (
-    <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 -bottom-px z-10 h-[3px] overflow-hidden bg-accent/15 transition-opacity duration-300", active ? "opacity-100" : "opacity-0")}>
-      {active ? (
-        <>
-          <span className={cn(seg, "sb-progress-run")} style={look} />
-          <span className={cn(seg, "sb-progress-run2")} style={look} />
-        </>
-      ) : null}
+    <div
+      role="progressbar"
+      aria-label="Preview update"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={active ? percent : undefined}
+      className={cn("pointer-events-none absolute inset-x-0 -bottom-px z-10 h-[3px] overflow-hidden bg-success/10 transition-opacity duration-300", active ? "opacity-100" : "opacity-0")}
+    >
+      <div className={cn("relative h-full overflow-hidden rounded-r-full transition-[width] duration-200 ease-out", slow ? "bg-warning" : "bg-success")} style={{ width: `${active ? percent : 0}%`, boxShadow: slow ? undefined : "0 0 8px rgba(34,197,94,.55)" }}>
+        <span className="sb-progress-shine absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent" />
+      </div>
     </div>
   );
 }

@@ -144,7 +144,7 @@ export function ProductEditor({
         <p role="status" className="rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success">Saved.</p>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
           <Card title="Basics">
             <div className="space-y-4">

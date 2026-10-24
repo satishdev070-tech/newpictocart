@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { SITE_MODES, type SiteMode } from "@/features/stores/site-mode";
 import { runAction, type ActionResult } from "@/lib/actions/result";
 import { formToObject } from "@/lib/actions/form";
 import { parseInput } from "@/lib/validation/common";
@@ -92,6 +93,21 @@ export async function saveOnboardingLocaleAction(
     const { error } = await supabase.auth.updateUser({ data: { onboarding_locale: input.locale } });
     if (error) logger.warn("onboarding.locale_failed", { userId: user.id, code: error.code });
     return { locale: input.locale };
+  });
+}
+
+const siteModeSchema = z.object({ siteMode: z.enum(SITE_MODES) });
+
+/** The first onboarding question: informative website or online store (kept on the account). */
+export async function saveOnboardingSiteModeAction(_prev: ActionResult<{ siteMode: SiteMode }> | null, fd: FormData): Promise<ActionResult<{ siteMode: SiteMode }>> {
+  return runAction("onboarding.siteMode", async () => {
+    const user = await requireUser("/onboarding");
+    await assertEmailVerifiedForOnboarding();
+    const input = parseInput(siteModeSchema, formToObject(fd));
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.auth.updateUser({ data: { onboarding_site_mode: input.siteMode } });
+    if (error) logger.warn("onboarding.site_mode_failed", { userId: user.id, code: error.code });
+    return { siteMode: input.siteMode };
   });
 }
 

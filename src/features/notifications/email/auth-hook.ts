@@ -75,10 +75,11 @@ export function buildActionLink(input: { redirectTo: string | null | undefined; 
   return target.toString();
 }
 
-async function platformBrand(): Promise<EmailBrand> {
+export async function platformBrand(): Promise<EmailBrand> {
   const config = await getPublicPlatformConfig();
   const logo = brandImageView(config.headerLogo);
-  return { storeName: PLATFORM_NAME, logoUrl: logo?.src ?? null, storeUrl: platformOrigin(), accent: null, supportEmail: null };
+  // The Pictocart wordmark (public/pictocart-logo.png) unless the admin uploaded a header logo.
+  return { storeName: PLATFORM_NAME, logoUrl: logo?.src ?? `${platformOrigin()}/pictocart-logo.png`, storeUrl: platformOrigin(), accent: "#f97316", supportEmail: null };
 }
 
 /** Which tenant (if any) the redirect host belongs to: store-branded emails for shopper flows. */
@@ -96,7 +97,11 @@ async function hostTenant(url: URL | null): Promise<{ kind: "platform" } | { kin
 
 export type AuthHookResult = { ok: true; sent: EmailSendResult[] } | { ok: false; status: number; message: string };
 
-export async function handleAuthEmailHook(payload: AuthHookPayload): Promise<AuthHookResult> {
+/**
+ * `linkType` overrides the verifyOtp type used in the email link (app-issued codes use "email",
+ * which verifies both new and existing accounts; see features/auth/server/auth-codes.ts).
+ */
+export async function handleAuthEmailHook(payload: AuthHookPayload, opts: { linkType?: string } = {}): Promise<AuthHookResult> {
   const action = payload.email_data.email_action_type;
   if (!isAuthEmailAction(action)) return { ok: false, status: 400, message: `Unsupported email action ${action.slice(0, 40)}` };
 
@@ -136,7 +141,7 @@ export async function handleAuthEmailHook(payload: AuthHookPayload): Promise<Aut
 
   const sent: EmailSendResult[] = [];
   for (const job of jobs) {
-    const actionUrl = action === "reauthentication" || !job.tokenHash ? null : buildActionLink({ redirectTo: d.redirect_to, tokenHash: job.tokenHash, type: otpTypeFor(action), trusted, fallbackOrigin: platformOrigin() });
+    const actionUrl = action === "reauthentication" || !job.tokenHash ? null : buildActionLink({ redirectTo: d.redirect_to, tokenHash: job.tokenHash, type: opts.linkType ?? otpTypeFor(action), trusted, fallbackOrigin: platformOrigin() });
     const email = renderAuthEmail({ action, brand, actionUrl, otp: job.otp });
     const key = createHash("sha256").update(`auth:${action}:${payload.user.id}:${job.tokenHash || job.otp || ""}`).digest("hex").slice(0, 48);
     const result = await sendEmail({ tenantId, kind: `auth_${action}`, to: job.to, ...email, fromName: brand.storeName, replyTo, idempotencyKey: key });

@@ -36,7 +36,7 @@ export function FestiveCampaignForm({ value, today }: { value?: FestiveCampaign;
   return (
     <ActionForm action={saveFestiveCampaignAction} fields={value ? { id: value.id } : {}} submitLabel={value ? "Save changes" : "Schedule festive look"} success="Saved. It shows on your store between the dates you chose." resetOnSuccess={!value}>
       {(e) => (
-        <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="grid gap-3 sm:grid-cols-2">
             <SelectField
               label="Festival"

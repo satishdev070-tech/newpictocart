@@ -949,3 +949,29 @@ above and in `docs/THEME_BUILDER.md`):
   trials. Migration `20261023003600_free_plan.sql` sets it to 0 and makes `create_tenant` open trial-less plans as active.
 - Tests: `tests/unit/bugs-2-0-builder.test.ts`, `tests/unit/site-builder-sections.test.ts` (changedLists).
 - Not verified in a signed-in browser session (needs a super-admin / seller login).
+
+## Auth emails, merchant OTP sign-up, Google sign-in, builder progress (2026-10-24, branch `claude/auth-email-builder-fixes`)
+
+- **Root cause of "no emails" / "Too many attempts":** `email_log` on v2pictocart had no `auth_*` rows ever, so the Send Email hook
+  was never enabled and Supabase's built-in mailer (≈2 emails/hour, not Resend) sent sign-up/OTP/reset mail. Separately, the
+  Resend key saved in Admin → Email started failing on 2026-10-23 with **401 "API key is invalid"** (key rotated/revoked).
+- **Fix (code):** `features/auth/server/auth-codes.ts` — `generateLink` (no Supabase email) + `handleAuthEmailHook` renderer →
+  Resend (ADR-006 addition). Used by merchant sign-up/sign-in by code, `/start` codes, merchant forgot password (code or link),
+  store sign-up confirmation (code), store "Email me a code", store forgot password (code or link). Email copy leads with the code
+  in a peach box ("valid for 60 minutes"), subject "123456 is your Pictocart sign-in code", real Pictocart logo.
+- **Fix (you):** paste a new Resend API key in **Admin → Email** (domain `pictocartdev.in` must be verified in Resend).
+- **Merchant auth screens (wireframes):** `/seller/register` = Google + email → 6-box code (auto-advance, paste, Resend with 30 s
+  cooldown, Change email) → onboarding. `/seller/login` = "Email me a code" (default) or Password. Component:
+  `components/auth/email-code-flow.tsx` (platform + store tones).
+- **Onboarding quiz:** new first step "What are you building?" (Informative website / E-commerce store), saved as
+  `onboarding_site_mode` and pre-selecting the site mode in the form and Tara voice paths (existing store setup unchanged).
+- **Google consent shows the Supabase URL:** `GoogleIdentityButton` (Google Identity Services + `signInWithIdToken`, nonce) makes the
+  merchant sign-in run on pictocartdev.in so Google shows that domain. Enable with `GOOGLE_IDENTITY_SIGNIN=on` after adding
+  `https://pictocartdev.in` to the OAuth client's *Authorised JavaScript origins* (client id auto-read from Supabase's authorize
+  redirect, or `NEXT_PUBLIC_GOOGLE_SIGNIN_CLIENT_ID`). Store sites keep the redirect flow (wildcard origins aren't allowed by Google);
+  for those the only full fix is the Supabase Custom Domain add-on.
+- **Product form overflow:** `lg:grid-cols-[1fr_320px]` → `minmax(0,1fr)` (variants table scrolls inside its card); same fix on
+  customers, returns, festive and shared dashboard forms.
+- **Builder:** green "Updating 45%" chip + green progress bar, "✓ Updated" on success, amber + warning toast after 6 s, error toast.
+  **Add with AI** is enabled when Sarvam is configured too (it was gated on Gemini/Groq/Anthropic only, showing "Coming soon").
+- Tests: `tests/unit/auth/auth-codes.test.ts`, `tests/unit/auth-ui-and-onboarding.test.ts`, onboarding steps.

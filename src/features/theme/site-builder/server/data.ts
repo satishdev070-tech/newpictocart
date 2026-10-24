@@ -11,6 +11,7 @@ import { loadProviders } from "@/features/neural-pulse/server/generate";
 import { paths } from "@/features/storefront/urls";
 import { parseSiteMode } from "@/features/stores/site-mode";
 import type { BuilderData } from "../context";
+import { isSarvamConfigured } from "@/lib/sarvam/client";
 
 /**
  * Everything the site builder needs, read with the seller's session (RLS) for the tenant the
@@ -46,7 +47,8 @@ export async function getBuilderData(ctx: TenantContext): Promise<BuilderData> {
       sampleCollectionSlug: collection.data?.slug ?? null,
       blog: true,
     },
-    aiEnabled: aiProviders.length > 0,
+    // Gemini / Groq / Anthropic, or Sarvam chat as the fallback model (generateSectionAction uses either).
+    aiEnabled: aiProviders.length > 0 || isSarvamConfigured(),
   };
 }
 

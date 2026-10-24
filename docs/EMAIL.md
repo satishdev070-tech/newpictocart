@@ -6,6 +6,12 @@ Supabase Auth emails (sign-up confirmation, password reset, magic link, invite, 
 once the **Send Email hook** is enabled (ADR-034, `src/app/api/auth/email-hook`). The key and From address can be set in
 **Admin → Email** (overrides the env vars), which also shows the sending-domain status, the hook state and recent sends.
 
+> **Since 2026-10-24** sign-up, sign-in and password-reset codes are sent **by the app** (`features/auth/server/auth-codes.ts`):
+> Supabase's Admin API generates the code (no Supabase email), and the email is rendered and sent here through Resend, branded as
+> the store on store hosts and as Pictocart (logo `public/pictocart-logo.png`, orange accent) on the platform. This works with
+> or without the Send Email hook and avoids Supabase's ~2 emails/hour limit. It still needs a **valid Resend API key** and a
+> verified sending domain (Admin → Email). Check: `email_log` rows `auth_signup`, `auth_magiclink`, `auth_recovery`.
+
 ## Env vars
 
 | Var | Required | Notes |
