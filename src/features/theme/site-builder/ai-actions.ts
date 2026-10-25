@@ -55,7 +55,7 @@ export async function generateSectionAction(input: { prompt: string; list: strin
       throw err;
     }
 
-    const providers = await loadProviders();
+    const providers = await loadProviders("section");
     const sarvamReady = isSarvamConfigured();
     if (!providers.length && !sarvamReady) throw new AppError("VALIDATION", { fieldErrors: { _form: [SETUP_MESSAGE] }, context: { reason: "ai_not_configured" } });
 

@@ -94,6 +94,9 @@ export const PLATFORM_PERMISSIONS = [
   "platform.support.impersonate",
   "platform.settings.manage",
   "platform.usage.read",
+  "platform.finance.read",
+  "platform.finance.manage",
+  "platform.partners.manage",
 ] as const;
 export type PlatformPermission = (typeof PLATFORM_PERMISSIONS)[number];
 
@@ -103,7 +106,7 @@ export type PlatformRole = (typeof PLATFORM_ROLES)[number];
 export const PLATFORM_ROLE_PERMISSIONS: Readonly<Record<PlatformRole, ReadonlySet<PlatformPermission>>> = {
   super_admin: new Set(PLATFORM_PERMISSIONS),
   support: new Set(["platform.tenants.read", "platform.audit.read", "platform.support.impersonate", "platform.usage.read"]),
-  finance: new Set(["platform.tenants.read", "platform.plans.manage", "platform.usage.read"]),
+  finance: new Set(["platform.tenants.read", "platform.plans.manage", "platform.usage.read", "platform.finance.read", "platform.finance.manage"]),
 };
 
 export function tenantRoleCan(role: TenantRole, permission: TenantPermission): boolean {

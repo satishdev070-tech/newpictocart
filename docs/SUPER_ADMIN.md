@@ -13,7 +13,14 @@ Every page calls `requirePlatform(permission)`, and RLS / SQL functions enforce 
 | Store integrations (status only) | `/admin/integrations` | platform.settings.manage |
 | Platform health (env presence, booleans only) | `/admin/health` | platform.settings.manage |
 | Themes: marketplace catalogue, AI "create from URL + screenshot", editor, publish | `/admin/themes` | platform.settings.manage |
-| Usage, audit log, platform users, settings | `/admin/usage`, `/admin/audit`, `/admin/users`, `/admin/settings` | respective permissions |
+| Usage, audit log, platform staff, settings | `/admin/usage`, `/admin/audit`, `/admin/platform-users`, `/admin/settings` | respective permissions |
+| Users: every account (staff / seller / customer), stats, search, filters, list/grid, details with stores, sign-ins and audit trail, Add user, reset link, disable | `/admin/users`, `/admin/users/{id}` | platform.users.manage |
+| Revenue P&L, Commissions (GMV invoices) | `/admin/revenue`, `/admin/commissions` | platform.finance.read (writes: platform.finance.manage) |
+| Partner analytics (leaderboard, CSV), Partner payouts (batches, UTR) | `/admin/partner-analytics`, `/admin/partner-payouts` | platform.finance.read (writes: platform.finance.manage) |
+| All partners (partners, licence requests, licences, demo shops, one-time codes), Agencies | `/admin/partners`, `/admin/agencies` | platform.partners.manage |
+| AI health (feature → model registry, tests, model prices), Credits economy | `/admin/ai-health`, `/admin/credits-economy` | platform.settings.manage |
+
+The nine modules ported from the old Pictocart admin are described in [SUPER_ADMIN_PORT.md](SUPER_ADMIN_PORT.md); they need migrations 3700–3900.
 
 Bootstrap and the store directory are covered in [SUPER_ADMIN_SETUP.md](SUPER_ADMIN_SETUP.md).
 

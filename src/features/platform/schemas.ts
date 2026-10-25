@@ -3,6 +3,7 @@ import { email, pagination } from "@/lib/validation/common";
 import { isValidStoreSlug } from "@/lib/tenant/host";
 import { TENANT_STATUSES } from "@/lib/tenant/context";
 import { PLATFORM_ROLES } from "@/lib/permissions/matrix";
+import { commissionPercentField } from "@/features/platform-finance/schemas";
 
 /** Zod schemas for every super-admin form and list filter. Pure; shared by forms and server actions. */
 
@@ -172,6 +173,8 @@ export const planSchema = z.object({
   trialDays: z.coerce.number().int().min(0).max(90),
   sortOrder: z.coerce.number().int().min(0).max(1000).default(0),
   active: checkbox,
+  /** GMV commission % → plans.commission_bps. Absent when migration 3700 is not applied (field not rendered). */
+  commissionPercent: commissionPercentField,
   limit_products: limitField,
   limit_staff: limitField,
   limit_storage_mb: limitField,

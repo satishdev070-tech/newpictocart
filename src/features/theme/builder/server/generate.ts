@@ -35,7 +35,7 @@ export function themeBuildDeps(providers: ProviderConfig[]): ThemeBuildDeps {
 
 /** Rate-limited AI theme generation for an authorised platform user. Throws AppError. */
 export async function generateThemeForAdmin(ctx: PlatformContext, input: ThemeBuildInput): Promise<ThemeBuildResult> {
-  const providers = await loadProviders();
+  const providers = await loadProviders("theme_builder");
   if (!providers.length) throw new AppError("VALIDATION", { fieldErrors: { _form: [SETUP_MESSAGE] }, context: { reason: "ai_not_configured" } });
   try {
     await rateLimit("theme-builder-hour", ctx.user.id, THEME_AI_LIMITS.perHour, 3600);

@@ -45,6 +45,20 @@ describe("platform permission matrix", () => {
     expect(platformRoleCan("support", "platform.users.manage")).toBe(false);
   });
 
+  it("lets finance read and run finance but not manage partners, users or settings", () => {
+    expect(platformRoleCan("finance", "platform.finance.read")).toBe(true);
+    expect(platformRoleCan("finance", "platform.finance.manage")).toBe(true);
+    expect(platformRoleCan("finance", "platform.partners.manage")).toBe(false);
+    expect(platformRoleCan("finance", "platform.users.manage")).toBe(false);
+    expect(platformRoleCan("finance", "platform.settings.manage")).toBe(false);
+  });
+
+  it("keeps support out of finance and partners", () => {
+    expect(platformRoleCan("support", "platform.finance.read")).toBe(false);
+    expect(platformRoleCan("support", "platform.finance.manage")).toBe(false);
+    expect(platformRoleCan("support", "platform.partners.manage")).toBe(false);
+  });
+
   it("uses only declared permission keys", () => {
     for (const set of Object.values(PLATFORM_ROLE_PERMISSIONS)) for (const p of set) expect(PLATFORM_PERMISSIONS).toContain(p);
   });

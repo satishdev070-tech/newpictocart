@@ -227,7 +227,7 @@ export async function addPlatformUserAction(_prev: ActionResult<{ email: string 
     const input = parseInput(addPlatformUserSchema, formToObject(fd));
     const ctx = await platformActor("platform.users.manage");
     await addPlatformUser(ctx, input);
-    revalidatePath("/admin/users");
+    revalidatePath("/admin/platform-users");
     return { email: input.email };
   });
 }
@@ -237,7 +237,7 @@ export async function updatePlatformUserAction(_prev: ActionResult | null, fd: F
     const input = parseInput(updatePlatformUserSchema, formToObject(fd));
     const ctx = await platformActor("platform.users.manage");
     await updatePlatformUser(ctx, input);
-    revalidatePath("/admin/users");
+    revalidatePath("/admin/platform-users");
   });
 }
 
@@ -246,7 +246,7 @@ export async function removePlatformUserAction(_prev: ActionResult | null, fd: F
     const { userId } = parseInput(z.object({ userId: z.uuid() }), formToObject(fd));
     const ctx = await platformActor("platform.users.manage");
     await removePlatformUser(ctx, userId);
-    revalidatePath("/admin/users");
+    revalidatePath("/admin/platform-users");
   });
 }
 

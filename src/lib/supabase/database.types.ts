@@ -68,6 +68,34 @@ export type Database = {
           },
         ]
       }
+      ai_credit_action_costs: {
+        Row: {
+          credits: number
+          kind: string
+          label: string
+          minutes_saved: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          credits?: number
+          kind: string
+          label: string
+          minutes_saved?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          credits?: number
+          kind?: string
+          label?: string
+          minutes_saved?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+        ]
+      }
       ai_credit_ledger: {
         Row: {
           balance_after: number
@@ -122,9 +150,84 @@ export type Database = {
           },
         ]
       }
+      ai_credit_packs: {
+        Row: {
+          active: boolean
+          code: string
+          credits: number
+          label: string
+          price: number
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          credits: number
+          label: string
+          price: number
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          credits?: number
+          label?: string
+          price?: number
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+        ]
+      }
+      ai_credit_promos: {
+        Row: {
+          active: boolean
+          bonus_pct: number
+          code: string
+          created_at: string
+          created_by: string | null
+          ends_at: string | null
+          id: string
+          max_uses: number | null
+          starts_at: string | null
+          uses: number
+        }
+        Insert: {
+          active?: boolean
+          bonus_pct: number
+          code: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          id?: string
+          max_uses?: number | null
+          starts_at?: string | null
+          uses?: number
+        }
+        Update: {
+          active?: boolean
+          bonus_pct?: number
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          id?: string
+          max_uses?: number | null
+          starts_at?: string | null
+          uses?: number
+        }
+        Relationships: [
+        ]
+      }
       ai_credit_purchase_requests: {
         Row: {
           amount: number
+          bonus_credits: number
           created_at: string
           credits: number
           decided_at: string | null
@@ -134,12 +237,14 @@ export type Database = {
           method: string
           pack: string
           payment_reference: string | null
+          promo_code: string | null
           requested_by: string | null
           status: string
           tenant_id: string
         }
         Insert: {
           amount: number
+          bonus_credits?: number
           created_at?: string
           credits: number
           decided_at?: string | null
@@ -149,12 +254,14 @@ export type Database = {
           method: string
           pack: string
           payment_reference?: string | null
+          promo_code?: string | null
           requested_by?: string | null
           status?: string
           tenant_id: string
         }
         Update: {
           amount?: number
+          bonus_credits?: number
           created_at?: string
           credits?: number
           decided_at?: string | null
@@ -164,25 +271,12 @@ export type Database = {
           method?: string
           pack?: string
           payment_reference?: string | null
+          promo_code?: string | null
           requested_by?: string | null
           status?: string
           tenant_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "ai_credit_purchase_requests_decided_by_fkey"
-            columns: ["decided_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ai_credit_purchase_requests_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "ai_credit_purchase_requests_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -190,6 +284,86 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      ai_credit_settings: {
+        Row: {
+          base_cost_per_credit: number
+          critical_balance: number
+          custom_credits_per_rupee: number
+          custom_max: number
+          custom_min: number
+          freelancer_hourly: number
+          id: number
+          low_balance: number
+          margin_multiplier: number
+          updated_at: string
+          updated_by: string | null
+          welcome_credits: number
+        }
+        Insert: {
+          base_cost_per_credit?: number
+          critical_balance?: number
+          custom_credits_per_rupee?: number
+          custom_max?: number
+          custom_min?: number
+          freelancer_hourly?: number
+          id?: number
+          low_balance?: number
+          margin_multiplier?: number
+          updated_at?: string
+          updated_by?: string | null
+          welcome_credits?: number
+        }
+        Update: {
+          base_cost_per_credit?: number
+          critical_balance?: number
+          custom_credits_per_rupee?: number
+          custom_max?: number
+          custom_min?: number
+          freelancer_hourly?: number
+          id?: number
+          low_balance?: number
+          margin_multiplier?: number
+          updated_at?: string
+          updated_by?: string | null
+          welcome_credits?: number
+        }
+        Relationships: [
+        ]
+      }
+      ai_feature_routes: {
+        Row: {
+          enabled: boolean
+          fallback_model: string | null
+          fallback_provider: string | null
+          feature_key: string
+          primary_model: string | null
+          primary_provider: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          fallback_model?: string | null
+          fallback_provider?: string | null
+          feature_key: string
+          primary_model?: string | null
+          primary_provider: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          fallback_model?: string | null
+          fallback_provider?: string | null
+          feature_key?: string
+          primary_model?: string | null
+          primary_provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
         ]
       }
       ai_generations: {
@@ -237,6 +411,31 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      ai_model_prices: {
+        Row: {
+          model: string
+          price_per_million: number
+          provider: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          model: string
+          price_per_million: number
+          provider: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          model?: string
+          price_per_million?: number
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
         ]
       }
       analytics_events: {
@@ -695,6 +894,74 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "collections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commission_invoices: {
+        Row: {
+          commission: number
+          created_at: string
+          created_by: string | null
+          due_date: string
+          gmv: number
+          id: string
+          invoice_number: string
+          paid_at: string | null
+          paid_via: string | null
+          payment_reference: string | null
+          period_end: string
+          period_start: string
+          rate_bps: number
+          status: string
+          tenant_id: string
+          updated_at: string
+          waive_reason: string | null
+        }
+        Insert: {
+          commission: number
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          gmv: number
+          id?: string
+          invoice_number: string
+          paid_at?: string | null
+          paid_via?: string | null
+          payment_reference?: string | null
+          period_end: string
+          period_start: string
+          rate_bps: number
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          waive_reason?: string | null
+        }
+        Update: {
+          commission?: number
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          gmv?: number
+          id?: string
+          invoice_number?: string
+          paid_at?: string | null
+          paid_via?: string | null
+          payment_reference?: string | null
+          period_end?: string
+          period_start?: string
+          rate_bps?: number
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          waive_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_invoices_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2449,6 +2716,656 @@ export type Database = {
           },
         ]
       }
+      partner_commissions: {
+        Row: {
+          amount: number
+          base_amount: number
+          created_at: string
+          id: string
+          kind: string
+          partner_id: string
+          payout_id: string | null
+          period_month: string
+          rate_bps: number
+          status: string
+          tenant_id: string | null
+        }
+        Insert: {
+          amount: number
+          base_amount: number
+          created_at?: string
+          id?: string
+          kind: string
+          partner_id: string
+          payout_id?: string | null
+          period_month: string
+          rate_bps: number
+          status?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          amount?: number
+          base_amount?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          partner_id?: string
+          payout_id?: string | null
+          period_month?: string
+          rate_bps?: number
+          status?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_commissions_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_commissions_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "partner_payouts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_commissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_credit_ledger: {
+        Row: {
+          balance_after: number
+          created_at: string
+          created_by: string | null
+          delta: number
+          id: string
+          kind: string
+          note: string | null
+          partner_id: string
+          reference_id: string | null
+        }
+        Insert: {
+          balance_after: number
+          created_at?: string
+          created_by?: string | null
+          delta: number
+          id?: string
+          kind: string
+          note?: string | null
+          partner_id: string
+          reference_id?: string | null
+        }
+        Update: {
+          balance_after?: number
+          created_at?: string
+          created_by?: string | null
+          delta?: number
+          id?: string
+          kind?: string
+          note?: string | null
+          partner_id?: string
+          reference_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_credit_ledger_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_demo_shops: {
+        Row: {
+          active: boolean
+          category: string
+          created_at: string
+          created_by: string | null
+          id: string
+          note: string | null
+          position: number
+          tenant_id: string
+        }
+        Insert: {
+          active?: boolean
+          category: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          position?: number
+          tenant_id: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note?: string | null
+          position?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_demo_shops_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          created_by: string | null
+          email: string
+          expires_at: string
+          id: string
+          partner_id: string
+          revoked_at: string | null
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          partner_id: string
+          revoked_at?: string | null
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          partner_id?: string
+          revoked_at?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_invites_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_license_batches: {
+        Row: {
+          batch_number: string
+          created_at: string
+          created_by: string | null
+          credit_applied: number
+          id: string
+          license_type: string
+          paid_at: string | null
+          partner_id: string
+          payment_reference: string | null
+          payment_status: string
+          qty: number
+          request_id: string | null
+          subtotal: number
+          total: number
+          unit_price: number
+        }
+        Insert: {
+          batch_number: string
+          created_at?: string
+          created_by?: string | null
+          credit_applied?: number
+          id?: string
+          license_type: string
+          paid_at?: string | null
+          partner_id: string
+          payment_reference?: string | null
+          payment_status?: string
+          qty: number
+          request_id?: string | null
+          subtotal: number
+          total: number
+          unit_price: number
+        }
+        Update: {
+          batch_number?: string
+          created_at?: string
+          created_by?: string | null
+          credit_applied?: number
+          id?: string
+          license_type?: string
+          paid_at?: string | null
+          partner_id?: string
+          payment_reference?: string | null
+          payment_status?: string
+          qty?: number
+          request_id?: string | null
+          subtotal?: number
+          total?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_license_batches_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_license_requests: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          created_by: string | null
+          decision_note: string | null
+          id: string
+          license_type: string
+          notes: string | null
+          partner_id: string
+          qty: number
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          decision_note?: string | null
+          id?: string
+          license_type?: string
+          notes?: string | null
+          partner_id: string
+          qty: number
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          decision_note?: string | null
+          id?: string
+          license_type?: string
+          notes?: string | null
+          partner_id?: string
+          qty?: number
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_license_requests_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "partner_license_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_license_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_licenses: {
+        Row: {
+          batch_id: string
+          consumed_at: string | null
+          created_at: string
+          id: string
+          license_key: string
+          license_type: string
+          partner_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+          status: string
+          tenant_id: string | null
+        }
+        Insert: {
+          batch_id: string
+          consumed_at?: string | null
+          created_at?: string
+          id?: string
+          license_key: string
+          license_type: string
+          partner_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          status?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          batch_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          id?: string
+          license_key?: string
+          license_type?: string
+          partner_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          status?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_licenses_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "partner_license_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_licenses_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_licenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_one_time_codes: {
+        Row: {
+          code_hash: string
+          code_hint: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          note: string | null
+          status: string
+          used_at: string | null
+          used_by_partner_id: string | null
+          value: number
+        }
+        Insert: {
+          code_hash: string
+          code_hint: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          note?: string | null
+          status?: string
+          used_at?: string | null
+          used_by_partner_id?: string | null
+          value: number
+        }
+        Update: {
+          code_hash?: string
+          code_hint?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          note?: string | null
+          status?: string
+          used_at?: string | null
+          used_by_partner_id?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_one_time_codes_used_by_partner_id_fkey"
+            columns: ["used_by_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_payouts: {
+        Row: {
+          amount: number
+          commission_count: number
+          created_at: string
+          created_by: string | null
+          direct_amount: number
+          id: string
+          method: string
+          notes: string | null
+          override_amount: number
+          paid_at: string | null
+          paid_by: string | null
+          partner_id: string
+          period_cutoff: string
+          status: string
+          utr: string | null
+        }
+        Insert: {
+          amount: number
+          commission_count?: number
+          created_at?: string
+          created_by?: string | null
+          direct_amount?: number
+          id?: string
+          method?: string
+          notes?: string | null
+          override_amount?: number
+          paid_at?: string | null
+          paid_by?: string | null
+          partner_id: string
+          period_cutoff: string
+          status?: string
+          utr?: string | null
+        }
+        Update: {
+          amount?: number
+          commission_count?: number
+          created_at?: string
+          created_by?: string | null
+          direct_amount?: number
+          id?: string
+          method?: string
+          notes?: string | null
+          override_amount?: number
+          paid_at?: string | null
+          paid_by?: string | null
+          partner_id?: string
+          period_cutoff?: string
+          status?: string
+          utr?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_payouts_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_referrals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          license_id: string | null
+          partner_id: string
+          source: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          license_id?: string | null
+          partner_id: string
+          source: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          license_id?: string | null
+          partner_id?: string
+          source?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_referrals_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "partner_licenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_referrals_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_referrals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partners: {
+        Row: {
+          agency_payout_bps: number | null
+          bank_account_holder: string | null
+          bank_account_number: string | null
+          bank_ifsc: string | null
+          city: string | null
+          company_name: string | null
+          created_at: string
+          created_by: string | null
+          credit_balance: number
+          direct_bps: number
+          email: string
+          gstin: string | null
+          id: string
+          license_price: number | null
+          name: string
+          notes: string | null
+          override_bps: number
+          pan: string | null
+          parent_partner_id: string | null
+          partner_code: string
+          partner_type: string
+          payout_method: string | null
+          phone: string | null
+          region_name: string | null
+          state_name: string | null
+          status: string
+          tier: string
+          updated_at: string
+          upi_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          agency_payout_bps?: number | null
+          bank_account_holder?: string | null
+          bank_account_number?: string | null
+          bank_ifsc?: string | null
+          city?: string | null
+          company_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_balance?: number
+          direct_bps?: number
+          email: string
+          gstin?: string | null
+          id?: string
+          license_price?: number | null
+          name: string
+          notes?: string | null
+          override_bps?: number
+          pan?: string | null
+          parent_partner_id?: string | null
+          partner_code?: string
+          partner_type?: string
+          payout_method?: string | null
+          phone?: string | null
+          region_name?: string | null
+          state_name?: string | null
+          status?: string
+          tier?: string
+          updated_at?: string
+          upi_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          agency_payout_bps?: number | null
+          bank_account_holder?: string | null
+          bank_account_number?: string | null
+          bank_ifsc?: string | null
+          city?: string | null
+          company_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_balance?: number
+          direct_bps?: number
+          email?: string
+          gstin?: string | null
+          id?: string
+          license_price?: number | null
+          name?: string
+          notes?: string | null
+          override_bps?: number
+          pan?: string | null
+          parent_partner_id?: string | null
+          partner_code?: string
+          partner_type?: string
+          payout_method?: string | null
+          phone?: string | null
+          region_name?: string | null
+          state_name?: string | null
+          status?: string
+          tier?: string
+          updated_at?: string
+          upi_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partners_parent_partner_id_fkey"
+            columns: ["parent_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount: number
@@ -2617,6 +3534,7 @@ export type Database = {
         Row: {
           active: boolean
           code: string
+          commission_bps: number
           created_at: string
           currency: string
           description: string | null
@@ -2633,6 +3551,7 @@ export type Database = {
         Insert: {
           active?: boolean
           code: string
+          commission_bps?: number
           created_at?: string
           currency?: string
           description?: string | null
@@ -2649,6 +3568,7 @@ export type Database = {
         Update: {
           active?: boolean
           code?: string
+          commission_bps?: number
           created_at?: string
           currency?: string
           description?: string | null
@@ -2662,7 +3582,8 @@ export type Database = {
           trial_days?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+        ]
       }
       platform_app_credentials: {
         Row: {
@@ -4842,6 +5763,12 @@ export type Database = {
     }
     Functions: {
       accept_invitation: { Args: { p_token_hash: string }; Returns: string }
+      accept_partner_invite: {
+        Args: {
+          p_token_hash: string
+        }
+        Returns: string
+      }
       ai_credit_debit: {
         Args: { p_kind: string; p_reference?: string | null; p_tenant: string }
         Returns: { balance: number; ledger_id: string }[]
@@ -4987,6 +5914,44 @@ export type Database = {
         }
         Returns: number
       }
+      platform_accrue_partner_commissions: {
+        Args: {
+          p_month: string
+        }
+        Returns: number
+      }
+      platform_adjust_partner_credit: {
+        Args: {
+          p_delta: number
+          p_kind: string
+          p_note: string
+          p_partner: string
+        }
+        Returns: number
+      }
+      platform_ai_credit_insights: {
+        Args: never
+        Returns: Json
+      }
+      platform_ai_usage: {
+        Args: {
+          p_from?: string
+        }
+        Returns: {
+          calls: number
+          model: string
+          provider: string
+          tokens: number
+        }[]
+      }
+      platform_create_partner_code: {
+        Args: {
+          p_expires?: string
+          p_note?: string
+          p_value: number
+        }
+        Returns: string
+      }
       platform_create_tenant: {
         Args: {
           p_name: string
@@ -4999,6 +5964,17 @@ export type Database = {
         Returns: string
       }
       platform_dashboard: { Args: never; Returns: Json }
+      platform_decide_license_request: {
+        Args: {
+          p_approve: boolean
+          p_note?: string
+          p_paid?: boolean
+          p_reference?: string
+          p_request: string
+          p_unit_price?: number
+        }
+        Returns: string
+      }
       platform_decide_plan_request: {
         Args: {
           p_approve: boolean
@@ -5010,6 +5986,38 @@ export type Database = {
       }
       platform_find_user_by_email: {
         Args: { p_email: string }
+        Returns: string
+      }
+      platform_generate_commission_invoices: {
+        Args: {
+          p_period_start: string
+        }
+        Returns: {
+          created: number
+          total_commission: number
+        }[]
+      }
+      platform_gmv_by_tenant: {
+        Args: {
+          p_from?: string
+          p_to?: string
+        }
+        Returns: {
+          gmv: number
+          orders: number
+          tenant_id: string
+        }[]
+      }
+      platform_issue_license_batch: {
+        Args: {
+          p_paid?: boolean
+          p_partner: string
+          p_qty: number
+          p_reference?: string
+          p_request?: string
+          p_type: string
+          p_unit_price: number
+        }
         Returns: string
       }
       platform_list_stores: {
@@ -5044,7 +6052,137 @@ export type Database = {
           total_count: number
         }[]
       }
+      platform_mark_license_batch_paid: {
+        Args: {
+          p_batch: string
+          p_reference: string
+        }
+        Returns: undefined
+      }
       platform_overview: { Args: never; Returns: Json }
+      platform_partner_leaderboard: {
+        Args: {
+          p_from: string
+          p_to: string
+        }
+        Returns: {
+          commission: number
+          gmv: number
+          licenses: number
+          partner_code: string
+          partner_id: string
+          partner_name: string
+          partner_type: string
+          state_name: string
+          tier: string
+        }[]
+      }
+      platform_partner_orgs: {
+        Args: {
+          p_type?: string
+        }
+        Returns: {
+          amount_paid: number
+          company_name: string
+          created_at: string
+          credit_balance: number
+          email: string
+          licenses_redeemed: number
+          licenses_total: number
+          name: string
+          parent_id: string
+          parent_name: string
+          partner_code: string
+          partner_id: string
+          partner_type: string
+          status: string
+          team_count: number
+          tier: string
+        }[]
+      }
+      platform_pending_partner_payouts: {
+        Args: {
+          p_cutoff: string
+        }
+        Returns: {
+          bank_account_holder: string
+          bank_account_last4: string
+          bank_ifsc: string
+          commission_count: number
+          direct_amount: number
+          override_amount: number
+          partner_code: string
+          partner_id: string
+          partner_name: string
+          payout_method: string
+          tier: string
+          total_amount: number
+          upi_id: string
+        }[]
+      }
+      platform_redeem_partner_code: {
+        Args: {
+          p_code: string
+          p_partner: string
+        }
+        Returns: number
+      }
+      platform_revoke_partner_code: {
+        Args: {
+          p_code: string
+        }
+        Returns: undefined
+      }
+      platform_revoke_partner_license: {
+        Args: {
+          p_license: string
+        }
+        Returns: undefined
+      }
+      platform_run_partner_payout_batch: {
+        Args: {
+          p_cutoff: string
+          p_method?: string
+          p_min_amount?: number
+        }
+        Returns: {
+          carried_over: number
+          payouts_created: number
+          total_amount: number
+        }[]
+      }
+      platform_set_agency_payout: {
+        Args: {
+          p_agency: string
+          p_bps: number
+        }
+        Returns: number
+      }
+      platform_set_commission_invoice_status: {
+        Args: {
+          p_invoice: string
+          p_note?: string
+          p_reference?: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      platform_set_store_partner: {
+        Args: {
+          p_partner: string
+          p_tenant: string
+        }
+        Returns: undefined
+      }
+      platform_settle_partner_payout: {
+        Args: {
+          p_note?: string
+          p_paid: boolean
+          p_payout: string
+          p_utr?: string
+        }
+        Returns: undefined
+      }
       platform_storage_usage: {
         Args: { p_limit?: number; p_tenant?: string }
         Returns: {
@@ -5064,6 +6202,35 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      platform_user_detail: {
+        Args: {
+          p_user: string
+        }
+        Returns: Json
+      }
+      platform_user_directory: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_tenant?: string
+          p_type?: string
+        }
+        Returns: {
+          created_at: string
+          customer_stores: number
+          display_name: string
+          email: string
+          email_confirmed: boolean
+          last_sign_in_at: string
+          phone: string
+          platform_role: string
+          stores: Json
+          total_count: number
+          user_id: string
+          user_types: string[]
+        }[]
+      }
       platform_user_emails: {
         Args: { p_user_ids: string[] }
         Returns: {
@@ -5071,8 +6238,24 @@ export type Database = {
           user_id: string
         }[]
       }
+      platform_user_stats: {
+        Args: never
+        Returns: {
+          customers: number
+          platform: number
+          sellers: number
+          total: number
+        }[]
+      }
       publish_theme: {
         Args: { p_label?: string; p_tenant: string }
+        Returns: string
+      }
+      redeem_partner_license: {
+        Args: {
+          p_key: string
+          p_tenant: string
+        }
         Returns: string
       }
       remove_custom_domain: {
@@ -5096,7 +6279,16 @@ export type Database = {
         }
         Returns: string
       }
-      request_ai_credit_purchase: { Args: { p_method: string; p_pack: string; p_tenant: string }; Returns: string }
+      request_ai_credit_purchase: {
+        Args: {
+          p_amount?: number
+          p_method: string
+          p_pack: string
+          p_promo?: string
+          p_tenant: string
+        }
+        Returns: string
+      }
       rollback_theme: { Args: { p_version: string }; Returns: string }
       save_discount: {
         Args: {
