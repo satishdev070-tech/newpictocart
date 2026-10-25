@@ -31,7 +31,7 @@ const listSchema = z.object({ q: z.string().trim().max(80).optional(), page: z.n
 const idSchema = z.string().trim().min(6).max(64).regex(/^[A-Za-z0-9_-]+$/, "Invalid photo");
 
 async function listing(input: z.infer<typeof listSchema>, bucket: string, subject: string): Promise<UnsplashListing> {
-  const apiEnabled = unsplashEnabled();
+  const apiEnabled = await unsplashEnabled();
   if (!input.q) {
     const photos = await featuredUnsplashPhotos();
     return { photos, total: photos.length, pages: 1, featured: true, apiEnabled };

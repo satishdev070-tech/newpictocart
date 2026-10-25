@@ -7,7 +7,7 @@ import { z } from "zod";
  * masked hint.
  */
 
-export const APP_PROVIDERS = ["meta", "pinterest", "google", "gemini", "groq", "anthropic", "resend"] as const;
+export const APP_PROVIDERS = ["meta", "pinterest", "google", "gemini", "groq", "anthropic", "resend", "unsplash"] as const;
 export type AppProvider = (typeof APP_PROVIDERS)[number];
 
 export const AI_PROVIDERS = ["gemini", "groq", "anthropic"] as const satisfies readonly AppProvider[];
@@ -25,6 +25,7 @@ export const EXTRA_KEYS: Record<AppProvider, readonly string[]> = {
   groq: ["model"],
   anthropic: ["model"],
   resend: ["from"],
+  unsplash: [],
 };
 
 export type AppCredential = { clientId: string | null; secret: string; extra: Record<string, string>; source: "db" | "env" };
@@ -41,6 +42,7 @@ const ENV_NAMES: Record<AppProvider, { id?: string; secret: string; extra?: Reco
   groq: { secret: "GROQ_API_KEY" },
   anthropic: { secret: "ANTHROPIC_API_KEY" },
   resend: { secret: "RESEND_API_KEY", extra: { from: "EMAIL_FROM" } },
+  unsplash: { secret: "UNSPLASH_ACCESS_KEY" },
 };
 export const envNamesFor = (p: AppProvider) => ENV_NAMES[p];
 
