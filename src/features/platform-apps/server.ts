@@ -63,6 +63,12 @@ export async function listAppCredentialStatus(ctx: PlatformContext): Promise<App
   return Promise.all(APP_PROVIDERS.map(async (p) => toStatus(p, await getAppCredential(p), await loadRow(p))));
 }
 
+/** Status of one provider (configured, source, masked hint). Never returns the secret. */
+export async function getAppCredentialStatus(ctx: PlatformContext, provider: AppProvider): Promise<AppCredentialStatus> {
+  assertPlatformPermission(ctx, "platform.settings.manage");
+  return toStatus(provider, await getAppCredential(provider), await loadRow(provider));
+}
+
 /** The Meta webhook verify token, for display to a platform admin on the setup page only. */
 export async function getMetaWebhookVerifyToken(ctx: PlatformContext): Promise<string | null> {
   assertPlatformPermission(ctx, "platform.settings.manage");

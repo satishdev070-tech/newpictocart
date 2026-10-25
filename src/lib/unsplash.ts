@@ -1,5 +1,6 @@
 import "server-only";
 import { logger } from "@/lib/observability/logger";
+import { getUnsplashAccessKey } from "@/features/media/unsplash/key";
 import { UNSPLASH_CATEGORIES, toUnsplashCategory, type UnsplashCategory } from "./unsplash-categories";
 import { STOCK_QUERIES, STOCK_SLOTS, curatedStock, stockPhotoUrl, type StockImage, type StockSet, type StockSlot } from "./unsplash-stock";
 
@@ -8,7 +9,7 @@ export { UNSPLASH_CATEGORIES, toUnsplashCategory, type UnsplashCategory };
 /**
  * Category photos from Unsplash for marketing sections (theme cards, business categories, ...).
  *
- * With UNSPLASH_ACCESS_KEY set, each category is looked up once via the Search API and cached by
+ * With an Unsplash Access Key (Admin → Media library, or UNSPLASH_ACCESS_KEY), each category is looked up once via the Search API and cached by
  * Next's fetch cache for a day (one request per category per day, far under the 50/hour demo
  * limit). Without a key, or when the API fails, a curated static photo per category is used, so
  * callers always get an image. Photos are hotlinked from images.unsplash.com as the API
@@ -88,7 +89,7 @@ const withUtm = (url: string) => `${url}${url.includes("?") ? "&" : "?"}${UTM}`;
  * otherwise, or on any failure, the curated fallback. Never throws.
  */
 export async function getCategoryImage(category: string): Promise<CategoryImage> {
-  const key = process.env.UNSPLASH_ACCESS_KEY?.trim();
+  const key = await getUnsplashAccessKey();
   const cat = toUnsplashCategory(category);
   if (!key) return fallbackCategoryImage(cat);
   try {
@@ -150,7 +151,7 @@ const ORIENTATION: Record<StockSlot, string> = { hero: "landscape", story: "port
 export async function getStockImages(category: string, slot: StockSlot, count = 4): Promise<StockImage[]> {
   const cat = toUnsplashCategory(category);
   const curated = curatedStock(cat, slot);
-  const key = process.env.UNSPLASH_ACCESS_KEY?.trim();
+  const key = await getUnsplashAccessKey();
   if (!key) return curated.slice(0, count);
   try {
     const params = new URLSearchParams({ query: STOCK_QUERIES[cat][slot], per_page: String(Math.max(count, 4)), orientation: ORIENTATION[slot], content_filter: "high" });

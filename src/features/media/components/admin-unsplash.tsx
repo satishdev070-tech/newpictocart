@@ -28,7 +28,7 @@ export function AdminUnsplashLibrary() {
   return (
     <UnsplashBrowser
       load={adminListUnsplashAction}
-      noKeyNote="UNSPLASH_ACCESS_KEY isn't set, so only the built-in fallback photos are listed and search covers those only."
+      noKeyNote="No Unsplash API key is set (add one in the card above), so only the built-in fallback photos are listed and search covers those only."
       action={(p) => {
         const st = state[p.id];
         return (

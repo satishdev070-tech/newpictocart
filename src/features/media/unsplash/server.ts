@@ -4,13 +4,14 @@ import { UNSPLASH_CATEGORIES, curatedUnsplashPhotos, toUnsplashCategory, unsplas
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
 import { industryShort } from "@/features/stores/industries";
 import { MEDIA_MAX_BYTES } from "../rules";
+import { getUnsplashAccessKey } from "./key";
 import { API_ID_RE, CURATED_ID_RE, curatedPhoto, fromApiPhoto, isDownloadLocation, isUnsplashImageUrl, mergePhotos, scaledSize, sizedUnsplashUrl, type ApiPhoto, type UnsplashPhoto } from "./photos";
 
 /**
  * Unsplash API access for the media library (server only; the key never reaches the browser).
  * Search results and photo lookups go through Next's fetch cache (a day for the theme photos and
  * photo lookups, an hour for searches), so repeated browsing costs no extra API calls. Without
- * UNSPLASH_ACCESS_KEY the library still lists the curated photos the site falls back to.
+ * a key (Admin → Media library or UNSPLASH_ACCESS_KEY) the library still lists the curated photos the site falls back to.
  */
 
 const API = "https://api.unsplash.com";
@@ -19,11 +20,11 @@ const PER_PAGE = 24;
 /** Imported copies are at most this wide (Unsplash resizes; keeps files well under 10 MB). */
 export const IMPORT_WIDTH = 2000;
 
-const key = () => process.env.UNSPLASH_ACCESS_KEY?.trim() || null;
-export const unsplashEnabled = () => key() !== null;
+const key = getUnsplashAccessKey;
+export const unsplashEnabled = async () => (await key()) !== null;
 
 async function api<T>(path: string, revalidate: number): Promise<T> {
-  const k = key();
+  const k = await key();
   if (!k) throw new Error("no key");
   const res = await fetch(`${API}${path}`, {
     headers: { Authorization: `Client-ID ${k}`, "Accept-Version": "v1" },
@@ -51,7 +52,7 @@ export async function featuredUnsplashPhotos(): Promise<UnsplashPhoto[]> {
   const photos = await Promise.all(
     UNSPLASH_CATEGORIES.map(async (cat) => {
       const usedFor = usedForLabel(cat);
-      if (key()) {
+      if (await key()) {
         try {
           const params = new URLSearchParams({ query: unsplashCategoryQuery(cat), per_page: "1", orientation: "landscape", content_filter: "high" });
           const data = await api<{ results?: ApiPhoto[] }>(`/search/photos?${params}`, DAY);
@@ -73,7 +74,7 @@ export type UnsplashSearch = { photos: UnsplashPhoto[]; total: number; pages: nu
 /** Unsplash search (safe content only). Without a key: the curated photos matching the words. */
 export async function searchUnsplash(query: string, page: number): Promise<UnsplashSearch> {
   const q = query.trim().slice(0, 80);
-  if (!key()) {
+  if (!(await key())) {
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);
     const photos = curatedUnsplashPhotos()
       .filter((c) => words.every((w) => `${c.category} ${c.alt}`.toLowerCase().includes(w)))
@@ -88,7 +89,7 @@ export async function searchUnsplash(query: string, page: number): Promise<Unspl
 
 /** Several photos for one store industry (e.g. sample products in a theme preview). Never throws. */
 export async function industryUnsplashPhotos(industry: string, count: number): Promise<UnsplashPhoto[]> {
-  if (!key()) return [];
+  if (!(await key())) return [];
   try {
     const params = new URLSearchParams({ query: unsplashCategoryQuery(industry), per_page: String(Math.min(count, 30)), content_filter: "high" });
     const data = await api<{ results?: ApiPhoto[] }>(`/search/photos?${params}`, DAY);
@@ -112,7 +113,7 @@ export async function resolveUnsplashPhoto(id: string): Promise<Resolved | null>
     const photo = curatedPhoto(c.id, c.alt);
     return { photo, imageUrl: sizedUnsplashUrl(`https://images.unsplash.com/${c.id}`, IMPORT_WIDTH, "jpg"), downloadLocation: null };
   }
-  if (!API_ID_RE.test(id) || !key()) return null;
+  if (!API_ID_RE.test(id) || !(await key())) return null;
   try {
     const p = await api<ApiPhoto>(`/photos/${encodeURIComponent(id)}`, DAY);
     const photo = fromApiPhoto(p);
@@ -130,7 +131,7 @@ export async function resolveUnsplashPhoto(id: string): Promise<Resolved | null>
  * download_location whenever an app inserts/downloads it). Not cached; never throws.
  */
 export async function trackUnsplashDownload(downloadLocation: string | null): Promise<void> {
-  const k = key();
+  const k = await key();
   if (!k || !isDownloadLocation(downloadLocation)) return;
   try {
     await fetch(downloadLocation, { headers: { Authorization: `Client-ID ${k}`, "Accept-Version": "v1" }, cache: "no-store", signal: AbortSignal.timeout(4000) });

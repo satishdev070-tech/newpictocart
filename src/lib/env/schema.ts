@@ -107,6 +107,8 @@ export const serverEnvSchema = publicEnvSchema.extend({
   GEMINI_API_KEY: z.string().min(10).optional(),
   GROQ_API_KEY: z.string().min(10).optional(),
   ANTHROPIC_API_KEY: z.string().min(10).optional(),
+  /** Unsplash Access Key fallback; Admin → Media library stores one in the console (wins over env). */
+  UNSPLASH_ACCESS_KEY: z.string().trim().optional(),
   /**
    * Sarvam AI API subscription key (speech, chat, TTS, translate). SERVER ONLY.
    * Optional until voice onboarding is enabled; when unset, Sarvam helpers throw

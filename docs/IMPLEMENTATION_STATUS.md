@@ -1,6 +1,14 @@
 # Implementation Status
 
-_Last updated: 2026-10-25 (Super Admin port from the old Pictocart admin)_
+_Last updated: 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Unsplash API key in the console (2026-10-25)
+
+- **Admin → Media library** has an "Unsplash API key" card: paste the Access Key, **Save & test** (one `GET /photos?per_page=1` call; a key Unsplash rejects is never stored), **Test connection** (shows demo vs production mode and requests left this hour from the rate-limit headers), **Remove saved key**. The key is stored encrypted in `platform_app_credentials` (provider `unsplash`, same as the AI/Resend keys), is write-only (only a masked hint is shown) and wins over `UNSPLASH_ACCESS_KEY`, which stays as the fallback. Saves and tests are audited and rate limited; cached Unsplash fetches are revalidated on change.
+- Every Unsplash call (marketing category photos, theme stock photos, media library search, download tracking) now reads the key through `features/media/unsplash/key.ts`.
+- **Unsplash API guidelines** (listed on the card): photos hotlinked from images.unsplash.com, photographer + Unsplash credit with `utm_source=pictocart&utm_medium=referral`, `download_location` called whenever a photo is used, key server-side only, no Unsplash-clone experience. New Unsplash apps run in demo mode (50 req/h); apply for production in the Unsplash dashboard before launch.
+- **Migration (NOT applied to the live project; owner approval needed):** `20261025004000_unsplash_credential.sql` adds `unsplash` to the `platform_app_credentials` provider check. Until it is applied, saving fails and `UNSPLASH_ACCESS_KEY` keeps working.
+- **Verification:** typecheck, lint, `pnpm test` (116 files / 1,403 tests) ✅. Local Supabase + dev server: the card renders, a fake key is rejected by Unsplash (401) and not saved; the project's real key returns HTTP 200 in demo mode (50/h).
 
 ## Super Admin port: nine modules (2026-10-25)
 
