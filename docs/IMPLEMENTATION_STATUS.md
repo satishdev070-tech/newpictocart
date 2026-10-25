@@ -1,6 +1,28 @@
 # Implementation Status
 
-_Last updated: 2026-10-23 (Bugs 2.0 #1–#10)_
+_Last updated: 2026-10-25 (Super Admin port from the old Pictocart admin)_
+
+## Super Admin port: nine modules (2026-10-25)
+
+Plan, gap analysis and decisions: [SUPER_ADMIN_PORT.md](SUPER_ADMIN_PORT.md). Re-implemented in this architecture (server components, `runAction` + `parseInput`, RLS + audited SECURITY DEFINER SQL, integer paise), not copied.
+
+| Module | Route | Status |
+|---|---|---|
+| Users (all accounts: staff / seller / customer, stats, search, filters, list/grid, details with stores, sign-ins, audit trail, Add user, reset link, disable/enable) | `/admin/users`, `/admin/users/{id}` | ✅ (staff management moved to `/admin/platform-users`) |
+| Revenue P&L (MRR, 30-day commission, credit packs, theme sales, AI cost, net profit, plan breakdown, theme P&L) | `/admin/revenue` | ✅ (themes are free here, so theme sales are ₹0; lifetime subscription part = current MRR, no payment ledger yet) |
+| Commissions (GMV invoices, totals, search, status, mark paid / waive, run generation) + commission % on Plans | `/admin/commissions` | ✅ (rates default to 0% until set on Plans) |
+| Partner analytics (presets, rank by, totals, leaderboard, CSV) | `/admin/partner-analytics` | ✅ |
+| Partner payouts (cutoff, run batch, pending by partner, history, UTR) | `/admin/partner-payouts` | ✅ |
+| Agencies (type tabs, server totals, owner → team) | `/admin/agencies` | ✅ (the old "Could not load partners" does not occur) |
+| All partners (partners, licence requests, licences, demo shops, one-time codes, invite, create directly, detail page) | `/admin/partners`, `/admin/partners/{id}`, `/partner/accept/{token}` | ✅ admin side; no partner portal (partner actions are done by an admin on their behalf). Demo shops never store passwords; one-time codes are stored as hashes |
+| AI health (feature → primary/fallback model registry used by `runGeneration`, Test button, model prices) | `/admin/ai-health` | ✅ |
+| Credits economy (pricing, per-action costs, packs, promos, insights, grant) + seller packs/promo/custom amount | `/admin/credits-economy` | ✅ |
+
+- **Permissions:** new `platform.finance.read`, `platform.finance.manage` (super_admin, finance) and `platform.partners.manage` (super_admin). ADR-006 addition for account creation / reset / ban.
+- **Migrations (NOT applied to the live project; owner approval needed, apply in order):** `20261025003700_platform_finance.sql`, `20261025003800_partners.sql`, `20261025003900_ai_economy.sql`. Until applied, the new pages show a pending-migration notice and AI credits keep today's behaviour.
+- **Verification:** `pnpm typecheck`, `pnpm lint`, `pnpm test` (115 files / 1,398 tests) and `pnpm build` ✅. `pnpm test:db` ✅ (24 files / 178 tests, all migrations from scratch on Postgres 17; on macOS run with `PGBIN=/opt/homebrew/opt/postgresql@17/bin LC_ALL=en_US.UTF-8`). All three migrations also applied on a local Supabase stack (`supabase start --runtime native -x functions -x studio`), and every page was opened in the dev server as the seeded super admin: Users (disable account audited), Revenue, Commissions, Partners (created an agency, issued 10 licences at ₹8,500 → analytics ₹85,000), Agencies, Partner analytics, Partner payouts, AI health, Credits economy (₹0.09/credit, ~67%, ₹100 → 1,111 credits).
+- **Known, pre-existing:** React "unique key" warning from `AdminLayout` → `AppShellClient` (not changed here).
+
 
 ## Bugs 2.0 tester fixes #1–#10 (2026-10-23)
 
