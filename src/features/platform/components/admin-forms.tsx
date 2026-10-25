@@ -134,6 +134,8 @@ export type PlanFormValue = {
   active: boolean;
   limits: Partial<Record<(typeof PLAN_LIMIT_KEYS)[number], number | null>>;
   features: Record<string, "inherit" | "on" | "off">;
+  /** GMV commission % ("2", "1.5"); null hides the field until migration 3700 adds plans.commission_bps. */
+  commissionPercent?: string | null;
 };
 
 const LIMIT_LABEL: Record<(typeof PLAN_LIMIT_KEYS)[number], string> = { products: "Products", staff: "Staff seats", storage_mb: "Storage (MB)", custom_domains: "Custom domains" };
@@ -150,6 +152,9 @@ export function PlanForm({ value, catalogue }: { value: PlanFormValue; catalogue
             <TextField label="Yearly price (₹)" name="priceYearly" inputMode="decimal" defaultValue={value.priceYearly} required errors={e.priceYearly} />
             <TextField label="Trial days" name="trialDays" type="number" min={0} max={90} defaultValue={value.trialDays} errors={e.trialDays} />
             <TextField label="Sort order" name="sortOrder" type="number" min={0} defaultValue={value.sortOrder} errors={e.sortOrder} />
+            {value.commissionPercent != null ? (
+              <TextField label="GMV commission %" name="commissionPercent" inputMode="decimal" defaultValue={value.commissionPercent} errors={e.commissionPercent} hint="Share of each store's monthly GMV billed on Commissions, e.g. 2 or 1.5. 0 = no commission." />
+            ) : null}
             <TextAreaField label="Description" name="description" defaultValue={value.description} rows={2} optional className="sm:col-span-2" errors={e.description} />
             <CheckboxField label="Active (available for new stores)" name="active" defaultChecked={value.active} />
           </div>

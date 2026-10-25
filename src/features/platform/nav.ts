@@ -33,11 +33,31 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
     ],
   },
   {
+    label: "Finance",
+    icon: "billing",
+    items: [
+      { href: "/admin/revenue", label: "Revenue P&L", permission: "platform.finance.read", icon: "analytics" },
+      { href: "/admin/commissions", label: "Commissions", permission: "platform.finance.read", icon: "taxes" },
+      { href: "/admin/partner-analytics", label: "Partner analytics", permission: "platform.finance.read", icon: "analytics" },
+      { href: "/admin/partner-payouts", label: "Partner payouts", permission: "platform.finance.read", icon: "payments" },
+    ],
+  },
+  {
+    label: "Partners",
+    icon: "team",
+    items: [
+      { href: "/admin/partners", label: "All partners", permission: "platform.partners.manage", icon: "team" },
+      { href: "/admin/agencies", label: "Agencies", permission: "platform.partners.manage", icon: "stores" },
+    ],
+  },
+  {
     label: "Monitoring",
     icon: "monitoring",
     items: [
       { href: "/admin/usage", label: "Usage & storage", permission: "platform.usage.read", icon: "usage" },
       { href: "/admin/ai-credits", label: "AI credits", permission: "platform.settings.manage", icon: "usage" },
+      { href: "/admin/credits-economy", label: "Credits economy", permission: "platform.settings.manage", icon: "billing" },
+      { href: "/admin/ai-health", label: "AI health", permission: "platform.settings.manage", icon: "ai" },
       { href: "/admin/audit", label: "Audit log", permission: "platform.audit.read", icon: "audit" },
       { href: "/admin/integrations", label: "Store integrations", permission: "platform.settings.manage", icon: "integrations" },
       { href: "/admin/social-apps", label: "Social apps", permission: "platform.settings.manage", icon: "integrations" },
@@ -48,7 +68,8 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
     label: "Platform",
     icon: "settings",
     items: [
-      { href: "/admin/users", label: "Platform users", permission: "platform.users.manage", icon: "users" },
+      { href: "/admin/users", label: "Users", permission: "platform.users.manage", icon: "users" },
+      { href: "/admin/platform-users", label: "Platform staff", permission: "platform.users.manage", icon: "accounts" },
       { href: "/admin/landing", label: "Landing page", permission: "platform.settings.manage", icon: "pages" },
       { href: "/admin/themes", label: "Themes", permission: "platform.settings.manage", icon: "themes" },
       { href: "/admin/product-types", label: "Product types", permission: "platform.settings.manage", icon: "products" },

@@ -60,7 +60,7 @@ export default async function NeuralPulsePage() {
           </span>
         </p>
       )}
-      <AiCreditSellerPanel available={credits.available} balance={credits.balance} ledger={credits.ledger} purchases={credits.purchases} canManage={can(ctx, "billing.manage")} />
+      <AiCreditSellerPanel available={credits.available} balance={credits.balance} ledger={credits.ledger} purchases={credits.purchases} catalog={credits.catalog} canManage={can(ctx, "billing.manage")} />
       <NeuralPulseStudio brand={brand} canWrite={canWrite} aiReady={aiReady} products={products.data ?? []} history={history} today={istDayKey(new Date().toISOString())} />
     </div>
   );

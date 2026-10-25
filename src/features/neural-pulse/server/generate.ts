@@ -10,20 +10,27 @@ import { DAILY_GENERATION_LIMIT, type AiProvider, type GenerationKind } from "..
 import type { Prompt } from "../prompts";
 import { LlmError, generateJson, resolveModel, type ProviderConfig } from "./llm";
 import { debitAiCredit, refundAiCredit } from "@/features/ai-credits/server";
+import { loadFeatureRoute } from "@/features/ai-health/route-loader";
+import { routeProviders } from "@/features/ai-health/routing";
 
 export const SETUP_MESSAGE = "AI writing isn't set up yet. A platform admin needs to add a Gemini, Groq or Anthropic API key in Admin → Social apps.";
 export const LIMIT_MESSAGE = `You've used today's ${DAILY_GENERATION_LIMIT} AI generations for this store. Try again tomorrow.`;
 export const FAILED_MESSAGE = "The AI service didn't return a usable answer. Please try again in a minute.";
 
-/** Configured providers in the platform's order, with keys. Server-only; never pass to the client. */
-export async function loadProviders(): Promise<ProviderConfig[]> {
+/**
+ * Configured providers with keys. Server-only; never pass to the client. With a `feature` key the
+ * Admin → AI health route applies (primary + fallback, see routeProviders); otherwise, or with no
+ * enabled route, the platform's order.
+ */
+export async function loadProviders(feature?: string): Promise<ProviderConfig[]> {
   const order = await getAiProviderOrder();
   const out: ProviderConfig[] = [];
   for (const id of order) {
     const cred = await getAppCredential(id);
     if (cred?.secret) out.push({ id, apiKey: cred.secret, model: resolveModel(id, cred.extra.model) });
   }
-  return out;
+  if (!feature || !out.length) return out;
+  return routeProviders(out, await loadFeatureRoute(feature));
 }
 
 /** Names of configured providers only (safe for the UI). */
@@ -41,7 +48,7 @@ export type GenerationOutcome<T> = { id: string | null; data: T; provider: AiPro
  * Callers must have checked membership + marketing.write first.
  */
 export async function runGeneration<S extends z.ZodType>(args: { tenantId: string; userId: string; kind: GenerationKind; input: Record<string, unknown>; prompt: Prompt; schema: S }): Promise<GenerationOutcome<z.output<S>>> {
-  const providers = await loadProviders();
+  const providers = await loadProviders(args.kind);
   if (!providers.length) throw new AppError("VALIDATION", { fieldErrors: { _form: [SETUP_MESSAGE] }, context: { reason: "ai_not_configured" } });
   try {
     await rateLimit("neural-pulse", args.tenantId, DAILY_GENERATION_LIMIT, 86_400);

@@ -4,17 +4,18 @@ import { requirePlatform } from "@/lib/platform/access";
 import { listFeatureFlags } from "@/features/platform/server/queries";
 import { PlanForm } from "@/features/platform/components/admin-forms";
 import { Card, PageHeader } from "@/components/ui/layout";
+import { planCommissionPercent } from "@/features/platform-finance/server/plans";
 
 export const metadata: Metadata = { title: "New plan" };
 
 export default async function NewPlanPage() {
   await requirePlatform("platform.plans.manage");
-  const flags = await listFeatureFlags();
+  const [flags, commissionPercent] = await Promise.all([listFeatureFlags(), planCommissionPercent()]);
   return (
     <div>
       <PageHeader title="New plan" back={<Link href="/admin/plans">← Plans</Link>} />
       <Card>
-        <PlanForm catalogue={flags.map((f) => f.key)} value={{ code: "", name: "", description: "", priceMonthly: "0", priceYearly: "0", trialDays: "14", sortOrder: "0", active: true, limits: {}, features: {} }} />
+        <PlanForm catalogue={flags.map((f) => f.key)} value={{ code: "", name: "", description: "", priceMonthly: "0", priceYearly: "0", trialDays: "14", sortOrder: "0", active: true, limits: {}, features: {}, commissionPercent }} />
       </Card>
     </div>
   );

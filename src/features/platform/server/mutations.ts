@@ -157,6 +157,7 @@ export async function savePlan(ctx: PlatformContext, input: PlanInput, raw: Reco
     active: input.active,
     limits: planLimitsJson(input),
     features: planFeaturesFromForm(raw, (flags ?? []).map((f) => f.key)),
+    ...(input.commissionPercent !== undefined ? { commission_bps: input.commissionPercent } : {}),
   };
 
   const result = input.id
@@ -168,7 +169,7 @@ export async function savePlan(ctx: PlatformContext, input: PlanInput, raw: Reco
   }
   if (!result.data) throw new AppError("NOT_FOUND");
   const id = result.data.id;
-  await platformAudit(ctx, { action: input.id ? "plan.updated" : "plan.created", entityType: "plan", entityId: id, metadata: { code: row.code, active: row.active, limits: row.limits, features: row.features } });
+  await platformAudit(ctx, { action: input.id ? "plan.updated" : "plan.created", entityType: "plan", entityId: id, metadata: { code: row.code, active: row.active, limits: row.limits, features: row.features, commission_bps: input.commissionPercent ?? null } });
   return id;
 }
 
