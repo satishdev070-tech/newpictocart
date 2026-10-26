@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { Crop, RotateCcw, RotateCw, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Crop, RotateCcw, RotateCw, ScanLine, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { MEDIA_MAX_BYTES, MEDIA_TYPES, formatBytes, type MediaMime } from "../rules";
@@ -23,6 +23,8 @@ import {
   setAspect,
   setZoom,
   zoomOf,
+  contentBounds,
+  fitBox,
   type Corner,
   type OutputFormat,
   type Rect,
@@ -211,6 +213,23 @@ export function ImageCropper({ file, standard, onDone, onCancel, recrop = false 
   const chooseAspect = (a: Aspect) => {
     setAspectState(a);
     if (rect && space) setRect(a ? setAspect(rect, aspectRatio(a), space) : rect);
+  };
+  /** Trims empty or plain-background edges so the logo fills the crop (found on a ≤400px copy). */
+  const fitToContent = () => {
+    if (!img || !src || !space) return;
+    const scale = Math.max(1, Math.max(space.w, space.h) / 400);
+    const small = { w: Math.max(1, Math.round(space.w / scale)), h: Math.max(1, Math.round(space.h / scale)) };
+    const c = document.createElement("canvas");
+    c.width = small.w;
+    c.height = small.h;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+    drawCrop(ctx, img, src, rotation, { x: 0, y: 0, w: space.w, h: space.h }, small);
+    const found = contentBounds(ctx.getImageData(0, 0, small.w, small.h).data, small.w, small.h);
+    if (!found) return setAnnounce("No empty edges to trim.");
+    setAspectState(null);
+    setRect(fitBox(found, space.w / small.w, space));
+    setAnnounce("Cropped to the logo.");
   };
   const zoomBy = (factor: number) => {
     if (!rect || !space) return;
@@ -431,6 +450,15 @@ export function ImageCropper({ file, standard, onDone, onCancel, recrop = false 
                 </Button>
               </div>
             </div>
+
+            {standard.transparent ? (
+              <div>
+                <Button size="sm" variant="secondary" disabled={!img} onClick={fitToContent}>
+                  <ScanLine aria-hidden /> Fit to logo
+                </Button>
+                <p className="mt-1 text-caption text-muted">Trims empty or plain edges so the whole logo shows as large as possible.</p>
+              </div>
+            ) : null}
 
             <div>
               <p className="mb-2 text-label">Rotate</p>

@@ -3,6 +3,14 @@
 _Last updated: 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
 
+## Header layouts, Logo badge design, fit-to-logo crop (2026-10-26)
+
+- **Layout fix:** the Header section's Layout (Logo left / centred / right / large logo left) is now always applied. Choosing a layout clears the desktop override in Theme settings → Header → Logo position (it used to win silently). New **Logo right** layout.
+- **Logo badge** header design: the whole logo hangs from the top of the bar in a tall tab over the page (`object-fit: contain`, never cropped), on phones too. Tab background: none (the logo file is the badge), white or brand colour, with a curved bottom; height / width sliders size it.
+- **Fit to logo** in the crop dialog (logo-type images): trims transparent or plain-colour edges so the whole logo fills its space.
+- **Also included:** the canvas review fixes (no stale CSS after renders, finish marker, re-handshake after full page loads, token renewed before posting) and the crop dialog's Strict Mode load fix.
+- **Verification:** typecheck, lint, `pnpm test` (120 files / 1,452 tests) ✅. Local editor: reproduced the bug (Logo position Left + Layout Logo centred showed the logo left), then Layout → Logo right and Logo centred applied, Desktop position reset to Auto; Logo badge rendered hanging over the hero on desktop and phone.
+
 ## Theme editor (customizer) reliability, header, collage images, crop (2026-10-26)
 
 - **Stuck "Loading 92%" / edits not applying:** the canvas only talked to one exact platform origin, so an editor opened on `www.` (or an alias) never received "ready" and every later edit was held back. The canvas now accepts all platform origins (`builderParentOrigins()`: platform URL, root with/without `www.`, aliases), the editor pings `hello` until the canvas answers, and a canvas that never connects shows "The store preview didn't connect" with Retry instead of loading forever.

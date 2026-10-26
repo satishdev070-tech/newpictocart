@@ -176,3 +176,47 @@ export function croppedFilename(name: string, size: Size, type: OutputFormat): s
 export function mayHaveAlpha(mime: string): boolean {
   return mime === "image/png" || mime === "image/webp" || mime === "image/gif" || mime === "image/avif";
 }
+
+/**
+ * Box around the visible logo in RGBA pixels (row-major, 4 bytes each): pixels that aren't
+ * transparent, or, for an opaque image, that differ from the top-left corner colour by more than
+ * `tolerance`. Null when nothing stands out or nothing can be trimmed.
+ */
+export function contentBounds(data: ArrayLike<number>, w: number, h: number, tolerance = 24): Rect | null {
+  const at = (x: number, y: number) => (y * w + x) * 4;
+  const corners = [at(0, 0), at(w - 1, 0), at(0, h - 1), at(w - 1, h - 1)];
+  const transparent = corners.some((i) => (data[i + 3] ?? 255) < 250);
+  const bg = [data[0] ?? 0, data[1] ?? 0, data[2] ?? 0];
+  const visible = (i: number) => {
+    const a = data[i + 3] ?? 255;
+    if (transparent) return a > 16;
+    return Math.max(Math.abs((data[i] ?? 0) - bg[0]!), Math.abs((data[i + 1] ?? 0) - bg[1]!), Math.abs((data[i + 2] ?? 0) - bg[2]!)) > tolerance;
+  };
+  let minX = w;
+  let minY = h;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!visible(at(x, y))) continue;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+  if (maxX < 0) return null;
+  const r = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+  return r.w === w && r.h === h ? null : r;
+}
+
+/** Scales a box found on a downscaled copy back to the image, with a small margin, inside the image. */
+export function fitBox(found: Rect, scale: number, img: Size, margin = 0.02): Rect {
+  const pad = Math.round(Math.max(found.w, found.h) * scale * margin);
+  const x = Math.max(0, found.x * scale - pad);
+  const y = Math.max(0, found.y * scale - pad);
+  const w = Math.min(img.w - x, found.w * scale + pad * 2);
+  const h = Math.min(img.h - y, found.h * scale + pad * 2);
+  const min = minSide(img);
+  return clampRect({ x, y, w: Math.max(w, min), h: Math.max(h, min) }, img);
+}

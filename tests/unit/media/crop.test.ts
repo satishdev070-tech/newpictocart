@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   clampRect,
+  contentBounds,
+  fitBox,
   croppedFilename,
   fallbackFormat,
   initialCrop,
@@ -109,5 +111,37 @@ describe("crop geometry", () => {
     expect(fallbackFormat(false)).toBe("image/jpeg");
     expect(mayHaveAlpha("image/png")).toBe(true);
     expect(mayHaveAlpha("image/jpeg")).toBe(false);
+  });
+});
+
+describe("fit to logo", () => {
+  /** w×h RGBA, filled with `bg`, with a `fg` box at (x, y, bw, bh). */
+  const pixels = (w: number, h: number, bg: number[], fg: number[], box: [number, number, number, number]) => {
+    const d = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        const c = x >= box[0] && x < box[0] + box[2] && y >= box[1] && y < box[1] + box[3] ? fg : bg;
+        d.set(c, (y * w + x) * 4);
+      }
+    return d;
+  };
+
+  it("finds the logo on a transparent background", () => {
+    expect(contentBounds(pixels(100, 50, [0, 0, 0, 0], [10, 120, 10, 255], [20, 10, 30, 25]), 100, 50)).toEqual({ x: 20, y: 10, w: 30, h: 25 });
+  });
+
+  it("finds the logo on a plain opaque background", () => {
+    expect(contentBounds(pixels(80, 80, [255, 255, 255, 255], [0, 128, 0, 255], [5, 30, 60, 10]), 80, 80)).toEqual({ x: 5, y: 30, w: 60, h: 10 });
+  });
+
+  it("returns null when there is nothing to trim", () => {
+    expect(contentBounds(pixels(10, 10, [255, 255, 255, 255], [255, 255, 255, 255], [0, 0, 0, 0]), 10, 10)).toBeNull();
+    expect(contentBounds(pixels(10, 10, [0, 0, 0, 0], [9, 9, 9, 255], [0, 0, 10, 10]), 10, 10)).toBeNull();
+  });
+
+  it("scales the box back with a small margin, inside the image", () => {
+    const img = { w: 4000, h: 2000 };
+    expect(fitBox({ x: 100, y: 50, w: 200, h: 100 }, 10, img)).toEqual({ x: 960, y: 460, w: 2080, h: 1080 });
+    expect(fitBox({ x: 0, y: 0, w: 400, h: 200 }, 10, img)).toEqual({ x: 0, y: 0, w: 4000, h: 2000 });
   });
 });
