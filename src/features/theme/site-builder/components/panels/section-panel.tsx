@@ -14,6 +14,7 @@ import { blankItem, clearGroup, groupHasContent, itemGroups, itemHideField, item
 import { Field, VariantPicker } from "../fields";
 import { ImageSlotProvider } from "@/features/media/components/image-slot";
 import { SectionSizeSpacing } from "./section-size";
+import { HeaderTab } from "./theme-panel";
 import { ColorInput, EmptyState, IconButton, MoreMenu, PanelFrame, Row, Toggle, useReorder } from "../ui";
 
 /**
@@ -150,7 +151,13 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
               {renderFields(contentFields)}
             </section>
           ) : null}
-          {!list && !contentFields.length ? <EmptyState title="Nothing to edit here">This section has no content to edit. Try Change design, Settings or Colours.</EmptyState> : null}
+          {section.type === "Header" ? (
+            <section className="space-y-3">
+              <p className="text-xs text-muted">Logo and header settings apply to every page (same as Theme settings → Header).</p>
+              <HeaderTab />
+            </section>
+          ) : null}
+          {!list && !contentFields.length && section.type !== "Header" ? <EmptyState title="Nothing to edit here">This section has no content to edit. Try Change design, Settings or Colours.</EmptyState> : null}
         </div>
       ) : null}
 

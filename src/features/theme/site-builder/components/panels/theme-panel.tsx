@@ -570,7 +570,8 @@ function Segmented<T extends LogoPosition>({ label, value, options, onChange }: 
   );
 }
 
-function HeaderTab() {
+/** Logo, logo position / size, menu and header options (Theme settings → Header; also the Header section's Edit tab). */
+export function HeaderTab() {
   const { config, setHeader } = useThemeSetters();
   const badgeId = useId();
   const { pickers } = useBuilder();
