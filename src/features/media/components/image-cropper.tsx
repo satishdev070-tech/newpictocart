@@ -140,13 +140,19 @@ export function ImageCropper({ file, standard, onDone, onCancel, recrop = false 
     if (dialog && !dialog.open) dialog.showModal();
     const url = URL.createObjectURL(file);
     const el = new Image();
+    // A cleaned-up run (Strict Mode, or a new file) revokes its URL, so its load fails: ignore it.
+    let live = true;
     el.onload = () => {
+      if (!live) return;
       setImg(el);
       setRect(initialCrop({ w: el.naturalWidth, h: el.naturalHeight }, aspectRatio(standard.aspect)));
     };
-    el.onerror = () => setLoadError("This image couldn't be opened for cropping. You can still upload it as it is.");
+    el.onerror = () => {
+      if (live) setLoadError("This image couldn't be opened for cropping. You can still upload it as it is.");
+    };
     el.src = url;
     return () => {
+      live = false;
       URL.revokeObjectURL(url);
       // Back to whatever had focus in the picker (the drop zone or the inspector button).
       if (returnFocus?.isConnected) returnFocus.focus();
