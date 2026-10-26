@@ -2,10 +2,12 @@
  * postMessage protocol between the site builder (dashboard, platform origin) and the canvas
  * (the storefront in an iframe, store origin). Pure.
  *
- * Both sides check `event.origin` (the builder: the store origin it framed; the canvas: the platform
- * origin) and `event.source` (the builder: its own iframe; the canvas: window.parent). Messages carry
- * no secrets: the canvas renders through renderCanvasAction, which re-validates the theme and is
- * authorised by the preview cookie, and the builder only applies edits it can validate itself.
+ * Both sides check `event.origin` (the builder: the store origin it framed; the canvas: one of the
+ * platform origins, e.g. with and without "www.") and `event.source` (the builder: its own iframe; the
+ * canvas: window.parent). The canvas renders through renderCanvasAction, which re-validates the theme
+ * and is authorised by the short-lived, tenant-bound preview token: the builder sends it with every
+ * theme message (posted only to the framed store origin), so a blocked or expired third-party cookie
+ * no longer breaks editing. The builder only applies edits it can validate itself.
  */
 
 export const HOST_TAG = "pc-builder-host" as const;
@@ -17,7 +19,9 @@ export type SectionAction = (typeof SECTION_ACTIONS)[number];
 
 export type HostMessage =
   /** Theme to render (JSON string, already validated by the builder) and the selected section. */
-  | { tag: typeof HOST_TAG; type: "theme"; rev: number; config: string; changedLists: string[] | "all" }
+  | { tag: typeof HOST_TAG; type: "theme"; rev: number; config: string; changedLists: string[] | "all"; token?: string }
+  /** "Are you there?": sent until the canvas answers "ready" (covers a ready that was missed). */
+  | { tag: typeof HOST_TAG; type: "hello" }
   | { tag: typeof HOST_TAG; type: "select"; sectionId: string | null }
   /** Popup to show open on the canvas (null closes it). */
   | { tag: typeof HOST_TAG; type: "popup"; popupId: string | null }
@@ -35,6 +39,8 @@ export type CanvasMessage =
   | { tag: typeof CANVAS_TAG; type: "insert"; slot: string; sectionId: string | null; where: "before" | "after"; ai: boolean };
 
 const SECTION_ID = /^[a-z0-9][a-z0-9-]{2,39}$/;
+/** Signed preview token shape (base64url payload "." base64url signature). */
+export const PREVIEW_TOKEN_RE = /^[A-Za-z0-9_-]{10,1500}\.[A-Za-z0-9_-]{10,200}$/;
 const SLOT = /^[a-zA-Z0-9.-]{3,60}$/;
 
 function isObj(v: unknown): v is Record<string, unknown> {
@@ -81,8 +87,17 @@ export function parseHostMessage(data: unknown): HostMessage | null {
   switch (data.type) {
     case "theme":
       return typeof data.rev === "number" && typeof data.config === "string" && (data.changedLists === "all" || Array.isArray(data.changedLists))
-        ? { tag: HOST_TAG, type: "theme", rev: data.rev, config: data.config, changedLists: data.changedLists === "all" ? "all" : (data.changedLists as unknown[]).filter((s): s is string => typeof s === "string").slice(0, 20) }
+        ? {
+            tag: HOST_TAG,
+            type: "theme",
+            rev: data.rev,
+            config: data.config,
+            changedLists: data.changedLists === "all" ? "all" : (data.changedLists as unknown[]).filter((s): s is string => typeof s === "string").slice(0, 20),
+            ...(typeof data.token === "string" && PREVIEW_TOKEN_RE.test(data.token) ? { token: data.token } : {}),
+          }
         : null;
+    case "hello":
+      return { tag: HOST_TAG, type: "hello" };
     case "select":
       return { tag: HOST_TAG, type: "select", sectionId: typeof data.sectionId === "string" && SECTION_ID.test(data.sectionId) ? data.sectionId : null };
     case "popup":

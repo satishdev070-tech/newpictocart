@@ -1,6 +1,18 @@
 # Implementation Status
 
-_Last updated: 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+
+## Theme editor (customizer) reliability, header, collage images, crop (2026-10-26)
+
+- **Stuck "Loading 92%" / edits not applying:** the canvas only talked to one exact platform origin, so an editor opened on `www.` (or an alias) never received "ready" and every later edit was held back. The canvas now accepts all platform origins (`builderParentOrigins()`: platform URL, root with/without `www.`, aliases), the editor pings `hello` until the canvas answers, and a canvas that never connects shows "The store preview didn't connect" with Retry instead of loading forever.
+- **"Preview session expired":** renders are authorised by the preview token sent with each edit (the frame cookie is only a fallback), the token is renewed in the background, and a rejected render renews the token and resends without reloading. The preview route now detects https / `.localhost` from the real Host (it was looking at the internal rewrite URL), so the frame cookie is SameSite=None; Secure; Partitioned where needed.
+- **Slow edits:** colour / font / spacing changes are applied instantly in the canvas (no server render); header settings re-render only header + footer; section edits only their list (`changePlan`). Previously any token or header change re-rendered every slot. The "taking longer than usual" toast is shown only for edits, not for the first page load.
+- **Header:** every design (Classic, Double rule, Inverted, Floating, Minimal, Editorial) renders distinctly and wins over preset styling; logo position / size work in each design (tests in `tests/unit/theme/header-variants.test.ts`).
+- **Hero Editorial collage:** photos 2 and 3 are editable (`image2Path`/`image3Path` + alt text, collage only; empty → previous fallback then stock).
+- **Crop & resize on upload:** cropper dialog (preset aspect per slot from `features/media/image-standards.ts`, free/1:1/4:5/16:9, zoom, rotate, "use original"), resized in the browser before the normal upload; each image field shows its recommended size.
+- **Verification:** typecheck, lint, `pnpm test` (120 files / 1,441 tests), `pnpm build` ✅. Local editor (Supabase stack + dev server, seeded seller): canvas connects, colour palette applied in ~0.5 s with no server render, header designs Inverted / Floating / Editorial applied in ~2–3 s (dev mode), collage photo 2/3 fields shown. The crop dialog needs a real file pick and was covered by unit tests only.
+- **Known:** Safari blocks third-party cookies in cross-site frames, so a store on a custom domain may still not open in edit mode there (the canvas bridge mounts only when the preview cookie is accepted). A storefront render error `cookies()` inside `after()` from the cart drawer was seen once under heavy local load; not reproduced at normal speed.
 
 ## Unsplash API key in the console (2026-10-25)
 

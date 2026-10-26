@@ -2460,20 +2460,45 @@ a.sf-spot-add-square {
 .sf-usp-icon { display: inline-grid; flex: none; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; background: color-mix(in srgb, var(--sf-accent) 14%, transparent); font-size: 1.1rem; }
 .sf-usp-badge { display: inline-grid; place-items: center; width: 4.5rem; height: 4.5rem; border-radius: 999px; background: var(--sf-accent); color: var(--sf-accent-fg); font-size: 1.75rem; box-shadow: 0 10px 24px -14px var(--sf-accent); }
 
-/* Header styles */
+/* Header styles (Header section "style", HEADER_STYLES in sections/variants.ts). Unlayered, so the
+   chosen design wins over the bar's default sf-surface / border-b utilities. Classic = those defaults. */
+.sf-header-style-classic { background: var(--sf-surface); border-bottom: 1px solid var(--sf-border); }
 .sf-header-style-bordered { border-bottom: 3px double var(--sf-text); }
 .sf-header-style-bordered > .sf-container { padding-block: 1rem; }
 .sf-header-style-inverted { background: var(--sf-primary); color: var(--sf-primary-fg); border-color: transparent; }
-.sf-header-style-inverted .sf-heading { color: var(--sf-primary-fg); }
+.sf-header-style-inverted a > .sf-heading,
+.sf-header-style-inverted .sf-lockup { color: var(--sf-primary-fg); }
+.sf-header-style-inverted .sf-icon-btn:hover { background: color-mix(in srgb, var(--sf-primary-fg) 14%, transparent); }
+.sf-header-style-inverted .sf-icon-btn > .absolute { background: var(--sf-primary-fg); color: var(--sf-primary); }
+.sf-header-style-inverted .sf-cnav-item:hover > .sf-cnav-link,
+.sf-header-style-inverted .sf-cnav-item:focus-within > .sf-cnav-link { color: inherit; }
+.sf-header-style-inverted .sf-mega { color: var(--sf-text); }
 .sf-header-style-minimal { background: var(--sf-bg); border-bottom-color: transparent; }
 .sf-header-style-floating { background: transparent; border-bottom-color: transparent; padding: 0.6rem 0.75rem 0; }
 .sf-header-style-floating > .sf-container { background: var(--sf-bg); border: 1px solid var(--sf-border); border-radius: 999px; padding-inline: 1rem; box-shadow: 0 10px 30px -22px rgb(0 0 0 / 0.45); }
+/* The bar itself carries the shadow; the transparent strip around it must not get the sticky one. */
+:root[data-sf-scrolled] .sf-header-style-floating.sticky { box-shadow: none; }
 .sf-header-style-editorial > .sf-container { padding-block: 1.1rem; }
 .sf-header-style-editorial .sf-heading { letter-spacing: 0.04em; }
+/* Editorial: spaced uppercase menu, unless the seller set the menu text in Theme settings. */
+.sf-header-style-editorial:not(.sf-menu-case) nav[aria-label="Main"] { text-transform: uppercase; }
+.sf-header-style-editorial:not(.sf-menu-tracking) nav[aria-label="Main"] { letter-spacing: 0.16em; }
+.sf-header-style-editorial:not(.sf-menu-size) nav[aria-label="Main"] { font-size: 0.75rem; }
+.sf-header-style-editorial nav[aria-label="Main"] > ul { column-gap: 2.25rem; }
+/* Editorial logo image (no size set): oversized, keeps its proportions (logo-layout.ts EDITORIAL_LOGO). */
+.sf-logo-lg {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(var(--sf-logo-max-w), 58cqi);
+  max-height: var(--sf-logo-max-h-m);
+  object-fit: contain;
+}
 @container (min-width: 64rem) {
   .sf-header-style-editorial > .sf-container { padding-block: 1.6rem; }
   .sf-header-style-editorial a > .sf-heading { font-size: 2.4rem; }
   .sf-header-style-floating > .sf-container { padding-inline: 1.5rem; }
+  .sf-logo-lg { max-height: var(--sf-logo-max-h); }
 }
 
 /* Footer: statement wordmark */

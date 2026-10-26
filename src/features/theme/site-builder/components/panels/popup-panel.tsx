@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { assetUrl } from "@/lib/storage/assets";
 import { MediaPicker } from "@/features/media/components/media-picker";
+import { IMAGE_STANDARDS } from "@/features/media/image-standards";
 import { POPUP_LAYOUTS, popupSchema, type Popup } from "@/features/theme/schema/site";
 import { useBuilder } from "../../context";
 import { removePopup, upsertPopup } from "../../ops";
@@ -153,7 +154,7 @@ export function PopupPanel() {
                 ) : (
                   <div className="size-12 rounded-md bg-surface-secondary ring-1 ring-border" />
                 )}
-                <MediaPicker folder="theme" triggerLabel={image ? "Change" : "Choose image"} onSelect={([m]) => m && set("imagePath", m.path)} />
+                <MediaPicker folder="theme" standard={IMAGE_STANDARDS.portrait} triggerLabel={image ? "Change" : "Choose image"} onSelect={([m]) => m && set("imagePath", m.path)} />
                 {image ? (
                   <button type="button" className="text-xs text-muted hover:underline" onClick={() => set("imagePath", "")}>
                     Remove

@@ -18,7 +18,7 @@ describe("header logo settings", () => {
   it("keeps the exact legacy logo style while no size is set", () => {
     const h = headerSettingsSchema.parse(OLD_HEADER);
     const positions = resolveLogoPositions(h, "logo-left");
-    expect(logoImageProps(h, { aspectRatio: "4 / 1", legacyMaxHeight: 56, positions })).toEqual({ className: "h-auto w-auto", style: { maxWidth: 200, maxHeight: 56, aspectRatio: "4 / 1" } });
+    expect(logoImageProps(h, { aspectRatio: "4 / 1", legacyMaxHeight: 56, positions })).toEqual({ className: "h-auto w-auto object-contain", style: { maxWidth: 200, maxHeight: 56, aspectRatio: "4 / 1" } });
   });
 
   it("drives an exact width per breakpoint once a size is set", () => {

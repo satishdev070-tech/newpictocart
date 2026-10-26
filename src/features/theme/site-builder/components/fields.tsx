@@ -7,6 +7,8 @@ import { DIAGRAMS_PAGES } from "../variant-diagrams-pages";
 import { ArrowDown, ArrowUp, Plus, Trash2, Upload } from "lucide-react";
 import { uploadThemeVideoAction } from "@/features/theme/actions";
 import { MediaPicker } from "@/features/media/components/media-picker";
+import { useImageSlot } from "@/features/media/components/image-slot";
+import { recommendedText, standardForSlot, type ImageStandard } from "@/features/media/image-standards";
 import type { EditorField } from "@/features/theme/sections/types";
 import type { EditorPickers } from "@/features/theme/server/queries";
 import { assetUrl } from "@/lib/storage/assets";
@@ -138,8 +140,13 @@ export function VariantDiagram({ value, boxes: given, className }: { value?: str
   );
 }
 
-/** Image chooser: thumbnail + media library picker + remove. */
-export function ImageField({ label, value, onChange, id }: { label: string; value: string; onChange: (v: string) => void; id?: string }) {
+/**
+ * Image chooser: thumbnail + media library picker + remove, with the recommended size for where the
+ * image goes (from `standard`, else the section in ImageSlotProvider + the field key / label).
+ */
+export function ImageField({ label, value, onChange, id, fieldKey = "", standard }: { label: string; value: string; onChange: (v: string) => void; id?: string; fieldKey?: string; standard?: ImageStandard }) {
+  const slot = useImageSlot();
+  const std = standard ?? standardForSlot({ sectionType: slot?.sectionType, variant: slot?.variant, fieldKey, label });
   const icon = parseIconValue(value);
   const url = assetUrl(value);
   const filled = Boolean(url || icon);
@@ -159,13 +166,14 @@ export function ImageField({ label, value, onChange, id }: { label: string; valu
         ) : (
           <div className="grid size-12 place-items-center rounded-md bg-surface-secondary text-[10px] text-muted ring-1 ring-border">Stock</div>
         )}
-        <MediaPicker folder="theme" triggerLabel={filled ? "Change" : "Choose image"} onSelect={([m]) => m && onChange(m.path)} onSelectIcon={onChange} />
+        <MediaPicker folder="theme" standard={std} triggerLabel={filled ? "Change" : "Choose image"} onSelect={([m]) => m && onChange(m.path)} onSelectIcon={onChange} />
         {filled ? (
           <button type="button" className="text-xs text-muted hover:text-foreground" onClick={() => onChange("")}>
             Remove
           </button>
         ) : null}
       </div>
+      {!icon ? <p className="mt-1 text-xs text-muted">{recommendedText(std)}</p> : null}
       {!filled ? <p className="mt-1 text-xs text-muted">Empty slots show a stock photo on the store.</p> : null}
     </div>
   );
@@ -261,7 +269,7 @@ export function Field({ field, value, onChange, pickers, error }: FieldProps) {
     case "image":
       return (
         <div>
-          <ImageField id={id} label={field.label} value={String(value ?? "")} onChange={onChange} />
+          <ImageField id={id} fieldKey={field.key} label={field.label} value={String(value ?? "")} onChange={onChange} />
           {foot}
         </div>
       );

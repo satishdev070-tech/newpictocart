@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { HeaderSettings } from "@/features/theme/schema/tokens";
 import type { SectionSettings } from "@/features/theme/sections/definitions";
+import type { HeaderStyle } from "@/features/theme/sections/variants";
 import type { MenuNode } from "@/features/storefront/urls";
 import { assetUrl } from "@/lib/storage/assets";
 import { getStoreLogo } from "@/features/storefront/server/logo";
@@ -57,11 +58,11 @@ function MenuLink({ node, className }: { node: MenuNode; className?: string }) {
   );
 }
 
-async function Logo({ ctx, layout }: { ctx: RenderContext; layout: HeaderLayout }) {
+async function Logo({ ctx, layout, headerStyle }: { ctx: RenderContext; layout: HeaderLayout; headerStyle: HeaderStyle }) {
   const h = ctx.sf.theme.header;
   // Optimised file, rendered at exactly the original's size (see features/storefront/server/logo.ts).
   const logo = await getStoreLogo(h.logoPath || ctx.sf.store.logoPath);
-  const img = logo ? logoImageProps(h, { aspectRatio: logo.aspectRatio, legacyMaxHeight: 56, positions: resolveLogoPositions(h, layout) }) : null;
+  const img = logo ? logoImageProps(h, { aspectRatio: logo.aspectRatio, legacyMaxHeight: 56, positions: resolveLogoPositions(h, layout), headerStyle }) : null;
   return (
     <Link href="/" className="flex items-center gap-2" aria-label={`${ctx.sf.store.name} home`}>
       {logo && img ? (
@@ -147,11 +148,11 @@ export function AnnouncementBar({ s }: { s: SectionSettings<"AnnouncementBar">; 
 }
 
 /** Large logo (image or text wordmark) with an optional spaced tagline under it. */
-async function BrandLockup({ ctx }: { ctx: RenderContext }) {
+async function BrandLockup({ ctx, headerStyle }: { ctx: RenderContext; headerStyle: HeaderStyle }) {
   const h = ctx.sf.theme.header;
   const logo = h.wordmark ? null : await getStoreLogo(h.logoPath || ctx.sf.store.logoPath);
   const positions = resolveLogoPositions(h, "logo-left-nav-center");
-  const img = logo ? logoImageProps(h, { aspectRatio: logo.aspectRatio, legacyMaxHeight: 64, positions }) : null;
+  const img = logo ? logoImageProps(h, { aspectRatio: logo.aspectRatio, legacyMaxHeight: 64, positions, headerStyle }) : null;
   // Tagline follows the logo placement (custom placements only; the legacy layout stays left-aligned).
   const align = hasCustomLogoPosition(h) ? `sf-lockup-m-${positions.mobile} sf-lockup-d-${positions.desktop}` : "";
   return (
@@ -255,7 +256,7 @@ function HeaderLogoLeftNavCenter({ s, ctx }: { s: SectionSettings<"Header">; ctx
       <div className="sf-container sf-header-lnc-row">
         <div className="flex items-center gap-1">
           <MobileNav items={menu} storeName={ctx.sf.store.name} signedIn={ctx.signedIn} showCommerceLinks={!isInformative(ctx.sf.siteMode)} alwaysVisible={s.menuStyle === "drawer"} />
-          <BrandLockup ctx={ctx} />
+          <BrandLockup ctx={ctx} headerStyle={s.style} />
         </div>
         <div className="sf-header-lnc-nav">{s.menuStyle !== "drawer" && menu.length ? <CenterMenu items={menu} /> : null}</div>
         <div className="flex items-center justify-end gap-1">
@@ -318,7 +319,7 @@ function HeaderPositioned({ s, ctx }: { s: SectionSettings<"Header">; ctx: Rende
         <div className="sf-hdr-start">
           <MobileNav items={menu} storeName={ctx.sf.store.name} signedIn={ctx.signedIn} showCommerceLinks={!isInformative(ctx.sf.siteMode)} alwaysVisible={s.menuStyle === "drawer"} />
         </div>
-        <div className="sf-hdr-logo">{lnc ? <BrandLockup ctx={ctx} /> : <Logo ctx={ctx} layout={s.layout} />}</div>
+        <div className="sf-hdr-logo">{lnc ? <BrandLockup ctx={ctx} headerStyle={s.style} /> : <Logo ctx={ctx} layout={s.layout} headerStyle={s.style} />}</div>
         {showMenu && first.length ? <div className="sf-hdr-menu">{renderMenu(first)}</div> : null}
         {showMenu && second.length ? <div className="sf-hdr-menu2">{renderMenu(second)}</div> : null}
         <div className="sf-hdr-icons flex items-center gap-0.5">
@@ -379,11 +380,11 @@ export function Header({ s, ctx }: { s: SectionSettings<"Header">; ctx: RenderCo
       <div className={`sf-container grid items-center gap-3 py-2.5 @[64rem]:py-3 ${s.layout === "logo-center" ? "grid-cols-[1fr_auto_1fr]" : "grid-cols-[auto_1fr_auto]"}`}>
         <div className="flex items-center gap-0.5">
           <MobileNav items={menu} storeName={ctx.sf.store.name} signedIn={ctx.signedIn} showCommerceLinks={!isInformative(ctx.sf.siteMode)} alwaysVisible={s.menuStyle === "drawer"} />
-          {s.layout === "logo-center" ? search : <Logo ctx={ctx} layout={s.layout} />}
+          {s.layout === "logo-center" ? search : <Logo ctx={ctx} layout={s.layout} headerStyle={s.style} />}
         </div>
         <div className={s.layout === "logo-center" ? "flex justify-center" : "hidden @[64rem]:block"}>
           {s.layout === "logo-center" ? (
-            <Logo ctx={ctx} layout={s.layout} />
+            <Logo ctx={ctx} layout={s.layout} headerStyle={s.style} />
           ) : s.showInlineMenu && s.menuStyle !== "drawer" ? (
             <nav aria-label="Main">
               <ul className="flex flex-wrap gap-6 text-sm">

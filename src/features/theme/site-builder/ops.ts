@@ -266,23 +266,55 @@ export function setTokens(config: ThemeConfig, patch: Partial<ThemeConfig["token
 }
 
 /** Lists whose rendering differs between two configs ("all" when shared parts changed). */
-export function changedLists(prev: ThemeConfig, next: ThemeConfig): string[] | "all" {
-  // Theme-wide settings (embeds such as the WhatsApp button, renamed built-in pages in menus) re-render
-  // every slot; an edit that matched nothing here would never reach the canvas.
+/** Token keys that change rendered markup (everything else only feeds the theme CSS variables). */
+const MARKUP_TOKEN_KEYS = new Set<string>(["imagery"]);
+/** Token keys the canvas applies itself without a server render (root data attributes). */
+const ROOT_TOKEN_KEYS = new Set<string>(["sectionHeadingAlign"]);
+
+const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
+
+export type ChangePlan = {
+  /** Slots to re-render on the server ("all" = every slot of the page). */
+  lists: string[] | "all";
+  /** Theme CSS (colours, fonts, spacing, …) or root attributes changed: the canvas applies them instantly. */
+  css: boolean;
+};
+
+/**
+ * What an edit needs on the canvas. Colour / font / spacing changes are CSS only (applied in the
+ * browser, no server round trip); header settings re-render only the header and footer; section
+ * edits re-render only their list. Only genuinely page-wide changes (menus, product cards, popups,
+ * embeds, stock imagery) re-render every slot.
+ */
+export function changePlan(prev: ThemeConfig, next: ThemeConfig): ChangePlan {
+  if (prev === next) return { lists: [], css: false };
+  let css = false;
+  let all = false;
+  if (prev.tokens !== next.tokens) {
+    const keys = new Set([...Object.keys(prev.tokens), ...Object.keys(next.tokens)]);
+    for (const k of keys) {
+      if (same((prev.tokens as Record<string, unknown>)[k], (next.tokens as Record<string, unknown>)[k])) continue;
+      if (MARKUP_TOKEN_KEYS.has(k)) all = true;
+      else css = true;
+      if (ROOT_TOKEN_KEYS.has(k)) css = true;
+    }
+  }
   if (
-    prev.tokens !== next.tokens ||
-    prev.header !== next.header ||
+    all ||
     prev.productCard !== next.productCard ||
     prev.menus !== next.menus ||
     prev.popups !== next.popups ||
     prev.homePageId !== next.homePageId ||
     prev.embeds !== next.embeds ||
-    prev.builtinTitles !== next.builtinTitles
+    prev.builtinTitles !== next.builtinTitles ||
+    // The logo also appears in some sections (footer brand, editorial blocks).
+    prev.header.logoPath !== next.header.logoPath
   )
-    return "all";
+    return { lists: "all", css };
   const out: string[] = [];
-  if (prev.layout.header !== next.layout.header) out.push("layout.header");
-  if (prev.layout.footer !== next.layout.footer) out.push("layout.footer");
+  if (prev.header !== next.header) out.push("layout.header", "layout.footer");
+  if (prev.layout.header !== next.layout.header && !out.includes("layout.header")) out.push("layout.header");
+  if (prev.layout.footer !== next.layout.footer && !out.includes("layout.footer")) out.push("layout.footer");
   for (const k of Object.keys(next.templates) as (keyof ThemeConfig["templates"])[]) if (prev.templates[k] !== next.templates[k]) out.push(`templates.${k}`);
   if (prev.pages !== next.pages) {
     const before = new Map(prev.pages.map((p) => [p.id, p]));
@@ -290,8 +322,13 @@ export function changedLists(prev: ThemeConfig, next: ThemeConfig): string[] | "
     // "/" renders the homepage's sections in the templates.home slot (see slots.ts slotList).
     if (next.homePageId && out.includes(`pages.${next.homePageId}`) && !out.includes("templates.home")) out.push("templates.home");
   }
-  // Something changed outside the section lists (a page renamed, a field added later): re-render all
-  // rather than leave the canvas stale.
-  if (!out.length && prev !== next) return "all";
-  return out;
+  // Something changed outside the section lists and tokens (a page renamed, a field added later):
+  // re-render all rather than leave the canvas stale.
+  if (!out.length && !css && prev.tokens === next.tokens) return { lists: "all", css };
+  return { lists: out, css };
+}
+
+/** Slots an edit re-renders (see changePlan; CSS-only edits re-render nothing). */
+export function changedLists(prev: ThemeConfig, next: ThemeConfig): string[] | "all" {
+  return changePlan(prev, next).lists;
 }
