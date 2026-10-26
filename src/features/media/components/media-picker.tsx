@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import Image from "next/image";
-import { Check, Images, LayoutGrid, List, Search, Shapes, Sparkles, UploadCloud, X } from "lucide-react";
+import { Check, Crop, Images, LayoutGrid, List, Search, Shapes, Sparkles, UploadCloud, X } from "lucide-react";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { IconGlyph } from "@/lib/icons/icon-glyph";
 import { ICON_CATEGORIES, iconLabel, iconValue, type IconCategoryId, type IconName } from "@/lib/icons/names";
 import { formatBytes } from "../rules";
+import { IMAGE_STANDARDS, recommendedText, type ImageStandard } from "../image-standards";
 import { listMediaAction, updateMediaAction } from "../actions";
 import { importUnsplashAction, listUnsplashAction } from "../unsplash-actions";
 import type { UnsplashPhoto } from "../unsplash/photos";
@@ -16,6 +17,7 @@ import { Dropzone, UploadQueue } from "./media-ui";
 import { useMediaUploads } from "./use-media-uploads";
 import { UnsplashBrowser, UnsplashCredit, actionError } from "./unsplash-browser";
 import { ICON_COUNT, IconGrid, filterIcons, type IconEntry } from "./icon-library";
+import { ImageCropper, canCrop } from "./image-cropper";
 
 type Props = {
   /** Called with the chosen image(s). */
@@ -33,6 +35,11 @@ type Props = {
   triggerVariant?: ButtonProps["variant"];
   triggerSize?: ButtonProps["size"];
   title?: string;
+  /**
+   * Where the image goes (see image-standards): a single uploaded image opens the crop & resize
+   * step with this shape and size. Defaults to the general standard (free shape, 2400px max).
+   */
+  standard?: ImageStandard;
 };
 
 type View = "images" | "unsplash" | "icons" | "upload";
@@ -85,7 +92,7 @@ function trapFocus(e: KeyboardEvent<HTMLDialogElement>) {
  * imported into the library first (credit in their alt text), so `onSelect` always receives ordinary
  * media items; an icon goes to `onSelectIcon` as `icon:<name>`.
  */
-export function MediaPicker({ onSelect, onSelectIcon, multiple = false, folder = "general", triggerLabel = "Choose image", triggerVariant = "secondary", triggerSize = "sm", title }: Props) {
+export function MediaPicker({ onSelect, onSelectIcon, multiple = false, folder = "general", triggerLabel = "Choose image", triggerVariant = "secondary", triggerSize = "sm", title, standard = IMAGE_STANDARDS.general }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -113,6 +120,9 @@ export function MediaPicker({ onSelect, onSelectIcon, multiple = false, folder =
   const [icon, setIcon] = useState<IconName | null>(null);
   const [active, setActive] = useState<Active>(null);
   const [importing, setImporting] = useState(false);
+  /** A file waiting in the crop & resize step (`recrop` = a copy of a library image). */
+  const [cropping, setCropping] = useState<{ file: File; recrop: boolean } | null>(null);
+  const [recropError, setRecropError] = useState<string | null>(null);
   const iconsEnabled = Boolean(onSelectIcon);
 
   const load = useCallback(async (term: string, p: number, f: string, s: Sort) => {
@@ -139,6 +149,28 @@ export function MediaPicker({ onSelect, onSelectIcon, multiple = false, folder =
     },
   });
 
+  /** One croppable image goes through the crop step first; several files (or a GIF) upload as they are. */
+  const addFiles = (files: FileList | File[]) => {
+    const list = [...files];
+    if (list.length === 1 && canCrop(list[0]!)) setCropping({ file: list[0]!, recrop: false });
+    else uploads.addFiles(list);
+  };
+
+  /** Re-crop a library image: fetch its bytes and open the crop step; the result is a new asset. */
+  const recrop = async (item: MediaItem) => {
+    setRecropError(null);
+    try {
+      const res = await fetch(item.url, { cache: "no-store" });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const file = new File([blob], item.filename, { type: blob.type || item.mime });
+      if (!canCrop(file)) return setRecropError("This image type can't be cropped (GIFs keep their animation as they are).");
+      setCropping({ file, recrop: true });
+    } catch {
+      setRecropError("Couldn't load the image for cropping. Check your connection and retry.");
+    }
+  };
+
   // (Re)load the first page whenever the dialog opens or the query changes (search is debounced).
   useEffect(() => {
     if (!open) return;
@@ -159,6 +191,8 @@ export function MediaPicker({ onSelect, onSelectIcon, multiple = false, folder =
     setIcon(null);
     setActive(null);
     setError(null);
+    setRecropError(null);
+    setCropping(null);
     setView("images");
     returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     ref.current?.showModal();
@@ -381,7 +415,11 @@ export function MediaPicker({ onSelect, onSelectIcon, multiple = false, folder =
                 <div className="min-h-0 flex-1 overflow-y-auto p-4" onKeyDown={moveFocus}>
                   {view === "upload" ? (
                     <div className="space-y-4">
-                      <Dropzone onFiles={uploads.addFiles} multiple={multiple} />
+                      <Dropzone onFiles={addFiles} multiple={multiple} />
+                      <p className="text-caption text-muted">
+                        <Crop aria-hidden className="mr-1 inline size-3.5 align-[-2px]" />
+                        A single image opens a crop &amp; resize step · {standard.label}: {recommendedText(standard)}
+                      </p>
                       <UploadQueue tasks={uploads.tasks} onCancel={uploads.cancel} onRetry={uploads.retry} onDismiss={uploads.dismiss} />
                     </div>
                   ) : view === "unsplash" ? (
@@ -442,7 +480,7 @@ export function MediaPicker({ onSelect, onSelectIcon, multiple = false, folder =
               <aside aria-label="Inspector" className="hidden w-72 shrink-0 flex-col overflow-y-auto border-l border-border lg:flex">
                 <p className="border-b border-border px-4 py-3 text-h4">Inspector</p>
                 {active?.kind === "image" ? (
-                  <ImageInspector key={active.item.id} item={active.item} onSaved={updateItem} />
+                  <ImageInspector key={active.item.id} item={active.item} onSaved={updateItem} onCrop={() => void recrop(active.item)} cropError={recropError} />
                 ) : active?.kind === "unsplash" ? (
                   <UnsplashInspector photo={active.photo} />
                 ) : active?.kind === "icon" ? (
@@ -484,6 +522,20 @@ export function MediaPicker({ onSelect, onSelectIcon, multiple = false, folder =
           </div>
         ) : null}
       </dialog>
+      {open && cropping ? (
+        <ImageCropper
+          key={cropping.file.name + cropping.file.size}
+          file={cropping.file}
+          standard={standard}
+          recrop={cropping.recrop}
+          onCancel={() => setCropping(null)}
+          onDone={(file) => {
+            setCropping(null);
+            uploads.addFiles([file]);
+            setView("upload");
+          }}
+        />
+      ) : null}
     </>
   );
 }
@@ -574,7 +626,7 @@ function Meta({ rows }: { rows: [string, ReactNode][] }) {
   );
 }
 
-function ImageInspector({ item, onSaved }: { item: MediaItem; onSaved: (item: MediaItem) => void }) {
+function ImageInspector({ item, onSaved, onCrop, cropError }: { item: MediaItem; onSaved: (item: MediaItem) => void; onCrop?: () => void; cropError?: string | null }) {
   const altId = useId();
   const [alt, setAlt] = useState(item.alt);
   const [saving, setSaving] = useState(false);
@@ -604,6 +656,18 @@ function ImageInspector({ item, onSaved }: { item: MediaItem; onSaved: (item: Me
         </p>
         <p className="text-caption text-muted">Image</p>
       </div>
+      {onCrop && item.mime !== "image/gif" ? (
+        <div className="space-y-1">
+          <Button size="sm" variant="secondary" onClick={onCrop}>
+            <Crop aria-hidden /> Crop &amp; resize a copy
+          </Button>
+          {cropError ? (
+            <p role="alert" className="text-caption text-error">
+              {cropError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <Meta
         rows={[
           ["Dimensions", item.width && item.height ? `${item.width} × ${item.height}px` : "—"],

@@ -22,6 +22,7 @@ import {
   attachProductMediaAction,
 } from "@/features/catalog/actions";
 import { MediaPicker } from "@/features/media/components/media-picker";
+import { IMAGE_STANDARDS } from "@/features/media/image-standards";
 import { Dropzone, UploadQueue } from "@/features/media/components/media-ui";
 import { useMediaUploads } from "@/features/media/components/use-media-uploads";
 import { ActionDialog, ActionForm, InlineAction } from "@/features/settings/ui/action-controls";
@@ -49,7 +50,7 @@ function LibraryImageField({ inputId, folder }: { inputId: string; folder: strin
           // eslint-disable-next-line @next/next/no-img-element -- small preview of the chosen library image
           <img src={picked.url} alt="" className="size-10 rounded-md object-cover ring-1 ring-border" />
         ) : null}
-        <MediaPicker folder={folder} triggerLabel={picked ? "Change" : "Choose from library"} onSelect={([m]) => m && setPicked({ path: m.path, url: m.url })} />
+        <MediaPicker folder={folder} standard={IMAGE_STANDARDS.portrait} triggerLabel={picked ? "Change" : "Choose from library"} onSelect={([m]) => m && setPicked({ path: m.path, url: m.url })} />
         {picked ? (
           <button type="button" className="text-small text-muted hover:text-foreground" onClick={() => setPicked(null)}>
             Clear
@@ -151,6 +152,7 @@ export function ProductMediaManager({ productId, media, variants }: { productId:
         <MediaPicker
           multiple
           folder="products"
+          standard={IMAGE_STANDARDS.product}
           triggerLabel="Add from media library"
           onSelect={(items) => {
             setMessage(null);

@@ -12,6 +12,7 @@ import { useBuilder, type SectionRef, type SectionTab } from "../../context";
 import { copyItem, findSection, moveItem, removeItem, setSectionSettings, setSectionStyle, updateItems, updateSection } from "../../ops";
 import { blankItem, clearGroup, groupHasContent, itemGroups, itemHideField, itemLabel, primaryListField, sectionTabs, visibleFields, type ItemGroup, type ListField } from "../../field-groups";
 import { Field, VariantPicker } from "../fields";
+import { ImageSlotProvider } from "@/features/media/components/image-slot";
 import { SectionSizeSpacing } from "./section-size";
 import { ColorInput, EmptyState, IconButton, MoreMenu, PanelFrame, Row, Toggle, useReorder } from "../ui";
 
@@ -56,7 +57,13 @@ export function SectionPanel() {
       </PanelFrame>
     );
   }
-  return <SectionPanelBody key={section.id} section={section} sectionRef={panel.ref} tab={panel.tab} />;
+  const variant = (section.settings as Record<string, unknown>).variant;
+  // Image fields pick their crop / size standard from the section type and layout.
+  return (
+    <ImageSlotProvider sectionType={section.type} variant={typeof variant === "string" ? variant : undefined}>
+      <SectionPanelBody key={section.id} section={section} sectionRef={panel.ref} tab={panel.tab} />
+    </ImageSlotProvider>
+  );
 }
 
 function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstance; sectionRef: SectionRef; tab: SectionTab }) {

@@ -249,6 +249,14 @@ const hero = {
     panelTone: z.enum(TONES).default("muted"),
     /** Slideshow designs (hero-fade / hero-slider / hero-kenburns): photo or numbered navigation. */
     slideNav: z.enum(["thumbs", "numbers", "dots"]).default("thumbs"),
+    /**
+     * Editorial collage photos 2 and 3 (photo 1 is the first slide's image). Empty = the second /
+     * third slide's image (how the collage was filled before these fields), then a stock photo.
+     */
+    image2Path: imagePath.default(""),
+    image2Alt: txt(200),
+    image3Path: imagePath.default(""),
+    image3Alt: txt(200),
   }),
   fields: [
     variantEditor("variant", "Hero layout", HERO_VARIANTS),
@@ -275,6 +283,10 @@ const hero = {
         { kind: "select", key: "textTone", label: "Text colour", options: opts(["light", "dark"] as const) },
       ],
     },
+    { kind: "image", key: "image2Path", label: "Collage photo 2 (top right)", showIf: { key: "variant", equals: ["collage"] } },
+    { kind: "text", key: "image2Alt", label: "Photo 2 description (alt text)", maxLength: 200, showIf: { key: "variant", equals: ["collage"] } },
+    { kind: "image", key: "image3Path", label: "Collage photo 3 (bottom right)", showIf: { key: "variant", equals: ["collage"] } },
+    { kind: "text", key: "image3Alt", label: "Photo 3 description (alt text)", maxLength: 200, showIf: { key: "variant", equals: ["collage"] } },
     { kind: "select", key: "height", label: "Height", options: opts(["medium", "large", "full", "banner"] as const, { full: "Full screen", banner: "Banner image (2:1, never cropped)" }) },
     { kind: "number", key: "overlay", label: "Image darkening (%)", min: 0, max: 80, step: 5 },
     { kind: "number", key: "autoplay", label: "Autoplay (seconds per slide, 0 = off)", min: 0, max: 15 },
@@ -643,6 +655,9 @@ const brandStory = {
     body: txt(1500),
     imagePath: imagePath.default(""),
     alt: txt(200),
+    /** Collage design: the smaller overlapping photo. Empty = a stock photo. */
+    image2Path: imagePath.default(""),
+    image2Alt: txt(200),
     stats: z.array(z.object({ value: plainText(12).pipe(z.string().min(1)), label: plainText(40).pipe(z.string().min(1)) })).max(4).default([]),
     ...ctaFields,
     variant: variantSchema(STORY_VARIANTS),
@@ -656,6 +671,8 @@ const brandStory = {
     { kind: "text", key: "body", label: "Story", maxLength: 1500, multiline: true },
     { kind: "image", key: "imagePath", label: "Image (optional)" },
     { kind: "text", key: "alt", label: "Image description", maxLength: 200 },
+    { kind: "image", key: "image2Path", label: "Second photo (overlapping)", showIf: { key: "variant", equals: ["collage"] } },
+    { kind: "text", key: "image2Alt", label: "Second photo description", maxLength: 200, showIf: { key: "variant", equals: ["collage"] } },
     {
       kind: "list",
       key: "stats",

@@ -83,6 +83,15 @@ function SlideImage({ sl, stock, sizes, priority }: { sl: Slide; stock: StockIma
   );
 }
 
+/**
+ * The collage's three photos: the first slide's image, then image2Path / image3Path. An empty extra
+ * slot keeps the older behaviour (the second / third slide's image); "" then means a stock photo.
+ */
+export function collageImages(s: Pick<SectionSettings<"Hero">, "slides" | "image2Path" | "image2Alt" | "image3Path" | "image3Alt">): { path: string; alt: string }[] {
+  const slot = (i: 1 | 2, path: string, alt: string) => (path ? { path, alt } : { path: s.slides[i]?.imagePath ?? "", alt: s.slides[i]?.alt ?? "" });
+  return [{ path: s.slides[0]?.imagePath ?? "", alt: s.slides[0]?.alt ?? "" }, slot(1, s.image2Path, s.image2Alt), slot(2, s.image3Path, s.image3Alt)];
+}
+
 const mediaAspect = (r: string, auto: string) => (r === "portrait" ? "aspect-[4/5]" : r === "square" ? "aspect-square" : r === "landscape" ? "aspect-[4/3]" : auto);
 
 export function HeroVariant({ s, ctx }: P<"Hero">) {
@@ -109,20 +118,20 @@ export function HeroVariant({ s, ctx }: P<"Hero">) {
         </section>
       );
     case "collage": {
-      const imgs = [0, 1, 2].map((i) => ({ sl: slides[i] ?? { ...first, imagePath: "", mobileImagePath: "", alt: "" }, stock: stockFor(ctx, slides[i]?.imagePath, "hero", i) }));
+      const imgs = collageImages(s).map((x, i) => ({ ...x, stock: stockFor(ctx, x.path, "hero", i) }));
       return (
         <section className={`${panel} overflow-hidden`}>
           <div className="sf-container grid items-center gap-10 py-12 @[64rem]:grid-cols-[1.1fr_1fr] @[64rem]:py-20">
             <div className={centred ? "text-center" : ""}>
               <HeroText sl={first} first size="xl" />
             </div>
-            <div className="sf-hero-collage" aria-hidden={imgs.every((x) => !x.sl.alt) || undefined}>
+            <div className="sf-hero-collage" aria-hidden={imgs.every((x) => !x.alt) || undefined}>
               {imgs.map((x, i) => (
                 <div key={i} className={`sf-hero-collage-${i + 1} relative overflow-hidden rounded-[var(--sf-radius-card)]`}>
-                  <StoreImage path={x.sl.imagePath} alt={x.sl.alt} sizes="(min-width: 1024px) 25vw, 50vw" priority={i === 0} stock={x.stock} />
+                  <StoreImage path={x.path} alt={x.alt} sizes="(min-width: 1024px) 25vw, 50vw" priority={i === 0} stock={x.stock} />
                 </div>
               ))}
-              <PhotoCredit img={imgs[0]!.stock} className="sf-hero-collage-credit" />
+              <PhotoCredit img={imgs.find((x) => x.stock)?.stock} className="sf-hero-collage-credit" />
             </div>
           </div>
         </section>
@@ -491,7 +500,7 @@ export function StoryVariant({ s, ctx }: P<"BrandStory">) {
         </section>
       );
     case "collage": {
-      const second = pickStock(ctx.stock, "story", 1);
+      const second = stockFor(ctx, s.image2Path, "story", 1);
       return (
         <section className={`sf-tone-${s.tone}`}>
           <div className={`sf-container sf-section grid items-center gap-12 @[48rem]:grid-cols-2 ${s.imagePosition === "left" ? "" : "@[48rem]:[&>*:first-child]:order-2"}`}>
@@ -499,12 +508,12 @@ export function StoryVariant({ s, ctx }: P<"BrandStory">) {
               <div className="relative aspect-[4/5] w-[78%] overflow-hidden rounded-[var(--sf-radius-card)]">
                 <StoreImage path={s.imagePath} alt={s.alt} sizes="(min-width: 768px) 40vw, 80vw" stock={img} />
               </div>
-              {second ? (
+              {s.image2Path || second ? (
                 <div className="sf-story-collage-2 absolute bottom-[-8%] right-0 aspect-square w-[48%] overflow-hidden rounded-[var(--sf-radius-card)]">
-                  <StoreImage path="" alt="" sizes="(min-width: 768px) 24vw, 48vw" stock={second} />
+                  <StoreImage path={s.image2Path} alt={s.image2Alt} sizes="(min-width: 768px) 24vw, 48vw" stock={second} />
                 </div>
               ) : null}
-              <PhotoCredit img={img} className="mt-2" />
+              <PhotoCredit img={img ?? second} className="mt-2" />
             </div>
             <div className="space-y-8">
               <StoryText s={s} />

@@ -1,3 +1,4 @@
+import { platformHostAliases } from "./hosts";
 import { publicEnv } from "@/lib/env/public";
 
 /** Origin of the platform app (seller dashboard, auth emails). */
@@ -30,4 +31,22 @@ export function storefrontPreviewUrl(host: string, platformUrl?: string | null):
 /** Platform subdomain for a store slug. */
 export function storeSubdomain(slug: string): string {
   return `${slug}.${publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN}`;
+}
+
+/**
+ * Origins the site builder may run on (the canvas accepts messages only from these): the platform
+ * URL, the root domain with and without "www.", and configured / Vercel host aliases. Same list as
+ * the store's frame-ancestors policy. Server only (reads PLATFORM_HOST_ALIASES).
+ */
+export function builderParentOrigins(): string[] {
+  const env = publicEnv();
+  const origin = platformOrigin();
+  const out = new Set([origin]);
+  const root = env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN;
+  if (root && root !== "localhost") {
+    out.add(`https://${root}`);
+    out.add(`https://www.${root}`);
+  }
+  for (const host of platformHostAliases()) out.add(host.startsWith("localhost") || host.endsWith(".localhost") ? `http://${host}` : `https://${host}`);
+  return [...out];
 }

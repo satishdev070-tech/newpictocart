@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { assetUrl } from "@/lib/storage/assets";
 import { MediaPicker } from "@/features/media/components/media-picker";
+import { IMAGE_STANDARDS, recommendedText } from "@/features/media/image-standards";
 import type { ThemeConfig } from "@/features/theme/schema/config";
 import { BUTTON_SHAPES, BUTTON_VARIANTS, CARD_RADII, CONTAINER_WIDTHS, FONT_KEYS, FONT_STACKS, LOGO_LIMITS, MENU_FONT_WEIGHTS, MENU_LETTER_SPACINGS, MENU_TEXT_CASES, SPACING_SCALES, type FontKey, type HeaderSettings, type LogoPosition, type MobileLogoPosition, type ProductCardSettings, type ThemeTokens } from "@/features/theme/schema/tokens";
 import { AUTO_LOGO_HEIGHT } from "@/features/theme/render/logo-layout";
@@ -585,16 +586,29 @@ function HeaderTab() {
           ) : (
             <div className="grid size-12 place-items-center rounded-md bg-surface-secondary text-xs text-muted ring-1 ring-border">Logo</div>
           )}
-          <MediaPicker folder="theme" triggerLabel={logo ? "Change" : "Choose logo"} onSelect={([m]) => m && setHeader("logoPath", m.path)} />
+          <MediaPicker folder="theme" standard={IMAGE_STANDARDS.logo} triggerLabel={logo ? "Change" : "Choose logo"} onSelect={([m]) => m && setHeader("logoPath", m.path)} />
           {logo ? (
             <button type="button" className="text-xs text-muted hover:underline" onClick={() => setHeader("logoPath", "")}>
               Remove
             </button>
           ) : null}
         </div>
+        <p className="text-xs text-muted">{recommendedText(IMAGE_STANDARDS.logo)}</p>
         {logo ? <TextInput label="Logo alt text" value={h.logoAlt} maxLength={120} onChange={(v) => setHeader("logoAlt", v)} placeholder="Your store name" /> : null}
         <TextInput label="Text wordmark instead of the logo" hint="Large-logo header layout only." value={h.wordmark} maxLength={40} onChange={(v) => setHeader("wordmark", v)} />
         <TextInput label="Tagline under the logo" hint="Large-logo header layout only." value={h.logoTagline} maxLength={60} onChange={(v) => setHeader("logoTagline", v)} />
+      </Group>
+      <Group title="Logo position">
+        <Segmented
+          label="Desktop"
+          value={h.logoPosition}
+          options={DESKTOP_POSITIONS}
+          onChange={(v) => setHeader("logoPosition", v)}
+        />
+        <Segmented label="Phones and tablets" value={h.mobileLogoPosition} options={MOBILE_POSITIONS} onChange={(v) => setHeader("mobileLogoPosition", v)} />
+        <p className="text-xs text-muted">
+          Auto follows the Header section&apos;s layout. Centre and Centre above split or stack the header menu: turn on &ldquo;Show menu inside the header&rdquo; in the Header section to see it.
+        </p>
       </Group>
       <Group title="Logo size">
         <SizeSlider
@@ -627,18 +641,6 @@ function HeaderTab() {
           onChange={(v) => setHeader("logoHeightMobile", v)}
         />
         <p className="text-xs text-muted">The logo keeps its proportions: if the height limit is reached it stops growing instead of stretching.</p>
-      </Group>
-      <Group title="Logo position">
-        <Segmented
-          label="Desktop"
-          value={h.logoPosition}
-          options={DESKTOP_POSITIONS}
-          onChange={(v) => setHeader("logoPosition", v)}
-        />
-        <Segmented label="Phones and tablets" value={h.mobileLogoPosition} options={MOBILE_POSITIONS} onChange={(v) => setHeader("mobileLogoPosition", v)} />
-        <p className="text-xs text-muted">
-          Auto follows the Header section&apos;s layout. Centre and Centre above split or stack the header menu: turn on &ldquo;Show menu inside the header&rdquo; in the Header section to see it.
-        </p>
       </Group>
       <Group title="Menu">
         <Select label="Main menu" value={h.menuHandle} options={menus.map((m) => [m.value, m.label] as const)} onChange={(v) => setHeader("menuHandle", v || "main")} />

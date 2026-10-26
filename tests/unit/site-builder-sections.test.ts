@@ -10,6 +10,7 @@ import { COALESCE_MS, HISTORY_LIMIT, canRedo, canUndo, historyReducer, initHisto
 import {
   addableTypes,
   canAddSection,
+  changePlan,
   changedLists,
   copyItem,
   duplicateSection,
@@ -407,10 +408,24 @@ describe("ops", () => {
     expect(faqItems.at(-1)).toEqual({ question: "Q?", answer: "A" });
   });
 
+  it("changePlan: CSS-only token edits skip the server, header edits re-render header + footer only", () => {
+    const recolour = { ...base, tokens: { ...base.tokens, colors: { ...base.tokens.colors, primary: "#123456" } } };
+    expect(changePlan(base, recolour)).toEqual({ lists: [], css: true });
+    expect(changePlan(base, { ...base, tokens: { ...base.tokens, headingFont: "playfair" } })).toEqual({ lists: [], css: true });
+    expect(changePlan(base, { ...base, tokens: { ...base.tokens, sectionHeadingAlign: base.tokens.sectionHeadingAlign === "left" ? "center" : "left" } })).toEqual({ lists: [], css: true });
+    expect(changePlan(base, { ...base, tokens: { ...base.tokens, imagery: "food" } }).lists).toBe("all");
+    expect(changePlan(base, { ...base, header: { ...base.header, logoPosition: "right" } })).toEqual({ lists: ["layout.header", "layout.footer"], css: false });
+    expect(changePlan(base, { ...base, header: { ...base.header, logoPath: "tenant/x/logo.png" } }).lists).toBe("all");
+    const both = setSectionSettings(recolour, "templates.home", "sa00000001", { footnote: "y" });
+    expect(changePlan(base, both)).toEqual({ lists: ["templates.home"], css: true });
+    expect(changePlan(base, base)).toEqual({ lists: [], css: false });
+  });
+
   it("changedLists reports only the lists that changed", () => {
     expect(changedLists(base, base)).toEqual([]);
     expect(changedLists(base, setSectionSettings(base, "templates.home", "sa00000001", { footnote: "x" }))).toEqual(["templates.home"]);
-    expect(changedLists(base, { ...base, tokens: { ...base.tokens } })).toBe("all");
+    // Tokens with the same values: nothing to re-render.
+    expect(changedLists(base, { ...base, tokens: { ...base.tokens } })).toEqual([]);
     const footer = getList(base, "layout.footer")!;
     expect(changedLists(base, setList(base, "layout.footer", [...footer]))).toEqual(["layout.footer"]);
     const withPage: ThemeConfig = { ...base, pages: [{ id: "pabcdefghi", handle: "about", title: "About", seoTitle: "", seoDescription: "", socialImagePath: "", noindex: false, sections: [] }] };

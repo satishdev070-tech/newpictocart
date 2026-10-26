@@ -12,8 +12,10 @@ export async function GET(request: NextRequest) {
   const origin = host ? `${url.protocol}//${request.headers.get("host") ?? host}` : url.origin;
   const res = NextResponse.redirect(new URL(safeRedirectPath(url.searchParams.get("path"), "/"), origin));
   res.headers.set("Cache-Control", "no-store");
-  const local = url.hostname === "localhost" || url.hostname.endsWith(".localhost");
-  const secure = url.protocol === "https:" || local;
+  // The request URL here is the internal rewrite (/store/[host]/preview); judge by the real Host.
+  const realHost = (request.headers.get("host") ?? url.host).split(":")[0]!.toLowerCase();
+  const local = realHost === "localhost" || realHost.endsWith(".localhost");
+  const secure = url.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https" || local;
   if (url.searchParams.get("exit")) {
     // A partitioned cookie is only cleared by a Set-Cookie with the same attributes.
     if (secure) res.cookies.set(PREVIEW_COOKIE, "", { httpOnly: true, secure: true, sameSite: "none", partitioned: true, path: "/", maxAge: 0 });

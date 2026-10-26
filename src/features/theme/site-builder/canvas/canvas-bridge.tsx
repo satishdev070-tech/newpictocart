@@ -9,13 +9,17 @@ import { setSlotOverrides } from "./store";
 import { EMPTY_SLOT_INSERT_EVENT } from "./empty-slot";
 import { embedsSchema, popupSchema, type Popup } from "../../schema/site";
 import { centeredLeft, headerFloor, menuOpensUp, toolbarTop, type Rect } from "./chrome-layout";
+import { tokensSchema } from "../../schema/tokens";
+import { themeCss } from "../../tokens-style";
 
 /**
  * The storefront half of the site builder. Mounted by the store layout in theme preview only, and
- * inert unless the page is framed by the builder (window.parent on the platform origin).
+ * inert unless the page is framed by the builder (window.parent on one of the platform origins:
+ * the platform URL, with and without "www.", and configured aliases).
  *
  *  - Renders the builder's unsaved theme: on a "theme" message it asks renderCanvasAction for the
- *    affected slots and swaps them in (CanvasSlot), plus the token CSS.
+ *    affected slots and swaps them in (CanvasSlot). Colour / font / spacing changes are applied
+ *    immediately in the browser (themeCss), with no server round trip.
  *  - Draws the on-canvas chrome: hover / selection outlines, the section toolbar (Edit, Change
  *    design, settings, colours, move, ⋮ duplicate / hide / delete) and "+" / "Add with AI" inserts.
  *    Actions are posted to the builder, which owns the theme and the undo history.
@@ -144,8 +148,25 @@ const CHROME_CSS = `
   [data-builder-chrome] .pcb-btn,[data-builder-chrome] .pcb-plus{transition:none;transform:none}
 }`;
 
-export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
+/** The builder's origin: the framing page's origin when it is an allowed platform origin. */
+function parentOriginOf(allowed: readonly string[]): string | null {
+  const fromAncestors = (location as Location & { ancestorOrigins?: DOMStringList }).ancestorOrigins?.[0];
+  if (fromAncestors && allowed.includes(fromAncestors)) return fromAncestors;
+  try {
+    const ref = document.referrer ? new URL(document.referrer).origin : null;
+    if (ref && allowed.includes(ref)) return ref;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] }) {
   const [framed, setFramed] = useState(false);
+  /** The builder's origin once known (ancestorOrigins / referrer, then the first valid message). */
+  const parentOrigin = useRef<string | null>(null);
+  /** Latest preview token from the builder (authorises renders without relying on the cookie). */
+  const previewToken = useRef<string | undefined>(undefined);
   const [hover, setHover] = useState<Target | null>(null);
   const [selected, setSelected] = useState<Target | null>(null);
   const [boxes, setBoxes] = useState<Boxes>(NO_BOXES);
@@ -162,9 +183,37 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
 
   const post = useCallback(
     (msg: DistributiveOmit<CanvasMessage, "tag">) => {
-      window.parent.postMessage({ ...msg, tag: CANVAS_TAG }, platformOrigin);
+      parentOrigin.current ??= parentOriginOf(platformOrigins);
+      // Unknown parent (no ancestorOrigins, no referrer): post to each allowed origin; the browser
+      // drops every copy whose origin doesn't match the real parent. Messages carry no secrets.
+      for (const o of parentOrigin.current ? [parentOrigin.current] : platformOrigins) window.parent.postMessage({ ...msg, tag: CANVAS_TAG }, o);
     },
-    [platformOrigin],
+    [platformOrigins],
+  );
+
+  /** Theme CSS override (after the server's <style>, so it wins). */
+  const applyCss = useCallback((css: string) => {
+    if (!styleEl.current) {
+      styleEl.current = document.createElement("style");
+      styleEl.current.dataset.builderTokens = "";
+      document.querySelector("[data-sf-root]")?.prepend(styleEl.current);
+    }
+    const root = document.querySelector("[data-sf-root]");
+    const server = root?.querySelector("style:not([data-builder-tokens])");
+    if (server && styleEl.current.previousElementSibling !== server) server.after(styleEl.current);
+    if (styleEl.current.textContent !== css) styleEl.current.textContent = css;
+  }, []);
+
+  /** Instant feedback for colours, fonts and spacing: the CSS is computed here from the tokens. */
+  const applyTokens = useCallback(
+    (tokens: unknown) => {
+      const parsed = tokensSchema.safeParse(tokens ?? {});
+      if (!parsed.success) return;
+      applyCss(themeCss(parsed.data));
+      const root = document.querySelector<HTMLElement>("[data-sf-root]");
+      if (root) root.dataset.headingAlign = parsed.data.sectionHeadingAlign;
+    },
+    [applyCss],
   );
 
   /** The next document to render (edits merged while a render runs), and whether one is running. */
@@ -192,21 +241,12 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
         }
         setBusy(job.lists === "all" ? "all" : slots);
         try {
-          const r = await renderCanvasAction({ config: job.config, slots });
+          const r = await renderCanvasAction({ config: job.config, slots, token: previewToken.current });
           if (!r.ok) {
             post({ type: "rendered", rev: job.rev, ok: false, error: r.error.message, code: r.error.code === "FORBIDDEN" ? "forbidden" : "failed" });
             continue;
           }
-          if (!styleEl.current) {
-            styleEl.current = document.createElement("style");
-            styleEl.current.dataset.builderTokens = "";
-            document.querySelector("[data-sf-root]")?.prepend(styleEl.current);
-          }
-          // The override must come after the server <style>; the root's first child is that style.
-          const root = document.querySelector("[data-sf-root]");
-          const server = root?.querySelector("style:not([data-builder-tokens])");
-          if (server && styleEl.current.previousElementSibling !== server) server.after(styleEl.current);
-          styleEl.current.textContent = r.data.css;
+          applyCss(r.data.css);
           // Applied even when a newer edit is queued: that job only re-renders the lists changed since
           // this one, so skipping this result would leave the other lists stale.
           setSlotOverrides(r.data.slots);
@@ -219,7 +259,7 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
       running.current = false;
       setBusy(null);
     }
-  }, [post]);
+  }, [post, applyCss]);
 
   const pathname = usePathname();
   // "ready" on first load and after every in-canvas navigation (client-side links keep this mounted),
@@ -249,9 +289,14 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
   useEffect(() => {
     if (!framed) return;
     const onMessage = async (e: MessageEvent) => {
-      if (e.source !== window.parent || e.origin !== platformOrigin) return;
+      if (e.source !== window.parent || !platformOrigins.includes(e.origin)) return;
       const msg = parseHostMessage(e.data);
       if (!msg) return;
+      parentOrigin.current = e.origin;
+      if (msg.type === "hello") {
+        post({ type: "ready", path: location.pathname + location.search, slots: pageSlots() });
+        return;
+      }
       if (msg.type === "select") {
         if (!msg.sectionId) return setSelected(null);
         const el = sectionEl(msg.sectionId);
@@ -276,8 +321,10 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
         return;
       }
       // theme
+      if (msg.token) previewToken.current = msg.token;
       try {
-        const doc = JSON.parse(msg.config) as { popups?: unknown; embeds?: unknown };
+        const doc = JSON.parse(msg.config) as { popups?: unknown; embeds?: unknown; tokens?: unknown };
+        applyTokens(doc.tokens);
         const popups = doc.popups;
         const embeds = embedsSchema.safeParse(doc.embeds ?? {});
         if (embeds.success) window.dispatchEvent(new CustomEvent("pc:embeds", { detail: embeds.data }));
@@ -301,7 +348,7 @@ export function CanvasBridge({ platformOrigin }: { platformOrigin: string }) {
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [framed, platformOrigin, post, drain]);
+  }, [framed, platformOrigins, post, drain, applyTokens]);
 
   // "Add a section" in an empty page slot (canvas/empty-slot.tsx): insert at the start of its list.
   useEffect(() => {

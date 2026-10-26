@@ -8,7 +8,7 @@ import type { ThemeConfig } from "@/features/theme/schema/config";
 import { refreshPreviewUrlAction } from "@/features/theme/actions";
 import { previewEntryUrl } from "@/features/theme/preview";
 import { useBuilder, type SectionTab } from "../context";
-import { changedLists, duplicateSection, moveSection, removeSection, toggleHidden } from "../ops";
+import { changePlan, duplicateSection, moveSection, removeSection, toggleHidden } from "../ops";
 import { pageForPath, type BuilderPage } from "../pages";
 import { HOST_TAG, parseCanvasMessage, type CanvasMessage, type HostMessage } from "../protocol";
 import { listKeyOf } from "../slots";
@@ -30,6 +30,9 @@ export const RENDER_WATCHDOG_MS = 20_000;
 export const MAX_AUTO_RECOVERIES = 2;
 /** Refresh the preview token when it expires within this many seconds. */
 const TOKEN_MARGIN_S = 5 * 60;
+/** While the canvas hasn't said "ready", ask it every this many ms ("hello"), at most HELLO_TRIES times. */
+const HELLO_EVERY_MS = 1000;
+export const HELLO_TRIES = 25;
 
 /** Origin of a URL string, or null if it is not an http(s) URL. */
 export function originOf(url: string): string | null {
@@ -105,6 +108,11 @@ export function CanvasFrame() {
   const watchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Automatic recoveries since the last successful render. */
   const recoveries = useRef(0);
+  /** "hello" pings while waiting for the canvas to say "ready". */
+  const hello = useRef<ReturnType<typeof setInterval> | null>(null);
+  const readyRef = useRef(false);
+  /** A token refresh in flight (shared so concurrent callers wait for the same one). */
+  const refreshing = useRef<Promise<boolean> | null>(null);
 
   // Measure the canvas area.
   useEffect(() => {
@@ -149,24 +157,83 @@ export function CanvasFrame() {
   });
   useEffect(() => clearWatchdog, []);
 
+
   const post = useEffectEvent((msg: DistributiveOmit<HostMessage, "tag">) => {
     if (!origin) return;
     frame.current?.contentWindow?.postMessage({ ...msg, tag: HOST_TAG }, origin);
+  });
+
+  /**
+   * A fresh preview token (renders are authorised by it, not only by the frame's cookie). Shared by
+   * concurrent callers; false when it couldn't be renewed.
+   */
+  const renewToken = useEffectEvent((force: boolean): Promise<boolean> => {
+    const t = token.current;
+    if (!force && t && t.expiresAt - Date.now() / 1000 > TOKEN_MARGIN_S) return Promise.resolve(true);
+    refreshing.current ??= refreshPreviewUrlAction()
+      .then((r) => {
+        const tok = r.ok ? tokenOf(r.data.url) : null;
+        if (!r.ok || !tok) return false;
+        token.current = { token: tok, expiresAt: r.data.expiresAt };
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => {
+        refreshing.current = null;
+      });
+    return refreshing.current;
   });
 
   /** Post the current document to the canvas (`all` forces every slot to re-render). */
   const postTheme = useEffectEvent((all: boolean) => {
     const prev = shown.current;
     const config = b.config;
-    const lists = all || !prev ? "all" : changedLists(prev, config);
+    const plan = all || !prev ? { lists: "all" as const, css: true } : changePlan(prev, config);
     shown.current = config;
     setPostedConfig(config);
-    if (Array.isArray(lists) && lists.length === 0) return;
+    // CSS-only edits (colours, fonts, spacing) are still posted: the canvas applies them instantly.
+    if (Array.isArray(plan.lists) && plan.lists.length === 0 && !plan.css) return;
     rev.current += 1;
-    post({ type: "theme", rev: rev.current, config: JSON.stringify(config), changedLists: lists });
+    post({ type: "theme", rev: rev.current, config: JSON.stringify(config), changedLists: plan.lists, token: token.current?.token });
     setStatus({ updating: true, error: null });
     armWatchdog(rev.current);
+    // Keep the token fresh for the next edits (no reload needed).
+    void renewToken(false);
   });
+
+  const stopHello = () => {
+    if (hello.current) clearInterval(hello.current);
+    hello.current = null;
+  };
+  useEffect(() => stopHello, []);
+  /**
+   * The iframe loaded: ask the canvas "hello" until it answers "ready" (covers a missed ready, e.g.
+   * posted before this page listened). No answer at all → the store couldn't open in edit mode.
+   */
+  const [frameLoaded, setFrameLoaded] = useState(0);
+  useEffect(() => {
+    if (!frameLoaded) return;
+    stopHello();
+    if (readyRef.current) return;
+    let tries = 0;
+    hello.current = setInterval(() => {
+      if (readyRef.current) return stopHello();
+      tries += 1;
+      if (tries > HELLO_TRIES) {
+        stopHello();
+        recover({ expired: true, error: "The store preview didn't connect. Retry to continue." });
+        return;
+      }
+      post({ type: "hello" });
+    }, HELLO_EVERY_MS);
+    return stopHello;
+  }, [frameLoaded]);
+
+  // Renew the preview token in the background while the builder is open (long sessions).
+  useEffect(() => {
+    const t = setInterval(() => void renewToken(false), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   // Load the canvas at `target` (first load, page changes, reload).
   useEffect(() => {
@@ -190,6 +257,7 @@ export function CanvasFrame() {
     void entryUrl().then((url) => {
       if (!live || !url) return;
       setLoadedTarget(target);
+      readyRef.current = false;
       setReady(false);
       setStatus({ updating: false, error: null });
       setSrc(url);
@@ -240,6 +308,8 @@ export function CanvasFrame() {
   const onCanvasMessage = useEffectEvent((msg: CanvasMessage) => {
     switch (msg.type) {
       case "ready": {
+        stopHello();
+        readyRef.current = true;
         canvasPathRef.current = msg.path;
         setCanvasPath(msg.path);
         // In-canvas navigation to another registry page: follow it.
@@ -269,7 +339,13 @@ export function CanvasFrame() {
         if (msg.ok) {
           recoveries.current = 0;
           setStatus({ updating: false, error: null });
-        } else if (msg.code === "forbidden") recover({ expired: true, error: "Your preview session expired. Retry to continue." });
+        } else if (msg.code === "forbidden") {
+          // The preview token or cookie was rejected: renew the token and resend, without a reload.
+          if (recoveries.current < MAX_AUTO_RECOVERIES) {
+            recoveries.current += 1;
+            void renewToken(true).then((ok) => (ok ? postTheme(true) : recover({ expired: true, error: "Your preview session expired. Retry to continue." })));
+          } else recover({ expired: true, error: "Your preview session expired. Retry to continue." });
+        }
         else recover({ expired: false, error: msg.error ?? "The canvas couldn't update." });
         return;
       case "select": {
@@ -361,7 +437,7 @@ export function CanvasFrame() {
   const loading = !!origin && !loadError && (loadedTarget !== target || !ready);
   const updating = ready && !status.error && (status.updating || (postedConfig !== null && postedConfig !== b.config));
   const busy = loading || updating;
-  const progress = useRenderProgress(busy, status.error);
+  const progress = useRenderProgress(busy, status.error, updating && !loading);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-secondary">
@@ -424,6 +500,7 @@ export function CanvasFrame() {
               key={loads}
               ref={frame}
               src={src}
+              onLoad={() => setFrameLoaded((n) => n + 1)}
               title={`Store canvas (${b.device})`}
               className={cn("block border-0 bg-white", mobile && "rounded-[1.6rem]")}
               style={{ width, height: frameH }}
@@ -453,6 +530,8 @@ const PROGRESS_CSS = `
 
 /** How long an edit may take before the builder says it's taking longer than usual. */
 export const SLOW_RENDER_MS = 6000;
+/** A page load is only marked slow (amber badge, no toast) after this long. */
+const LOAD_SLOW_MS = 12_000;
 
 /**
  * Percentage for the canvas update bar (Bugs 2.0 follow-up: "show progress in %, in green, with
@@ -464,7 +543,7 @@ export function nextPercent(p: number): number {
   return Math.min(92, Math.round((p + Math.max(1, (92 - p) * 0.08)) * 10) / 10);
 }
 
-function useRenderProgress(busy: boolean, error: string | null): { percent: number; slow: boolean; done: boolean } {
+function useRenderProgress(busy: boolean, error: string | null, editing: boolean): { percent: number; slow: boolean; done: boolean } {
   const toast = useToast();
   const [percent, setPercent] = useState(0);
   const [slow, setSlow] = useState(false);
@@ -485,15 +564,16 @@ function useRenderProgress(busy: boolean, error: string | null): { percent: numb
   useEffect(() => {
     if (!busy) return;
     const tick = setInterval(() => setPercent(nextPercent), 140);
+    // Page loads show their progress in the badge only; the toast is about an edit being slow.
     const warn = setTimeout(() => {
       setSlow(true);
-      toast.show({ tone: "warning", message: "This change is taking longer than usual. It will appear as soon as it's ready." });
-    }, SLOW_RENDER_MS);
+      if (editing) toast.show({ tone: "warning", message: "This change is taking longer than usual. It will appear as soon as it's ready." });
+    }, editing ? SLOW_RENDER_MS : LOAD_SLOW_MS);
     return () => {
       clearInterval(tick);
       clearTimeout(warn);
     };
-  }, [busy, toast]);
+  }, [busy, toast, editing]);
   useEffect(() => {
     if (!done) return;
     const t = setTimeout(() => setDone(false), 1800);

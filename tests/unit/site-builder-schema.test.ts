@@ -168,5 +168,10 @@ describe("canvas slots and protocol", () => {
     expect(parseCanvasMessage({ tag: "other", type: "ready" })).toBeNull();
     expect(parseHostMessage({ tag: HOST_TAG, type: "theme", rev: 2, config: "{}", changedLists: "all" })).toMatchObject({ rev: 2 });
     expect(parseHostMessage({ tag: HOST_TAG, type: "theme", rev: "2", config: "{}", changedLists: "all" })).toBeNull();
+    // The preview token travels with theme messages; anything not shaped like a signed token is dropped.
+    const token = "eyJ0IjoiMTAwMDAwMDAifQ.IduECgYdfNkW-xrJir3UsGApouyVR6H4cRRaZh3zEJk";
+    expect(parseHostMessage({ tag: HOST_TAG, type: "theme", rev: 3, config: "{}", changedLists: [], token })).toMatchObject({ token });
+    expect(parseHostMessage({ tag: HOST_TAG, type: "theme", rev: 3, config: "{}", changedLists: [], token: "<script>" })).not.toHaveProperty("token");
+    expect(parseHostMessage({ tag: HOST_TAG, type: "hello" })).toEqual({ tag: HOST_TAG, type: "hello" });
   });
 });
