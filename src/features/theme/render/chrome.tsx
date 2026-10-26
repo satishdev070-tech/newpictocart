@@ -348,7 +348,8 @@ function HeaderPositioned({ s, ctx }: { s: SectionSettings<"Header">; ctx: Rende
 
 export function Header({ s, ctx }: { s: SectionSettings<"Header">; ctx: RenderContext }) {
   // Positions left on "auto" keep the original layouts below untouched (old themes render identically).
-  if (hasCustomLogoPosition(ctx.sf.theme.header)) return <HeaderPositioned s={s} ctx={ctx} />;
+  // "Logo right" has no original markup: it always uses the positioned grid.
+  if (s.layout === "logo-right" || hasCustomLogoPosition(ctx.sf.theme.header)) return <HeaderPositioned s={s} ctx={ctx} />;
   if (s.layout === "logo-left-nav-center") return <HeaderLogoLeftNavCenter s={s} ctx={ctx} />;
   const h = effectiveHeader(ctx.sf.theme.header, ctx.sf.siteMode);
   const menu = ctx.menus[h.menuHandle]?.items ?? [];

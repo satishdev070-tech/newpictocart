@@ -572,6 +572,7 @@ function Segmented<T extends LogoPosition>({ label, value, options, onChange }: 
 
 function HeaderTab() {
   const { config, setHeader } = useThemeSetters();
+  const badgeId = useId();
   const { pickers } = useBuilder();
   const h = config.header;
   const logo = assetUrl(h.logoPath);
@@ -597,6 +598,13 @@ function HeaderTab() {
         {logo ? <TextInput label="Logo alt text" value={h.logoAlt} maxLength={120} onChange={(v) => setHeader("logoAlt", v)} placeholder="Your store name" /> : null}
         <TextInput label="Text wordmark instead of the logo" hint="Large-logo header layout only." value={h.wordmark} maxLength={40} onChange={(v) => setHeader("wordmark", v)} />
         <TextInput label="Tagline under the logo" hint="Large-logo header layout only." value={h.logoTagline} maxLength={60} onChange={(v) => setHeader("logoTagline", v)} />
+        <FieldRow label="Logo badge background" htmlFor={badgeId} hint="“Logo badge” header design: a tab behind the logo. None when your logo file already has its own shape.">
+          <select id={badgeId} className={input} value={h.logoBadgeBg} onChange={(e) => setHeader("logoBadgeBg", e.target.value as HeaderSettings["logoBadgeBg"])}>
+            <option value="none">None (logo only)</option>
+            <option value="surface">White tab</option>
+            <option value="primary">Brand colour tab</option>
+          </select>
+        </FieldRow>
       </Group>
       <Group title="Logo position">
         <Segmented
@@ -607,7 +615,7 @@ function HeaderTab() {
         />
         <Segmented label="Phones and tablets" value={h.mobileLogoPosition} options={MOBILE_POSITIONS} onChange={(v) => setHeader("mobileLogoPosition", v)} />
         <p className="text-xs text-muted">
-          Auto follows the Header section&apos;s layout. Centre and Centre above split or stack the header menu: turn on &ldquo;Show menu inside the header&rdquo; in the Header section to see it.
+          Auto follows the Header section&apos;s layout (choosing a layout there resets Desktop to Auto). Centre and Centre above split or stack the header menu: turn on &ldquo;Show menu inside the header&rdquo; in the Header section to see it.
         </p>
       </Group>
       <Group title="Logo size">

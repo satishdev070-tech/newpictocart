@@ -194,11 +194,14 @@ export function CanvasFrame() {
     // CSS-only edits (colours, fonts, spacing) are still posted: the canvas applies them instantly.
     if (Array.isArray(plan.lists) && plan.lists.length === 0 && !plan.css) return;
     rev.current += 1;
-    post({ type: "theme", rev: rev.current, config: JSON.stringify(config), changedLists: plan.lists, token: token.current?.token });
+    const msg = { type: "theme" as const, rev: rev.current, config: JSON.stringify(config), changedLists: plan.lists };
     setStatus({ updating: true, error: null });
     armWatchdog(rev.current);
-    // Keep the token fresh for the next edits (no reload needed).
-    void renewToken(false);
+    // A token about to expire (e.g. after the tab slept) is renewed first, so the render isn't
+    // rejected and a recovery isn't spent. Renewals are shared, so queued posts keep their order.
+    const t = token.current;
+    if (t && t.expiresAt - Date.now() / 1000 > TOKEN_MARGIN_S) post({ ...msg, token: t.token });
+    else void renewToken(false).then(() => post({ ...msg, token: token.current?.token }));
   });
 
   const stopHello = () => {
@@ -333,6 +336,11 @@ export function CanvasFrame() {
         setReady(true);
         return;
       }
+      case "leaving":
+        // The frame's next load starts the hello loop again (see frameLoaded).
+        readyRef.current = false;
+        setReady(false);
+        return;
       case "rendered":
         if (msg.rev !== rev.current) return;
         clearWatchdog();

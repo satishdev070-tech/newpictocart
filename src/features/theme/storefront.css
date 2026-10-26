@@ -2483,6 +2483,42 @@ a.sf-spot-add-square {
 /* Editorial: spaced uppercase menu, unless the seller set the menu text in Theme settings. */
 .sf-header-style-editorial:not(.sf-menu-case) nav[aria-label="Main"] { text-transform: uppercase; }
 .sf-header-style-editorial:not(.sf-menu-tracking) nav[aria-label="Main"] { letter-spacing: 0.16em; }
+/* Logo badge: the whole logo hangs from the top of the bar in a tall tab over the page (render/logo-layout.ts).
+   The bar keeps a fixed row height; the logo's negative bottom margin lets it overhang without making the bar taller. */
+.sf-header-style-logo-badge { --sf-badge-row: 2.75rem; overflow: visible; }
+.sf-header-style-logo-badge:not(.sticky) { position: relative; }
+.sf-header-style-logo-badge > .sf-container { padding-block: 0.5rem; min-height: calc(var(--sf-badge-row) + 1rem); overflow: visible; }
+.sf-logo-badge {
+  display: block;
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
+  width: auto;
+  height: var(--sf-badge-h-m);
+  max-width: min(var(--sf-badge-w), 42cqi);
+  object-fit: contain;
+  object-position: center top;
+  margin-top: -0.5rem;
+  margin-bottom: calc(var(--sf-badge-row) + 0.5rem - var(--sf-badge-h-m));
+}
+.sf-logo-badge-surface,
+.sf-logo-badge-primary {
+  padding: 0.5rem 0.75rem 0.9rem;
+  border-radius: 0 0 50% 50% / 0 0 0.9rem 0.9rem;
+  box-shadow: 0 14px 26px -18px rgb(0 0 0 / 0.5);
+}
+.sf-logo-badge-surface { background: var(--sf-surface); }
+.sf-logo-badge-primary { background: var(--sf-primary); }
+@container (min-width: 64rem) {
+  .sf-header-style-logo-badge { --sf-badge-row: 3.25rem; }
+  .sf-logo-badge {
+    height: var(--sf-badge-h);
+    max-width: var(--sf-badge-w);
+    margin-bottom: calc(var(--sf-badge-row) + 0.5rem - var(--sf-badge-h));
+  }
+  .sf-logo-badge-surface,
+  .sf-logo-badge-primary { padding: 0.75rem 1.1rem 1.25rem; }
+}
 .sf-header-style-editorial:not(.sf-menu-size) nav[aria-label="Main"] { font-size: 0.75rem; }
 .sf-header-style-editorial nav[aria-label="Main"] > ul { column-gap: 2.25rem; }
 /* Editorial logo image (no size set): oversized, keeps its proportions (logo-layout.ts EDITORIAL_LOGO). */

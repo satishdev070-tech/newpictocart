@@ -196,6 +196,7 @@ export const HEADER_STYLES = [
   v("floating", "Floating", "A rounded bar floating over the page"),
   v("minimal", "Minimal", "No border, blends into the page"),
   v("editorial", "Editorial", "Tall, oversized logo, spaced menu"),
+  v("logo-badge", "Logo badge", "Logo in a tall tab hanging over the page"),
 ] as const;
 export type HeaderStyle = (typeof HEADER_STYLES)[number]["value"];
 

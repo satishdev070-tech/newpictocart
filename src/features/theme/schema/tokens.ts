@@ -87,6 +87,7 @@ export const LOGO_LIMITS = {
 export const LOGO_POSITIONS = ["auto", "left", "center", "center-stacked", "right"] as const;
 export const MOBILE_LOGO_POSITIONS = ["auto", "left", "center"] as const;
 export type LogoPosition = (typeof LOGO_POSITIONS)[number];
+export const LOGO_BADGE_BGS = ["none", "surface", "primary"] as const;
 export type MobileLogoPosition = (typeof MOBILE_LOGO_POSITIONS)[number];
 export const MENU_FONT_WEIGHTS = ["default", "400", "500", "600", "700", "800"] as const;
 export const MENU_LETTER_SPACINGS = ["default", "tight", "normal", "wide", "wider"] as const;
@@ -117,6 +118,8 @@ export const headerSettingsSchema = z.object({
   logoPosition: z.enum(LOGO_POSITIONS).default("auto"),
   /** Phone/tablet logo placement; "auto" follows the Header section's layout. */
   mobileLogoPosition: z.enum(MOBILE_LOGO_POSITIONS).default("auto"),
+  /** Tab behind the logo in the "Logo badge" header design: none (the logo file is the badge), white or brand colour. */
+  logoBadgeBg: z.enum(LOGO_BADGE_BGS).default("none"),
   menuHandle: menuHandle.default("main"),
   /** Header menu typography. Defaults emit no additional CSS, preserving old themes. */
   menuFontSize: z.coerce.number().int().min(0).max(24).default(0),

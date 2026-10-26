@@ -24,9 +24,9 @@ const { Header } = await import("@/features/theme/render/chrome");
 const { headerSettingsSchema } = await import("@/features/theme/schema/tokens");
 const { HEADER_STYLES } = await import("@/features/theme/sections/variants");
 const { SECTION_DEFINITIONS } = await import("@/features/theme/sections/definitions");
-const { EDITORIAL_LOGO, logoImageProps, resolveLogoPositions } = await import("@/features/theme/render/logo-layout");
+const { BADGE_LOGO, EDITORIAL_LOGO, logoImageProps, resolveLogoPositions } = await import("@/features/theme/render/logo-layout");
 
-type Layout = "logo-left" | "logo-center" | "logo-left-nav-center";
+type Layout = "logo-left" | "logo-center" | "logo-right" | "logo-left-nav-center";
 
 const menu = ["Home", "Shop", "About", "Blog"].map((title, i) => ({ id: `m${i}`, title, href: `/${title.toLowerCase()}`, external: false, highlight: false, imagePath: null, children: [] }));
 
@@ -60,7 +60,7 @@ describe("Header designs", () => {
 
   it("renders exactly the chosen design's class, for every layout and logo position", async () => {
     const positions = [{}, { logoPosition: "left" }, { logoPosition: "center" }, { logoPosition: "center-stacked" }, { logoPosition: "right" }, { mobileLogoPosition: "left" }, { mobileLogoPosition: "center" }];
-    for (const layout of ["logo-left", "logo-center", "logo-left-nav-center"] as const) {
+    for (const layout of ["logo-left", "logo-center", "logo-right", "logo-left-nav-center"] as const) {
       for (const pos of positions) {
         const seen = new Set<string>();
         for (const { value } of HEADER_STYLES) {
@@ -129,7 +129,7 @@ describe("Header logo position", () => {
   });
 
   it("drives the logo size sliders in every design", async () => {
-    for (const { value } of HEADER_STYLES) {
+    for (const { value } of HEADER_STYLES.filter((x) => x.value !== "logo-badge")) {
       const html = await render(value, { logoWidth: 240, logoHeight: 80, logoPosition: "right" });
       expect(html).toContain('class="sf-logo-img"');
       expect(html).toContain("--sf-logo-w:240px");
@@ -161,10 +161,54 @@ describe("logoImageProps per header design", () => {
 
   it("other designs keep the legacy style; a seller-set size wins over Editorial", () => {
     const h = headerSettingsSchema.parse({});
-    for (const { value } of HEADER_STYLES.filter((x) => x.value !== "editorial")) {
+    for (const { value } of HEADER_STYLES.filter((x) => x.value !== "editorial" && x.value !== "logo-badge")) {
       expect(logoImageProps(h, { legacyMaxHeight: 56, positions, headerStyle: value }).className).toBe("h-auto w-auto object-contain");
     }
     const sized = headerSettingsSchema.parse({ logoWidth: 120 });
     expect(logoImageProps(sized, { legacyMaxHeight: 56, positions: resolveLogoPositions(sized, "logo-center"), headerStyle: "editorial" }).className).toBe("sf-logo-img");
+  });
+});
+
+describe("Header layouts: logo right", () => {
+  it("places the logo right on desktop while the logo position is auto", async () => {
+    expect(resolveLogoPositions(headerSettingsSchema.parse({}), "logo-right")).toEqual({ desktop: "right", mobile: "left" });
+    const html = await render("classic", {}, "logo-right");
+    expect(html).toContain("sf-hdr-pos sf-hdr-m-left sf-hdr-d-right");
+  });
+
+  it("each layout gives a different desktop placement on auto", () => {
+    const h = headerSettingsSchema.parse({});
+    expect(["logo-left", "logo-center", "logo-right"].map((l) => resolveLogoPositions(h, l as Layout).desktop)).toEqual(["left", "center-stacked", "right"]);
+  });
+});
+
+describe("Logo badge header design", () => {
+  const positions = { desktop: "left", mobile: "left" } as const;
+
+  it("hangs the whole logo in a tall tab, sized by the sliders when set", () => {
+    const h = headerSettingsSchema.parse({});
+    expect(logoImageProps(h, { legacyMaxHeight: 56, positions, headerStyle: "logo-badge", aspectRatio: "3 / 4" })).toEqual({
+      className: "sf-logo-badge",
+      style: { "--sf-badge-h": `${BADGE_LOGO.height.desktop}px`, "--sf-badge-h-m": `${BADGE_LOGO.height.mobile}px`, "--sf-badge-w": `${BADGE_LOGO.maxWidth}px`, aspectRatio: "3 / 4" },
+    });
+    const sized = headerSettingsSchema.parse({ logoHeight: 180, logoHeightMobile: 90, logoWidth: 200, logoBadgeBg: "primary" });
+    const p = logoImageProps(sized, { legacyMaxHeight: 56, positions, headerStyle: "logo-badge" });
+    expect(p.className).toBe("sf-logo-badge sf-logo-badge-primary");
+    expect(p.style).toMatchObject({ "--sf-badge-h": "180px", "--sf-badge-h-m": "90px", "--sf-badge-w": "200px" });
+  });
+
+  it("renders in every layout and has its CSS", async () => {
+    for (const layout of ["logo-left", "logo-center", "logo-right", "logo-left-nav-center"] as const) {
+      const html = await render("logo-badge", {}, layout);
+      expect(html).toContain("sf-header-style-logo-badge");
+      expect(html).toContain('class="sf-logo-badge"');
+    }
+    const css = readFileSync(path.join(process.cwd(), "src/features/theme/storefront.css"), "utf8");
+    expect(css).toMatch(/\.sf-logo-badge \{[^}]*object-fit: contain/);
+    expect(css).toMatch(/\.sf-logo-badge \{[^}]*margin-bottom: calc\(var\(--sf-badge-row\)/);
+  });
+
+  it("old themes parse with no badge background", () => {
+    expect(headerSettingsSchema.parse({}).logoBadgeBg).toBe("none");
   });
 });

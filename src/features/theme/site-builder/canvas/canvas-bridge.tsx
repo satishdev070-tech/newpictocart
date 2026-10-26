@@ -211,7 +211,16 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
       if (!parsed.success) return;
       applyCss(themeCss(parsed.data));
       const root = document.querySelector<HTMLElement>("[data-sf-root]");
-      if (root) root.dataset.headingAlign = parsed.data.sectionHeadingAlign;
+      if (!root) return;
+      root.dataset.headingAlign = parsed.data.sectionHeadingAlign;
+      // "finish" is a marker element, not CSS (ThemeTokensStyle): `[data-sf-finish="refined"] ~ *`.
+      let marker = root.querySelector<HTMLElement>(":scope > i[data-sf-finish]");
+      if (!marker && parsed.data.finish === "refined") {
+        marker = document.createElement("i");
+        marker.hidden = true;
+        styleEl.current?.after(marker);
+      }
+      if (marker) marker.dataset.sfFinish = parsed.data.finish;
     },
     [applyCss],
   );
@@ -246,7 +255,8 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
             post({ type: "rendered", rev: job.rev, ok: false, error: r.error.message, code: r.error.code === "FORBIDDEN" ? "forbidden" : "failed" });
             continue;
           }
-          applyCss(r.data.css);
+          // r.data.css is not applied: it is themeCss of this job's tokens, already shown by applyTokens
+          // when the message arrived, and a newer colour edit may have replaced it since.
           // Applied even when a newer edit is queued: that job only re-renders the lists changed since
           // this one, so skipping this result would leave the other lists stale.
           setSlotOverrides(r.data.slots);
@@ -259,7 +269,7 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
       running.current = false;
       setBusy(null);
     }
-  }, [post, applyCss]);
+  }, [post]);
 
   const pathname = usePathname();
   // "ready" on first load and after every in-canvas navigation (client-side links keep this mounted),
@@ -284,6 +294,14 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
     }, 30);
     return () => clearTimeout(t);
   }, [post, pathname]);
+
+  // A hard navigation or reload replaces this document: tell the builder to wait for the next "ready".
+  useEffect(() => {
+    if (!framed) return;
+    const onHide = () => post({ type: "leaving" });
+    window.addEventListener("pagehide", onHide);
+    return () => window.removeEventListener("pagehide", onHide);
+  }, [framed, post]);
 
   // Messages from the builder.
   useEffect(() => {

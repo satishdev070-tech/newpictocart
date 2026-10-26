@@ -185,7 +185,7 @@ const header = {
   groups: ["header"],
   singleton: true,
   schema: z.object({
-    layout: z.enum(["logo-left", "logo-center", "logo-left-nav-center"]).default("logo-center"),
+    layout: z.enum(["logo-left", "logo-center", "logo-right", "logo-left-nav-center"]).default("logo-center"),
     showInlineMenu: z.boolean().default(false),
     menuStyle: z.enum(["bar", "drawer"]).default("bar"),
     /** Bar look (colour, borders, height); independent of where the logo sits. */
@@ -193,7 +193,7 @@ const header = {
   }),
   fields: [
     variantEditor("style", "Header style", HEADER_STYLES),
-    { kind: "select", key: "layout", label: "Layout", options: opts(["logo-left", "logo-center", "logo-left-nav-center"] as const, { "logo-left": "Logo left", "logo-center": "Logo centred", "logo-left-nav-center": "Large logo left, menu centred (dropdown mega menu)" }) },
+    { kind: "select", key: "layout", label: "Layout", options: opts(["logo-left", "logo-center", "logo-right", "logo-left-nav-center"] as const, { "logo-left": "Logo left", "logo-center": "Logo centred", "logo-right": "Logo right", "logo-left-nav-center": "Large logo left, menu centred (dropdown mega menu)" }) },
     { kind: "toggle", key: "showInlineMenu", label: "Show menu inside the header (desktop)", help: "Turn off when using a Mega menu section below the header." },
     { kind: "select", key: "menuStyle", label: "Desktop menu", options: [{ value: "bar", label: "Menu bar / mega menu" }, { value: "drawer", label: "Menu button (drawer) on every screen" }], help: "Drawer: a menu icon opens the full menu on desktop too, and the Mega menu section is hidden." },
   ],

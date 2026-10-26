@@ -87,7 +87,13 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
       const { [key]: _drop, ...rest } = p;
       return rest;
     });
-    b.apply((c) => setSectionSettings(c, sectionRef.list, sectionRef.sectionId, { [key]: value }), `sec.${sectionRef.sectionId}.${key}`);
+    // Choosing a Header layout clears the desktop logo-position override (Theme settings → Header),
+    // which would otherwise win and make the layout choice look broken.
+    const resetLogo = section.type === "Header" && key === "layout";
+    b.apply((c) => {
+      const next = setSectionSettings(c, sectionRef.list, sectionRef.sectionId, { [key]: value });
+      return resetLogo && next.header.logoPosition !== "auto" ? { ...next, header: { ...next.header, logoPosition: "auto" } } : next;
+    }, `sec.${sectionRef.sectionId}.${key}`);
   };
   const values: Settings = { ...settings, ...Object.fromEntries(Object.entries(pending).map(([k, p]) => [k, p.value])) };
   const errors = Object.fromEntries(Object.entries(pending).map(([k, p]) => [k, p.error]));

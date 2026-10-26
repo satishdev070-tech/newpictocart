@@ -31,6 +31,8 @@ export type HostMessage =
 
 export type CanvasMessage =
   | { tag: typeof CANVAS_TAG; type: "ready"; path: string; slots: string[] }
+  /** The canvas document is unloading (a hard navigation or reload): the next one says "ready" again. */
+  | { tag: typeof CANVAS_TAG; type: "leaving" }
   /** `code` "forbidden" = the preview cookie is missing or expired (the builder re-enters the preview). */
   | { tag: typeof CANVAS_TAG; type: "rendered"; rev: number; ok: boolean; error?: string; code?: "forbidden" | "failed" }
   | { tag: typeof CANVAS_TAG; type: "select"; slot: string; sectionId: string }
@@ -57,6 +59,8 @@ export function parseCanvasMessage(data: unknown): CanvasMessage | null {
       return typeof data.path === "string" && Array.isArray(data.slots)
         ? { tag: CANVAS_TAG, type: "ready", path: data.path.slice(0, 300), slots: data.slots.filter((s): s is string => typeof s === "string" && SLOT.test(s)).slice(0, 12) }
         : null;
+    case "leaving":
+      return { tag: CANVAS_TAG, type: "leaving" };
     case "rendered":
       return typeof data.rev === "number"
         ? {

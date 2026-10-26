@@ -9,11 +9,11 @@ import type { HeaderStyle } from "@/features/theme/sections/variants";
  * header renders through the original code paths with the original logo styles.
  */
 
-export type HeaderLayout = "logo-left" | "logo-center" | "logo-left-nav-center";
+export type HeaderLayout = "logo-left" | "logo-center" | "logo-right" | "logo-left-nav-center";
 export type DesktopLogoPos = "left" | "center" | "center-stacked" | "right";
 export type MobileLogoPos = "left" | "center";
 
-type LogoFields = Pick<HeaderSettings, "logoMaxWidth" | "logoWidth" | "logoWidthMobile" | "logoHeight" | "logoHeightMobile" | "logoPosition" | "mobileLogoPosition">;
+type LogoFields = Pick<HeaderSettings, "logoMaxWidth" | "logoWidth" | "logoWidthMobile" | "logoHeight" | "logoHeightMobile" | "logoPosition" | "mobileLogoPosition"> & Partial<Pick<HeaderSettings, "logoBadgeBg">>;
 
 /** True when the seller chose a placement in the builder (otherwise the legacy layouts render). */
 export function hasCustomLogoPosition(h: LogoFields): boolean {
@@ -22,7 +22,7 @@ export function hasCustomLogoPosition(h: LogoFields): boolean {
 
 /** Placement per breakpoint; "auto" resolves to what the Header section's layout shows today. */
 export function resolveLogoPositions(h: LogoFields, layout: HeaderLayout): { desktop: DesktopLogoPos; mobile: MobileLogoPos } {
-  const desktop: DesktopLogoPos = h.logoPosition === "auto" ? (layout === "logo-center" ? "center-stacked" : "left") : h.logoPosition;
+  const desktop: DesktopLogoPos = h.logoPosition === "auto" ? (layout === "logo-center" ? "center-stacked" : layout === "logo-right" ? "right" : "left") : h.logoPosition;
   const mobile: MobileLogoPos = h.mobileLogoPosition === "auto" ? (layout === "logo-center" ? "center" : "left") : h.mobileLogoPosition;
   return { desktop, mobile };
 }
@@ -39,8 +39,13 @@ const OBJECT_POSITION: Record<DesktopLogoPos, string> = { left: "left center", c
 /** Editorial header (no size set): an oversized logo, up to 1.5x the width cap and this tall on desktop. */
 export const EDITORIAL_LOGO = { widthScale: 1.5, maxWidth: 400, height: { desktop: 96, mobile: 56 } } as const;
 
+/** Logo badge header (no size set): the tab's height per breakpoint and its width cap. */
+export const BADGE_LOGO = { height: { desktop: 140, mobile: 76 }, maxWidth: 260 } as const;
+
 /**
  * Inline style + class for the logo <img>.
+ * - Logo badge design: the whole logo hangs from the top of the bar in a tall tab (object-fit:
+ *   contain, never cropped). Height / width sliders size the tab when set.
  * - Legacy (no size set): exactly the original style (max-width + fixed max-height, intrinsic size).
  *   The Editorial header style instead gets an oversized logo (class sf-logo-lg, per-breakpoint limits).
  * - Sized: an exact width per breakpoint (the slider really drives the size, small files scale up),
@@ -52,6 +57,15 @@ export function logoImageProps(
   h: LogoFields,
   opts: { aspectRatio?: string; legacyMaxHeight: number; positions: { desktop: DesktopLogoPos; mobile: MobileLogoPos }; headerStyle?: HeaderStyle },
 ): { className: string; style: CSSProperties } {
+  if (opts.headerStyle === "logo-badge") {
+    const vars = {
+      "--sf-badge-h": `${h.logoHeight || BADGE_LOGO.height.desktop}px`,
+      "--sf-badge-h-m": `${h.logoHeightMobile || BADGE_LOGO.height.mobile}px`,
+      "--sf-badge-w": `${h.logoWidth || BADGE_LOGO.maxWidth}px`,
+    } as CSSProperties;
+    const bg = h.logoBadgeBg ?? "none";
+    return { className: bg === "none" ? "sf-logo-badge" : `sf-logo-badge sf-logo-badge-${bg}`, style: { ...vars, aspectRatio: bg === "none" ? opts.aspectRatio : undefined } };
+  }
   if (!hasCustomLogoSize(h)) {
     if (opts.headerStyle === "editorial") {
       const vars = {
