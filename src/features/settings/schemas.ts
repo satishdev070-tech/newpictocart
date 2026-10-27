@@ -9,16 +9,19 @@ import { SITE_MODES } from "@/features/stores/site-mode";
 
 const blankToUndef = (v: unknown) => (typeof v === "string" && v.trim() === "" ? undefined : v);
 
-const optionalPhone = z.preprocess(
-  blankToUndef,
-  z
-    .string()
-    .trim()
-    .transform((v) => v.replace(/[\s()-]/g, ""))
-    .pipe(z.string().regex(/^(?:\+91|91|0)?[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"))
-    .transform((v) => `+91${v.slice(-10)}`)
-    .optional(),
-);
+const indianMobile = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/[\s()-]/g, ""))
+  .pipe(z.string().regex(/^(?:\+91|91|0)?[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"))
+  .transform((v) => `+91${v.slice(-10)}`);
+
+const optionalPhone = z.preprocess(blankToUndef, indianMobile.optional());
+
+/** The store's WhatsApp number on its own (site builder → Embed apps → WhatsApp chat button). */
+export const whatsappNumberSchema = z.object({
+  whatsapp: z.string({ error: "Enter your WhatsApp number" }).trim().min(1, "Enter your WhatsApp number").pipe(indianMobile),
+});
 
 export const storeDetailsSchema = z.object({
   name: z.string({ error: "Enter your store name" }).trim().min(2, "Enter your store name").max(120),

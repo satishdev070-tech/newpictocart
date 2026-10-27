@@ -55,7 +55,7 @@ export function readSocialLinks(value: unknown): SocialLink[] {
 export function whatsappUrl(phone: string | null | undefined): string | null {
   if (!phone) return null;
   const digits = phone.replace(/\D/g, "");
-  const national = digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits.length === 10 ? digits : null;
+  const national = digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits.length === 11 && digits.startsWith("0") ? digits.slice(1) : digits.length === 10 ? digits : null;
   return national && /^[6-9]\d{9}$/.test(national) ? `https://wa.me/91${national}` : null;
 }
 

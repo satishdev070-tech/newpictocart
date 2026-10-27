@@ -16,7 +16,7 @@ import { mapDbError } from "@/lib/supabase/errors";
 import { audit } from "@/lib/audit";
 import { revalidateStorefront } from "@/lib/cache/storefront";
 import type { Json } from "@/lib/supabase/database.types";
-import { seoSettingsSchema, codSettingsSchema, notificationTemplateSchema, pincodeRuleSchema, shippingRateSchema, siteModeSchema, storeDetailsSchema } from "./schemas";
+import { seoSettingsSchema, codSettingsSchema, notificationTemplateSchema, pincodeRuleSchema, shippingRateSchema, siteModeSchema, storeDetailsSchema, whatsappNumberSchema } from "./schemas";
 import { minorToDb } from "./fields";
 
 async function settingsCtx(perm: "settings.write" | "payments.manage" = "settings.write") {
@@ -64,6 +64,19 @@ export async function saveStoreDetailsAction(_prev: ActionResult | null, fd: For
   });
   if (result.ok) refresh();
   return result;
+}
+
+/** Set only the store's WhatsApp number (site builder → Embed apps), so the chat button can show. */
+export async function saveWhatsappNumberAction(input: { whatsapp: string }): Promise<ActionResult<{ whatsapp: string }>> {
+  return runAction("settings.whatsapp", async () => {
+    const ctx = await settingsCtx();
+    const v = parseInput(whatsappNumberSchema, input);
+    const { error } = await (await createSupabaseServerClient()).from("stores").update({ whatsapp: v.whatsapp }).eq("tenant_id", ctx.tenantId);
+    if (error) throw mapDbError(error);
+    await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "settings.store_updated", entityType: "store", entityId: ctx.tenantId, metadata: { field: "whatsapp" } });
+    revalidateStorefront(ctx.tenantId);
+    return { whatsapp: v.whatsapp };
+  });
 }
 
 /** Switch storefront purpose. Commerce data is retained and becomes available again if restored. */

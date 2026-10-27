@@ -2,7 +2,7 @@
 -- LOCAL / DEV SEED. Never run against production.
 -- Users (password for all: Paliya@12345):
 --   owner@aangan.test      owner of "Aangan Jaipur"   (aangan.localhost)
---   staff@aangan.test      staff of "Aangan Jaipur"
+--   staff@aangan.test      Sales Associate of "Aangan Jaipur"
 --   owner@rangrez.test     owner of "Rangrez Studio"  (rangrez.localhost)
 --   shopper@example.test   customer of Aangan
 --   admin@paliya.test      platform super_admin
@@ -62,7 +62,7 @@ on conflict do nothing;
 
 insert into public.tenant_memberships (tenant_id, user_id, role) values
   ('10000000-0000-4000-a000-00000000000a', '00000000-0000-4000-a000-000000000001', 'owner'),
-  ('10000000-0000-4000-a000-00000000000a', '00000000-0000-4000-a000-000000000002', 'staff'),
+  ('10000000-0000-4000-a000-00000000000a', '00000000-0000-4000-a000-000000000002', 'sales_associate'),
   ('10000000-0000-4000-a000-00000000000b', '00000000-0000-4000-a000-000000000003', 'owner')
 on conflict do nothing;
 

@@ -104,3 +104,37 @@ describe("builderPages / pageForPath", () => {
     expect(pageForPath(pages, "/nowhere")).toBeNull();
   });
 });
+
+describe("contact page merge", () => {
+  const CONTACT_ID = "22222222-2222-4222-8222-222222222222";
+  const src: PageSources = { ...SOURCES, contentPages: [...SOURCES.contentPages, { id: CONTACT_ID, title: "Contact", slug: "contact", kind: "contact" }] };
+
+  it("lists the store's Contact content page and the built-in Contact as one row", () => {
+    const pages = builderPages(DEFAULT_THEME_CONFIG, src).filter((p) => p.group === "pages");
+    expect(pages.filter((p) => /contact/i.test(p.label))).toHaveLength(1);
+    const row = pages.find((p) => p.key === "contact")!;
+    expect(row).toMatchObject({ label: "Contact", path: "/contact", contentPageId: CONTACT_ID, altPath: "/pages/contact", settingsHref: `/dashboard/content/pages/${CONTACT_ID}` });
+    expect(pages.some((p) => p.key === `content:${CONTACT_ID}`)).toBe(false);
+  });
+
+  it("uses the renamed built-in title and opens the row from either address", () => {
+    const config: ThemeConfig = { ...DEFAULT_THEME_CONFIG, builtinTitles: { ...DEFAULT_THEME_CONFIG.builtinTitles, contact: "Contacts" } };
+    const pages = builderPages(config, src);
+    expect(pages.find((p) => p.key === "contact")!.label).toBe("Contacts");
+    expect(pageForPath(pages, "/pages/contact")?.key).toBe("contact");
+    expect(pageForPath(pages, "/contact")?.key).toBe("contact");
+  });
+
+  it("falls back to a page of kind contact and keeps the built-in row alone without one", () => {
+    const other = builderPages(DEFAULT_THEME_CONFIG, { ...SOURCES, contentPages: [{ id: CONTACT_ID, title: "Reach us", slug: "reach-us", kind: "contact" }] });
+    expect(other.find((p) => p.key === "contact")).toMatchObject({ label: "Reach us", altPath: "/pages/reach-us" });
+    const none = builderPages(DEFAULT_THEME_CONFIG, SOURCES).find((p) => p.key === "contact")!;
+    expect(none.contentPageId).toBeUndefined();
+    expect(none.label).toBe("Contact");
+  });
+
+  it("adds the address to rows that would otherwise show the same name", () => {
+    const dup = builderPages(DEFAULT_THEME_CONFIG, { ...SOURCES, contentPages: [{ id: CONTACT_ID, title: "FAQ", slug: "faq-old" }] });
+    expect(dup.filter((p) => p.group === "pages").map((p) => p.label)).toEqual(expect.arrayContaining(["FAQ (/pages/faq-old)", "FAQ (/faq)"]));
+  });
+});

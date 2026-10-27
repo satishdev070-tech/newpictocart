@@ -1,17 +1,14 @@
 # Implementation Status
 
-_Last updated: 2026-10-27 (QA 5–6: checkout name validation, coupons & offers) · 2026-10-26 (theme editor reliability)_
+_Last updated: 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
 
-## QA 5–6: checkout name, coupons at checkout, "View offers" (2026-10-27)
+## Team roles: Store Admin (Owner) / Manager / Sales Associate (2026-10-27, QA #2 #3)
 
-- **Name validation (QA 5):** one shared rule `personName` (`lib/validation/common.ts`) used by the checkout/address schema on the server and by the checkout form's inline error (on blur, then while fixing): Unicode letters in any script (Devanagari, Tamil, Bengali… incl. vowel signs, ZWJ/ZWNJ), spaces and `. ' -` only, 2–80 chars, trimmed and whitespace-collapsed. Numbers and symbols get a clear message.
-- **Name prefill / saved:** Google sign-in names are read from the identity (`full_name` / `name` / `given_name`+`family_name`, or `display_name`; `customer-account/names.ts`) when the customer row is created or a guest row is linked, and `withIdentityName` backfills customers linked before this. Checkout prefills the saved address name, else the customer's name. The name is stored on the customer on first checkout (signed in, and guests whose row has no name yet); "Save this address" is pre-ticked when the shopper has no saved address, so the address name is kept for next time.
-- **Coupons (QA 6):** coupon field + **View offers** at checkout as well as the cart (`cart/components/coupon-panel.tsx`, button-driven so it can sit inside the checkout form; Enter applies the code, never places the order). Apply/remove go through the existing server actions; the checkout re-quotes and the order total is still re-priced on the server in `placeOrder` (`quoteCart`), so client totals are never trusted.
-- **View offers:** sellers tick *Show in the store's offers* on a code discount (new `discounts.show_in_offers`, default off so existing private codes stay private; on by default for new codes in the form). Cart/checkout list public, active, in-window, not-exhausted codes that target something in the bag: applicable ones first with "You save ₹X" (priced by the same engine), then locked ones with "Add ₹X more"; one tap applies. The product page shows an **Offers available** block for codes that apply to that product (store-wide, the product, or one of its collections) with Copy code.
-- **Migration (NOT applied to the live project; owner approval needed):** `20261027004110_discount_offers.sql` adds `show_in_offers` and updates `save_discount`. Seed: WELCOME10 + FLAT300 public, STAFF25 private.
-- Tests: `tests/unit/checkout/person-name.test.ts`, `tests/unit/checkout/offers.test.ts`.
-
+- **Three standard roles** instead of twelve: **Store Admin (Owner)** (the registering merchant, all access, can't be removed or changed by others), **Manager** (everything except billing; manages the team and roles but can't touch the owner) and **Sales Associate** (orders incl. cancel, customers, products view/edit, inventory; no settings, payments, domains, team, refunds, publish or delete). Invite and role pickers list only Manager, Sales Associate and the store's own custom roles; default is Sales Associate.
+- **Migration `20261027004150_team_roles.sql`** (⏳ not yet applied to the hosted project): maps existing members and invitations (Store Admin, Store Manager, Catalog/Order/Inventory/Marketing/Content Manager → Manager; Analyst, Support Agent, Staff, Viewer → Sales Associate), reseeds `role_permissions`, tightens the role CHECK constraints, moves platform support sessions to the internal read-only `support_viewer` set, and reorders `list_tenant_members`. Seed user `staff@aangan.test` is now a Sales Associate.
+- **Team page:** change role per member (Save role), deactivate/reactivate, remove (confirmed), resend / cancel invite (confirmed), plus a Roles card explaining each role. Custom roles (create / edit / delete) stay under Settings → Roles & permissions. All actions keep the `members.manage` / `roles.manage` server checks and DB escalation guards.
+- **Verification:** unit tests for the matrix, SQL ↔ matrix seed and CHECK lists, role choice; `pnpm test:db` (24 files / 181 tests) ✅ on Postgres 17, including new manager/sales-associate/owner-protection/retired-role tests; migration checked on a DB with all 12 old roles (7 → Manager, 4 → Sales Associate, owner untouched).
 
 ## Header layouts, Logo badge design, fit-to-logo crop (2026-10-26)
 
@@ -503,7 +500,7 @@ Since migration 1800, compare snapshots with `SNAPSHOT_IGNORE_COLUMNS=tenants.st
 | App shell (seller + console): collapsible sidebar, breadcrumbs, ⌘K, notifications, account menu | ✅ built, ⏳ visual QA | UI_UX_REDESIGN_AUDIT.md |
 | Auth redesign: staff, merchant login/register/forgot, customer login/register/forgot | ✅ built + screenshotted | UI_UX_REDESIGN_AUDIT.md |
 | Super admin dashboard (8 KPIs, GMV trend, plans, activity) | ✅ built, ⏳ needs migration 1400 | UI_UX_REDESIGN_AUDIT.md |
-| RBAC: 27 permissions, 12 system roles, custom roles, escalation guards, Team + Roles UI | ✅ built, 8 DB tests, ⏳ needs migration 1200 | RBAC_AUDIT.md |
+| RBAC: 27 permissions, 3 system roles (12 until 2026-10-27), custom roles, escalation guards, Team + Roles UI | ✅ built, 8 DB tests, ⏳ needs migration 1200 | RBAC_AUDIT.md |
 | Media library + picker (drag & drop, progress, cancel/retry, replace, usage, alt text) | ✅ built, 3 DB + 4 unit tests, ⏳ needs migration 1300 | MEDIA_LIBRARY_AUDIT.md |
 | 10 unique demo stores (data, art, themes, owners) | ✅ generator written, ⏳ not yet run on the cloud DB | MULTI_STORE_AUDIT.md |
 | Customer account overview | ✅ built + screenshotted | |
@@ -1043,3 +1040,21 @@ above and in `docs/THEME_BUILDER.md`):
     listed. Now relayed through the platform (`/auth/store-google` → Google → `/auth/store-google/callback` → single-use token →
     the store's `/account/auth/callback`), which links the existing customer profile by email (or creates one) and opens
     `/account`. `features/customer-account/server/google-relay.ts`; only stores we serve are accepted as return hosts.
+
+## QA item 4: size charts by category, product override, PDP dialog (2026-10-27, branch `claude/qa-size-chart-cf9da4`)
+
+Tester: a size chart could be created but not attached to products and never showed on the storefront.
+Causes: the product editor only offered the chart picker for clothing/sized product types, the PDP link only
+appeared next to an option literally named "Size", and categories had no chart at all.
+
+- Migration `20261027004100_category_size_charts.sql`: `categories.size_chart_id` (tenant-scoped FK, set null on delete).
+- Size charts page: "Apply to categories" checkboxes (saved with the chart; unticked categories lose it). Category form: "Size chart" select.
+- Product editor: picker shown for every product once the store has a chart: Category default (shows the inherited chart) / a specific chart / No size chart.
+  "No size chart" is stored as `products.attributes._size_chart = "none"` (internal `_` key), so `save_product` is unchanged.
+- Storefront (`getProductBySlug`): product's own chart → nearest chart on its category or a parent category → none
+  (`resolveSizeChartId` in `src/features/catalog/size-chart.ts`, unit tests in `tests/unit/catalog/size-chart.test.ts`).
+  Only active categories are visible to the storefront (RLS), so a hidden parent category does not pass its chart down.
+- PDP: "Size chart" link by the Size option (or under the options when the product has none) opens a centred native
+  `<dialog>` (`size-chart-dialog.tsx`) with the table, unit and note; closes on Esc, Close or backdrop. The chart model has no image field.
+- Verified on the local seeded store (:3302): created a chart and ticked Sarees → saree PDP shows it; product set to
+  "No size chart" → hidden; kurta with its own chart → own chart; dupatta (no chart) → no link; mobile dialog checked.

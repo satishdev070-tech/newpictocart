@@ -1,5 +1,5 @@
 /** Pure social-planner helpers (unit tested). No lunar festival dates: those vary yearly and need a calendar source. */
-import type { ContentPillar } from "./compose";
+import { isAutoPlatform, type Channel, type ContentPillar } from "./compose";
 import type { MarketingDate } from "./planner-types";
 
 const IST_OFFSET_MS = 330 * 60_000;
@@ -74,3 +74,10 @@ export function buildUtmLink(origin: string, slug: string, campaign = "planner")
   url.searchParams.set("utm_campaign", campaign);
   return url.toString();
 }
+
+export type ManualPost = { id: string; caption: string; hashtags: string[]; linkUrl: string | null; channels: Channel[]; manualDone: Channel[]; at: string | null };
+
+/** Channels posted by hand (not auto-published). Server-safe: server pages call it, so it can't live in a client module. */
+export const manualChannels = (p: Pick<ManualPost, "channels">) => p.channels.filter((c) => !isAutoPlatform(c));
+/** Due = has a time within the next hour (or past) and a planned channel not yet marked posted. */
+export const isManualDue = (p: Pick<ManualPost, "channels" | "manualDone" | "at">, now = Date.now()) => !!p.at && Date.parse(p.at) <= now + 3600_000 && manualChannels(p).some((c) => !p.manualDone.includes(c));

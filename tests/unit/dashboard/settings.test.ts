@@ -107,3 +107,21 @@ describe("misc helpers", () => {
     expect(addressLines(null)).toEqual([]);
   });
 });
+
+describe("WhatsApp number (site builder → Embed apps)", () => {
+  it("normalises an Indian mobile and rejects empty or invalid numbers", async () => {
+    const { whatsappNumberSchema } = await import("@/features/settings/schemas");
+    expect(whatsappNumberSchema.parse({ whatsapp: "098765 43210" })).toEqual({ whatsapp: "+919876543210" });
+    expect(whatsappNumberSchema.parse({ whatsapp: "+91 98765-43210" })).toEqual({ whatsapp: "+919876543210" });
+    expect(whatsappNumberSchema.safeParse({ whatsapp: "" }).success).toBe(false);
+    expect(whatsappNumberSchema.safeParse({ whatsapp: "12345" }).success).toBe(false);
+  });
+
+  it("builds the chat link the storefront button uses, also from a leading 0", async () => {
+    const { whatsappUrl } = await import("@/features/storefront/store-profile");
+    expect(whatsappUrl("+91 98765 43210")).toBe("https://wa.me/919876543210");
+    expect(whatsappUrl("09876543210")).toBe("https://wa.me/919876543210");
+    expect(whatsappUrl("0141 2345678")).toBeNull();
+    expect(whatsappUrl(null)).toBeNull();
+  });
+});

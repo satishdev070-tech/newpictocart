@@ -33,6 +33,7 @@ export function ProductEditor({
   initial,
   categories,
   sizeCharts,
+  categorySizeCharts = {},
   collections,
   initialCollectionIds,
   canWriteInventory,
@@ -44,6 +45,8 @@ export function ProductEditor({
   initial: ProductDraft;
   categories: Opt[];
   sizeCharts: Opt[];
+  /** Category id → inherited size chart id (for the "Category default" choice). */
+  categorySizeCharts?: Record<string, string>;
   collections: Opt[];
   initialCollectionIds: string[];
   canWriteInventory: boolean;
@@ -69,7 +72,9 @@ export function ProductEditor({
   // Clothing fields show for clothing types, and for any product that already has values in them.
   const a = d.attributes;
   const showFashion = tpl.fashion || Boolean(a.fabric || a.style || a.length || a.work || a.pattern || a.occasion.length);
-  const showSizeChart = tpl.sizes || tpl.fashion || Boolean(d.sizeChartId);
+  // Any product can use a size chart once the store has one (not only clothing types).
+  const showSizeChart = sizeCharts.length > 0 || Boolean(d.sizeChartId);
+  const inheritedChart = d.categoryId ? sizeCharts.find((c) => c.id === categorySizeCharts[d.categoryId!]) : undefined;
   const optionNames = tpl.sizes || tpl.fashion ? ["Size", "Colour", "Fabric"] : ["Colour", "Size", "Material"];
   const createType = () => {
     const label = (newType ?? "").trim();
@@ -572,13 +577,19 @@ export function ProductEditor({
               {showSizeChart ? (
                 <div>
                   <L htmlFor="p-chart">Size chart</L>
-                  <select id="p-chart" className={input} value={d.sizeChartId ?? ""} onChange={(e) => set({ sizeChartId: e.target.value || null })}>
-                    <option value="">None</option>
+                  <select
+                    id="p-chart"
+                    className={input}
+                    value={d.hideSizeChart ? "none" : (d.sizeChartId ?? "")}
+                    onChange={(e) => set(e.target.value === "none" ? { sizeChartId: null, hideSizeChart: true } : { sizeChartId: e.target.value || null, hideSizeChart: false })}
+                  >
+                    <option value="">Category default{inheritedChart ? ` (${inheritedChart.label})` : " (none)"}</option>
                     {sizeCharts.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.label}
                       </option>
                     ))}
+                    <option value="none">No size chart</option>
                   </select>
                 </div>
               ) : null}

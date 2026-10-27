@@ -27,10 +27,14 @@ because RLS policies across 66 tables already use them. Labels and descriptions 
 | `members.read` | `list_tenant_members` RPC |
 | `roles.manage` | RLS on `tenant_custom_roles` |
 
-### System roles (12)
+### System roles (3, since 2026-10-27)
 
-Store Owner · Store Admin · Store Manager · Catalog Manager · Order Manager · Inventory Manager · Marketing Manager · Content Manager ·
-Analyst · Support Agent · Staff (legacy) · Viewer (legacy). The matrix lives in `lib/permissions/matrix.ts` and the SQL seed must match it
+**Store Admin (Owner)** (`owner`: everything, the merchant who registered the store) · **Manager** (`manager`: everything except
+`billing.manage`; cannot touch the owner) · **Sales Associate** (`sales_associate`: orders read/write/cancel, customers, products
+view/edit, inventory; no settings, payments, domains, team, refunds, publish or delete). Migration `20261027004150_team_roles.sql`
+mapped the old roles: Store Admin, Store Manager, Catalog/Order/Inventory/Marketing/Content Manager → Manager; Analyst, Support Agent,
+Staff, Viewer → Sales Associate. Platform support sessions use the internal read-only `support_viewer` row of `role_permissions`
+(`SUPPORT_SESSION_PERMISSIONS`), never assignable to a member. The matrix lives in `lib/permissions/matrix.ts` and the SQL seed must match it
 (`tests/unit/permissions-sql.test.ts`). **Store Owner never has platform permissions**: platform access comes only from `platform_memberships`.
 
 ### Custom roles

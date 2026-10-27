@@ -66,7 +66,7 @@ describe("role permissions inside a tenant", () => {
     expect(ok).toHaveLength(1);
     const settings = await as(aStaff, (q) => q("update stores set name = 'x' where tenant_id = $1 returning tenant_id", [TENANTS.aangan]));
     expect(settings).toHaveLength(0);
-    const members = await as(aStaff, (q) => q("update tenant_memberships set role = 'admin' where user_id = $1 returning id", [USERS.aanganStaff]));
+    const members = await as(aStaff, (q) => q("update tenant_memberships set role = 'manager' where user_id = $1 returning id", [USERS.aanganStaff]));
     expect(members).toHaveLength(0);
     await rejects(as(aStaff, (q) => q("select public.publish_theme($1)", [TENANTS.aangan])), /not allowed/);
   });

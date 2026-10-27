@@ -4,6 +4,7 @@ import { listSizeCharts } from "@/features/catalog/server/size-charts";
 import { listManualCollections } from "@/features/catalog/server/collections";
 import { getTenantTypeCatalogue } from "@/features/catalog/server/product-types";
 import { categoryLabel } from "@/features/catalog/category-tree";
+import { categorySizeChartId } from "@/features/catalog/size-chart";
 import { industryShort } from "@/features/stores/industries";
 
 /** Picker options shared by the new/edit product pages. */
@@ -12,6 +13,11 @@ export async function productEditorOptions(tenantId: string) {
   return {
     categories: categories.map((c) => ({ id: c.id, label: categoryLabel(c) })),
     sizeCharts: charts.map((c) => ({ id: c.id, label: c.name })),
+    /** Category id → the chart its products inherit (own or a parent's). */
+    categorySizeCharts: Object.fromEntries(categories.flatMap((c) => {
+      const chart = categorySizeChartId(categories, c.id);
+      return chart ? [[c.id, chart]] : [];
+    })) as Record<string, string>,
     collections: collections.map((c) => ({ id: c.id, label: c.title })),
     types: catalogue.types,
     industry: catalogue.industry,

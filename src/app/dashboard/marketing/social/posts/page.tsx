@@ -11,7 +11,7 @@ import { listCampaigns, listPosts } from "@/features/social/server/planner";
 import { ALL_CHANNELS, CHANNEL_LABELS, PILLAR_LABELS, type Channel, type PlatformResult, type PostStatus, type SocialPlatform } from "@/features/social/compose";
 import { ChannelChip, STATUS_LABEL, STATUS_TONE } from "@/features/social/components/channels";
 import { PostActions } from "@/features/social/components/social-ui";
-import { isManualDue } from "@/features/social/components/manual-panel";
+import { isManualDue } from "@/features/social/planner";
 import { PlanNotice, loadSocialBase } from "../_lib/data";
 
 export const metadata: Metadata = { title: "Social posts" };

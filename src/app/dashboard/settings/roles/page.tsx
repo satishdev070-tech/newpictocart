@@ -107,7 +107,7 @@ export default async function RolesPage({ searchParams }: PageProps<"/dashboard/
             ))}
           </ul>
         </div>
-        <p className="text-caption text-muted">Standard roles can&apos;t be edited. Store Owner permissions never include platform administration.</p>
+        <p className="text-caption text-muted">Standard roles can&apos;t be edited. The Store Admin (Owner) role can&apos;t be given out; it belongs to the merchant who registered the store.</p>
       </section>
     </div>
   );

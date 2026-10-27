@@ -33,6 +33,7 @@ import { formatMoney } from "@/lib/money";
 import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
 import { getStoreConfiguration } from "@/features/platform/server/store-config";
 import { PROVIDERS } from "@/features/integrations/registry";
+import { roleLabel } from "@/lib/permissions/labels";
 
 export const metadata: Metadata = { title: "Store" };
 const TONE = { trial: "accent", active: "success", suspended: "error", cancelled: "neutral" } as const;
@@ -298,7 +299,7 @@ export default async function TenantDetailPage({ params, searchParams }: PagePro
                   {m.displayName ?? "—"}
                   <p className="text-xs text-muted">{m.email ?? "—"}</p>
                 </td>
-                <td className={`${td} capitalize`}>{m.role}</td>
+                <td className={td}>{roleLabel(m.role)}</td>
                 <td className={td}>{m.status}</td>
                 <td className={td}>{formatDate(m.createdAt)}</td>
                 {manage ? <td className={td}>{m.email && m.status === "active" ? <MemberAccessActions tenantId={id} userId={m.userId} email={m.email} superAdmin={superAdmin} canManage={manage} /> : <span className="text-xs text-muted">—</span>}</td> : null}

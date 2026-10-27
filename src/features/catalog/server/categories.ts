@@ -18,6 +18,7 @@ export type CategoryRow = {
   position: number;
   imagePath: string | null;
   imageUrl: string | null;
+  sizeChartId: string | null;
   seoTitle: string;
   seoDescription: string;
   productCount: number;
@@ -31,7 +32,7 @@ export async function listCategories(tenantId: string, opts: { withCounts?: bool
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("categories")
-    .select("id, parent_id, name, slug, description, status, position, image_path, seo")
+    .select("id, parent_id, name, slug, description, status, position, image_path, seo, size_chart_id")
     .eq("tenant_id", tenantId)
     .order("position")
     .limit(2000);
@@ -54,6 +55,7 @@ export async function listCategories(tenantId: string, opts: { withCounts?: bool
       position: c.position,
       imagePath: c.image_path,
       imageUrl: assetUrl(c.image_path),
+      sizeChartId: c.size_chart_id,
       seoTitle: s(seo.title),
       seoDescription: s(seo.description),
       productCount: counts.get(c.id) ?? 0,
@@ -84,6 +86,7 @@ export async function saveCategory(tenantId: string, input: CategoryInput, image
     status: input.status,
     position: input.position,
     seo,
+    size_chart_id: input.sizeChartId,
     // undefined = keep; null = remove; string = new upload
     ...(imagePath !== undefined ? { image_path: imagePath } : {}),
   };
