@@ -4,14 +4,17 @@ import { AI_FEATURES, ROUTABLE_FEATURE_KEYS, findFeature } from "@/features/ai-h
 import { aiHealthTab, featureRouteSchema, modelPriceSchema, testModelSchema, tokenCostMinor } from "@/features/ai-health/schemas";
 
 const SCHEMAS = readFileSync(new URL("../../../src/features/neural-pulse/schemas.ts", import.meta.url), "utf8");
-const MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261025003900_ai_economy.sql", import.meta.url), "utf8");
+const MIGRATION = [
+  readFileSync(new URL("../../../supabase/migrations/20261025003900_ai_economy.sql", import.meta.url), "utf8"),
+  readFileSync(new URL("../../../supabase/migrations/20261028004200_seller_ai_blog_contact.sql", import.meta.url), "utf8"),
+].join("\n");
 
 describe("AI feature registry", () => {
   it("lists every Neural Pulse GenerationKind plus the section, seed and voice features", () => {
     const kinds = /export type GenerationKind = ([^;]+);/.exec(SCHEMAS)?.[1]?.match(/"([a-z_]+)"/g)?.map((k) => k.slice(1, -1)) ?? [];
     expect(kinds.length).toBeGreaterThan(5);
     for (const k of kinds) expect(findFeature(k), k).toBeDefined();
-    for (const k of ["section", "onboarding_seed", "voice_onboarding", "theme_builder"]) expect(findFeature(k), k).toBeDefined();
+    for (const k of ["section", "onboarding_seed", "voice_onboarding", "theme_builder", "generate_blog", "draft_contact_reply"]) expect(findFeature(k), k).toBeDefined();
     expect(new Set(AI_FEATURES.map((f) => f.key)).size).toBe(AI_FEATURES.length);
   });
 
@@ -19,6 +22,8 @@ describe("AI feature registry", () => {
     expect(findFeature("onboarding_seed")?.routable).toBe(false);
     expect(findFeature("voice_onboarding")?.routable).toBe(false);
     expect(ROUTABLE_FEATURE_KEYS).toContain("section");
+    expect(ROUTABLE_FEATURE_KEYS).toContain("generate_blog");
+    expect(ROUTABLE_FEATURE_KEYS).toContain("draft_contact_reply");
     for (const k of ROUTABLE_FEATURE_KEYS) expect(k).toMatch(/^[a-z_]{2,60}$/);
   });
 
@@ -26,6 +31,7 @@ describe("AI feature registry", () => {
     for (const f of AI_FEATURES) if (f.creditKind) expect(MIGRATION, f.creditKind).toContain(`('${f.creditKind}',`);
   });
 });
+
 
 describe("AI health schemas", () => {
   it("parses a route form and blanks optional models", () => {

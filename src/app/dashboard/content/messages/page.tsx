@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/states";
 import { formatDateTime } from "@/features/analytics/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mapDbError } from "@/lib/supabase/errors";
+import { ContactReplyDraft } from "@/features/seller-ai/components/contact-reply-draft";
 
 export const metadata: Metadata = { title: "Messages" };
 
@@ -42,6 +43,7 @@ export default async function MessagesPage() {
                 {row.phone ? <span> · {row.phone}</span> : null}
               </p>
               <p className="mt-3 whitespace-pre-wrap break-words text-sm">{row.message}</p>
+              <ContactReplyDraft messageId={row.id} />
             </li>
           ))}
         </ul>

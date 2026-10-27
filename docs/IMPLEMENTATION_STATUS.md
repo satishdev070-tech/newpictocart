@@ -1,7 +1,16 @@
 # Implementation Status
 
-_Last updated: 2026-10-27 (seller/admin Phase 1 speed) · 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-27 (seller AI Phase 2: blog + contact) · 2026-10-27 (seller/admin Phase 1 speed) · 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
+
+## Seller AI Phase 2 — blog AI Write + contact reply drafts (2026-10-27)
+
+- **Edge Functions:** `supabase/functions/generate-blog`, `generate-contact-reply` (+ `_shared` auth/LLM). Invoked only from the Next server with the secret key Bearer (optional `AI_EDGE_INVOKE_SECRET`).
+- **Credits:** migration `20261028004200_seller_ai_blog_contact.sql` seeds `generate_blog` (2) and `draft_contact_reply` (1); widens `ai_generations.kind`. Debit before invoke; refund on failure (`runChargedSellerAiEdge`). Local fallback to in-process LLM when the edge is unreachable.
+- **UI:** Blog editor **AI Write** card; Content → Messages **Draft reply** (copyable, not sent). Permission: `content.write` via membership tenant.
+- **Registry:** Admin → AI health lists both features as routable.
+- **Phase 1 product-generate:** reuse `invokeSellerAi` + `runChargedSellerAiEdge` with kind `generate_product` / function `generate-product` (same debit → edge → refund → log pattern).
+- **Verification:** `pnpm check` (see commit). Branch `cursor/seller-ai-blog-contact-c73e`.
 
 ## Seller / admin Phase 1 speed (2026-10-27)
 

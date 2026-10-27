@@ -52,6 +52,8 @@ Inbound `x-paliya-host` headers from clients are stripped.
 
 **Addition (2026-10-25, Super Admin port):** after a `platform.users.manage` check, `features/platform-users/server.ts` uses the secret-key client to (1) create a confirmed account (Admin → Users → Add user; optional password, otherwise an emailed one-time set-password link), (2) generate a recovery link for a non-staff account, and (3) ban or unban sign-in (`ban_duration`) with `profiles.status`. After a `platform.partners.manage` check, "Create partner directly" creates the partner's auth account the same way. Platform staff accounts and the acting admin are never targeted; every write is audited. All directory reads go through SECURITY DEFINER SQL (`platform_user_directory`, `platform_user_stats`, `platform_user_detail`), not the secret key.
 
+**Addition (2026-10-27, seller AI Edge Functions):** after a dashboard membership + `content.write` check, `features/seller-ai` debits AI credits then invokes Supabase Edge Functions (`generate-blog`, `generate-contact-reply`) with the secret key Bearer (optional `AI_EDGE_INVOKE_SECRET`). Ephemeral provider API keys from Admin → Social apps are passed only in that server→edge request body; browsers cannot call the functions usefully. Failures refund the debit. `ai_generations` logging still uses the secret-key client.
+
 ## ADR-007 — Edge → origin trust via HMAC-signed host · Accepted
 The Worker forwards the original hostname with `x-paliya-edge-{host,ts,sig}` where `sig = HMAC-SHA256(EDGE_SHARED_SECRET, host + "\n" + ts)`.
 The proxy accepts it only if the signature is valid and ≤ 300 s old; otherwise it falls back to the literal Host header. Anyone hitting the origin directly cannot claim a tenant host.
