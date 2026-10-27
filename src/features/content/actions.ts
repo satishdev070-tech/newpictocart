@@ -108,6 +108,18 @@ export async function saveDocumentAction(_prev: ActionResult<{ id: string }> | n
   return result;
 }
 
+/** Rename a content page (site builder → Pages → Rename on the merged Contact row). Title only; the address stays. */
+export async function renameContentPageAction(input: { id: string; title: string }): Promise<ActionResult> {
+  return runAction("content.rename", async () => {
+    const ctx = await writer();
+    const v = parseInput(z.object({ id: z.uuid(), title: z.string().trim().min(1, "Enter a title").max(160) }), input);
+    const { data, error } = await (await createSupabaseServerClient()).from("pages").update({ title: v.title }).eq("id", v.id).eq("tenant_id", ctx.tenantId).select("id");
+    if (error) throw mapDbError(error);
+    if (!data?.length) throw new AppError("NOT_FOUND");
+    await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "content.page_saved", entityType: "pages", entityId: v.id, metadata: { renamed: true } });
+  });
+}
+
 export async function deleteDocumentAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   let back = "/dashboard/content/pages";
   const result = await runAction("content.delete", async () => {

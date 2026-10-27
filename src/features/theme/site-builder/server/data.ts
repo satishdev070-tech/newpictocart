@@ -23,7 +23,7 @@ export async function getBuilderData(ctx: TenantContext): Promise<BuilderData> {
   const [data, pickers, pages, product, collection, store, aiProviders] = await Promise.all([
     getThemeEditorData(tenantId),
     getEditorPickers(tenantId),
-    supabase.from("pages").select("id, title, slug").eq("tenant_id", tenantId).order("title").limit(100),
+    supabase.from("pages").select("id, title, slug, kind").eq("tenant_id", tenantId).order("title").limit(100),
     supabase.from("products").select("slug").eq("tenant_id", tenantId).eq("status", "active").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("collections").select("slug").eq("tenant_id", tenantId).order("position").limit(1).maybeSingle(),
     supabase.from("stores").select("name, whatsapp, site_mode").eq("tenant_id", tenantId).maybeSingle(),
@@ -42,7 +42,7 @@ export async function getBuilderData(ctx: TenantContext): Promise<BuilderData> {
     siteMode: parseSiteMode(store.data?.site_mode),
     dbMenus,
     pageSources: {
-      contentPages: (pages.data ?? []).map((p) => ({ id: p.id, title: p.title, slug: p.slug })),
+      contentPages: (pages.data ?? []).map((p) => ({ id: p.id, title: p.title, slug: p.slug, kind: p.kind })),
       sampleProductSlug: product.data?.slug ?? null,
       sampleCollectionSlug: collection.data?.slug ?? null,
       blog: true,

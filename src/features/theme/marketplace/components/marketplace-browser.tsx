@@ -68,6 +68,48 @@ function ThemeCardPreview({ theme }: { theme: MarketplaceCard }) {
   );
 }
 
+/** The store's live theme, shown above the catalogue in its own "Current theme" section. */
+export function CurrentThemeCard({ theme }: { theme: MarketplaceCard }) {
+  return (
+    <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-xs sm:flex-row">
+      <Link
+        href={`/dashboard/themes/${theme.key}`}
+        tabIndex={-1}
+        aria-hidden
+        className="block aspect-[9/10] shrink-0 overflow-hidden border-b border-border transition hover:opacity-95 sm:w-56 sm:border-r sm:border-b-0"
+        style={{ background: theme.preset.tokens.colors.background }}
+      >
+        <ThemeCardPreview theme={theme} />
+      </Link>
+      <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-h3 font-semibold">
+            <Link href={`/dashboard/themes/${theme.key}`} className="hover:underline">
+              {theme.name}
+            </Link>
+          </h3>
+          <span className="rounded-full bg-success/10 px-2 py-0.5 text-caption font-medium text-success">Live</span>
+        </div>
+        <p className="text-small text-muted">{theme.tagline}</p>
+        <div className="flex flex-wrap items-center gap-1.5 text-caption">
+          <span className="rounded-full bg-info/10 px-2 py-0.5 text-info">{themeSiteType(theme) === "informative" ? "Informative" : "Online store"}</span>
+          <span className="rounded-full bg-surface-secondary px-2 py-0.5">{theme.industryLabel}</span>
+          <span className="rounded-full border border-border px-2 py-0.5">{THEME_STYLE_LABELS[theme.style]}</span>
+        </div>
+        <div className="mt-auto flex flex-wrap items-center gap-2">
+          <Link href="/dashboard/theme" className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-small font-medium text-primary-foreground hover:bg-primary/90">
+            Customize
+          </Link>
+          <Link href={`/dashboard/themes/${theme.key}`} className="inline-flex h-8 items-center rounded-md border border-border px-3 text-small hover:bg-surface-secondary">
+            Details
+          </Link>
+          {theme.previewUrl ? <a href={theme.previewUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${theme.name} preview in a new tab`} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-small hover:bg-surface-secondary">Preview <ExternalLink className="size-3.5" aria-hidden /></a> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MarketplaceBrowser({
   themes,
   industries,

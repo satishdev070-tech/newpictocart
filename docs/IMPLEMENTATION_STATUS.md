@@ -1,7 +1,16 @@
 # Implementation Status
 
-_Last updated: 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-27 (QA sheet #7, #9, #11, #13, #14) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
+
+## QA sheet fixes #7, #9, #11, #13, #14 (2026-10-27)
+
+- **#7 Marketing → Social → Posts crashed** ("This page couldn't load") as soon as a store had any post. Cause: the server pages (Overview, Posts, post detail) called `isManualDue` / `manualChannels`, which lived in the `"use client"` module `manual-panel.tsx`; Next throws when a server component calls a client function. They now live in `features/social/planner.ts` (pure, unit tested). Empty and plan-less states were already fine.
+- **#9 Orders "Print all" not showing:** the order page button combined `bg-surface` with `bg-foreground text-background`; `bg-surface` won in the CSS order, so it was near-white text on white. It now uses `buttonClass`. The orders list gets a bulk bar for the selected orders (**Invoices**, Packing slips, Shipping labels, **Print all**) and a select-all checkbox.
+- **#11 Theme marketplace:** a **Current theme** section at the top (live theme card with Customize / Details / Preview; stores without a published marketplace theme get a note that they use the built-in Aangan theme), then **Other themes** (the catalogue without the live theme; counts match).
+- **#13 Pages & menu — Contact twice / rename:** new stores get a "Contact" content page (`/pages/contact`, kind contact) from onboarding, and the builder also lists the built-in Contact (`/contact`, which already shows that page's text with the form). Both were called "Contact". The builder now shows them as one Contact row (`contactContentPage()`; both addresses open it). Rename there sets the built-in heading and also renames the content page (`renameContentPageAction`, content.write), so the address the menu links to shows the new name too. Any other duplicate names in the list get their address added. The exact save error from the hosted store was **not reproduced** locally: renaming the built-in page, the content page and a site-builder page all saved.
+- **#14 WhatsApp button not showing:** the button needs `embeds.whatsapp.enabled` and a valid store number (`whatsappUrl`). The canvas already updated live (verified). The panel now uses the same check as the storefront: with no number, or one that isn't a valid Indian mobile, it shows a WhatsApp number field inline (`saveWhatsappNumberAction`, settings.write). Saving reloads the canvas. `whatsappUrl` also accepts a leading 0.
+- **Verification:** typecheck, lint (changed files), `pnpm test` (1,460 tests) ✅; `pnpm build` left to CI (machine low on memory). Browser-checked on the local stack (seeded Aangan owner): #7, #9, #13 (merged row + rename), #14 live toggle with a valid number. Unit-tested only: #11 layout (no published marketplace theme locally; only the "built-in theme" state was seen), the #14 inline number form, and the #13 content-page rename error path.
 
 ## Header layouts, Logo badge design, fit-to-logo crop (2026-10-26)
 

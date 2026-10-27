@@ -6,12 +6,14 @@ import { PageHeader, Table, td, th } from "@/components/ui/layout";
 import { SelectField, TextField } from "@/components/ui/field";
 import { Pagination } from "@/components/ui/pagination";
 import { EmptyState } from "@/components/ui/states";
+import { buttonClass } from "@/components/ui/button";
 import { FilterBar, queryString } from "@/features/settings/ui/filter-bar";
 import { getStoreProfile } from "@/features/settings/queries";
 import { ORDERS_PAGE_SIZE, queryOrders } from "@/features/orders-admin/queries";
 import { parseOrderFilters } from "@/features/orders-admin/schemas";
 import { FULFILLMENT_STATUSES, ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES, orderNumberLabel, statusLabel } from "@/features/orders-admin/format";
 import { StatusBadge } from "@/features/orders-admin/components/status-badge";
+import { SelectAllCheckbox } from "@/features/orders-admin/components/select-all";
 import { formatDateTime } from "@/features/analytics/dates";
 
 export const metadata: Metadata = { title: "Orders" };
@@ -71,21 +73,24 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
         <form action="/print/orders" method="get" target="_blank">
           <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
             <span className="text-muted">Print for selected orders:</span>
-            <button type="submit" name="docs" value="label" className="inline-flex h-8 items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-background">
-              Shipping labels
+            <button type="submit" name="docs" value="invoice" className={buttonClass({ variant: "secondary", size: "sm" })}>
+              Invoices
             </button>
-            <button type="submit" name="docs" value="slip" className="inline-flex h-8 items-center rounded-md border border-border bg-surface px-3 font-medium hover:bg-background">
+            <button type="submit" name="docs" value="slip" className={buttonClass({ variant: "secondary", size: "sm" })}>
               Packing slips
             </button>
-            <button type="submit" name="docs" value="invoice,slip,label,thanks" className="inline-flex h-8 items-center rounded-md bg-foreground px-3 font-medium text-background hover:bg-foreground/90">
-              All documents
+            <button type="submit" name="docs" value="label" className={buttonClass({ variant: "secondary", size: "sm" })}>
+              Shipping labels
+            </button>
+            <button type="submit" name="docs" value="invoice,slip,label,thanks" className={buttonClass({ size: "sm" })} title="Invoice, packing slip, shipping label and thank-you card">
+              Print all
             </button>
           </div>
           <Table caption="Orders">
             <thead>
               <tr>
                 <th scope="col" className={`${th} w-8`}>
-                  <span className="sr-only">Select</span>
+                  <SelectAllCheckbox name="ids" label="Select all orders on this page" />
                 </th>
                 <th scope="col" className={th}>
                   Order
