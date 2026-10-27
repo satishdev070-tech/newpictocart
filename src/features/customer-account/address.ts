@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { indianMobile, pincode } from "@/lib/validation/common";
+import { indianMobile, personName, pincode } from "@/lib/validation/common";
 
 /** States and union territories of India (shipping address state list). */
 export const INDIAN_STATES = [
@@ -45,7 +45,7 @@ const text = (max: number, label: string) => z.string().trim().min(1, `Enter ${l
 const optionalText = (max: number) => z.string().trim().max(max).optional();
 
 export const addressSchema = z.object({
-  name: text(120, "the recipient's name"),
+  name: personName,
   phone: indianMobile,
   line1: text(200, "the address"),
   line2: optionalText(200),

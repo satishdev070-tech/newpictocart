@@ -62,6 +62,7 @@ export type DiscountFormValue = {
   usageLimit: string;
   perCustomerLimit: string;
   enabled: boolean;
+  showInOffers: boolean;
   buyQuantity: string;
   getQuantity: string;
   getPercent: string;
@@ -138,6 +139,7 @@ export function DiscountForm({ value, products, collections }: { value: Discount
               <TextField label="Total uses" name="usageLimit" type="number" min={1} defaultValue={value.usageLimit} optional errors={e.usageLimit} />
               <TextField label="Uses per customer" name="perCustomerLimit" type="number" min={1} defaultValue={value.perCustomerLimit} optional errors={e.perCustomerLimit} />
               <CheckboxField label="Enabled" name="enabled" value="true" defaultChecked={value.enabled} />
+              {method === "code" ? <CheckboxField label="Show in the store's offers (cart, checkout, product pages)" name="showInOffers" value="true" defaultChecked={value.showInOffers} /> : null}
             </div>
           </Card>
         </div>

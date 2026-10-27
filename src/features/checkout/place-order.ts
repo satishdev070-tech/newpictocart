@@ -13,6 +13,7 @@ import { requireCart, updateCart } from "@/features/cart/service";
 import { clearCartCookie } from "@/features/cart/token";
 import { getStoreCustomer, type StoreCustomer } from "@/features/customer-account/session";
 import { toOrderAddress } from "@/features/customer-account/address";
+import { splitPersonName } from "@/features/customer-account/names";
 import { getCheckoutOptions } from "./server/options";
 import { getPaymentProvider } from "@/features/payments/provider";
 import { afterOrderConfirmed } from "./post-order";
@@ -43,10 +44,6 @@ function redirectFor(order: { id: string; payment_method: string; payment_status
   return order.payment_method === "online" && order.payment_status === "pending" && order.status === "pending" ? paymentPath(order.id) : orderPath(order.id);
 }
 
-function splitName(name: string): { first: string; last: string | null } {
-  const [first = "", ...rest] = name.trim().split(/\s+/);
-  return { first: first.slice(0, 80), last: rest.join(" ").slice(0, 80) || null };
-}
 
 /**
  * Guest checkout still records a tenant `customers` row (by email) so the seller sees order
@@ -54,15 +51,26 @@ function splitName(name: string): { first: string; last: string | null } {
  * guest can never READ that history, which requires signing in with the verified email.
  */
 async function resolveGuestCustomer(admin: Admin, tenantId: string, input: CheckoutInput): Promise<string | null> {
-  const { data: found } = await admin.from("customers").select("id, status, accepts_marketing").eq("tenant_id", tenantId).eq("email", input.email).maybeSingle();
+  const { data: found } = await admin.from("customers").select("id, status, accepts_marketing, first_name").eq("tenant_id", tenantId).eq("email", input.email).maybeSingle();
   if (found) {
     if (found.status === "blocked") throw new AppError("FORBIDDEN", { message: "We couldn't place this order. Please contact the store.", context: { reason: "customer blocked" } });
+    const patch: { accepts_marketing?: boolean; marketing_consent_at?: string; first_name?: string; last_name?: string | null } = {};
     if (input.acceptsMarketing && !found.accepts_marketing) {
-      await admin.from("customers").update({ accepts_marketing: true, marketing_consent_at: new Date().toISOString() }).eq("tenant_id", tenantId).eq("id", found.id);
+      patch.accepts_marketing = true;
+      patch.marketing_consent_at = new Date().toISOString();
     }
+    // Save the name the first time we learn it (never overwrite one the shopper or seller set).
+    if (!found.first_name) {
+      const name = splitPersonName(input.name);
+      if (name.first) {
+        patch.first_name = name.first;
+        patch.last_name = name.last;
+      }
+    }
+    if (Object.keys(patch).length) await admin.from("customers").update(patch).eq("tenant_id", tenantId).eq("id", found.id);
     return found.id;
   }
-  const name = splitName(input.name);
+  const name = splitPersonName(input.name);
   const { data: created, error } = await admin
     .from("customers")
     .insert({
@@ -87,7 +95,7 @@ async function updateSignedInCustomer(admin: Admin, tenantId: string, customer: 
   const patch: { phone?: string; first_name?: string; last_name?: string | null; accepts_marketing?: boolean; marketing_consent_at?: string } = {};
   if (!customer.phone) patch.phone = input.contactPhone;
   if (!customer.firstName) {
-    const name = splitName(input.name);
+    const name = splitPersonName(input.name);
     if (name.first) {
       patch.first_name = name.first;
       patch.last_name = name.last;
@@ -180,7 +188,7 @@ export async function placeOrder(tenant: ResolvedTenant, input: CheckoutInput): 
   if (!totalsAreConsistent(pricing)) throw new AppError("INTERNAL", { context: { reason: "pricing invariant failed" } });
 
   const customerId = customer ? customer.id : await resolveGuestCustomer(admin, tenantId, input);
-  const name = splitName(input.name);
+  const name = splitPersonName(input.name);
   const payload = buildOrderPayload({
     tenantId,
     idempotencyKey: input.idempotencyKey,

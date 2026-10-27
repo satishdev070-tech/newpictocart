@@ -25,6 +25,8 @@ import { ProductRow } from "@/features/storefront/components/product-card";
 import { Stars } from "@/features/storefront/components/price";
 import { trackStoreEvent } from "@/features/storefront/server/events";
 import { isInformative } from "@/features/stores/site-mode";
+import { offersForProduct } from "@/features/checkout/discounts";
+import { ProductOffers } from "@/features/storefront/components/product-offers";
 
 export async function generateMetadata({ params }: PageProps<"/store/[host]/products/[slug]">): Promise<Metadata> {
   const { host, slug } = await params;
@@ -53,11 +55,12 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
   const p = await getProductBySlug(tenantId, slug);
   if (!p) return redirectOrNotFound(tenantId, paths.product(slug));
 
-  const [categories, related, reviewData, customer] = await Promise.all([
+  const [categories, related, reviewData, customer, offers] = await Promise.all([
     getAllCategories(tenantId),
     listProducts(tenantId, p.categoryId ? { p_category: p.categoryId, p_exclude: p.id, p_limit: 8, p_offset: 0, p_sort: "best_selling" } : { p_exclude: p.id, p_limit: 8, p_offset: 0, p_sort: "newest" }),
     sf.features.reviews ? getProductReviews(tenantId, p.id, 10) : Promise.resolve({ reviews: [], distribution: [] }),
     getStoreCustomer(tenantId),
+    commerceEnabled ? offersForProduct(tenantId, p.id) : Promise.resolve([]),
   ]);
   let saved = false;
   if (customer) {
@@ -116,6 +119,7 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
           sizeChart={p.sizeChart}
           codNote={codNote}
           commerceEnabled={commerceEnabled}
+          offers={<ProductOffers offers={offers} />}
           rating={
             p.ratingCount > 0 ? (
               <a key="rating" href="#reviews" className="inline-flex" aria-label={`Rated ${p.ratingAvg.toFixed(1)} out of 5 from ${p.ratingCount} reviews`}>

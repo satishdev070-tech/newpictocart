@@ -175,8 +175,10 @@ do $$ begin
   end if;
 end $$;
 
-insert into public.discounts (tenant_id, code, title, type, value, min_subtotal, max_discount) values
-  ('10000000-0000-4000-a000-00000000000a', 'WELCOME10', '10% off your first order', 'percentage', 10, 999, 500)
+insert into public.discounts (tenant_id, code, title, type, value, min_subtotal, max_discount, show_in_offers) values
+  ('10000000-0000-4000-a000-00000000000a', 'WELCOME10', '10% off your first order', 'percentage', 10, 999, 500, true),
+  ('10000000-0000-4000-a000-00000000000a', 'FLAT300', '₹300 off orders above ₹2,999', 'fixed_amount', 300, 2999, null, true),
+  ('10000000-0000-4000-a000-00000000000a', 'STAFF25', 'Staff discount (private)', 'percentage', 25, 0, null, false)
 on conflict do nothing;
 
 insert into public.menus (id, tenant_id, handle, title) values

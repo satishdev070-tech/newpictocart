@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { logger } from "@/lib/observability/logger";
+import { nameFromAuthMetadata, splitPersonName } from "./names";
 
 /**
  * Shopper identity on a storefront (ADR-016): Supabase auth cookies are per host, and one
@@ -94,9 +95,12 @@ export async function ensureStoreCustomer(tenantId: string): Promise<StoreCustom
       return null;
     }
     if (!byEmail.auth_user_id) {
+      // A guest row from an earlier checkout may have no name: take it from the identity (e.g. Google).
+      const metaName = byEmail.first_name ? null : nameFromAuthMetadata(user.user_metadata);
+      const named = metaName ? splitPersonName(metaName) : null;
       const { data: linked, error } = await admin
         .from("customers")
-        .update({ auth_user_id: user.id })
+        .update({ auth_user_id: user.id, ...(named ? { first_name: named.first, last_name: named.last } : {}) })
         .eq("tenant_id", tenantId)
         .eq("id", byEmail.id)
         .is("auth_user_id", null)
@@ -111,11 +115,11 @@ export async function ensureStoreCustomer(tenantId: string): Promise<StoreCustom
     return toCustomer(byEmail, user.id);
   }
 
-  const displayName = typeof user.user_metadata?.display_name === "string" ? user.user_metadata.display_name.trim() : "";
-  const [first, ...rest] = displayName.split(/\s+/).filter(Boolean);
+  const metaName = nameFromAuthMetadata(user.user_metadata);
+  const named = metaName ? splitPersonName(metaName) : null;
   const { data: created, error } = await admin
     .from("customers")
-    .insert({ tenant_id: tenantId, auth_user_id: user.id, email, first_name: first?.slice(0, 80) ?? null, last_name: rest.join(" ").slice(0, 80) || null })
+    .insert({ tenant_id: tenantId, auth_user_id: user.id, email, first_name: named?.first ?? null, last_name: named?.last ?? null })
     .select(COLUMNS)
     .single();
   if (error) {
@@ -135,4 +139,26 @@ export async function requireStoreCustomer(tenantId: string, next: string): Prom
     redirect(user ? `/account/login?verify=1&next=${encodeURIComponent(target)}` : `/account/login?next=${encodeURIComponent(target)}`);
   }
   return customer;
+}
+
+/**
+ * Signed-in shopper without a saved name (e.g. linked before Google names were read): take it
+ * from the verified identity's metadata and store it on the customer row, so checkout prefills
+ * it now and every time after. Best-effort; returns the customer unchanged when there is none.
+ */
+export async function withIdentityName(customer: StoreCustomer): Promise<StoreCustomer> {
+  if (customer.firstName) return customer;
+  const { data: auth } = await (await createSupabaseServerClient()).auth.getUser();
+  if (!auth.user || auth.user.id !== customer.authUserId) return customer;
+  const metaName = nameFromAuthMetadata(auth.user.user_metadata);
+  if (!metaName) return customer;
+  const named = splitPersonName(metaName);
+  const { error } = await createSupabaseAdminClient()
+    .from("customers")
+    .update({ first_name: named.first, last_name: named.last })
+    .eq("tenant_id", customer.tenantId)
+    .eq("id", customer.id)
+    .is("first_name", null);
+  if (error) logger.warn("customer.name_backfill_failed", { tenantId: customer.tenantId, error: error.message });
+  return { ...customer, firstName: named.first, lastName: named.last };
 }

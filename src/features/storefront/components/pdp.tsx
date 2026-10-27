@@ -217,6 +217,7 @@ export function ProductPurchase({
   panels = [],
   footer,
   commerceEnabled = true,
+  offers,
 }: {
   title: string;
   /** Small line above the title (store / brand name). */
@@ -235,6 +236,8 @@ export function ProductPurchase({
   footer?: ReactNode;
   /** Informative catalogues can retain product pages without exposing purchasing controls. */
   commerceEnabled?: boolean;
+  /** Server-rendered "Offers available" block (public coupon codes for this product). */
+  offers?: ReactNode;
 }) {
   const [sel, setSel] = useState<Selection>(() => initialSelection(variants, options));
   const [qty, setQty] = useState(1);
@@ -270,6 +273,7 @@ export function ProductPurchase({
             {variant?.sku ? <span> · SKU {variant.sku}</span> : null}
           </p>
           {note ? <p className="sf-pdp-highlight">{note}</p> : null}
+          {offers}
         </div>
 
         <div className="mt-6 space-y-5">

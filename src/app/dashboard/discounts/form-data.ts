@@ -9,7 +9,7 @@ export async function discountPickers(tenantId: string) {
   return { products: products.map((p) => ({ id: p.id, label: p.title })), collections: collections.map((c) => ({ id: c.id, label: c.title })) };
 }
 
-type Row = { id: string; title: string; code: string | null; automatic: boolean; type: string; value: number; applies_to: string; min_subtotal: number; max_discount: number | null; starts_at: string; ends_at: string | null; usage_limit: number | null; per_customer_limit: number | null; status: string; config: unknown };
+type Row = { id: string; title: string; code: string | null; automatic: boolean; type: string; value: number; applies_to: string; min_subtotal: number; max_discount: number | null; starts_at: string; ends_at: string | null; usage_limit: number | null; per_customer_limit: number | null; status: string; show_in_offers?: boolean; config: unknown };
 
 export function toFormValue(d: Row | null, productIds: string[] = [], collectionIds: string[] = []): DiscountFormValue {
   const cfg = (d?.config ?? {}) as { buy_quantity?: number; get_quantity?: number; get_percent?: number };
@@ -31,6 +31,7 @@ export function toFormValue(d: Row | null, productIds: string[] = [], collection
     usageLimit: d?.usage_limit ? String(d.usage_limit) : "",
     perCustomerLimit: d?.per_customer_limit ? String(d.per_customer_limit) : "",
     enabled: d ? d.status === "active" : true,
+    showInOffers: d ? Boolean(d.show_in_offers) : true,
     buyQuantity: String(cfg.buy_quantity ?? 2),
     getQuantity: String(cfg.get_quantity ?? 1),
     getPercent: String(cfg.get_percent ?? 100),

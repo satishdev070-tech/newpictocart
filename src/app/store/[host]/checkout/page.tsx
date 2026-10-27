@@ -5,7 +5,7 @@ import { getRenderContext } from "@/features/theme/render/load";
 import { getCartView } from "@/features/cart/queries";
 import { quoteCheckoutAction } from "@/features/checkout/actions";
 import { loadPaymentOptions } from "@/features/checkout/payment-options";
-import { getStoreCustomer } from "@/features/customer-account/session";
+import { getStoreCustomer, withIdentityName } from "@/features/customer-account/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { CheckoutForm } from "@/features/checkout/components/checkout-form";
 import { GATEWAY_LABELS } from "@/features/payments/checkout";
@@ -26,7 +26,9 @@ export default async function CheckoutPage({ params }: PageProps<"/store/[host]/
   const tenantId = sf.tenant.tenantId;
   const view = await getCartView(tenantId);
   if (!view.lines.length) redirect("/cart");
-  const [customer, options] = await Promise.all([getStoreCustomer(tenantId), getCheckoutOptions(tenantId)]);
+  const [linked, options] = await Promise.all([getStoreCustomer(tenantId), getCheckoutOptions(tenantId)]);
+  // Google sign-in: the name comes from the identity, so the shopper doesn't retype it.
+  const customer = linked ? await withIdentityName(linked) : null;
   if (!customer && !options.guestCheckout) redirect("/account/login?next=/checkout&checkout=1");
   let address: { name: string; phone: string; line1: string; line2: string | null; landmark: string | null; city: string; state: string; postal_code: string } | null = null;
   if (customer) {
@@ -61,6 +63,7 @@ export default async function CheckoutPage({ params }: PageProps<"/store/[host]/
         items={items}
         initial={quote.data}
         signedIn={Boolean(customer)}
+        hasSavedAddress={Boolean(address)}
         locationAutofill={options.locationAutofill}
         whatsappOptInStoreName={(await whatsappOptInAvailable(tenantId)) ? sf.store.name : null}
         codOffered={payment.codOffered}

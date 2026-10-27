@@ -4,6 +4,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { toMinor } from "@/lib/money";
 import type { Tables } from "@/lib/supabase/database.types";
 import type { DiscountDefinition } from "./pricing";
+import { describeOffer, evaluateOffers, offerTargetsProduct, type OfferView } from "./offers";
+import type { Quote } from "./quote";
 
 export const discountCode = z
   .string()
@@ -90,4 +92,44 @@ export async function loadAutomaticDiscounts(tenantId: string): Promise<Discount
     .or(`ends_at.is.null,ends_at.gt."${now}"`)
     .limit(20);
   return withTargets(tenantId, data ?? []);
+}
+
+/** Coupon codes the seller lists publicly ("View offers"): active, in window, not exhausted. */
+export async function loadOfferDiscounts(tenantId: string): Promise<DiscountDefinition[]> {
+  const now = new Date().toISOString();
+  const { data } = await createSupabaseAdminClient()
+    .from("discounts")
+    .select(COLUMNS)
+    .eq("tenant_id", tenantId)
+    .eq("show_in_offers", true)
+    .eq("status", "active")
+    .not("code", "is", null)
+    .lte("starts_at", now)
+    .or(`ends_at.is.null,ends_at.gt."${now}"`)
+    .order("min_subtotal", { ascending: true })
+    .limit(20);
+  return withTargets(tenantId, data ?? []);
+}
+
+/** Public offers evaluated against a server quote (same lines and settings the total uses). */
+export async function offersForQuote(tenantId: string, quote: Pick<Quote, "base" | "pricing">): Promise<OfferView[]> {
+  if (quote.base.lines.length === 0) return [];
+  const applied = quote.pricing.discount.status === "applied" ? quote.pricing.discount.code : null;
+  return evaluateOffers(quote.base, await loadOfferDiscounts(tenantId), applied);
+}
+
+export type ProductOffer = { code: string; title: string | null; summary: string };
+
+/** Public offers that can apply to one product (store-wide, the product, or one of its collections). */
+export async function offersForProduct(tenantId: string, productId: string): Promise<ProductOffer[]> {
+  const offers = await loadOfferDiscounts(tenantId);
+  if (offers.length === 0) return [];
+  const needsCollections = offers.some((d) => d.appliesTo === "collections");
+  const collectionIds = needsCollections
+    ? ((await createSupabaseAdminClient().from("collection_products").select("collection_id").eq("tenant_id", tenantId).eq("product_id", productId)).data ?? []).map((c) => c.collection_id)
+    : [];
+  return offers
+    .filter((d) => d.code && offerTargetsProduct(d, productId, collectionIds))
+    .slice(0, 4)
+    .map((d) => ({ code: d.code!, title: d.title ?? null, summary: describeOffer(d) }));
 }
