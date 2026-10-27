@@ -13,7 +13,7 @@ Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coac
 - **UI:** Products editor “Generate with AI”; Blog “AI Write”; Messages “Draft AI reply”; Dashboard Business Coach card.
 - **Credits / registry:** Migration `20261028004200_seller_ai_suite.sql`; features in `ai-health/registry.ts`.
 - **Hosted:** Edge + migration applied on `ugbjlpdhktrlkyuijkfc` (2026-10-28).
-- **Verification:** seller-ai unit tests under `tests/unit/seller-ai/`; full gate `pnpm check`.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **130 files / 1,546 tests**, build). Seller-ai unit tests under `tests/unit/seller-ai/`.
 - **Branch (backend fix):** `cursor/seller-ai-false-setup-ui-c73e`.
 
 ## Seller / admin Phase 1 speed (2026-10-27)
