@@ -8,20 +8,35 @@ import { track } from "@/features/tracking/client";
 import type { AnalyticsItem } from "@/features/tracking/items";
 import type { CheckoutSummary } from "@/features/checkout/summary";
 import { INDIAN_STATES } from "@/features/customer-account/address";
+import { personName } from "@/lib/validation/common";
 import { formatMoney } from "@/lib/money";
 import { OrderSummary } from "./order-summary";
+import { CouponPanel } from "@/features/cart/components/coupon-panel";
 import { UseMyLocation } from "@/features/geo/components/use-my-location";
 
 type Prefill = { email: string; phone: string; name: string; line1: string; line2: string; landmark: string; city: string; state: string; postalCode: string; acceptsMarketing: boolean };
 
-function Field({ label, name, errors, className = "", ...rest }: { label: string; name: string; errors?: Record<string, string[]>; className?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
-  const err = errors?.[name]?.[0];
+function Field({ label, name, errors, className = "", validate, ...rest }: { label: string; name: string; errors?: Record<string, string[]>; className?: string; validate?: (value: string) => string | null } & React.InputHTMLAttributes<HTMLInputElement>) {
+  // Inline check (same rules as the server) once the shopper leaves the field, then while they fix it.
+  const [local, setLocal] = useState<string | null>(null);
+  const [touched, setTouched] = useState(false);
+  const err = validate && touched ? local : errors?.[name]?.[0];
+  const check = validate ? (v: string) => setLocal(validate(v)) : undefined;
   return (
     <div className={className}>
       <label htmlFor={`co-${name}`} className="mb-1 block text-sm">
         {label}
       </label>
-      <input id={`co-${name}`} name={name} aria-invalid={err ? true : undefined} aria-describedby={err ? `co-${name}-err` : undefined} className="sf-input w-full" {...rest} />
+      <input
+        id={`co-${name}`}
+        name={name}
+        aria-invalid={err ? true : undefined}
+        aria-describedby={err ? `co-${name}-err` : undefined}
+        className="sf-input w-full"
+        onBlur={check ? (e) => { setTouched(true); check(e.currentTarget.value); } : undefined}
+        onInput={check ? (e) => { if (touched) check(e.currentTarget.value); } : undefined}
+        {...rest}
+      />
       {err ? (
         <p id={`co-${name}-err`} className="mt-1 text-xs text-[var(--sf-sale)]">
           {err}
@@ -31,7 +46,13 @@ function Field({ label, name, errors, className = "", ...rest }: { label: string
   );
 }
 
-export function CheckoutForm({ initial, prefill, codOffered, onlineOffered, onlineVia = null, onlineGateways = [], signedIn, items = [], whatsappOptInStoreName = null, locationAutofill = false }: { initial: CheckoutSummary; prefill: Prefill; codOffered: boolean; onlineOffered: boolean; onlineVia?: string | null; onlineGateways?: { id: "razorpay" | "cashfree" | "payu"; label: string; description: string }[]; signedIn: boolean; items?: AnalyticsItem[]; whatsappOptInStoreName?: string | null; locationAutofill?: boolean }) {
+/** Client mirror of the server's name rule (`personName`), for the inline error. */
+function nameError(value: string): string | null {
+  const r = personName.safeParse(value);
+  return r.success ? null : (r.error.issues[0]?.message ?? "Enter your full name");
+}
+
+export function CheckoutForm({ initial, prefill, codOffered, onlineOffered, onlineVia = null, onlineGateways = [], signedIn, hasSavedAddress = false, items = [], whatsappOptInStoreName = null, locationAutofill = false }: { initial: CheckoutSummary; prefill: Prefill; codOffered: boolean; onlineOffered: boolean; onlineVia?: string | null; onlineGateways?: { id: "razorpay" | "cashfree" | "payu"; label: string; description: string }[]; signedIn: boolean; hasSavedAddress?: boolean; items?: AnalyticsItem[]; whatsappOptInStoreName?: string | null; locationAutofill?: boolean }) {
   const [summary, setSummary] = useState(initial);
   const [pin, setPin] = useState(prefill.postalCode);
   const [rateId, setRateId] = useState<string | undefined>(initial.shipping.selectedId ?? undefined);
@@ -115,7 +136,7 @@ export function CheckoutForm({ initial, prefill, codOffered, onlineOffered, onli
             />
           ) : null}
           <div className="grid gap-4 @[40rem]:grid-cols-2">
-            <Field label="Full name" name="name" autoComplete="name" required defaultValue={prefill.name} errors={errors} className="@[40rem]:col-span-2" />
+            <Field label="Full name" name="name" autoComplete="name" required maxLength={80} defaultValue={prefill.name} errors={errors} validate={nameError} className="@[40rem]:col-span-2" />
             <Field label="Phone for delivery" name="phone" type="tel" autoComplete="tel" required defaultValue={prefill.phone} errors={errors} />
             <Field
               label="PIN code"
@@ -153,7 +174,7 @@ export function CheckoutForm({ initial, prefill, codOffered, onlineOffered, onli
           </div>
           {signedIn ? (
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="saveAddress" value="true" /> Save this address to my account
+              <input type="checkbox" name="saveAddress" value="true" defaultChecked={!hasSavedAddress} /> Save this address to my account
             </label>
           ) : null}
         </fieldset>
@@ -242,6 +263,8 @@ export function CheckoutForm({ initial, prefill, codOffered, onlineOffered, onli
 
       <aside className="sf-surface sf-border h-fit space-y-5 rounded-[var(--sf-radius-card)] border p-5 @[64rem]:sticky @[64rem]:top-24">
         <h2 className="sf-heading text-xl">Order summary</h2>
+        <CouponPanel applied={summary.discount?.code && !summary.discount.automatic ? summary.discount.code : null} message={summary.codeMessage} offers={summary.offers} onChange={() => requote({})} />
+        {summary.discount?.automatic && summary.discount.title ? <p className="text-sm">{summary.discount.title} applied</p> : null}
         <OrderSummary summary={summary} />
         {summary.issues.length ? (
           <p role="alert" className="text-sm text-[var(--sf-sale)]">

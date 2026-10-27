@@ -35,6 +35,7 @@ export async function saveDiscountAction(_prev: ActionResult<{ id: string }> | n
       usage_limit: v.usageLimit,
       per_customer_limit: v.perCustomerLimit,
       status: v.status,
+      show_in_offers: v.showInOffers,
     };
     const { data, error } = await (await createSupabaseServerClient()).rpc("save_discount", {
       p_tenant: ctx.tenantId,

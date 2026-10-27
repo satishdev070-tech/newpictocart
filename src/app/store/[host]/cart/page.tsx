@@ -7,7 +7,8 @@ import { listProducts } from "@/features/storefront/server/catalog";
 import { paths } from "@/features/storefront/urls";
 import { formatMoney } from "@/lib/money";
 import { OrderSummary } from "@/features/checkout/components/order-summary";
-import { CartNote, CouponForm, LineButtons, LineQuantity } from "@/features/cart/components/cart-controls";
+import { CartNote, LineButtons, LineQuantity } from "@/features/cart/components/cart-controls";
+import { CouponPanel } from "@/features/cart/components/coupon-panel";
 import { TrackEvent } from "@/features/tracking/components/track-event";
 import { itemsValue, type AnalyticsItem } from "@/features/tracking/items";
 import { StoreImage } from "@/features/storefront/components/store-image";
@@ -110,7 +111,7 @@ export default async function CartPage({ params, searchParams }: PageProps<"/sto
           <aside className="sf-surface sf-border h-fit space-y-5 rounded-[var(--sf-radius-card)] border p-5">
             {summary ? (
               <>
-                <CouponForm applied={summary.discount?.code && !summary.discount.automatic ? summary.discount.code : null} message={summary.codeMessage} />
+                <CouponPanel applied={summary.discount?.code && !summary.discount.automatic ? summary.discount.code : null} message={summary.codeMessage} offers={summary.offers} />
                 {summary.discount?.automatic && summary.discount.title ? <p className="text-sm">{summary.discount.title} applied</p> : null}
                 <OrderSummary summary={summary} showLines={false} />
                 <Link href="/checkout" aria-disabled={summary.issues.length > 0} className={`sf-btn w-full ${summary.issues.length ? "pointer-events-none opacity-50" : ""}`}>

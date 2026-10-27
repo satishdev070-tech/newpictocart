@@ -1431,6 +1431,7 @@ export type Database = {
           max_discount: number | null
           min_subtotal: number
           per_customer_limit: number | null
+          show_in_offers: boolean
           starts_at: string
           status: string
           tenant_id: string
@@ -1452,6 +1453,7 @@ export type Database = {
           max_discount?: number | null
           min_subtotal?: number
           per_customer_limit?: number | null
+          show_in_offers?: boolean
           starts_at?: string
           status?: string
           tenant_id: string
@@ -1473,6 +1475,7 @@ export type Database = {
           max_discount?: number | null
           min_subtotal?: number
           per_customer_limit?: number | null
+          show_in_offers?: boolean
           starts_at?: string
           status?: string
           tenant_id?: string
