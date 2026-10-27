@@ -10,7 +10,7 @@ _Last updated: 2026-10-27 (seller AI Phase 2: blog + contact) · 2026-10-27 (sel
 - **UI:** Blog editor **AI Write** card; Content → Messages **Draft reply** (copyable, not sent). Permission: `content.write` via membership tenant.
 - **Registry:** Admin → AI health lists both features as routable.
 - **Phase 1 product-generate:** reuse `invokeSellerAi` + `runChargedSellerAiEdge` with kind `generate_product` / function `generate-product` (same debit → edge → refund → log pattern).
-- **Verification:** `pnpm check` (see commit). Branch `cursor/seller-ai-blog-contact-c73e`.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, 128 files / 1,536 tests, build). Branch `cursor/seller-ai-blog-contact-c73e`.
 
 ## Seller / admin Phase 1 speed (2026-10-27)
 
