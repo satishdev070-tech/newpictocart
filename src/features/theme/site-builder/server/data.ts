@@ -11,7 +11,6 @@ import { hasAiProviderConfigured } from "@/features/platform-apps/server";
 import { paths } from "@/features/storefront/urls";
 import { parseSiteMode } from "@/features/stores/site-mode";
 import type { BuilderData } from "../context";
-import { isSarvamConfigured } from "@/lib/sarvam/client";
 
 /**
  * Everything the site builder needs, read with the seller's session (RLS) for the tenant the
@@ -20,7 +19,7 @@ import { isSarvamConfigured } from "@/lib/sarvam/client";
 export async function getBuilderData(ctx: TenantContext): Promise<BuilderData> {
   const tenantId = ctx.tenantId;
   const supabase = await createSupabaseServerClient();
-  const [data, pickers, pages, product, collection, store, aiConfigured, allMenus] = await Promise.all([
+  const [data, pickers, pages, product, collection, store, aiEnabled, allMenus] = await Promise.all([
     getThemeEditorData(tenantId),
     getEditorPickers(tenantId),
     supabase.from("pages").select("id, title, slug, kind").eq("tenant_id", tenantId).order("title").limit(100),
@@ -49,8 +48,8 @@ export async function getBuilderData(ctx: TenantContext): Promise<BuilderData> {
       sampleCollectionSlug: collection.data?.slug ?? null,
       blog: true,
     },
-    // Gemini / Groq / Anthropic presence, or Sarvam chat as the fallback model (generateSectionAction uses either).
-    aiEnabled: aiConfigured || isSarvamConfigured(),
+    // Presence check only (no secret decrypt); generateSectionAction still loads real credentials.
+    aiEnabled,
   };
 }
 

@@ -1,5 +1,7 @@
 import "server-only";
+import { revalidateTag, unstable_cache } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { mapDbError } from "@/lib/supabase/errors";
 import { AppError } from "@/lib/errors";
 import { assertPlatformPermission, type PlatformContext } from "@/lib/platform/access";
@@ -27,14 +29,31 @@ const tableMissing = (e: PgError) => Boolean(e && (e.code === "42P01" || e.code 
 
 export const MIGRATION_PENDING_MESSAGE = "This needs a database update that hasn't been applied yet (migration 20261018003200_product_types). Ask the platform team to apply it.";
 
-async function platformRows(): Promise<{ rows: PlatformTypeRow[]; migrated: boolean }> {
-  const supabase = await createSupabaseServerClient();
+export const PLATFORM_PRODUCT_TYPES_TAG = "platform-product-types";
+
+/** Platform catalogue is anon-readable (RLS); public client keeps this safe inside Data Cache. */
+async function loadPlatformRows(): Promise<{ rows: PlatformTypeRow[]; migrated: boolean }> {
+  const supabase = createSupabasePublicClient();
   const { data, error } = await supabase.from("product_types").select("key, label, plural_label, industries, template, position, status");
   if (error) {
     if (tableMissing(error)) return { rows: [], migrated: false };
     throw mapDbError(error);
   }
   return { rows: data ?? [], migrated: true };
+}
+
+const cachedPlatformRows =
+  process.env.NODE_ENV === "production"
+    ? unstable_cache(loadPlatformRows, ["platform-product-types"], { tags: [PLATFORM_PRODUCT_TYPES_TAG], revalidate: 600 })
+    : loadPlatformRows;
+
+async function platformRows(): Promise<{ rows: PlatformTypeRow[]; migrated: boolean }> {
+  return cachedPlatformRows();
+}
+
+/** After Super Admin catalogue writes — drop the cached platform type rows. */
+export function revalidatePlatformProductTypes() {
+  revalidateTag(PLATFORM_PRODUCT_TYPES_TAG, { expire: 0 });
 }
 
 async function storeRows(tenantId: string): Promise<StoreTypeRow[]> {
@@ -110,6 +129,7 @@ export async function savePlatformProductType(ctx: PlatformContext, input: Platf
     if (tableMissing(error)) throw new AppError("VALIDATION", { fieldErrors: { _form: [MIGRATION_PENDING_MESSAGE] } });
     throw mapDbError(error);
   }
+  revalidatePlatformProductTypes();
 }
 
 export async function setPlatformProductTypeStatus(ctx: PlatformContext, key: string, status: "active" | "disabled"): Promise<void> {
@@ -129,4 +149,5 @@ export async function resetPlatformProductType(ctx: PlatformContext, key: string
     if (tableMissing(error)) throw new AppError("VALIDATION", { fieldErrors: { _form: [MIGRATION_PENDING_MESSAGE] } });
     throw mapDbError(error);
   }
+  revalidatePlatformProductTypes();
 }

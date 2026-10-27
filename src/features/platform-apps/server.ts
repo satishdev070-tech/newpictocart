@@ -9,6 +9,7 @@ import { logger } from "@/lib/observability/logger";
 import { assertPlatformPermission, type PlatformContext } from "@/lib/platform/access";
 import type { Json } from "@/lib/supabase/database.types";
 import { listResendDomains, senderDomain } from "@/lib/email/resend";
+import { isSarvamConfigured } from "@/lib/sarvam/client";
 import {
   AI_PROVIDERS,
   APP_PROVIDERS,
@@ -59,10 +60,11 @@ export async function getAiProviderOrder(): Promise<AiProvider[]> {
 }
 
 /**
- * Presence-only check for theme-editor gating: true when any AI env key is set or a DB row has
- * `secret_ciphertext`. Does not decrypt — cheap enough to run on every builder load.
+ * Presence-only check for theme-editor gating: true when Sarvam is configured, any AI env key is
+ * set, or a DB row has `secret_ciphertext`. Does not decrypt — cheap enough for every builder load.
  */
 export async function hasAiProviderConfigured(): Promise<boolean> {
+  if (isSarvamConfigured()) return true;
   const env = serverEnv();
   for (const p of AI_PROVIDERS) {
     const name = envNamesFor(p).secret;

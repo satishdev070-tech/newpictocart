@@ -9,7 +9,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { EmptyState } from "@/components/ui/states";
 import { FilterBar, queryString } from "@/features/settings/ui/filter-bar";
 import { listProducts } from "@/features/catalog/server/products";
-import { listCategories } from "@/features/catalog/server/categories";
+import { listCategoryFilterOptions } from "@/features/catalog/server/categories";
 import { listCollectionOptions } from "@/features/catalog/server/collections";
 import { productListQuerySchema, PRODUCT_SORT_LABELS, PRODUCT_SORTS } from "@/features/catalog/schemas";
 import { PRODUCT_PAGE_SIZE, PRODUCT_STATUSES, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_TONE } from "@/features/catalog/constants";
@@ -24,7 +24,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
   const ctx = await requireTenantPermission("catalog.read");
   const sp = await searchParams;
   const f = productListQuerySchema.parse(sp);
-  const [{ rows, total }, categories, collections, catalogue] = await Promise.all([listProducts(ctx.tenantId, f), listCategories(ctx.tenantId), listCollectionOptions(ctx.tenantId), getTenantTypeCatalogue(ctx.tenantId)]);
+  const [{ rows, total }, categories, collections, catalogue] = await Promise.all([listProducts(ctx.tenantId, f), listCategoryFilterOptions(ctx.tenantId), listCollectionOptions(ctx.tenantId), getTenantTypeCatalogue(ctx.tenantId)]);
   const typeGroups = groupTypesForPicker(catalogue.types, catalogue.industry, f.type);
   const typeOptions = [...typeGroups.store, ...typeGroups.suggested, ...typeGroups.others].map((t) => ({ value: t.key, label: t.label }));
   const params = { q: f.q, status: f.status, type: f.type, category: f.category, collection: f.collection, sort: f.sort };

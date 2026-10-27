@@ -74,6 +74,8 @@ Proposal: enable it at the start of Phase 7 with tags `tenant:{id}`, `tenant:{id
 
 **Update (2026-10-27, Redis L2):** optional Upstash Redis (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`) sits behind `unstable_cache` for the same public storefront loaders. Cold instances hit Redis before Supabase. Invalidation deletes indexed Redis keys alongside `revalidateTag`. Unset env = previous behaviour. Rate limiting stays Postgres (ADR-025); cart/session/dashboard stay uncached. Catalog/product Redis deferred until free-tier usage is measured.
 
+**Update (2026-10-27, seller/admin Phase 1):** private dashboard and Super Admin list/detail reads stay **live** (no Data Cache / Redis on tenant products, orders, customers, or admin tenant directories). Public catalogues may use Data Cache with tags and write-path `revalidateTag`: marketplace custom themes + open demo origins (`MARKETPLACE_*`), and anon-readable platform `product_types`.
+
 ## ADR-011 — Hosting target for the Next.js app · Open (needed by Phase 11; affects nothing before)
 Options:
 1. **Vercel** for Next.js + Cloudflare in front (DNS, Cloudflare for SaaS custom hostnames, Worker). Most compatible with Next 16 features; two vendors; custom hostnames must also be added to Vercel via its API.
