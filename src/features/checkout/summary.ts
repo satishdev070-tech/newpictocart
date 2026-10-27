@@ -1,5 +1,6 @@
 import type { CartLine } from "@/features/cart/lines";
 import type { PricingResult } from "./pricing";
+import type { OfferView } from "./offers";
 
 /**
  * Serializable checkout/cart summary for client components. Built from a server-side quote,
@@ -39,6 +40,8 @@ export type CheckoutSummary = {
   shipping: { serviceable: boolean; pincodeChecked: boolean; rates: SummaryRate[]; selectedId: string | null };
   cod: { available: boolean; reason: string | null; fee: number };
   issues: SummaryIssue[];
+  /** Public coupon codes for this bag ("View offers"); filled by the quote action, display only. */
+  offers: OfferView[];
 };
 
 type QuoteLike = {
@@ -92,6 +95,7 @@ export function toCheckoutSummary(quote: QuoteLike, allLines: readonly CartLine[
     },
     cod: p.cod,
     issues: quote.issues.map((i) => ({ ...i, title: titles.get(i.lineId) ?? "An item" })),
+    offers: [],
   };
 }
 

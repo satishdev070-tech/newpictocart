@@ -1,15 +1,81 @@
 "use client";
 
-import { useId, type ReactNode } from "react";
+import { useId, useState, useTransition, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowUp, BarChart3, ExternalLink, MessageCircle, Search, TriangleAlert } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { Embeds } from "@/features/theme/schema/site";
+import { whatsappUrl } from "@/features/storefront/store-profile";
+import { saveWhatsappNumberAction } from "@/features/settings/actions";
 import { useBuilder } from "../../context";
+import { CANVAS_RELOAD_EVENT } from "../canvas-frame";
 import { FieldRow, input, PanelFrame, Toggle } from "../ui";
 
 /**
  * Embed apps (site builder left panel): built-in storefront widgets stored in config.embeds
  * (WhatsApp chat button, back-to-top) plus links to the integrations configured elsewhere.
+ * The WhatsApp button needs the store's number (stores.whatsapp); without a valid one the panel
+ * asks for it inline, since the storefront hides the button.
  */
+
+/** Inline "add your WhatsApp number" form; saves the store setting and reloads the canvas. */
+function WhatsappNumberForm({ current }: { current: string | null }) {
+  const router = useRouter();
+  const id = useId();
+  const [value, setValue] = useState(current ?? "");
+  const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
+  const save = () =>
+    startTransition(async () => {
+      const r = await saveWhatsappNumberAction({ whatsapp: value });
+      if (!r.ok) return setError(r.error.fieldErrors?.whatsapp?.[0] ?? r.error.message);
+      setError("");
+      router.refresh();
+      window.dispatchEvent(new Event(CANVAS_RELOAD_EVENT));
+    });
+  return (
+    <form
+      className="space-y-2 rounded-md bg-warning/10 p-2"
+      onSubmit={(ev) => {
+        ev.preventDefault();
+        save();
+      }}
+    >
+      <p className="flex items-start gap-1.5 text-xs text-warning">
+        <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+        <span>
+          {current ? `“${current}” isn't a valid Indian mobile number,` : "Your store has no WhatsApp number yet,"} so the button stays hidden on your store. Add it here or in{" "}
+          <a href="/dashboard/settings" target="_blank" rel="noopener noreferrer" className="font-medium underline">
+            Settings → Store details
+          </a>
+          .
+        </span>
+      </p>
+      <FieldRow label="WhatsApp number" htmlFor={id}>
+        <div className="flex gap-2">
+          <input
+            id={id}
+            className={input}
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="98765 43210"
+            maxLength={20}
+            value={value}
+            onChange={(ev) => {
+              setValue(ev.target.value);
+              setError("");
+            }}
+          />
+          <Button type="submit" size="sm" variant="accent" pending={pending}>
+            Save
+          </Button>
+        </div>
+        {error ? <p className="text-xs text-error">{error}</p> : null}
+      </FieldRow>
+    </form>
+  );
+}
 
 function AppCard({ icon, title, description, children }: { icon: ReactNode; title: string; description: string; children?: ReactNode }) {
   return (
@@ -54,7 +120,7 @@ export function EmbedsPanel() {
       <div className="space-y-3">
         <AppCard icon={<MessageCircle />} title="WhatsApp chat button" description="A floating button that opens a WhatsApp chat with your store.">
           <Toggle label="Show the button" checked={e.whatsapp.enabled} onChange={(v) => setWhatsapp({ enabled: v }, "enabled")} />
-          {store.whatsapp ? (
+          {whatsappUrl(store.whatsapp) ? (
             <p className="text-xs text-muted">
               Chats go to <span className="font-medium text-foreground">{store.whatsapp}</span>. Change it in{" "}
               <a href="/dashboard/settings" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
@@ -63,16 +129,7 @@ export function EmbedsPanel() {
               .
             </p>
           ) : (
-            <p className="flex items-start gap-1.5 rounded-md bg-warning/10 p-2 text-xs text-warning">
-              <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-              <span>
-                Add your WhatsApp number in{" "}
-                <a href="/dashboard/settings" target="_blank" rel="noopener noreferrer" className="font-medium underline">
-                  Settings → Store details
-                </a>{" "}
-                — the button stays hidden until you do.
-              </span>
-            </p>
+            <WhatsappNumberForm current={store.whatsapp} />
           )}
           {e.whatsapp.enabled ? (
             <>

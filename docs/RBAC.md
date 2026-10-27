@@ -1,7 +1,7 @@
 # RBAC
 
-Single source: `src/lib/permissions/matrix.ts` (27 tenant permissions, 12 system roles + custom
-roles, 8 platform permissions). SQL helpers `app.has_tenant_permission` and
+Single source: `src/lib/permissions/matrix.ts` (27 tenant permissions, 3 system roles (owner, manager,
+sales_associate) + custom roles, 8 platform permissions). SQL helpers `app.has_tenant_permission` and
 `app.has_platform_permission` enforce the same keys in RLS. Full design, escalation guards and
 tests: [RBAC_AUDIT.md](RBAC_AUDIT.md).
 

@@ -753,6 +753,7 @@ export type Database = {
           parent_id: string | null
           position: number
           seo: Json
+          size_chart_id: string | null
           slug: string
           status: string
           tenant_id: string
@@ -767,6 +768,7 @@ export type Database = {
           parent_id?: string | null
           position?: number
           seo?: Json
+          size_chart_id?: string | null
           slug: string
           status?: string
           tenant_id: string
@@ -781,6 +783,7 @@ export type Database = {
           parent_id?: string | null
           position?: number
           seo?: Json
+          size_chart_id?: string | null
           slug?: string
           status?: string
           tenant_id?: string
@@ -799,6 +802,13 @@ export type Database = {
             columns: ["tenant_id", "parent_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "categories_tenant_id_size_chart_id_fkey"
+            columns: ["tenant_id", "size_chart_id"]
+            isOneToOne: false
+            referencedRelation: "size_charts"
             referencedColumns: ["tenant_id", "id"]
           },
         ]
@@ -1421,6 +1431,7 @@ export type Database = {
           max_discount: number | null
           min_subtotal: number
           per_customer_limit: number | null
+          show_in_offers: boolean
           starts_at: string
           status: string
           tenant_id: string
@@ -1442,6 +1453,7 @@ export type Database = {
           max_discount?: number | null
           min_subtotal?: number
           per_customer_limit?: number | null
+          show_in_offers?: boolean
           starts_at?: string
           status?: string
           tenant_id: string
@@ -1463,6 +1475,7 @@ export type Database = {
           max_discount?: number | null
           min_subtotal?: number
           per_customer_limit?: number | null
+          show_in_offers?: boolean
           starts_at?: string
           status?: string
           tenant_id?: string

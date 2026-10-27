@@ -19,6 +19,8 @@ export type Quote = {
   issues: LineIssue[];
   /** lines that were priced */
   priced: CartLine[];
+  /** pricing input without the discount (for evaluating other offers against the same bag) */
+  base: Omit<PricingInput, "discount">;
 };
 
 export function lineIssues(lines: readonly CartLine[]): LineIssue[] {
@@ -74,5 +76,5 @@ export async function quoteCart(tenantId: string, cart: CartRecord | null, lines
     }
   }
   if (pricing.discount.status !== "applied") discount = null;
-  return { pricing, settings, discount, codeMessage, issues, priced };
+  return { pricing, settings, discount, codeMessage, issues, priced, base };
 }

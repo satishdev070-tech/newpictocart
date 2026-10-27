@@ -61,12 +61,12 @@ describe("privilege escalation guards", () => {
       // Member who can manage the team and roles, but not payments.
       const role = one(await q<{ id: string }>("insert into tenant_custom_roles (tenant_id, name, permissions) values ($1, 'Team lead', '{store.read,members.read,members.manage,roles.manage,catalog.read}') returning id", [TENANTS.aangan]));
       await addMember(q, MEMBER, "lead@aangan.test", "custom", role.id);
-      await addMember(q, OTHER, "other@aangan.test", "viewer");
+      await addMember(q, OTHER, "other@aangan.test", "sales_associate");
       await actAs(q, MEMBER);
       await rejects(q("insert into tenant_custom_roles (tenant_id, name, permissions) values ($1, 'Sneaky', '{payments.manage}')", [TENANTS.aangan]), /only grant permissions you hold/);
-      await rejects(q("update tenant_memberships set role = 'admin' where user_id = $1 and tenant_id = $2", [OTHER, TENANTS.aangan]), /cannot assign a role/);
-      await rejects(q("update tenant_memberships set role = 'admin', custom_role_id = null where user_id = $1 and tenant_id = $2", [MEMBER, TENANTS.aangan]), /cannot change your own role/);
-      await rejects(q("insert into tenant_invitations (tenant_id, email, role, token_hash, expires_at, invited_by) values ($1, 'x@aangan.test', 'admin', 'h1', now() + interval '1 day', $2)", [TENANTS.aangan, MEMBER]), /cannot assign a role/);
+      await rejects(q("update tenant_memberships set role = 'manager' where user_id = $1 and tenant_id = $2", [OTHER, TENANTS.aangan]), /cannot assign a role/);
+      await rejects(q("update tenant_memberships set role = 'manager', custom_role_id = null where user_id = $1 and tenant_id = $2", [MEMBER, TENANTS.aangan]), /cannot change your own role/);
+      await rejects(q("insert into tenant_invitations (tenant_id, email, role, token_hash, expires_at, invited_by) values ($1, 'x@aangan.test', 'manager', 'h1', now() + interval '1 day', $2)", [TENANTS.aangan, MEMBER]), /cannot assign a role/);
       // Allowed: a custom role made only of permissions they hold, assigned to someone else.
       const small = one(await q<{ id: string }>("insert into tenant_custom_roles (tenant_id, name, permissions) values ($1, 'Browser', '{store.read,catalog.read}') returning id", [TENANTS.aangan]));
       const ok = await q("update tenant_memberships set role = 'custom', custom_role_id = $3 where user_id = $1 and tenant_id = $2 returning id", [OTHER, TENANTS.aangan, small.id]);
@@ -74,11 +74,32 @@ describe("privilege escalation guards", () => {
     });
   });
 
-  it("the owner membership cannot be changed by admins", async () => {
+  it("the owner membership cannot be changed or removed by managers", async () => {
     await as(superuser, async (q) => {
-      await addMember(q, MEMBER, "admin2@aangan.test", "admin");
+      await addMember(q, MEMBER, "manager2@aangan.test", "manager");
       await actAs(q, MEMBER);
-      expect(await q("update tenant_memberships set role = 'viewer' where user_id = $1 returning id", [USERS.aanganOwner])).toHaveLength(0);
+      expect(await q("update tenant_memberships set role = 'sales_associate' where user_id = $1 returning id", [USERS.aanganOwner])).toHaveLength(0);
+      expect(await q("delete from tenant_memberships where user_id = $1 and tenant_id = $2 returning id", [USERS.aanganOwner, TENANTS.aangan])).toHaveLength(0);
+      await rejects(q("insert into tenant_invitations (tenant_id, email, role, token_hash, expires_at, invited_by) values ($1, 'boss@aangan.test', 'owner', 'h2', now() + interval '1 day', $2)", [TENANTS.aangan, MEMBER]), /cannot assign a role|check constraint/);
+    });
+  });
+
+  it("a manager can promote, demote and remove other members", async () => {
+    await as(superuser, async (q) => {
+      await addMember(q, MEMBER, "manager3@aangan.test", "manager");
+      await addMember(q, OTHER, "assoc@aangan.test", "sales_associate");
+      await actAs(q, MEMBER);
+      expect(await q("update tenant_memberships set role = 'manager' where user_id = $1 and tenant_id = $2 returning id", [OTHER, TENANTS.aangan])).toHaveLength(1);
+      expect(await q("update tenant_memberships set role = 'sales_associate' where user_id = $1 and tenant_id = $2 returning id", [OTHER, TENANTS.aangan])).toHaveLength(1);
+      expect(await q("delete from tenant_memberships where user_id = $1 and tenant_id = $2 returning id", [OTHER, TENANTS.aangan])).toHaveLength(1);
+    });
+  });
+
+  it("a sales associate cannot change anyone's role", async () => {
+    await as(superuser, async (q) => {
+      await addMember(q, MEMBER, "assoc2@aangan.test", "sales_associate");
+      await actAs(q, MEMBER);
+      expect(await q("update tenant_memberships set role = 'manager' where user_id = $1 and tenant_id = $2 returning id", [USERS.aanganStaff, TENANTS.aangan])).toHaveLength(0);
     });
   });
 });
@@ -93,7 +114,7 @@ describe("finer permissions", () => {
       await rejects(q("update products set status = 'active' where id = $1", [PRODUCTS.aanganDraft]), /permission to publish/);
       expect(await q("update products set title = 'Renamed' where id = $1 returning id", [PRODUCTS.aanganDraft])).toHaveLength(1);
       await asSuper(q);
-      await q("update tenant_memberships set role = 'catalog_manager', custom_role_id = null where user_id = $1", [MEMBER]);
+      await q("update tenant_memberships set role = 'manager', custom_role_id = null where user_id = $1", [MEMBER]);
       await actAs(q, MEMBER);
       expect(await q("update products set status = 'active' where id = $1 returning id", [PRODUCTS.aanganDraft])).toHaveLength(1);
     });
@@ -101,7 +122,8 @@ describe("finer permissions", () => {
 
   it("cancelling an order needs orders.cancel", async () => {
     await as(superuser, async (q) => {
-      await addMember(q, MEMBER, "agent@aangan.test", "support_agent");
+      const role = one(await q<{ id: string }>("insert into tenant_custom_roles (tenant_id, name, permissions) values ($1, 'Order desk', '{store.read,orders.read,orders.write}') returning id", [TENANTS.aangan]));
+      await addMember(q, MEMBER, "agent@aangan.test", "custom", role.id);
       const order = one(
         await q<{ id: string }>(
           `insert into orders (tenant_id, order_number, email, phone, payment_method, subtotal, grand_total, shipping_address, idempotency_key, status)
@@ -115,13 +137,28 @@ describe("finer permissions", () => {
     });
   });
 
-  it("new system roles resolve to the matrix permissions", async () => {
+  it("the standard roles resolve to the matrix permissions", async () => {
     await as(superuser, async (q) => {
-      await addMember(q, MEMBER, "analyst@aangan.test", "analyst");
+      await addMember(q, MEMBER, "assoc3@aangan.test", "sales_associate");
+      await addMember(q, OTHER, "manager4@aangan.test", "manager");
       await actAs(q, MEMBER);
-      expect(await can(q, "analytics.read")).toBe(true);
-      expect(await can(q, "orders.write")).toBe(false);
+      expect(await can(q, "orders.write")).toBe(true);
+      expect(await can(q, "catalog.write")).toBe(true);
+      expect(await can(q, "catalog.publish")).toBe(false);
+      expect(await can(q, "settings.write")).toBe(false);
       expect(await can(q, "members.read")).toBe(false);
+      await actAs(q, OTHER);
+      expect(await can(q, "payments.manage")).toBe(true);
+      expect(await can(q, "members.manage")).toBe(true);
+      expect(await can(q, "billing.manage")).toBe(false);
+    });
+  });
+
+  it("retired roles can no longer be stored", async () => {
+    await as(superuser, async (q) => {
+      for (const role of ["admin", "staff", "viewer", "catalog_manager", "analyst", "support_agent"]) {
+        await rejects(q("insert into tenant_memberships (tenant_id, user_id, role) values ($1, $2, $3)", [TENANTS.aangan, USERS.shopper, role]), /check constraint/);
+      }
     });
   });
 });

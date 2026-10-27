@@ -24,6 +24,29 @@ export const indianMobile = z
   .pipe(z.string().regex(/^(?:\+91|91|0)?[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"))
   .transform((v) => `+91${v.slice(-10)}`);
 
+/**
+ * A person's name as typed at checkout / in an address: Unicode letters (any script, so
+ * Devanagari, Tamil, Bengali… with their vowel signs and ZWJ/ZWNJ), spaces and . ' - only, 2–80 chars.
+ * Whitespace is collapsed and curly apostrophes are normalised. Shared by the browser (inline
+ * errors) and the server (authoritative).
+ */
+export const PERSON_NAME_RE = /^\p{L}[\p{L}\p{M}‌‍]*(?:(?:[ .'-]|\. )[\p{L}\p{M}‌‍]+)*\.?$/u;
+export function normalizePersonName(v: string): string {
+  return v.normalize("NFC").replace(/[\u2018\u2019\u02BC]/g, "'").replace(/\s+/g, " ").trim();
+}
+export const personName = z
+  .string({ error: "Enter your full name" })
+  .transform(normalizePersonName)
+  .pipe(
+    z
+      .string()
+      .min(1, "Enter your full name")
+      .min(2, "Name is too short")
+      .max(80, "Keep the name under 80 characters")
+      .regex(/^[^\p{N}]*$/u, "Names can't contain numbers")
+      .regex(PERSON_NAME_RE, "Use letters only (spaces, . ' and - are allowed)"),
+  );
+
 /** Indian PIN code: 6 digits, first digit 1-9. */
 export const pincode = z
   .string()

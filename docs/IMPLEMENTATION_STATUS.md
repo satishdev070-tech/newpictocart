@@ -1,15 +1,14 @@
 # Implementation Status
 
-_Last updated: 2026-10-27 (QA #8/#10/#12: order back link, return photos, blocked customers) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
 
-## QA sheet #8, #10, #12: order back link, return photos, blocked customers (2026-10-27)
+## Team roles: Store Admin (Owner) / Manager / Sales Associate (2026-10-27, QA #2 #3)
 
-- **#8 Order detail → back to orders:** a signed-in shopper's order page (`/orders/[id]`) shows an Account / Orders / Order breadcrumb and a "← Back to orders" link to `/account/orders` (guests opening a token link don't see it).
-- **#10 Return photos:** the return request form takes up to 5 JPG/PNG/WebP photos (5 MB each, checked by real bytes in `features/customer-account/return-photos.ts`), required when the reason is "Item arrived damaged". They are uploaded with the shopper's own session to the private `private-files` bucket at `tenant/{tenant}/returns/{order}/{uuid}.{ext}`, and the paths are stored on `returns.photo_paths` by `svc_create_return(..., p_photos)` (only that order's folder is accepted). On failure the uploads are removed. Storage RLS (migration `20261027004120_return_photos.sql`): the order's own active customer can read, and upload only for a delivered order; staff read through the existing `private_files_staff_read` (orders.read). Photos are shown as thumbnails with a lightbox (`components/ui/photo-lightbox.tsx`, short-lived signed URLs from the viewer's session) on Dashboard → Returns (list + detail), the order detail's Returns card and the shopper's order page.
-- **#12 Blocked customers:** (1) saving a customer revalidates `/dashboard/customers` and the detail page, so the list shows "Blocked" right away (the detail header shows a Blocked badge too). (2) A blocked shopper who signs in with a correct password, email code, Google or an email link is signed out again and sees "Your account is blocked…" on the login page; account pages and account actions show the same message instead of silently bouncing to login. The message only appears after the credentials were accepted, so it reveals nothing about other emails (`features/customer-account/blocked.ts`, `getStoreCustomerAccess`).
-- **Pending on the cloud database:** run `supabase/migrations/20261027004120_return_photos.sql`.
-- Tests: `tests/unit/customer-account/blocked-and-return-photos.test.ts`.
+- **Three standard roles** instead of twelve: **Store Admin (Owner)** (the registering merchant, all access, can't be removed or changed by others), **Manager** (everything except billing; manages the team and roles but can't touch the owner) and **Sales Associate** (orders incl. cancel, customers, products view/edit, inventory; no settings, payments, domains, team, refunds, publish or delete). Invite and role pickers list only Manager, Sales Associate and the store's own custom roles; default is Sales Associate.
+- **Migration `20261027004150_team_roles.sql`** (⏳ not yet applied to the hosted project): maps existing members and invitations (Store Admin, Store Manager, Catalog/Order/Inventory/Marketing/Content Manager → Manager; Analyst, Support Agent, Staff, Viewer → Sales Associate), reseeds `role_permissions`, tightens the role CHECK constraints, moves platform support sessions to the internal read-only `support_viewer` set, and reorders `list_tenant_members`. Seed user `staff@aangan.test` is now a Sales Associate.
+- **Team page:** change role per member (Save role), deactivate/reactivate, remove (confirmed), resend / cancel invite (confirmed), plus a Roles card explaining each role. Custom roles (create / edit / delete) stay under Settings → Roles & permissions. All actions keep the `members.manage` / `roles.manage` server checks and DB escalation guards.
+- **Verification:** unit tests for the matrix, SQL ↔ matrix seed and CHECK lists, role choice; `pnpm test:db` (24 files / 181 tests) ✅ on Postgres 17, including new manager/sales-associate/owner-protection/retired-role tests; migration checked on a DB with all 12 old roles (7 → Manager, 4 → Sales Associate, owner untouched).
 
 ## Header layouts, Logo badge design, fit-to-logo crop (2026-10-26)
 
@@ -501,7 +500,7 @@ Since migration 1800, compare snapshots with `SNAPSHOT_IGNORE_COLUMNS=tenants.st
 | App shell (seller + console): collapsible sidebar, breadcrumbs, ⌘K, notifications, account menu | ✅ built, ⏳ visual QA | UI_UX_REDESIGN_AUDIT.md |
 | Auth redesign: staff, merchant login/register/forgot, customer login/register/forgot | ✅ built + screenshotted | UI_UX_REDESIGN_AUDIT.md |
 | Super admin dashboard (8 KPIs, GMV trend, plans, activity) | ✅ built, ⏳ needs migration 1400 | UI_UX_REDESIGN_AUDIT.md |
-| RBAC: 27 permissions, 12 system roles, custom roles, escalation guards, Team + Roles UI | ✅ built, 8 DB tests, ⏳ needs migration 1200 | RBAC_AUDIT.md |
+| RBAC: 27 permissions, 3 system roles (12 until 2026-10-27), custom roles, escalation guards, Team + Roles UI | ✅ built, 8 DB tests, ⏳ needs migration 1200 | RBAC_AUDIT.md |
 | Media library + picker (drag & drop, progress, cancel/retry, replace, usage, alt text) | ✅ built, 3 DB + 4 unit tests, ⏳ needs migration 1300 | MEDIA_LIBRARY_AUDIT.md |
 | 10 unique demo stores (data, art, themes, owners) | ✅ generator written, ⏳ not yet run on the cloud DB | MULTI_STORE_AUDIT.md |
 | Customer account overview | ✅ built + screenshotted | |
@@ -1041,3 +1040,21 @@ above and in `docs/THEME_BUILDER.md`):
     listed. Now relayed through the platform (`/auth/store-google` → Google → `/auth/store-google/callback` → single-use token →
     the store's `/account/auth/callback`), which links the existing customer profile by email (or creates one) and opens
     `/account`. `features/customer-account/server/google-relay.ts`; only stores we serve are accepted as return hosts.
+
+## QA item 4: size charts by category, product override, PDP dialog (2026-10-27, branch `claude/qa-size-chart-cf9da4`)
+
+Tester: a size chart could be created but not attached to products and never showed on the storefront.
+Causes: the product editor only offered the chart picker for clothing/sized product types, the PDP link only
+appeared next to an option literally named "Size", and categories had no chart at all.
+
+- Migration `20261027004100_category_size_charts.sql`: `categories.size_chart_id` (tenant-scoped FK, set null on delete).
+- Size charts page: "Apply to categories" checkboxes (saved with the chart; unticked categories lose it). Category form: "Size chart" select.
+- Product editor: picker shown for every product once the store has a chart: Category default (shows the inherited chart) / a specific chart / No size chart.
+  "No size chart" is stored as `products.attributes._size_chart = "none"` (internal `_` key), so `save_product` is unchanged.
+- Storefront (`getProductBySlug`): product's own chart → nearest chart on its category or a parent category → none
+  (`resolveSizeChartId` in `src/features/catalog/size-chart.ts`, unit tests in `tests/unit/catalog/size-chart.test.ts`).
+  Only active categories are visible to the storefront (RLS), so a hidden parent category does not pass its chart down.
+- PDP: "Size chart" link by the Size option (or under the options when the product has none) opens a centred native
+  `<dialog>` (`size-chart-dialog.tsx`) with the table, unit and note; closes on Esc, Close or backdrop. The chart model has no image field.
+- Verified on the local seeded store (:3302): created a chart and ticked Sarees → saree PDP shows it; product set to
+  "No size chart" → hidden; kurta with its own chart → own chart; dupatta (no chart) → no link; mobile dialog checked.

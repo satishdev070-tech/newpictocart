@@ -8,6 +8,7 @@ import type { ListingRpcArgs } from "../filters";
 import type { PdpOption, PdpVariant } from "../variants";
 import { sortByPosition } from "@/features/catalog/media-order";
 import { effectiveProductType } from "@/features/catalog/product-types";
+import { resolveSizeChartId, sizeChartHidden } from "@/features/catalog/size-chart";
 
 /**
  * Public catalog reads for the storefront. Tenant id always comes from the verified host
@@ -250,10 +251,10 @@ export async function getCollections(tenantId: string, opts: { ids?: string[]; l
   return opts.ids ? opts.ids.flatMap((id) => rows.filter((r) => r.id === id)) : rows;
 }
 
-export type CategorySummary = { id: string; name: string; slug: string; parentId: string | null; description: string | null; imagePath: string | null; seo: SeoFields; updatedAt: string };
+export type CategorySummary = { id: string; name: string; slug: string; parentId: string | null; description: string | null; imagePath: string | null; sizeChartId: string | null; seo: SeoFields; updatedAt: string };
 
-const CATEGORY_SELECT = "id, name, slug, parent_id, description, image_path, seo, updated_at";
-type CategoryRow = { id: string; name: string; slug: string; parent_id: string | null; description: string | null; image_path: string | null; seo: unknown; updated_at: string };
+const CATEGORY_SELECT = "id, name, slug, parent_id, description, image_path, size_chart_id, seo, updated_at";
+type CategoryRow = { id: string; name: string; slug: string; parent_id: string | null; description: string | null; image_path: string | null; size_chart_id: string | null; seo: unknown; updated_at: string };
 const toCategory = (c: CategoryRow): CategorySummary => ({
   id: c.id,
   name: c.name,
@@ -261,6 +262,7 @@ const toCategory = (c: CategoryRow): CategorySummary => ({
   parentId: c.parent_id,
   description: c.description,
   imagePath: c.image_path,
+  sizeChartId: c.size_chart_id,
   seo: readSeo(c.seo),
   updatedAt: c.updated_at,
 });
@@ -329,7 +331,7 @@ export type ProductDetail = {
 };
 
 const PRODUCT_SELECT =
-  "id, slug, title, description, short_description, product_type, brand, tags, attributes, care_instructions, shipping_info, return_info, seo, published_at, updated_at, rating_avg, rating_count, category_id, " +
+  "id, slug, title, description, short_description, product_type, brand, tags, attributes, care_instructions, shipping_info, return_info, seo, published_at, updated_at, rating_avg, rating_count, category_id, size_chart_id, " +
   "size_charts(name, unit, chart), " +
   "product_options(position, name, product_option_values(value, swatch, position)), " +
   "product_variants(id, title, sku, option1, option2, option3, price, compare_at_price, position, status), " +
@@ -354,6 +356,7 @@ type ProductRow = {
   rating_avg: number;
   rating_count: number;
   category_id: string | null;
+  size_chart_id: string | null;
   size_charts: { name: string; unit: string; chart: unknown } | null;
   product_options: { position: number; name: string; product_option_values: { value: string; swatch: string | null; position: number }[] }[];
   product_variants: { id: string; title: string; sku: string | null; option1: string | null; option2: string | null; option3: string | null; price: number; compare_at_price: number | null; position: number; status: string }[];
@@ -394,6 +397,21 @@ export function readSizeChart(value: { name: string; unit: string; chart: unknow
   return { name: value.name, unit: value.unit === "cm" ? "cm" : "in", columns, rows, note: typeof c.note === "string" ? c.note.slice(0, 500) : null };
 }
 
+/**
+ * The chart the PDP shows: the product's own (already embedded), else the nearest one set on
+ * its category or a parent category (active categories only: RLS hides the others), unless
+ * the product opted out.
+ */
+async function productSizeChart(tenantId: string, data: Pick<ProductRow, "size_chart_id" | "size_charts" | "category_id" | "attributes">): Promise<SizeChart | null> {
+  const hideSizeChart = sizeChartHidden(data.attributes);
+  if (data.size_chart_id && !hideSizeChart) return readSizeChart(data.size_charts);
+  const id = resolveSizeChartId({ sizeChartId: null, hideSizeChart, categoryId: data.category_id }, data.category_id ? await getAllCategories(tenantId) : []);
+  if (!id) return null;
+  const { data: chart, error } = await createSupabasePublicClient().from("size_charts").select("name, unit, chart").eq("tenant_id", tenantId).eq("id", id).maybeSingle();
+  if (error) logger.warn("storefront.size_chart_failed", { tenantId, error: error.message });
+  return readSizeChart(chart ?? null);
+}
+
 export const getProductBySlug = cache(async (tenantId: string, slug: string): Promise<ProductDetail | null> => {
   const { data, error } = await createSupabasePublicClient()
     .from("products")
@@ -409,7 +427,7 @@ export const getProductBySlug = cache(async (tenantId: string, slug: string): Pr
 
   const activeVariants = data.product_variants.filter((v) => v.status === "active").sort((a, b) => a.position - b.position);
   if (activeVariants.length === 0) return null;
-  const stock = await getVariantStock(activeVariants.map((v) => v.id));
+  const [stock, sizeChart] = await Promise.all([getVariantStock(activeVariants.map((v) => v.id)), productSizeChart(tenantId, data)]);
   const media = sortByPosition(data.product_media.filter((m) => m.media_type === "image"))
     .map((m) => ({ id: m.id, path: m.storage_path, alt: m.alt_text?.trim() || data.title, variantId: m.variant_id, width: m.width, height: m.height }));
 
@@ -468,7 +486,7 @@ export const getProductBySlug = cache(async (tenantId: string, slug: string): Pr
     ratingAvg: Number(data.rating_avg) || 0,
     ratingCount: data.rating_count ?? 0,
     categoryId: data.category_id,
-    sizeChart: readSizeChart(data.size_charts),
+    sizeChart,
     options,
     variants,
     media,

@@ -5,14 +5,9 @@ import { Check, Copy, Download, ExternalLink } from "lucide-react";
 import { Button, buttonClass } from "@/components/ui/button";
 import { InlineAction } from "@/features/settings/ui/action-controls";
 import { markChannelPostedAction } from "../planner-actions";
-import { CHANNEL_LABELS, isAutoPlatform, type Channel } from "../compose";
+import { CHANNEL_LABELS, type Channel } from "../compose";
+import { manualChannels, type ManualPost } from "../planner";
 import { CHANNEL_META, ChannelChip } from "./channels";
-
-export type ManualPost = { id: string; caption: string; hashtags: string[]; linkUrl: string | null; channels: Channel[]; manualDone: Channel[]; at: string | null };
-
-export const manualChannels = (p: Pick<ManualPost, "channels">) => p.channels.filter((c) => !isAutoPlatform(c));
-/** Due = has a time within the next hour (or past) and a planned channel not yet marked posted. */
-export const isManualDue = (p: ManualPost, now = Date.now()) => !!p.at && Date.parse(p.at) <= now + 3600_000 && manualChannels(p).some((c) => !p.manualDone.includes(c));
 
 /** Copy / download / open / mark-posted helper for planned (manual) channels. */
 export function ManualPostPanel({ post, imageUrl, canWrite }: { post: ManualPost; imageUrl: string | null; canWrite: boolean }) {

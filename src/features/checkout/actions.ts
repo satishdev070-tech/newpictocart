@@ -15,6 +15,7 @@ import { startGatewayPayment, type GatewayStart } from "@/features/payments/gate
 import { onlinePaymentProviders } from "@/features/payments/credentials";
 import { placeOrder } from "./place-order";
 import { quoteCart } from "./quote";
+import { offersForQuote } from "./discounts";
 import { orderTokenSchema, placeholderSafe, quoteSchema, razorpayConfirmSchema, checkoutSchema } from "./schemas";
 import { toCheckoutSummary, type CheckoutSummary } from "./summary";
 import { requireEcommerceSite } from "@/features/stores/site-mode-server";
@@ -33,7 +34,7 @@ export async function quoteCheckoutAction(raw: { postalCode?: string; shippingRa
       shippingRateId: input.shippingRateId ?? null,
       paymentMethod: input.paymentMethod ?? null,
     });
-    return toCheckoutSummary(quote, lines);
+    return { ...toCheckoutSummary(quote, lines), offers: await offersForQuote(tenant.tenantId, quote) };
   });
 }
 

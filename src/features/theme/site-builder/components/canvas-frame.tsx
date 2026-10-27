@@ -23,6 +23,8 @@ import { sectionChipLabels } from "../chip-labels";
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
 export const DEVICE_WIDTH = { desktop: 1280, mobile: 390 } as const;
+/** Window event a panel dispatches to reload the canvas (store data it renders changed). */
+export const CANVAS_RELOAD_EVENT = "pc:canvas-reload";
 const THEME_DEBOUNCE_MS = 150;
 /** No "rendered" answer for this long → the render is treated as lost and the canvas recovers. */
 export const RENDER_WATCHDOG_MS = 20_000;
@@ -132,6 +134,13 @@ export function CanvasFrame() {
     shown.current = null;
     setTarget((t) => ({ path: canvasPathRef.current ?? b.page.path, n: t.n + 1 }));
   };
+  // Panels ask for a reload after changing store data the canvas renders (e.g. the WhatsApp number).
+  const onReloadRequest = useEffectEvent(reload);
+  useEffect(() => {
+    const on = () => onReloadRequest();
+    window.addEventListener(CANVAS_RELOAD_EVENT, on);
+    return () => window.removeEventListener(CANVAS_RELOAD_EVENT, on);
+  }, []);
   /**
    * The canvas couldn't render: reload it (with a fresh preview token when the old one was rejected,
    * Bugs 2.0 #14/#15 "You don't have permission"). Unsaved edits are re-sent when it is ready again.

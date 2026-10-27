@@ -41,6 +41,7 @@ const raw = z.object({
   usageLimit: optionalInt(1, 10_000_000),
   perCustomerLimit: optionalInt(1, 1000),
   enabled: bool,
+  showInOffers: bool,
   buyQuantity: intWithDefault(1, 100, 2),
   getQuantity: intWithDefault(1, 100, 1),
   getPercent: intWithDefault(1, 100, 100),
@@ -64,6 +65,8 @@ export type DiscountInput = {
   usageLimit: number | null;
   perCustomerLimit: number | null;
   status: "active" | "disabled";
+  /** Listed under "View offers" on the storefront (code discounts only). */
+  showInOffers: boolean;
   config: { buy_quantity: number; get_quantity: number; get_percent: number } | Record<string, never>;
 };
 
@@ -119,6 +122,7 @@ export function discountFormSchema(now: Date = new Date()) {
       usageLimit: v.usageLimit,
       perCustomerLimit: v.perCustomerLimit,
       status: v.enabled ? "active" : "disabled",
+      showInOffers: !automatic && v.showInOffers,
       config: v.type === "buy_x_get_y" ? { buy_quantity: v.buyQuantity, get_quantity: v.getQuantity, get_percent: v.getPercent } : {},
     };
   });

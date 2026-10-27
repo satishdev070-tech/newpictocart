@@ -5,9 +5,10 @@ import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
 import { PageHeader } from "@/components/ui/layout";
 import { getEntitlements } from "@/features/platform";
 import { getThemeKeys } from "@/features/theme/server/queries";
+import { DEFAULT_THEME_KEY } from "@/features/theme/default-theme";
 import { getMarketplaceThemes } from "@/features/theme/marketplace/registry";
 import { INDUSTRIES, isIndustry, industryShort } from "@/features/stores/industries";
-import { MarketplaceBrowser, type MarketplaceCard } from "@/features/theme/marketplace/components/marketplace-browser";
+import { CurrentThemeCard, MarketplaceBrowser, type MarketplaceCard } from "@/features/theme/marketplace/components/marketplace-browser";
 import { getStoreIndustry, liveDemoOrigins } from "@/features/theme/marketplace/server";
 import { livePreviewUrl } from "@/features/theme/marketplace/live-preview";
 import { themeSiteType } from "@/features/theme/marketplace/types";
@@ -24,7 +25,8 @@ export default async function ThemesPage({ searchParams }: PageProps<"/dashboard
   const asked = typeof sp.industry === "string" && isIndustry(sp.industry) ? sp.industry : "";
 
   const counts = new Map<string, number>();
-  for (const t of themes) counts.set(t.industry, (counts.get(t.industry) ?? 0) + 1);
+  // Counts match the catalogue below, which leaves out the live theme (shown in "Current theme").
+  for (const t of themes) if (t.key !== keys.published) counts.set(t.industry, (counts.get(t.industry) ?? 0) + 1);
   const industries = INDUSTRIES.filter((i) => counts.has(i.slug)).map((i) => ({ slug: i.slug, label: i.short, count: counts.get(i.slug)! }));
 
   const cards: MarketplaceCard[] = themes.map((t, order) => {
@@ -46,6 +48,10 @@ export default async function ThemesPage({ searchParams }: PageProps<"/dashboard
     };
   });
 
+  // The live theme gets its own section at the top; the catalogue below lists every other theme.
+  const current = cards.find((c) => c.status === "live") ?? null;
+  const others = current ? cards.filter((c) => c !== current) : cards;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -58,7 +64,21 @@ export default async function ThemesPage({ searchParams }: PageProps<"/dashboard
         }
       />
       {!enabled ? <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-small text-warning">The theme marketplace isn&apos;t included in your plan. You can still preview themes and customize your current theme.</p> : null}
-      <MarketplaceBrowser themes={cards} industries={industries} initialIndustry={asked} recommended={own} enabled={enabled} canPublish={can(ctx, "theme.publish")} />
+      <section aria-labelledby="current-theme" className="space-y-3">
+        <h2 id="current-theme" className="text-h3 font-semibold">Current theme</h2>
+        {current ? (
+          <CurrentThemeCard theme={current} />
+        ) : (
+          <p className="rounded-lg border border-border bg-surface p-4 text-small text-muted">
+            {!keys.published || keys.published === DEFAULT_THEME_KEY ? "Your live store uses the built-in Aangan theme." : "Your live store uses a custom design that isn't in the marketplace."}{" "}
+            <Link href="/dashboard/theme" className="font-medium text-accent hover:underline">Customize it</Link>
+          </p>
+        )}
+      </section>
+      <section aria-labelledby="other-themes" className="space-y-3">
+        <h2 id="other-themes" className="text-h3 font-semibold">{current ? "Other themes" : "All themes"}</h2>
+        <MarketplaceBrowser themes={others} industries={industries} initialIndustry={asked} recommended={own} enabled={enabled} canPublish={can(ctx, "theme.publish")} />
+      </section>
     </div>
   );
 }

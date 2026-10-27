@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { track } from "@/features/tracking/client";
 import type { AnalyticsItem } from "@/features/tracking/items";
-import { applyDiscountAction, removeCartItemAction, removeDiscountAction, saveForLaterAction, updateCartItemAction, updateCartNoteAction } from "@/features/cart/actions";
+import { removeCartItemAction, saveForLaterAction, updateCartItemAction, updateCartNoteAction } from "@/features/cart/actions";
 
 export function LineQuantity({ itemId, quantity, max, item }: { itemId: string; quantity: number; max: number; item?: AnalyticsItem }) {
   const [state, action, pending] = useActionState(updateCartItemAction, null);
@@ -49,37 +49,6 @@ export function LineButtons({ itemId, saved, item }: { itemId: string; saved: bo
         </button>
       </form>
     </div>
-  );
-}
-
-export function CouponForm({ applied, message }: { applied: string | null; message: string | null }) {
-  const [state, action, pending] = useActionState(applyDiscountAction, null);
-  const [, removeAction, removing] = useActionState(removeDiscountAction, null);
-  if (applied) {
-    return (
-      <form action={removeAction} className="flex items-center justify-between gap-2 text-sm">
-        <span>
-          Code <strong className="font-mono">{applied}</strong> applied
-        </span>
-        <button type="submit" disabled={removing} className="sf-link text-xs">
-          Remove
-        </button>
-      </form>
-    );
-  }
-  return (
-    <form action={action} className="space-y-1">
-      <div className="flex gap-2">
-        <label htmlFor="coupon" className="sr-only">
-          Discount code
-        </label>
-        <input id="coupon" name="code" placeholder="Discount code" autoCapitalize="characters" className="sf-input min-w-0 flex-1 py-2 uppercase" />
-        <button type="submit" disabled={pending} className="sf-btn sf-btn-outline min-h-10 py-2">
-          Apply
-        </button>
-      </div>
-      {state && !state.ok ? <p role="alert" className="text-xs text-[var(--sf-sale)]">{state.error.fieldErrors?.code?.[0] ?? state.error.message}</p> : message ? <p className="text-xs">{message}</p> : null}
-    </form>
   );
 }
 
