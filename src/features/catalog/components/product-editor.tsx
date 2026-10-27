@@ -13,6 +13,9 @@ import { Card } from "@/components/ui/layout";
 import { Button } from "@/components/ui/button";
 import { inputClassName as input } from "@/components/ui/field";
 import { ProductDescriptionEditor } from "@/features/catalog/components/product-description-editor";
+import { ProductGenerateAi } from "@/features/seller-ai/components/product-generate-ai";
+import type { GenerateProductResult } from "@/features/seller-ai/schemas";
+import { toDecimalString } from "@/lib/money";
 
 type Opt = { id: string; label: string };
 
@@ -41,6 +44,7 @@ export function ProductEditor({
   types: initialTypes,
   industryName,
   industry,
+  mediaUrls = [],
 }: {
   initial: ProductDraft;
   categories: Opt[];
@@ -56,6 +60,8 @@ export function ProductEditor({
   /** Store industry (slug + display name) used to order type suggestions. */
   industry: string | null;
   industryName: string | null;
+  /** Public URLs of existing gallery images (for Generate with AI). */
+  mediaUrls?: string[];
 }) {
   const [d, setD] = useState<ProductDraft>(initial);
   const [slugTouched, setSlugTouched] = useState(Boolean(initial.id));
@@ -104,6 +110,23 @@ export function ProductEditor({
   };
   const setOptions = (options: OptionDraft[]) => set({ options });
   const setVariant = (i: number, patch: Partial<VariantDraft>) => set({ variants: d.variants.map((v, j) => (j === i ? { ...v, ...patch } : v)) });
+  const applyAi = (data: GenerateProductResult) => {
+    const typeKey = data.productTypeHint && types.some((t) => t.key === data.productTypeHint) ? data.productTypeHint : undefined;
+    const categoryId = data.categoryHint ? categories.find((c) => c.label.toLowerCase() === data.categoryHint!.toLowerCase())?.id : undefined;
+    const priceStr = data.priceMinor > 0 ? toDecimalString(data.priceMinor) : null;
+    set({
+      title: data.title || d.title,
+      shortDescription: data.shortDescription || d.shortDescription,
+      description: data.description || d.description,
+      tags: data.tags.length ? data.tags : d.tags,
+      seoTitle: data.seoTitle || d.seoTitle,
+      seoDescription: data.seoDescription || d.seoDescription,
+      ...(typeKey ? { productType: typeKey } : {}),
+      ...(categoryId ? { categoryId } : {}),
+      ...(slugTouched ? {} : { slug: slugify(data.title || d.title) }),
+      ...(priceStr && d.variants[0] ? { variants: d.variants.map((v, i) => (i === 0 ? { ...v, price: priceStr } : v)) } : {}),
+    });
+  };
   const regenerate = () => {
     const options = cleanOptions(d.options);
     const incomplete = d.options.some((o) => o.name.trim() || o.values.some((v) => v.value.trim()));
@@ -153,6 +176,7 @@ export function ProductEditor({
         <div className="space-y-6">
           <Card title="Basics">
             <div className="space-y-4">
+              <ProductGenerateAi imageUrls={mediaUrls.filter((u) => u.startsWith("https://"))} onApply={applyAi} />
               <div>
                 <L htmlFor="p-title">Title</L>
                 <input id="p-title" className={input} value={d.title} maxLength={200} required onChange={(e) => set({ title: e.target.value, ...(slugTouched ? {} : { slug: slugify(e.target.value) }) })} />

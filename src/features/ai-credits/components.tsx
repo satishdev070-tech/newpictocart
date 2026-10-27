@@ -8,6 +8,16 @@ import { SelectField, TextAreaField, TextField } from "@/components/ui/field";
 import { FALLBACK_PACKS, type AiCreditCatalog, type AiCreditLedgerRow, type AiCreditPurchaseRow } from "./schemas";
 import { requestAiCreditPurchaseAction } from "./actions";
 import { decideAiCreditPurchasePlatformAction, grantAiCreditsPlatformAction } from "./platform-actions";
+import { SELLER_AI_KIND_LABELS } from "@/features/seller-ai/schemas";
+import { AI_FEATURES } from "@/features/ai-health/registry";
+
+function ledgerNoteLabel(note: string | null): string | null {
+  if (!note) return null;
+  const seller = SELLER_AI_KIND_LABELS[note as keyof typeof SELLER_AI_KIND_LABELS];
+  if (seller) return seller;
+  const feature = AI_FEATURES.find((f) => f.creditKind === note || f.key === note);
+  return feature?.label ?? note;
+}
 
 const statusTone = { pending: "warning", approved: "success", declined: "error", cancelled: "neutral" } as const;
 
@@ -99,7 +109,7 @@ function PurchaseHistory({ purchases }: { purchases: AiCreditPurchaseRow[] }) {
 }
 
 function LedgerHistory({ ledger }: { ledger: AiCreditLedgerRow[] }) {
-  return <Card title="Credit history"><ul className="divide-y divide-border text-small">{ledger.map((r) => <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2"><span><span className="font-medium capitalize">{r.kind.replaceAll("_", " ")}</span>{r.note ? <span className="text-muted"> · {r.note}</span> : null}<span className="block text-caption text-muted">{new Date(r.createdAt).toLocaleString("en-IN")}</span></span><span className={`tabular-nums font-medium ${r.delta > 0 ? "text-success" : "text-error"}`}>{signed(r.delta)} <span className="text-muted">· {r.balanceAfter} left</span></span></li>)}</ul></Card>;
+  return <Card title="Credit history"><ul className="divide-y divide-border text-small">{ledger.map((r) => <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2"><span><span className="font-medium capitalize">{r.kind.replaceAll("_", " ")}</span>{r.note ? <span className="text-muted"> · {ledgerNoteLabel(r.note)}</span> : null}<span className="block text-caption text-muted">{new Date(r.createdAt).toLocaleString("en-IN")}</span></span><span className={`tabular-nums font-medium ${r.delta > 0 ? "text-success" : "text-error"}`}>{signed(r.delta)} <span className="text-muted">· {r.balanceAfter} left</span></span></li>)}</ul></Card>;
 }
 
 export function AiCreditAdminPanel({ available, ledger, purchases }: { available: boolean; ledger: (AiCreditLedgerRow & { tenantId: string })[]; purchases: AiCreditPurchaseRow[] }) {

@@ -121,6 +121,12 @@ export const serverEnvSchema = publicEnvSchema.extend({
    */
   UPSTASH_REDIS_REST_URL: z.url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().min(10).optional(),
+  /**
+   * Optional shared secret for Next → Supabase Edge Function seller-AI invokes
+   * (`x-seller-ai-invoke`). When unset, the Supabase secret key Bearer alone is accepted by the
+   * functions. Set the same value with `supabase secrets set AI_EDGE_INVOKE_SECRET=…`.
+   */
+  AI_EDGE_INVOKE_SECRET: z.string().min(32).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
