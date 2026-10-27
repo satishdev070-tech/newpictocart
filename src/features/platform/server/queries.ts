@@ -6,7 +6,7 @@ import { mapDbError } from "@/lib/supabase/errors";
 import { toMinor } from "@/lib/money";
 import { TENANT_STATUSES, type TenantStatus } from "@/lib/tenant/context";
 import type { Json } from "@/lib/supabase/database.types";
-import { bucketWindows, recentMonthStarts, usageByMonth, type MonthlyUsage, type SeriesPoint } from "../stats";
+import { bucketCounts, bucketWindows, recentMonthStarts, usageByMonth, type MonthlyUsage, type SeriesPoint } from "../stats";
 import { isMissingSchemaError, parseStoreType, type StoreType } from "../schemas";
 import type { auditFilterSchema, domainFilterSchema, StoreListFilter, tenantListFilterSchema } from "../schemas";
 
@@ -123,18 +123,21 @@ export async function getPlatformDashboard(): Promise<PlatformDashboard> {
   return dashboardSchema.parse(data ?? {});
 }
 
-/** New tenants per week (exact counts per window, so it stays correct at any volume). */
+/** New tenants per week (one range select, then bucket in memory — avoids N head counts). */
 export async function getSignupSeries(weeks = 12): Promise<SeriesPoint[]> {
   const supabase = await createSupabaseServerClient();
-  const windows = bucketWindows({ buckets: weeks, bucketDays: 7 });
-  const counts = await Promise.all(
-    windows.map(async (w) => {
-      const { count: n, error } = await supabase.from("tenants").select("id", { count: "exact", head: true }).gte("created_at", w.start).lt("created_at", w.end);
-      check(error);
-      return n ?? 0;
-    }),
+  const opts = { buckets: weeks, bucketDays: 7 };
+  const windows = bucketWindows(opts);
+  const { data, error } = await supabase
+    .from("tenants")
+    .select("created_at")
+    .gte("created_at", windows[0]!.start)
+    .lt("created_at", windows[windows.length - 1]!.end);
+  check(error);
+  return bucketCounts(
+    (data ?? []).map((r) => r.created_at),
+    opts,
   );
-  return windows.map((w, i) => ({ key: w.key, label: w.label, value: counts[i] ?? 0 }));
 }
 
 // ---- Tenants ------------------------------------------------------------------------

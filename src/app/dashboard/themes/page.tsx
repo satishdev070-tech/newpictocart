@@ -10,6 +10,7 @@ import { getMarketplaceThemes } from "@/features/theme/marketplace/registry";
 import { INDUSTRIES, isIndustry, industryShort } from "@/features/stores/industries";
 import { CurrentThemeCard, MarketplaceBrowser, type MarketplaceCard } from "@/features/theme/marketplace/components/marketplace-browser";
 import { getStoreIndustry, liveDemoOrigins } from "@/features/theme/marketplace/server";
+import { SHOWCASE_STORES } from "@/features/theme/marketplace/showcase";
 import { livePreviewUrl } from "@/features/theme/marketplace/live-preview";
 import { themeSiteType } from "@/features/theme/marketplace/types";
 
@@ -18,9 +19,14 @@ export const metadata: Metadata = { title: "Theme marketplace" };
 export default async function ThemesPage({ searchParams }: PageProps<"/dashboard/themes">) {
   const ctx = await requireTenantPermission("theme.edit");
   const sp = await searchParams;
-  const themes = await getMarketplaceThemes();
-  const demos = [...new Set(themes.flatMap((t) => (t.demo ? [t.demo] : [])))];
-  const [keys, ent, own, live] = await Promise.all([getThemeKeys(ctx.tenantId), getEntitlements(ctx.tenantId), getStoreIndustry(ctx.tenantId), liveDemoOrigins(demos)]);
+  // Catalogue + tenant reads + open demo set in one wave (Live Preview is showcase-only).
+  const [themes, keys, ent, own, live] = await Promise.all([
+    getMarketplaceThemes(),
+    getThemeKeys(ctx.tenantId),
+    getEntitlements(ctx.tenantId),
+    getStoreIndustry(ctx.tenantId),
+    liveDemoOrigins(Object.keys(SHOWCASE_STORES)),
+  ]);
   const enabled = ent.isEnabled("theme_marketplace");
   const asked = typeof sp.industry === "string" && isIndustry(sp.industry) ? sp.industry : "";
 

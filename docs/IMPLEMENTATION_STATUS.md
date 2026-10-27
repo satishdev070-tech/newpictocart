@@ -1,7 +1,18 @@
 # Implementation Status
 
-_Last updated: 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-27 (seller/admin Phase 1 speed) · 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
+
+## Seller / admin Phase 1 speed (2026-10-27)
+
+Dashboard and Super Admin stay **live** (no Data Cache on private tenant product/order lists — ADR-010). Phase 1 cuts serial DB waves and caches only public catalogues (marketplace themes, open demo origins, platform `product_types`).
+
+- **Dashboard layout:** `getStoreSiteMode` runs in the same `Promise.all` as alerts / bell / trial (was a solo query before those).
+- **Theme marketplace:** catalogue + tenant keys/entitlements/industry + open demos in one wave; `publishedCustomThemes` and open demo origins use production `unstable_cache` (`MARKETPLACE_*` tags); theme builder `refresh()` calls `revalidateMarketplaceCatalogue()`.
+- **Theme editor:** menus load in the first `Promise.all` (embedded `menus→menu_items`, filter by handles after); `hasAiProviderConfigured()` gates AI without decrypting secrets; `SiteBuilder` is a `next/dynamic` import with a loading skeleton.
+- **Admin signup chart:** `getSignupSeries` one `tenants.created_at` range select + `bucketCounts` (was 12 head counts).
+- **Products list:** unused category/collection/SKU prep already skipped; filter picker uses lean `listCategoryFilterOptions`; `platformRows()` cached in production (tag `platform-product-types`, 600 s) with write-path revalidate.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, 126 files / 1,531 tests, build). Branch `cursor/seller-admin-speed-phase1-c73e`.
 
 ## Optional Upstash Redis L2 for public storefront cache (2026-10-27)
 

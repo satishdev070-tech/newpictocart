@@ -55,12 +55,16 @@ async function productIdsBySku(supabase: Supabase, tenantId: string, q: string):
   return [...new Set((data ?? []).map((r) => r.product_id))];
 }
 
-/** Applies the list filters (search, status, type, category incl. children, collection). */
+/**
+ * Applies list filters. Extra round-trips (category tree, collection members, SKU scan)
+ * run only when those filters are present — unused filters add no queries.
+ */
 async function applyProductFilters<Q extends ProductFilterBuilder<Q>>(supabase: Supabase, tenantId: string, query: Q, f: ProductListQuery): Promise<{ query: Q } | null> {
   let q = query.eq("tenant_id", tenantId);
   if (f.status) q = q.eq("status", f.status);
   if (f.type) q = q.eq("product_type", f.type);
   if (f.category) {
+    // Lean columns only — enough for descendantIds; skipped when no category filter.
     const { data: cats, error } = await supabase.from("categories").select("id, parent_id, name, position").eq("tenant_id", tenantId);
     if (error) throw mapDbError(error);
     const rows = (cats ?? []).map((c) => ({ id: c.id, parentId: c.parent_id, name: c.name, position: c.position }));
