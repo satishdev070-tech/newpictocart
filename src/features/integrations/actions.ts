@@ -1,6 +1,7 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { revalidateStorefront } from "@/lib/cache/storefront";
 import { z } from "zod";
 import { runAction, type ActionResult } from "@/lib/actions/result";
 import { formToObject } from "@/lib/actions/form";
@@ -44,7 +45,9 @@ export async function saveIntegrationAction(_prev: ActionResult<string> | null, 
     const before = await loadIntegration(ctx.tenantId, p);
     await saveCredentials(ctx, p, values, environment);
     await rateLimit("integration-test", ctx.tenantId, 20, 600);
-    const message = testOutcome(await runTest(ctx.tenantId, ctx.user.id, p));
+    const outcome = await runTest(ctx.tenantId, ctx.user.id, p);
+    revalidateStorefront(ctx.tenantId); // storefront tracking tags are cached per tenant
+    const message = testOutcome(outcome);
     // First successful connection of a payment gateway switches it on, so it shows at checkout
     // straight away. A gateway the seller switched off on purpose (connected before) stays off.
     if (def.kind === "payment" && !before?.enabled && before?.status !== "connected") {
@@ -64,7 +67,9 @@ export async function testIntegrationAction(_prev: ActionResult<string> | null, 
     const p = provider as ProviderId;
     assertPermission(ctx, PROVIDERS[p].permission);
     await rateLimit("integration-test", ctx.tenantId, 20, 600);
-    return testOutcome(await runTest(ctx.tenantId, ctx.user.id, p));
+    const outcome = await runTest(ctx.tenantId, ctx.user.id, p);
+    revalidateStorefront(ctx.tenantId);
+    return testOutcome(outcome);
   });
   refresh();
   return result;
@@ -75,6 +80,7 @@ export async function toggleIntegrationAction(_prev: ActionResult | null, fd: Fo
     const ctx = await requireTenant();
     const v = parseInput(providerSchema.extend({ enabled: z.enum(["true", "false"]) }), formToObject(fd));
     await setEnabled(ctx, v.provider as ProviderId, v.enabled === "true");
+    revalidateStorefront(ctx.tenantId);
   });
   if (result.ok) refresh();
   return result;
@@ -85,6 +91,7 @@ export async function disconnectIntegrationAction(_prev: ActionResult | null, fd
     const ctx = await requireTenant();
     const { provider } = parseInput(providerSchema, formToObject(fd));
     await disconnect(ctx, provider as ProviderId);
+    revalidateStorefront(ctx.tenantId);
   });
   if (result.ok) refresh();
   return result;

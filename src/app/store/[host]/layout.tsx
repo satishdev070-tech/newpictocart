@@ -8,7 +8,7 @@ import { canonicalUrl } from "@/features/storefront/urls";
 import { toDescription } from "@/features/storefront/seo";
 import { ThemeTokensStyle } from "@/features/theme/tokens-style";
 import { ThemeSlot } from "@/features/theme/render/slot";
-import { CanvasBridge } from "@/features/theme/site-builder/canvas/canvas-bridge";
+import { LazyCanvasBridge } from "@/features/theme/site-builder/canvas/canvas-bridge-lazy";
 import { builderParentOrigins } from "@/lib/platform/urls";
 import { SiteExtras } from "@/features/theme/render/site-extras";
 import { whatsappUrl } from "@/features/storefront/store-profile";
@@ -74,13 +74,19 @@ export default async function StorefrontLayout({ children, params }: LayoutProps
     case "open":
       break;
   }
+  // Independent reads in one wave (each is cached per tenant or per request and never throws).
+  const [hiddenDraft, ctx, activeFestive, activeTracking] = await Promise.all([
+    isHiddenDraft(tenant.tenantId),
+    getRenderContext(host),
+    getActiveFestive(tenant.tenantId),
+    getTrackingConfig(tenant.tenantId),
+  ]);
   // Draft stores (created by onboarding, not yet published) stay private; the owner's signed
   // preview cookie lets them see it. Fails open to "live" (features/stores/launch.ts).
-  if (await isHiddenDraft(tenant.tenantId)) return <ComingSoon storeName={tenant.name} />;
-  const ctx = await getRenderContext(host);
+  if (hiddenDraft) return <ComingSoon storeName={tenant.name} />;
   // Preview modes show the plain theme; festive looks only appear on the live storefront.
-  const festive = ctx.sf.preview || ctx.sf.themePreview ? null : await getActiveFestive(tenant.tenantId);
-  const tracking = ctx.sf.preview || ctx.sf.themePreview ? null : await getTrackingConfig(tenant.tenantId);
+  const festive = ctx.sf.preview || ctx.sf.themePreview ? null : activeFestive;
+  const tracking = ctx.sf.preview || ctx.sf.themePreview ? null : activeTracking;
   return (
     <div data-sf-root data-heading-align={ctx.sf.theme.tokens.sectionHeadingAlign} className="sf-root">
       <ThemeTokensStyle tokens={ctx.sf.theme.tokens} />
@@ -114,7 +120,7 @@ export default async function StorefrontLayout({ children, params }: LayoutProps
       {ctx.sf.theme.popups.length || ctx.sf.theme.embeds.whatsapp.enabled || ctx.sf.theme.embeds.backToTop.enabled || ctx.sf.preview ? (
         <SiteExtras popups={ctx.sf.theme.popups} embeds={ctx.sf.theme.embeds} whatsapp={whatsappUrl(ctx.sf.store.whatsapp)} />
       ) : null}
-      {ctx.sf.preview ? <CanvasBridge platformOrigins={builderParentOrigins()} /> : null}
+      {ctx.sf.preview ? <LazyCanvasBridge platformOrigins={builderParentOrigins()} /> : null}
       {tracking ? (
         <Suspense fallback={null}>
           <TrackingTags config={tracking} />

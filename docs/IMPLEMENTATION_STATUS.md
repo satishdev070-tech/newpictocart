@@ -1,7 +1,29 @@
 # Implementation Status
 
-_Last updated: 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
+
+## Storefront performance: cache scope, fewer DB waves, zod out of the client (2026-10-27)
+
+Measured audit and before/after numbers are in `docs/PERFORMANCE_AUDIT.md`.
+
+- **Directory cache scope:** `revalidateStorefront(tenantId)` no longer evicts every store's host lookup. The directory is now two cached layers: host → tenant (tag `tenant-directory`, dropped only by domain actions via the new `revalidateTenantDirectory()`), and tenant identity (slug, status, name, primary host; tagged with the tenant's storefront tag).
+- **Storefront loaders:**
+  - `getStoreSiteMode` is cached per tenant.
+  - Tracking tags come from one cached query that reads public IDs only (`activePublicConfigs`, no secret decryption). Integration actions revalidate the tenant.
+  - Menus and their items load in one embedded query.
+  - The store layout reads draft status, render context, festive and tracking in one `Promise.all`.
+  - The product page loads the product alongside the render context, and the wishlist flag chains on the customer.
+- **Client JS:**
+  - `@/lib/env/public` validates with a zod-free parser (`lib/env/public-parse.ts`, parity-tested against `publicEnvSchema`).
+  - The builder `CanvasBridge` is lazy-loaded (`canvas-bridge-lazy.tsx`).
+  - First-load JS (gzip): storefront 329 → 205 KB, product page 335 → 212 KB, dashboard 359 → 270 KB.
+- **Measured (local prod build, 25 ms per Supabase call, median):**
+  - Warm storefront home TTFB 257 → 159 ms (23 → 18 calls).
+  - Warm product page 253 → 134 ms (20 → 15 calls).
+  - Cold first request: no measurable change (840 vs 893 ms, within noise).
+  - Rendered links/text identical before and after on home, product, collections and search.
+- **Verification:** `pnpm check` ✅ (125 files / 1,515 tests, build). New tests: `env-public-parse.test.ts`, `tracking-config.test.ts`; updated `tenant-directory.test.ts`, `storefront-cache.test.ts`.
 
 ## Team roles: Store Admin (Owner) / Manager / Sales Associate (2026-10-27, QA #2 #3)
 

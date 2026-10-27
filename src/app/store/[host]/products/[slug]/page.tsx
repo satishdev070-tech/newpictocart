@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { after } from "next/server";
+import { resolveStorefrontTenant } from "@/lib/tenant/resolve";
 import Link from "next/link";
 import { getRenderContext } from "@/features/theme/render/load";
 import { splitAtPageContent } from "@/features/theme/render/sections";
@@ -48,26 +49,28 @@ export async function generateMetadata({ params }: PageProps<"/store/[host]/prod
 
 export default async function ProductPage({ params }: PageProps<"/store/[host]/products/[slug]">) {
   const { host, slug } = await params;
-  const ctx = await getRenderContext(host);
+  // The product only needs the tenant (memoised; the layout resolved it), so it loads alongside
+  // the render context instead of after it. getRenderContext 404s for an unknown/closed store.
+  const tenant = await resolveStorefrontTenant(host);
+  const [ctx, product] = await Promise.all([getRenderContext(host), tenant ? getProductBySlug(tenant.tenantId, slug) : null]);
   const { sf } = ctx;
   const tenantId = sf.tenant.tenantId;
   const commerceEnabled = !isInformative(sf.siteMode);
-  const p = await getProductBySlug(tenantId, slug);
+  const p = product;
   if (!p) return redirectOrNotFound(tenantId, paths.product(slug));
 
-  const [categories, related, reviewData, customer, offers] = await Promise.all([
+  const [categories, related, reviewData, { customer, saved }, offers] = await Promise.all([
     getAllCategories(tenantId),
     listProducts(tenantId, p.categoryId ? { p_category: p.categoryId, p_exclude: p.id, p_limit: 8, p_offset: 0, p_sort: "best_selling" } : { p_exclude: p.id, p_limit: 8, p_offset: 0, p_sort: "newest" }),
     sf.features.reviews ? getProductReviews(tenantId, p.id, 10) : Promise.resolve({ reviews: [], distribution: [] }),
-    getStoreCustomer(tenantId),
+    // The wishlist flag chains on the customer instead of waiting for the whole batch.
+    getStoreCustomer(tenantId).then(async (c) => {
+      if (!c) return { customer: c, saved: false };
+      const { data } = await (await createSupabaseServerClient()).from("wishlist_items").select("product_id").eq("customer_id", c.id).eq("product_id", p.id).maybeSingle();
+      return { customer: c, saved: Boolean(data) };
+    }),
     commerceEnabled ? offersForProduct(tenantId, p.id) : Promise.resolve([]),
   ]);
-  let saved = false;
-  if (customer) {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase.from("wishlist_items").select("product_id").eq("customer_id", customer.id).eq("product_id", p.id).maybeSingle();
-    saved = Boolean(data);
-  }
   after(() => trackStoreEvent({ tenantId, name: "product_view", path: paths.product(p.slug), productId: p.id }));
 
   const reviewCount = reviewData.distribution.reduce((x, n) => x + n, 0);

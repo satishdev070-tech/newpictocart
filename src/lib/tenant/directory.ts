@@ -3,7 +3,7 @@ import { cache } from "react";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/observability/logger";
 import { publicEnv } from "@/lib/env/public";
-import { cachedStorefront, TENANT_DIRECTORY_TAG } from "@/lib/cache/storefront";
+import { cachedStorefront, storefrontTag, TENANT_DIRECTORY_TAG } from "@/lib/cache/storefront";
 import type { ResolvedTenant, TenantDirectory, TenantStatus } from "./context";
 
 /**
@@ -29,49 +29,52 @@ export class TenantDirectoryError extends Error {
 
 type DirectoryEntry = ResolvedTenant & { custom: boolean };
 
-const lookup = cachedStorefront(
-  "tenant-directory-v2",
-  async (host: string): Promise<DirectoryEntry> => {
-    const admin = createSupabaseAdminClient();
-    const { data, error } = await admin
-      .from("domains")
-      .select("hostname, type, tenant_id, tenants!inner(id, slug, status, stores(name))")
-      .eq("hostname", host)
-      .eq("status", "verified")
-      .maybeSingle();
+/**
+ * Hostname -> tenant id. Changes only when domains change, so it is tagged with the directory tag
+ * (domain actions invalidate it) and not with the tenant's storefront tag: ordinary store saves no
+ * longer evict every store's host lookup.
+ */
+const lookupHost = cachedStorefront(
+  "tenant-directory-host-v3",
+  async (host: string): Promise<{ tenantId: string; custom: boolean }> => {
+    const { data, error } = await createSupabaseAdminClient().from("domains").select("tenant_id, type").eq("hostname", host).eq("status", "verified").maybeSingle();
     if (error) {
       // PostgREST error fields only (never the key or request headers).
       logger.error("tenant_directory.lookup_failed", { host, code: error.code, error: error.message, details: error.details, hint: error.hint });
       throw new TenantDirectoryError(host);
     }
     if (!data) throw new HostNotFound();
-
-    const { data: primary, error: primaryError } = await admin
-      .from("domains")
-      .select("hostname")
-      .eq("tenant_id", data.tenant_id)
-      .eq("is_primary", true)
-      .eq("status", "verified")
-      .maybeSingle();
-    if (primaryError) {
-      logger.error("tenant_directory.primary_lookup_failed", { host, code: primaryError.code, error: primaryError.message });
-      throw new TenantDirectoryError(host);
-    }
-
-    const tenant = data.tenants;
-    const store = Array.isArray(tenant.stores) ? tenant.stores[0] : tenant.stores;
-    return {
-      tenantId: data.tenant_id,
-      slug: tenant.slug,
-      name: store?.name ?? tenant.slug,
-      status: tenant.status as TenantStatus,
-      host,
-      primaryHost: primary?.hostname ?? host,
-      custom: data.type === "custom",
-    };
+    return { tenantId: data.tenant_id, custom: data.type === "custom" };
   },
   (host) => [TENANT_DIRECTORY_TAG, `host:${host}`],
 );
+
+/** Tenant identity (slug, status, store name, primary host), invalidated with the tenant's storefront. */
+const lookupTenant = cachedStorefront(
+  "tenant-directory-tenant-v3",
+  async (tenantId: string): Promise<{ slug: string; status: TenantStatus; name: string | null; primaryHost: string | null }> => {
+    const { data, error } = await createSupabaseAdminClient()
+      .from("tenants")
+      .select("slug, status, stores(name), domains(hostname)")
+      .eq("id", tenantId)
+      .eq("domains.is_primary", true)
+      .eq("domains.status", "verified")
+      .maybeSingle();
+    if (error || !data) {
+      logger.error("tenant_directory.tenant_lookup_failed", { tenantId, code: error?.code, error: error?.message });
+      throw new TenantDirectoryError(tenantId);
+    }
+    const store = Array.isArray(data.stores) ? data.stores[0] : data.stores;
+    return { slug: data.slug, status: data.status as TenantStatus, name: store?.name ?? null, primaryHost: data.domains[0]?.hostname ?? null };
+  },
+  (tenantId) => [TENANT_DIRECTORY_TAG, storefrontTag(tenantId)],
+);
+
+async function lookup(host: string): Promise<DirectoryEntry> {
+  const { tenantId, custom } = await lookupHost(host);
+  const tenant = await lookupTenant(tenantId);
+  return { tenantId, slug: tenant.slug, name: tenant.name ?? tenant.slug, status: tenant.status, host, primaryHost: tenant.primaryHost ?? host, custom };
+}
 
 /**
  * The www / apex partner of a custom domain ("www.brand.in" <-> "brand.in"), or null for platform

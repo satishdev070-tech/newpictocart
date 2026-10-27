@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { revalidateAllStorefronts, revalidateStorefront } from "@/lib/cache/storefront";
+import { revalidateAllStorefronts, revalidateStorefront, revalidateTenantDirectory } from "@/lib/cache/storefront";
 import { redirect } from "next/navigation";
 import { runAction, type ActionResult } from "@/lib/actions/result";
 import { formToObject } from "@/lib/actions/form";
@@ -331,6 +331,7 @@ export async function recheckDomainAction(_prev: ActionResult<VerifyOutcome> | n
     await rateLimit("domain-verify", domainId, 6, 600);
     const { tenantId, ...outcome } = await recheckDomain(ctx, domainId);
     revalidateStorefront(tenantId);
+    revalidateTenantDirectory();
     revalidatePath("/admin/domains");
     revalidatePath(tenantPath(tenantId));
     return outcome;

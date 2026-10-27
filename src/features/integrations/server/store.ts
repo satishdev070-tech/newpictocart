@@ -112,6 +112,29 @@ export async function activeIntegration(tenantId: string, provider: ProviderId):
   return it;
 }
 
+/**
+ * Public config of the connected, enabled and plan-allowed integrations among `providers`, in one
+ * query and without reading or decrypting secrets (storefront tracking tags only need public IDs).
+ */
+export async function activePublicConfigs(tenantId: string, providers: ProviderId[]): Promise<Partial<Record<ProviderId, Record<string, string>>>> {
+  const { data, error } = await createSupabaseAdminClient()
+    .from("tenant_integrations")
+    .select("provider, enabled, status, public_config")
+    .eq("tenant_id", tenantId)
+    .in("provider", providers)
+    .eq("enabled", true)
+    .eq("status", "connected");
+  if (error) throw mapDbError(error, { tenantId });
+  if (!data?.length) return {};
+  const ent = await getEntitlements(tenantId);
+  const out: Partial<Record<ProviderId, Record<string, string>>> = {};
+  for (const row of data) {
+    const provider = row.provider as ProviderId;
+    if (providers.includes(provider) && ent.isEnabled(PROVIDERS[provider].feature)) out[provider] = strings(row.public_config);
+  }
+  return out;
+}
+
 export async function listIntegrationSummaries(tenantId: string, kind?: IntegrationKind): Promise<IntegrationSummary[]> {
   let q = createSupabaseAdminClient().from("tenant_integrations").select(SELECT).eq("tenant_id", tenantId);
   if (kind) q = q.eq("kind", kind);

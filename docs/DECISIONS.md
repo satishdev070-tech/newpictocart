@@ -70,7 +70,7 @@ but it changes the rules for every route (dynamic access must sit under `<Suspen
 Proposal: enable it at the start of Phase 7 with tags `tenant:{id}`, `tenant:{id}:product:{id}`, `tenant:{id}:theme`, invalidated from catalog/theme services.
 
 
-**Update (2026-10-02):** cross-request caching is now done with `unstable_cache` (`src/lib/cache/storefront.ts`; production only): tenant directory (tags `tenant-directory`, `host:<host>`), published theme, store profile and features (`tenant:<id>:storefront`), 120 s TTL. Every mutation that changes them calls `revalidateStorefront(tenantId)`; plan/flag changes call `revalidateAllStorefronts()`. Draft preview and Live Preview are never cached; product, price and stock reads are not cached.
+**Update (2026-10-02):** cross-request caching is now done with `unstable_cache` (`src/lib/cache/storefront.ts`; production only): tenant directory (tags `tenant-directory`, `host:<host>`), published theme, store profile and features (`tenant:<id>:storefront`), 120 s TTL. Every mutation that changes them calls `revalidateStorefront(tenantId)`; plan/flag changes call `revalidateAllStorefronts()`. **Update (2026-10-27):** `revalidateStorefront` drops only that tenant's entries (incl. its directory identity); the host → tenant mapping is dropped only by domain changes via `revalidateTenantDirectory()`. Site mode, tracking tags (public IDs only) are cached per tenant too. Draft preview and Live Preview are never cached; product, price and stock reads are not cached.
 
 ## ADR-011 — Hosting target for the Next.js app · Open (needed by Phase 11; affects nothing before)
 Options:
