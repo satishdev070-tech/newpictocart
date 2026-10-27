@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { slug } from "@/lib/validation/common";
 import { toDecimalString, toMinor } from "@/lib/money";
+import { SIZE_CHART_ATTR } from "./size-chart";
 import {
   CATEGORY_STATUSES,
   COLLECTION_SORTS,
@@ -128,6 +129,7 @@ export const productInputSchema = z
     brand: optText(120),
     categoryId: optUuid,
     sizeChartId: optUuid,
+    hideSizeChart: z.boolean().default(false),
     status: z.enum(PRODUCT_STATUSES),
     featured: z.boolean().default(false),
     tags: z.array(tagSchema).max(MAX_TAGS, `Use at most ${MAX_TAGS} tags`).default([]),
@@ -200,6 +202,7 @@ export function toSaveProductPayload(p: ProductInput, opts: { allowInitialStock:
   }
   if (p.attributes.occasion.length) attributes.occasion = p.attributes.occasion;
   if (p.attributes.specs.length) attributes.specs = p.attributes.specs;
+  if (p.hideSizeChart) attributes[SIZE_CHART_ATTR] = "none";
   const seo: Record<string, string> = {};
   if (p.seoTitle) seo.title = p.seoTitle;
   if (p.seoDescription) seo.description = p.seoDescription;
@@ -216,7 +219,7 @@ export function toSaveProductPayload(p: ProductInput, opts: { allowInitialStock:
       product_type: p.productType,
       brand: p.brand,
       category_id: p.categoryId,
-      size_chart_id: p.sizeChartId,
+      size_chart_id: p.hideSizeChart ? null : p.sizeChartId,
       status: p.status,
       featured: p.featured,
       tags: p.tags,
@@ -305,6 +308,7 @@ export const categorySchema = z.object({
   slug,
   description: optText(5000),
   parentId: optUuid,
+  sizeChartId: optUuid,
   status: z.enum(CATEGORY_STATUSES),
   position: z.preprocess(blankToUndefined, z.coerce.number().int().min(0).max(100_000).default(0)),
   seoTitle: optText(120),
@@ -375,6 +379,15 @@ export const sizeChartSchema = z.object({
       return null;
     }
   }, sizeChartDataSchema),
+  /** Categories that use this chart by default (JSON array; omitted = leave assignments as they are). */
+  categoryIds: z.preprocess((v) => {
+    if (typeof v !== "string") return v;
+    try {
+      return JSON.parse(v);
+    } catch {
+      return null;
+    }
+  }, z.array(z.uuid()).max(2000).optional()),
 });
 
 /* ------------------------------------------------------------------ media */

@@ -42,6 +42,7 @@ async function ensureCategories(tenantId: string, plan: ReadyStorePlan): Promise
         slug: c.slug,
         description: c.description,
         parentId: null,
+        sizeChartId: null,
         status: "active",
         position: i + 1,
         seoTitle: null,

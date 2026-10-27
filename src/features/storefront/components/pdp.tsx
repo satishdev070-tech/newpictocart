@@ -7,6 +7,7 @@ import { findVariant, initialSelection, isColourOption, isSizeOption, selectValu
 import type { ProductMedia, SizeChart } from "@/features/storefront/server/catalog";
 import { assetUrl } from "@/lib/storage/assets";
 import { Price } from "./price";
+import { SizeChartButton } from "./size-chart-dialog";
 import { openCartDrawer } from "./header-islands";
 import { track } from "@/features/tracking/client";
 
@@ -121,60 +122,6 @@ function Arrow({ dir }: { dir: "left" | "right" }) {
   );
 }
 
-function SizeGuide({ chart }: { chart: SizeChart }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  return (
-    <>
-      <button type="button" className="sf-link text-sm" onClick={() => ref.current?.showModal()}>
-        Size guide
-      </button>
-      <dialog ref={ref} className="sf-dialog sf-dialog-center" aria-labelledby="sg-title">
-        <div className="p-5">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <h2 id="sg-title" className="sf-heading text-xl">
-              {chart.name} <span className="sf-muted text-sm">({chart.unit === "cm" ? "centimetres" : "inches"})</span>
-            </h2>
-            <button type="button" onClick={() => ref.current?.close()} className="sf-link text-sm">
-              Close
-            </button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr>
-                  {chart.columns.map((c) => (
-                    <th key={c} scope="col" className="sf-border border-b px-3 py-2">
-                      {c}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {chart.rows.map((r, i) => (
-                  <tr key={i}>
-                    {r.map((cell, j) =>
-                      j === 0 ? (
-                        <th key={j} scope="row" className="sf-border border-b px-3 py-2 font-medium">
-                          {cell}
-                        </th>
-                      ) : (
-                        <td key={j} className="sf-border border-b px-3 py-2">
-                          {cell}
-                        </td>
-                      ),
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {chart.note ? <p className="sf-muted mt-3 text-xs">{chart.note}</p> : null}
-        </div>
-      </dialog>
-    </>
-  );
-}
-
 export type PdpPanel = { key: string; title: string; icon: "description" | "details" | "care" | "shipping" | "size"; content: ReactNode; open?: boolean };
 
 const PANEL_ICONS: Record<PdpPanel["icon"], ReactNode> = {
@@ -252,6 +199,8 @@ export function ProductPurchase({
   const complete = options.every((o) => sel[o.position]);
   const priceV = variant ?? variants[0];
   const note = highlight ?? codNote;
+  // The size chart link sits by the Size option, or below the options when there is none.
+  const sizePos = options.find((o) => isSizeOption(o.name))?.position;
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-8 @[64rem]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] @[64rem]:gap-14">
@@ -282,7 +231,7 @@ export function ProductPurchase({
                     <span className="font-medium">{o.name}</span>
                     {sel[o.position] ? <span className="sf-muted">: {sel[o.position]}</span> : null}
                   </span>
-                  {isSizeOption(o.name) && sizeChart ? <SizeGuide chart={sizeChart} /> : null}
+                  {sizeChart && o.position === sizePos ? <SizeChartButton chart={sizeChart} /> : null}
                 </legend>
                 <div className="flex flex-wrap gap-2">
                   {o.values.map((v) => {
@@ -314,6 +263,8 @@ export function ProductPurchase({
               </fieldset>
             );
           })}
+
+          {sizeChart && !sizePos ? <SizeChartButton chart={sizeChart} /> : null}
 
           {options.length || label.tone !== "ok" ? (
             <p aria-live="polite" className={`text-sm ${label.tone === "out" ? "text-[var(--sf-sale)]" : label.tone === "low" ? "text-[var(--sf-accent)]" : "sf-muted"}`}>

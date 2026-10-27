@@ -280,9 +280,9 @@ export function ImportProducts() {
 
 // ---------------------------------------------------------------- categories
 
-export type CategoryValue = { id?: string; name: string; slug: string; description: string; parentId: string | null; status: string; position: number; seoTitle: string; seoDescription: string; imageUrl: string | null };
+export type CategoryValue = { id?: string; name: string; slug: string; description: string; parentId: string | null; sizeChartId: string | null; status: string; position: number; seoTitle: string; seoDescription: string; imageUrl: string | null };
 
-export function CategoryForm({ value, parents }: { value?: CategoryValue; parents: Opt[] }) {
+export function CategoryForm({ value, parents, sizeCharts = [] }: { value?: CategoryValue; parents: Opt[]; sizeCharts?: Opt[] }) {
   const [name, setName] = useState(value?.name ?? "");
   const [slug, setSlug] = useState(value?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(Boolean(value?.id || value?.slug));
@@ -295,6 +295,16 @@ export function CategoryForm({ value, parents }: { value?: CategoryValue; parent
           <SelectField label="Parent" name="parentId" defaultValue={value?.parentId ?? ""} options={[{ value: "", label: "None (top level)" }, ...parents.filter((p) => p.id !== value?.id).map((p) => ({ value: p.id, label: p.label }))]} errors={e.parentId} />
           <SelectField label="Status" name="status" defaultValue={value?.status ?? "active"} options={[{ value: "active", label: "Visible" }, { value: "hidden", label: "Hidden" }]} />
           <TextField label="Position" name="position" type="number" min={0} defaultValue={value?.position ?? 0} />
+          {sizeCharts.length ? (
+            <SelectField
+              label="Size chart"
+              name="sizeChartId"
+              defaultValue={value?.sizeChartId ?? ""}
+              options={[{ value: "", label: "None (use the parent's)" }, ...sizeCharts.map((c) => ({ value: c.id, label: c.label }))]}
+              hint="Shown on every product in this category and its subcategories, unless a product picks its own."
+              errors={e.sizeChartId}
+            />
+          ) : null}
           <div>
             <label htmlFor={`cat-img-${value?.id ?? "new"}`} className="mb-1.5 block text-sm font-medium">
               Image
@@ -490,10 +500,17 @@ export function DeleteCollection({ id }: { id: string }) {
 
 // --------------------------------------------------------------- size charts
 
-export function SizeChartForm({ value }: { value?: { id: string; name: string; unit: "in" | "cm"; chart: SizeChartData } }) {
+export function SizeChartForm({ value, categories = [] }: { value?: { id: string; name: string; unit: "in" | "cm"; chart: SizeChartData; categoryIds: string[] }; categories?: Opt[] }) {
   const [chart, setChart] = useState<SizeChartData>(value?.chart ?? DEFAULT_CHART);
+  const [categoryIds, setCategoryIds] = useState<string[]>(value?.categoryIds ?? []);
+  const toggleCategory = (id: string, on: boolean) => setCategoryIds((ids) => (on ? [...ids, id] : ids.filter((x) => x !== id)));
   return (
-    <ActionForm action={saveSizeChartAction} fields={{ ...(value ? { id: value.id } : {}), chart: JSON.stringify(chart) }} submitLabel={value ? "Save chart" : "Create chart"} resetOnSuccess={!value}>
+    <ActionForm
+      action={saveSizeChartAction}
+      fields={{ ...(value ? { id: value.id } : {}), chart: JSON.stringify(chart), ...(categories.length ? { categoryIds: JSON.stringify(categoryIds) } : {}) }}
+      submitLabel={value ? "Save chart" : "Create chart"}
+      resetOnSuccess={!value}
+    >
       {(e) => (
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -544,6 +561,20 @@ export function SizeChartForm({ value }: { value?: { id: string; name: string; u
           </Button>
           <TextField label="Note" name="_note" value={chart.note ?? ""} onChange={(ev) => setChart({ ...chart, note: ev.target.value })} optional />
           {e.chart ? <p className="text-sm text-error">{e.chart[0]}</p> : null}
+          {categories.length ? (
+            <fieldset>
+              <legend className="mb-1 text-sm font-medium">Apply to categories</legend>
+              <p className="mb-2 text-xs text-muted">Every product in these categories (and their subcategories) shows this chart, unless the product picks a different one.</p>
+              <div className="grid max-h-56 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                {categories.map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={categoryIds.includes(c.id)} onChange={(ev) => toggleCategory(c.id, ev.target.checked)} />
+                    {c.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
         </div>
       )}
     </ActionForm>
