@@ -5,15 +5,16 @@ _Last updated: 2026-10-28 (seller AI suite) · 2026-10-27 (seller/admin Phase 1 
 
 ## Seller AI suite (2026-10-28)
 
-Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coach. Next.js owns auth, permissions (`runAction` + membership), and `ai_credit_debit` / refund; Supabase Edge Functions run the LLM.
+Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coach. Next.js owns auth, permissions (`runAction` + membership), credits, and **in-process** LLM calls via neural-pulse `generateJson` (same Admin → Social apps keys as AI Health). Edge Functions remain optional (`invokeSellerAi`).
 
-- **Edge functions:** `supabase/functions/generate-product`, `generate-blog`, `generate-contact-reply`, `business-coach` (+ `_shared` auth/LLM). Invoked from Next with the secret key (optional `AI_EDGE_INVOKE_SECRET` / `x-seller-ai-invoke`).
-- **UI:** Products editor “Generate with AI” (file upload and/or https gallery URLs); Blog editor “AI Write”; Messages “Draft AI reply”; Dashboard home Business Coach card.
-- **Credits / registry:** Migration `20261028004200_seller_ai_suite.sql` seeds costs, widens `ai_generations.kind`, and lets `catalog.write` / `content.write` / `analytics.read` debit. Features registered in `ai-health/registry.ts`; ledger labels in AI credits UI.
-- **Hosted Edge Functions:** Deployed to `ugbjlpdhktrlkyuijkfc` (2026-10-28): `generate-product`, `generate-blog`, `generate-contact-reply`, `business-coach` (`verify_jwt=false`; gated by secret key / optional `AI_EDGE_INVOKE_SECRET`). Provider keys come from Admin → Social apps (Next passes them ephemerally). Optional: `supabase secrets set AI_EDGE_INVOKE_SECRET=…` matching app env.
-- **Hosted DB:** Migration `20261028004200_seller_ai_suite.sql` applied to `ugbjlpdhktrlkyuijkfc` (2026-10-28): costs seeded (`generate_product` 8, `generate_blog` 5, `contact_reply` 2, `business_coach` 3), `ai_generations.kind` check widened, debit/refund allows catalog/content/analytics.
-- **Verification:** `pnpm check` ✅ (typecheck, lint, **127 files / 1,537 tests**, build). Merged via PR #36.
-- **Branch:** `cursor/seller-ai-generate-suite-c73e` (merged to `main`).
+- **Happy path:** `runSellerAiGeneration` → `loadProviders` (SETUP only when empty) → debit → `generateJson` (+ `orderForImages` when vision) → refund on fail → `ai_generations`. Prompts in `src/features/seller-ai/prompts.ts`.
+- **False SETUP fix:** `invoke.ts` no longer maps every HTTP 503 to SETUP; only `error === "not_configured"` (or Next with zero providers). Other 502/503 → distinct edge-unavailable message. Invoke sends `apikey` + `Authorization`.
+- **Edge functions (optional):** `supabase/functions/generate-product`, `generate-blog`, `generate-contact-reply`, `business-coach` (+ `_shared` auth/LLM).
+- **UI:** Products editor “Generate with AI”; Blog “AI Write”; Messages “Draft AI reply”; Dashboard Business Coach card.
+- **Credits / registry:** Migration `20261028004200_seller_ai_suite.sql`; features in `ai-health/registry.ts`.
+- **Hosted:** Edge + migration applied on `ugbjlpdhktrlkyuijkfc` (2026-10-28).
+- **Verification:** seller-ai unit tests under `tests/unit/seller-ai/`; full gate `pnpm check`.
+- **Branch (backend fix):** `cursor/seller-ai-false-setup-ui-c73e`.
 
 ## Seller / admin Phase 1 speed (2026-10-27)
 

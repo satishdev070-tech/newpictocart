@@ -9,7 +9,8 @@ export const generateProductInputSchema = z.object({
   locale: z.string().trim().max(40).optional(),
 });
 
-export const generateProductResultSchema = z.object({
+/** LLM JSON only — provider/model/tokens are attached by the server after generateJson. */
+export const generateProductContentSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(8000),
   shortDescription: z.string().trim().max(500),
@@ -19,10 +20,15 @@ export const generateProductResultSchema = z.object({
   categoryHint: z.string().trim().max(80).nullable().optional(),
   seoTitle: z.string().trim().max(120).optional().default(""),
   seoDescription: z.string().trim().max(320).optional().default(""),
+});
+
+const generationMetaSchema = z.object({
   provider: z.enum(["gemini", "groq", "anthropic"]),
   model: z.string().max(100),
   tokens: z.number().nullable().optional(),
 });
+
+export const generateProductResultSchema = generateProductContentSchema.merge(generationMetaSchema);
 export type GenerateProductResult = z.infer<typeof generateProductResultSchema>;
 
 export const generateBlogInputSchema = z.object({
@@ -37,17 +43,15 @@ const blogBlockSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("quote"), text: z.string().trim().min(1).max(1000), cite: z.string().trim().max(120).optional() }),
 ]);
 
-export const generateBlogResultSchema = z.object({
+export const generateBlogContentSchema = z.object({
   title: z.string().trim().min(1).max(200),
   excerpt: z.string().trim().max(500),
   tags: z.array(z.string().trim().min(1).max(40)).max(12),
   seoTitle: z.string().trim().max(120),
   seoDescription: z.string().trim().max(320),
   blocks: z.array(blogBlockSchema).min(1).max(20),
-  provider: z.enum(["gemini", "groq", "anthropic"]),
-  model: z.string().max(100),
-  tokens: z.number().nullable().optional(),
 });
+export const generateBlogResultSchema = generateBlogContentSchema.merge(generationMetaSchema);
 export type GenerateBlogResult = z.infer<typeof generateBlogResultSchema>;
 
 /** Soften AI blocks into store content blocks (drops invalid ones). */
@@ -68,16 +72,14 @@ export const contactReplyInputSchema = z.object({
   message: z.string().trim().min(2).max(4000),
 });
 
-export const contactReplyResultSchema = z.object({
+export const contactReplyContentSchema = z.object({
   reply: z.string().trim().min(1).max(4000),
   subject: z.string().trim().max(200),
-  provider: z.enum(["gemini", "groq", "anthropic"]),
-  model: z.string().max(100),
-  tokens: z.number().nullable().optional(),
 });
+export const contactReplyResultSchema = contactReplyContentSchema.merge(generationMetaSchema);
 export type ContactReplyResult = z.infer<typeof contactReplyResultSchema>;
 
-export const businessCoachResultSchema = z.object({
+export const businessCoachContentSchema = z.object({
   headline: z.string().trim().min(1).max(120),
   focus: z.string().trim().max(280),
   tips: z
@@ -90,10 +92,8 @@ export const businessCoachResultSchema = z.object({
     )
     .min(1)
     .max(6),
-  provider: z.enum(["gemini", "groq", "anthropic"]),
-  model: z.string().max(100),
-  tokens: z.number().nullable().optional(),
 });
+export const businessCoachResultSchema = businessCoachContentSchema.merge(generationMetaSchema);
 export type BusinessCoachResult = z.infer<typeof businessCoachResultSchema>;
 
 export const SELLER_AI_CREDIT_KINDS = ["generate_product", "generate_blog", "contact_reply", "business_coach"] as const;
