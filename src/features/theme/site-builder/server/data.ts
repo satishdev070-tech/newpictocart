@@ -7,7 +7,7 @@ import { can } from "@/lib/tenant/membership";
 import { getEditorPickers, getThemeEditorData } from "@/features/theme/server/queries";
 import { menuHandles } from "@/features/theme/render/load";
 import { linkFromMenuRow, type ThemeMenu, type ThemeMenuItem } from "@/features/theme/schema/links";
-import { loadProviders } from "@/features/neural-pulse/server/generate";
+import { hasAiProviderConfigured } from "@/features/platform-apps/server";
 import { paths } from "@/features/storefront/urls";
 import { parseSiteMode } from "@/features/stores/site-mode";
 import type { BuilderData } from "../context";
@@ -20,16 +20,18 @@ import { isSarvamConfigured } from "@/lib/sarvam/client";
 export async function getBuilderData(ctx: TenantContext): Promise<BuilderData> {
   const tenantId = ctx.tenantId;
   const supabase = await createSupabaseServerClient();
-  const [data, pickers, pages, product, collection, store, aiProviders] = await Promise.all([
+  const [data, pickers, pages, product, collection, store, aiConfigured, allMenus] = await Promise.all([
     getThemeEditorData(tenantId),
     getEditorPickers(tenantId),
     supabase.from("pages").select("id, title, slug, kind").eq("tenant_id", tenantId).order("title").limit(100),
     supabase.from("products").select("slug").eq("tenant_id", tenantId).eq("status", "active").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("collections").select("slug").eq("tenant_id", tenantId).order("position").limit(1).maybeSingle(),
     supabase.from("stores").select("name, whatsapp, site_mode").eq("tenant_id", tenantId).maybeSingle(),
-    loadProviders().catch(() => []),
+    hasAiProviderConfigured(),
+    loadAllDbMenus(tenantId),
   ]);
-  const dbMenus = await loadDbMenus(tenantId, menuHandles(data.config));
+  const needed = new Set(menuHandles(data.config));
+  const dbMenus = Object.fromEntries(Object.entries(allMenus).filter(([handle]) => needed.has(handle)));
   return {
     initial: data.config,
     draftUpdatedAt: data.draftUpdatedAt,
@@ -47,29 +49,23 @@ export async function getBuilderData(ctx: TenantContext): Promise<BuilderData> {
       sampleCollectionSlug: collection.data?.slug ?? null,
       blog: true,
     },
-    // Gemini / Groq / Anthropic, or Sarvam chat as the fallback model (generateSectionAction uses either).
-    aiEnabled: aiProviders.length > 0 || isSarvamConfigured(),
+    // Gemini / Groq / Anthropic presence, or Sarvam chat as the fallback model (generateSectionAction uses either).
+    aiEnabled: aiConfigured || isSarvamConfigured(),
   };
 }
 
-/** Database menus as theme menus, so the builder can show and copy them on first edit. */
-async function loadDbMenus(tenantId: string, handles: string[]): Promise<Record<string, ThemeMenu>> {
-  if (!handles.length) return {};
+/** All tenant menus with embedded items (one round trip). Caller filters by theme handles. */
+async function loadAllDbMenus(tenantId: string): Promise<Record<string, ThemeMenu>> {
   const supabase = await createSupabaseServerClient();
-  const { data: menus, error } = await supabase.from("menus").select("id, handle, title").eq("tenant_id", tenantId).in("handle", handles);
+  const { data: menus, error } = await supabase
+    .from("menus")
+    .select("id, handle, title, menu_items(id, menu_id, parent_id, title, link_type, link_ref, url, highlight, position)")
+    .eq("tenant_id", tenantId)
+    .order("position", { referencedTable: "menu_items" })
+    .limit(600, { referencedTable: "menu_items" });
   if (error) logger.warn("site_builder.menus_failed", { tenantId, error: error.message });
   if (!menus?.length) return {};
-  const { data: rows } = await supabase
-    .from("menu_items")
-    .select("id, menu_id, parent_id, title, link_type, link_ref, url, highlight, position")
-    .eq("tenant_id", tenantId)
-    .in(
-      "menu_id",
-      menus.map((m) => m.id),
-    )
-    .order("position")
-    .limit(600);
-  const items = rows ?? [];
+  const items = menus.flatMap((m) => m.menu_items ?? []);
   const catIds = [...new Set(items.filter((r) => r.link_type === "category" && r.link_ref).map((r) => r.link_ref!))];
   const { data: cats } = catIds.length ? await supabase.from("categories").select("id, slug").eq("tenant_id", tenantId).in("id", catIds) : { data: [] };
   const catSlug = new Map((cats ?? []).map((c) => [c.id, c.slug]));

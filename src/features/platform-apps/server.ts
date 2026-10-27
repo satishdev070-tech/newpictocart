@@ -13,6 +13,7 @@ import {
   AI_PROVIDERS,
   APP_PROVIDERS,
   cleanExtra,
+  envNamesFor,
   needsClientId,
   resolveCredential,
   toStatus,
@@ -55,6 +56,20 @@ export const getAppCredential = cache(async (provider: AppProvider): Promise<App
 export async function getAiProviderOrder(): Promise<AiProvider[]> {
   const creds = await Promise.all(AI_PROVIDERS.map((p) => getAppCredential(p)));
   return AI_PROVIDERS.filter((_, i) => creds[i] !== null);
+}
+
+/**
+ * Presence-only check for theme-editor gating: true when any AI env key is set or a DB row has
+ * `secret_ciphertext`. Does not decrypt — cheap enough to run on every builder load.
+ */
+export async function hasAiProviderConfigured(): Promise<boolean> {
+  const env = serverEnv();
+  for (const p of AI_PROVIDERS) {
+    const name = envNamesFor(p).secret;
+    if (env[name as keyof typeof env]) return true;
+  }
+  const rows = await Promise.all(AI_PROVIDERS.map((p) => loadRow(p)));
+  return rows.some((r) => Boolean(r?.secret_ciphertext));
 }
 
 /** Configured or not + source + masked hint for every provider. Never returns secrets. */
