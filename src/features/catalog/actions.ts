@@ -37,6 +37,8 @@ import { createStoreProductType } from "./server/product-types";
 import { collectionRulesSchema } from "./collection-rules";
 import { adjustStockSchema, setStockSchema, thresholdSchema } from "@/features/inventory/schemas";
 import { adjustStock, setLowStockThreshold, setStock } from "@/features/inventory/server/inventory";
+import { generateProductInputSchema, type GeneratedProduct } from "./ai-schemas";
+import { generateProductFromImage } from "./server/generate-product";
 
 async function writer(permission: "catalog.write" | "catalog.delete" | "inventory.write" = "catalog.write") {
   const ctx = await requireTenant();
@@ -47,6 +49,25 @@ async function writer(permission: "catalog.write" | "catalog.delete" | "inventor
 function file(fd: FormData, key = "file"): File | null {
   const f = fd.get(key);
   return f instanceof File && f.size > 0 ? f : null;
+}
+
+// --------------------------------------------------------- product AI (Phase 1)
+
+/** Fill the product editor from image(s); does not save the product. Debits `generate_product` credits. */
+export async function generateProductFromImageAction(input: unknown): Promise<ActionResult<GeneratedProduct>> {
+  return runAction("catalog.generateProductFromImage", async () => {
+    const ctx = await writer("catalog.write");
+    const data = parseInput(generateProductInputSchema, input);
+    const product = await generateProductFromImage(ctx.tenantId, data);
+    await audit({
+      tenantId: ctx.tenantId,
+      actorUserId: ctx.user.id,
+      action: "product.ai_generated",
+      entityType: "product",
+      metadata: { title: product.title.slice(0, 120), tags: product.tags.slice(0, 8) },
+    });
+    return product;
+  });
 }
 
 // ---------------------------------------------------------------- products

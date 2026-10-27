@@ -1,7 +1,15 @@
 # Implementation Status
 
-_Last updated: 2026-10-27 (seller/admin Phase 1 speed) · 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-27 (Seller AI Phase 1: product generate) · 2026-10-27 (seller/admin Phase 1 speed) · 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
+
+## Seller AI Phase 1 — Product Generate with AI (2026-10-27)
+
+- **Edge:** `supabase/functions/generate-product` (+ `_shared/auth.ts`, `_shared/llm.ts`). Server-only invoke; LLM via `GEMINI_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`.
+- **Next:** `invokeEdgeFunction` in `src/lib/supabase/edge.ts`; `generateProductFromImageAction` (catalog.write) debits `generate_product` credits and refunds on failure.
+- **UI:** Product editor “Generate with AI” — file upload for new products; store-assets `assetUrl` media for saved products; fills draft only (no auto-save).
+- **Economy:** migration `20261027004200_seller_ai_generate_product.sql` inserts cost row; debit/refund also allow `catalog.write`. Registry: `ai-health/registry.ts` → `generate_product`.
+- **Reuse (Phase 2/3):** `invokeEdgeFunction`, `supabase/functions/_shared/*`, credit debit/refund pattern in `catalog/server/generate-product.ts`.
 
 ## Seller / admin Phase 1 speed (2026-10-27)
 

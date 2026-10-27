@@ -13,6 +13,8 @@ import { Card } from "@/components/ui/layout";
 import { Button } from "@/components/ui/button";
 import { inputClassName as input } from "@/components/ui/field";
 import { ProductDescriptionEditor } from "@/features/catalog/components/product-description-editor";
+import { GenerateProductWithAi, type ProductMediaOption } from "@/features/catalog/components/generate-product-ai";
+import type { GeneratedProduct } from "@/features/catalog/ai-schemas";
 
 type Opt = { id: string; label: string };
 
@@ -41,6 +43,7 @@ export function ProductEditor({
   types: initialTypes,
   industryName,
   industry,
+  mediaForAi = [],
 }: {
   initial: ProductDraft;
   categories: Opt[];
@@ -56,6 +59,8 @@ export function ProductEditor({
   /** Store industry (slug + display name) used to order type suggestions. */
   industry: string | null;
   industryName: string | null;
+  /** Public store-assets URLs (via assetUrl) for Generate with AI on saved products. */
+  mediaForAi?: ProductMediaOption[];
 }) {
   const [d, setD] = useState<ProductDraft>(initial);
   const [slugTouched, setSlugTouched] = useState(Boolean(initial.id));
@@ -104,6 +109,39 @@ export function ProductEditor({
   };
   const setOptions = (options: OptionDraft[]) => set({ options });
   const setVariant = (i: number, patch: Partial<VariantDraft>) => set({ variants: d.variants.map((v, j) => (j === i ? { ...v, ...patch } : v)) });
+  const applyAi = (product: GeneratedProduct, extras: { priceRupees: string | null }) => {
+    const occasion = product.attributes.occasion
+      .map((o) => OCCASIONS.find((x) => x.toLowerCase() === o.toLowerCase()) ?? o.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+    const typeMatch = types.find((t) => t.key === product.productTypeHint || t.label.toLowerCase() === product.productTypeHint.toLowerCase());
+    const categoryMatch = product.categorySuggestions.map((name) => categories.find((c) => c.label.toLowerCase() === name.toLowerCase())).find(Boolean);
+    set({
+      title: product.title || d.title,
+      slug: slugTouched ? d.slug : slugify(product.title || d.title),
+      shortDescription: product.shortDescription || d.shortDescription,
+      description: product.description || d.description,
+      brand: product.brand || d.brand,
+      tags: product.tags.length ? product.tags : d.tags,
+      careInstructions: product.careInstructions || d.careInstructions,
+      seoTitle: product.seoTitle || d.seoTitle,
+      seoDescription: product.seoDescription || d.seoDescription,
+      productType: typeMatch?.key ?? d.productType,
+      categoryId: categoryMatch?.id ?? d.categoryId,
+      attributes: {
+        fabric: product.attributes.fabric || d.attributes.fabric,
+        style: product.attributes.style || d.attributes.style,
+        length: product.attributes.length || d.attributes.length,
+        work: product.attributes.work || d.attributes.work,
+        pattern: product.attributes.pattern || d.attributes.pattern,
+        occasion: occasion.length ? occasion : d.attributes.occasion,
+        specs: product.attributes.specs.length ? product.attributes.specs : d.attributes.specs,
+      },
+      variants: extras.priceRupees
+        ? d.variants.map((v, i) => (i === 0 ? { ...v, price: v.price || extras.priceRupees! } : v))
+        : d.variants,
+    });
+  };
   const regenerate = () => {
     const options = cleanOptions(d.options);
     const incomplete = d.options.some((o) => o.name.trim() || o.values.some((v) => v.value.trim()));
@@ -153,6 +191,7 @@ export function ProductEditor({
         <div className="space-y-6">
           <Card title="Basics">
             <div className="space-y-4">
+              <GenerateProductWithAi media={mediaForAi} hints={{ title: d.title, brand: d.brand }} onApply={applyAi} />
               <div>
                 <L htmlFor="p-title">Title</L>
                 <input id="p-title" className={input} value={d.title} maxLength={200} required onChange={(e) => set({ title: e.target.value, ...(slugTouched ? {} : { slug: slugify(e.target.value) }) })} />

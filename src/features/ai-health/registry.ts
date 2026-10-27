@@ -39,6 +39,16 @@ const NEURAL_PULSE: NeuralPulseFeature[] = [
 export const AI_FEATURES: readonly AiFeature[] = [
   ...NEURAL_PULSE,
   { key: "theme_builder", label: "AI theme builder", description: "Builds a marketplace theme from a reference site and screenshots (vision models go first when images are attached).", usedIn: "Admin → Themes → New theme", source: "features/theme/builder/server/generate.ts (generateThemeForAdmin)", engine: "llm", routable: true, creditKind: null },
+  {
+    key: "generate_product",
+    label: "Product generate with AI",
+    description: "Fills title, description, attributes, SEO and a price hint from product image(s) via the generate-product edge function.",
+    usedIn: "Dashboard → Products → editor (Generate with AI)",
+    source: "features/catalog/actions.ts (generateProductFromImageAction)",
+    engine: "llm",
+    routable: false,
+    creditKind: "generate_product",
+  },
   { key: "onboarding_seed", label: "Store starter content", description: "Categories, products, hero, SEO, blogs and testimonials for a new store. A deterministic plan is used when Sarvam is missing or fails.", usedIn: "Seller onboarding (ready store)", source: "features/onboarding/seed/generate.ts (generateReadyStorePlan)", engine: "sarvam", routable: false, creditKind: "onboarding_seed" },
   { key: "voice_onboarding", label: "Voice onboarding (Tara)", description: "Speech-to-text, chat and text-to-speech in Indian languages to set a store up by voice.", usedIn: "Seller onboarding (voice method)", source: "features/onboarding/voice/turn.ts (runTaraTurn)", engine: "sarvam", routable: false, creditKind: null },
 ];

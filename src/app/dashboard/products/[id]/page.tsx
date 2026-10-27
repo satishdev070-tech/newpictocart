@@ -38,7 +38,14 @@ export default async function EditProductPage({ params, searchParams }: PageProp
       />
       {sp.created ? <p role="status" className="text-sm text-success">Product created.</p> : null}
       {writable ? <ProductMediaManager productId={id} media={product.media} variants={d.variants.filter((v) => v.id).map((v) => ({ id: v.id!, label: variantTitle(v) || "Default" }))} /> : null}
-      <ProductEditor initial={d} {...opts} initialCollectionIds={product.collectionIds} canWriteInventory={can(ctx, "inventory.write")} stock={product.stock} />
+      <ProductEditor
+        initial={d}
+        {...opts}
+        initialCollectionIds={product.collectionIds}
+        canWriteInventory={can(ctx, "inventory.write")}
+        stock={product.stock}
+        mediaForAi={product.media.filter((m) => m.url).map((m, i) => ({ url: m.url!, label: m.altText || `Image ${i + 1}` }))}
+      />
     </div>
   );
 }
