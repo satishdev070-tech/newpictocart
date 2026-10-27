@@ -10,6 +10,7 @@ _Last updated: 2026-10-27 (Seller AI Phase 1: product generate) · 2026-10-27 (s
 - **UI:** Product editor “Generate with AI” — file upload for new products; store-assets `assetUrl` media for saved products; fills draft only (no auto-save).
 - **Economy:** migration `20261027004200_seller_ai_generate_product.sql` inserts cost row; debit/refund also allow `catalog.write`. Registry: `ai-health/registry.ts` → `generate_product`.
 - **Reuse (Phase 2/3):** `invokeEdgeFunction`, `supabase/functions/_shared/*`, credit debit/refund pattern in `catalog/server/generate-product.ts`.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, 128 files / 1,538 tests, build). Branch `cursor/seller-ai-product-generate-c73e`.
 
 ## Seller / admin Phase 1 speed (2026-10-27)
 
