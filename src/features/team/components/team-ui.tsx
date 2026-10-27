@@ -56,7 +56,8 @@ export function InviteMemberDialog({ roles }: { roles: RoleOption[] }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const [state, action] = useActionState(inviteMemberAction, null);
-  const firstEnabled = roles.find((r) => !r.disabled)?.value;
+  // Least privilege by default: Sales Associate when it can be given out.
+  const firstEnabled = (roles.find((r) => r.value === "system:sales_associate" && !r.disabled) ?? roles.find((r) => !r.disabled))?.value;
   const [selected, setSelected] = useState(firstEnabled ?? "");
   const errors = fieldErrors(state);
   const info = roles.find((r) => r.value === selected);
@@ -111,7 +112,7 @@ export function InviteMemberDialog({ roles }: { roles: RoleOption[] }) {
 }
 
 /** Inline role picker for a member; the save button appears once the role changes. */
-export function MemberRoleForm({ membershipId, current, roles }: { membershipId: string; current: string; roles: RoleOption[] }) {
+export function MemberRoleForm({ membershipId, name, current, roles }: { membershipId: string; name: string; current: string; roles: RoleOption[] }) {
   const [state, action, pending] = useActionState(changeMemberRoleAction, null);
   const [value, setValue] = useState(current);
   const id = useId();
@@ -119,12 +120,12 @@ export function MemberRoleForm({ membershipId, current, roles }: { membershipId:
     <form action={action} className="flex min-w-52 items-center gap-2">
       <input type="hidden" name="membershipId" value={membershipId} />
       <label htmlFor={id} className="sr-only">
-        Role
+        Role for {name}
       </label>
       <RoleSelect id={id} name="role" options={roles} defaultValue={current} onChange={setValue} />
       {value !== current ? (
         <Button type="submit" size="sm" pending={pending}>
-          Save
+          Save role
         </Button>
       ) : null}
       {state && !state.ok ? (
@@ -176,7 +177,7 @@ export function InviteActions({ id, email }: { id: string; email: string }) {
           {state?.ok ? <Check aria-hidden /> : <RotateCw aria-hidden />} {state?.ok ? "Sent" : "Resend"}
         </Button>
       </form>
-      <ActionDialog action={revokeInvitationAction} fields={{ id }} title="Revoke this invitation?" description={`The link sent to ${email} will stop working.`} triggerLabel="Revoke" confirmLabel="Revoke" variant="danger" triggerVariant="ghost" />
+      <ActionDialog action={revokeInvitationAction} fields={{ id }} title="Cancel this invitation?" description={`The link sent to ${email} will stop working.`} triggerLabel="Cancel invite" confirmLabel="Cancel invitation" variant="danger" triggerVariant="ghost" />
     </div>
   );
 }

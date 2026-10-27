@@ -41,48 +41,55 @@ export type TenantPermission = (typeof TENANT_PERMISSIONS)[number];
 /** Permissions a custom role may never hold (owner-only). */
 export const OWNER_ONLY_PERMISSIONS: readonly TenantPermission[] = ["billing.manage"];
 
-export const TENANT_ROLES = [
-  "owner",
-  "admin",
-  "manager",
-  "catalog_manager",
-  "order_manager",
-  "inventory_manager",
-  "marketing_manager",
-  "content_manager",
-  "analyst",
-  "support_agent",
-  "staff",
-  "viewer",
-] as const;
+/**
+ * Standard member roles (QA #3): the Store Owner (shown as "Store Admin (Owner)"), a Manager
+ * who runs the store just below the owner, and a Sales Associate for everyone else. Older roles
+ * (admin, staff, catalog/order/… managers, analyst, support agent, viewer) were mapped onto these
+ * by migration 20261027004150_team_roles.sql. Anything finer is a tenant-defined custom role.
+ */
+export const TENANT_ROLES = ["owner", "manager", "sales_associate"] as const;
 export type TenantRole = (typeof TENANT_ROLES)[number];
 /** Stored in tenant_memberships.role when the member has a tenant-defined custom role. */
 export const CUSTOM_ROLE = "custom" as const;
 export type MembershipRole = TenantRole | typeof CUSTOM_ROLE;
 
-const READ_ONLY: TenantPermission[] = ["store.read", "catalog.read", "inventory.read", "orders.read", "customers.read", "marketing.read", "analytics.read"];
+/** Everything but owner-only billing: settings, payments, domains, theme publishing, team and roles. */
+const MANAGER: TenantPermission[] = TENANT_PERMISSIONS.filter((p) => !OWNER_ONLY_PERMISSIONS.includes(p));
 
-/** Legacy general-purpose staff role: day-to-day catalogue and order work. */
-const STAFF: TenantPermission[] = [...READ_ONLY, "catalog.write", "catalog.delete", "catalog.publish", "inventory.write", "orders.write", "orders.cancel", "customers.write"];
-
-const MANAGER: TenantPermission[] = [...STAFF, "orders.refund", "marketing.write", "content.write", "theme.edit", "reviews.moderate", "members.read"];
-
-const ADMIN: TenantPermission[] = [...MANAGER, "theme.publish", "settings.write", "payments.manage", "domains.manage", "members.manage", "roles.manage"];
+/** Day-to-day selling: orders, customers, products (view/edit, no publish/delete) and stock. */
+const SALES_ASSOCIATE: TenantPermission[] = [
+  "store.read",
+  "catalog.read",
+  "catalog.write",
+  "inventory.read",
+  "inventory.write",
+  "orders.read",
+  "orders.write",
+  "orders.cancel",
+  "customers.read",
+  "customers.write",
+];
 
 export const TENANT_ROLE_PERMISSIONS: Readonly<Record<TenantRole, ReadonlySet<TenantPermission>>> = {
   owner: new Set(TENANT_PERMISSIONS),
-  admin: new Set(ADMIN),
   manager: new Set(MANAGER),
-  catalog_manager: new Set(["store.read", "catalog.read", "catalog.write", "catalog.delete", "catalog.publish", "inventory.read", "inventory.write"]),
-  order_manager: new Set(["store.read", "catalog.read", "inventory.read", "orders.read", "orders.write", "orders.cancel", "orders.refund", "customers.read", "customers.write"]),
-  inventory_manager: new Set(["store.read", "catalog.read", "inventory.read", "inventory.write", "orders.read"]),
-  marketing_manager: new Set(["store.read", "catalog.read", "customers.read", "marketing.read", "marketing.write", "reviews.moderate", "analytics.read"]),
-  content_manager: new Set(["store.read", "catalog.read", "content.write", "theme.edit"]),
-  analyst: new Set(READ_ONLY),
-  support_agent: new Set(["store.read", "catalog.read", "orders.read", "orders.write", "customers.read", "customers.write", "reviews.moderate"]),
-  staff: new Set(STAFF),
-  viewer: new Set(READ_ONLY),
+  sales_associate: new Set(SALES_ASSOCIATE),
 };
+
+/**
+ * Read-only set granted by an active platform support session (role_permissions row
+ * 'support_viewer'; never assignable to a member).
+ */
+export const SUPPORT_SESSION_ROLE = "support_viewer" as const;
+export const SUPPORT_SESSION_PERMISSIONS: ReadonlySet<TenantPermission> = new Set([
+  "store.read",
+  "catalog.read",
+  "inventory.read",
+  "orders.read",
+  "customers.read",
+  "marketing.read",
+  "analytics.read",
+]);
 
 export const PLATFORM_PERMISSIONS = [
   "platform.tenants.read",

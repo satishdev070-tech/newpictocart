@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { Badge, Card, PageHeader } from "@/components/ui/layout";
 import { EmptyState } from "@/components/ui/states";
 import { buttonClass } from "@/components/ui/button";
-import { roleLabel } from "@/lib/permissions/labels";
+import { ROLE_INFO, roleLabel } from "@/lib/permissions/labels";
+import { TENANT_ROLES } from "@/lib/permissions/matrix";
 import { listCustomRoles, listPendingInvites, listTeam } from "@/features/team/queries";
 import { roleOptions } from "@/features/team/role-options";
 import { encodeRoleChoice } from "@/features/team/role-choice";
@@ -75,7 +76,7 @@ export default async function TeamPage() {
                   </div>
                   <div>
                     {editable ? (
-                      <MemberRoleForm membershipId={m.membershipId} current={encodeRoleChoice(m.role, m.customRoleId)} roles={options} />
+                      <MemberRoleForm membershipId={m.membershipId} name={m.name} current={encodeRoleChoice(m.role, m.customRoleId)} roles={options} />
                     ) : (
                       <Badge tone={m.role === "owner" ? "accent" : "neutral"}>{roleLabel(m.role, m.customRoleName)}</Badge>
                     )}
@@ -115,6 +116,23 @@ export default async function TeamPage() {
           </ul>
         </Card>
       ) : null}
+
+      <Card title="Roles" description={manage ? "Change a member's role from the list above. The Store Admin (Owner) role stays with the merchant who registered the store." : undefined}>
+        <dl className="-my-2 divide-y divide-border">
+          {TENANT_ROLES.map((r) => (
+            <div key={r} className="py-2.5 sm:grid sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
+              <dt className="text-body font-medium">{ROLE_INFO[r].label}</dt>
+              <dd className="text-small text-muted">{ROLE_INFO[r].description}</dd>
+            </div>
+          ))}
+          {custom.length ? (
+            <div className="py-2.5 sm:grid sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
+              <dt className="text-body font-medium">Custom roles</dt>
+              <dd className="text-small text-muted">{custom.map((c) => c.name).join(", ")}</dd>
+            </div>
+          ) : null}
+        </dl>
+      </Card>
     </div>
   );
 }

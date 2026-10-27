@@ -1,7 +1,14 @@
 # Implementation Status
 
-_Last updated: 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
+
+## Team roles: Store Admin (Owner) / Manager / Sales Associate (2026-10-27, QA #2 #3)
+
+- **Three standard roles** instead of twelve: **Store Admin (Owner)** (the registering merchant, all access, can't be removed or changed by others), **Manager** (everything except billing; manages the team and roles but can't touch the owner) and **Sales Associate** (orders incl. cancel, customers, products view/edit, inventory; no settings, payments, domains, team, refunds, publish or delete). Invite and role pickers list only Manager, Sales Associate and the store's own custom roles; default is Sales Associate.
+- **Migration `20261027004150_team_roles.sql`** (⏳ not yet applied to the hosted project): maps existing members and invitations (Store Admin, Store Manager, Catalog/Order/Inventory/Marketing/Content Manager → Manager; Analyst, Support Agent, Staff, Viewer → Sales Associate), reseeds `role_permissions`, tightens the role CHECK constraints, moves platform support sessions to the internal read-only `support_viewer` set, and reorders `list_tenant_members`. Seed user `staff@aangan.test` is now a Sales Associate.
+- **Team page:** change role per member (Save role), deactivate/reactivate, remove (confirmed), resend / cancel invite (confirmed), plus a Roles card explaining each role. Custom roles (create / edit / delete) stay under Settings → Roles & permissions. All actions keep the `members.manage` / `roles.manage` server checks and DB escalation guards.
+- **Verification:** unit tests for the matrix, SQL ↔ matrix seed and CHECK lists, role choice; `pnpm test:db` (24 files / 181 tests) ✅ on Postgres 17, including new manager/sales-associate/owner-protection/retired-role tests; migration checked on a DB with all 12 old roles (7 → Manager, 4 → Sales Associate, owner untouched).
 
 ## Header layouts, Logo badge design, fit-to-logo crop (2026-10-26)
 
@@ -493,7 +500,7 @@ Since migration 1800, compare snapshots with `SNAPSHOT_IGNORE_COLUMNS=tenants.st
 | App shell (seller + console): collapsible sidebar, breadcrumbs, ⌘K, notifications, account menu | ✅ built, ⏳ visual QA | UI_UX_REDESIGN_AUDIT.md |
 | Auth redesign: staff, merchant login/register/forgot, customer login/register/forgot | ✅ built + screenshotted | UI_UX_REDESIGN_AUDIT.md |
 | Super admin dashboard (8 KPIs, GMV trend, plans, activity) | ✅ built, ⏳ needs migration 1400 | UI_UX_REDESIGN_AUDIT.md |
-| RBAC: 27 permissions, 12 system roles, custom roles, escalation guards, Team + Roles UI | ✅ built, 8 DB tests, ⏳ needs migration 1200 | RBAC_AUDIT.md |
+| RBAC: 27 permissions, 3 system roles (12 until 2026-10-27), custom roles, escalation guards, Team + Roles UI | ✅ built, 8 DB tests, ⏳ needs migration 1200 | RBAC_AUDIT.md |
 | Media library + picker (drag & drop, progress, cancel/retry, replace, usage, alt text) | ✅ built, 3 DB + 4 unit tests, ⏳ needs migration 1300 | MEDIA_LIBRARY_AUDIT.md |
 | 10 unique demo stores (data, art, themes, owners) | ✅ generator written, ⏳ not yet run on the cloud DB | MULTI_STORE_AUDIT.md |
 | Customer account overview | ✅ built + screenshotted | |

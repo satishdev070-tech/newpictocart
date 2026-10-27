@@ -334,7 +334,7 @@ export async function listTenantMembers(tenantId: string): Promise<TenantMemberR
   ]);
   check(profiles.error);
   const names = new Map((profiles.data ?? []).map((p) => [p.id, p.display_name]));
-  const order = ["owner", "admin", "manager", "staff", "viewer"];
+  const order = ["owner", "manager", "sales_associate", "custom"];
   return rows
     .map((r) => ({ userId: r.user_id, role: r.role, status: r.status, email: emails.get(r.user_id) ?? null, displayName: names.get(r.user_id) ?? null, createdAt: r.created_at }))
     .sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role));
