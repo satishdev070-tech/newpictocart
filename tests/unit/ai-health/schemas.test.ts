@@ -1,29 +1,37 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AI_FEATURES, ROUTABLE_FEATURE_KEYS, findFeature } from "@/features/ai-health/registry";
 import { aiHealthTab, featureRouteSchema, modelPriceSchema, testModelSchema, tokenCostMinor } from "@/features/ai-health/schemas";
 
 const SCHEMAS = readFileSync(new URL("../../../src/features/neural-pulse/schemas.ts", import.meta.url), "utf8");
-const MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261025003900_ai_economy.sql", import.meta.url), "utf8");
+const MIGRATIONS_DIR = new URL("../../../supabase/migrations", import.meta.url);
+/** All migrations that seed or extend ai_credit_action_costs (3900 + later additive rows). */
+const ACTION_COST_SQL = readdirSync(MIGRATIONS_DIR)
+  .filter((f) => f.endsWith(".sql"))
+  .map((f) => readFileSync(join(MIGRATIONS_DIR.pathname, f), "utf8"))
+  .filter((sql) => sql.includes("ai_credit_action_costs"))
+  .join("\n");
 
 describe("AI feature registry", () => {
   it("lists every Neural Pulse GenerationKind plus the section, seed and voice features", () => {
     const kinds = /export type GenerationKind = ([^;]+);/.exec(SCHEMAS)?.[1]?.match(/"([a-z_]+)"/g)?.map((k) => k.slice(1, -1)) ?? [];
     expect(kinds.length).toBeGreaterThan(5);
     for (const k of kinds) expect(findFeature(k), k).toBeDefined();
-    for (const k of ["section", "onboarding_seed", "voice_onboarding", "theme_builder"]) expect(findFeature(k), k).toBeDefined();
+    for (const k of ["section", "onboarding_seed", "voice_onboarding", "theme_builder", "generate_product"]) expect(findFeature(k), k).toBeDefined();
     expect(new Set(AI_FEATURES.map((f) => f.key)).size).toBe(AI_FEATURES.length);
   });
 
   it("only routes features that go through loadProviders; Sarvam-only ones are fixed", () => {
     expect(findFeature("onboarding_seed")?.routable).toBe(false);
     expect(findFeature("voice_onboarding")?.routable).toBe(false);
+    expect(findFeature("generate_product")?.routable).toBe(false);
     expect(ROUTABLE_FEATURE_KEYS).toContain("section");
     for (const k of ROUTABLE_FEATURE_KEYS) expect(k).toMatch(/^[a-z_]{2,60}$/);
   });
 
   it("every credit kind has a seeded action cost", () => {
-    for (const f of AI_FEATURES) if (f.creditKind) expect(MIGRATION, f.creditKind).toContain(`('${f.creditKind}',`);
+    for (const f of AI_FEATURES) if (f.creditKind) expect(ACTION_COST_SQL, f.creditKind).toContain(`('${f.creditKind}',`);
   });
 });
 
