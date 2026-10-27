@@ -11,7 +11,7 @@ Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coac
 - **UI:** Products editor “Generate with AI” (file upload and/or https gallery URLs); Blog editor “AI Write”; Messages “Draft AI reply”; Dashboard home Business Coach card.
 - **Credits / registry:** Migration `20261028004200_seller_ai_suite.sql` seeds costs, widens `ai_generations.kind`, and lets `catalog.write` / `content.write` / `analytics.read` debit. Features registered in `ai-health/registry.ts`; ledger labels in AI credits UI.
 - **Deploy:** `supabase functions deploy generate-product generate-blog generate-contact-reply business-coach` on project `ugbjlpdhktrlkyuijkfc`; apply the migration; set provider keys via Admin → Social apps (passed ephemerally to the function). Optional: `supabase secrets set AI_EDGE_INVOKE_SECRET=…` matching app env.
-- **Verification:** `pnpm check` ✅ (typecheck, lint, unit tests, build). Branch `cursor/seller-ai-generate-suite-c73e` · PR #36.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **127 files / 1,537 tests**, build). Branch `cursor/seller-ai-generate-suite-c73e` · PR #36.
 - **Branch:** `cursor/seller-ai-generate-suite-c73e`.
 
 ## Seller / admin Phase 1 speed (2026-10-27)
