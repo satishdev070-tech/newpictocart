@@ -31,11 +31,19 @@ export function cachedStorefront<A extends string[], R>(name: string, fn: (...ar
 /**
  * Call after any change that affects how a store renders publicly: theme publish/rollback, store
  * profile/SEO/COD settings, domains, tenant status or plan/feature flags. The next request reads
- * fresh data (no stale window). Directory entries are keyed by hostname, so they're invalidated
- * together; that's cheap (one lookup per host on its next request).
+ * fresh data (no stale window). Only this tenant's entries are dropped (including its directory
+ * identity: slug, status, name, primary host); other stores keep their cache.
  */
 export function revalidateStorefront(tenantId: string) {
   revalidateTag(storefrontTag(tenantId), { expire: 0 });
+}
+
+/**
+ * Call after a hostname is added, verified, removed or moved between stores: drops every cached
+ * hostname -> tenant mapping (keyed by hostname, so they go together). Only domain changes need
+ * this; each store's next request then re-runs its host lookup once.
+ */
+export function revalidateTenantDirectory() {
   revalidateTag(TENANT_DIRECTORY_TAG, { expire: 0 });
 }
 

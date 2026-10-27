@@ -28,21 +28,17 @@ async function slugMap(table: "collections" | "categories" | "products" | "pages
 export const getMenus = cache(async (tenantId: string, handlesKey: string): Promise<Record<string, { title: string; items: MenuNode[] }>> => {
   const handles = handlesKey.split(",").filter((h) => /^[a-z0-9-]{2,40}$/.test(h)).slice(0, 8);
   if (handles.length === 0) return {};
-  const { data: menus, error } = await pub().from("menus").select("id, handle, title").eq("tenant_id", tenantId).in("handle", handles);
+  // Menus and their items in one round trip (embedded through menu_items.menu_id).
+  const { data: menus, error } = await pub()
+    .from("menus")
+    .select("id, handle, title, menu_items(id, menu_id, parent_id, title, link_type, link_ref, url, highlight, image_path, position)")
+    .eq("tenant_id", tenantId)
+    .in("handle", handles)
+    .order("position", { referencedTable: "menu_items" })
+    .limit(600, { referencedTable: "menu_items" });
   if (error) logger.warn("storefront.menus_failed", { tenantId, error: error.message });
   if (!menus?.length) return {};
-  const { data: items, error: itemsError } = await pub()
-    .from("menu_items")
-    .select("id, menu_id, parent_id, title, link_type, link_ref, url, highlight, image_path, position")
-    .eq("tenant_id", tenantId)
-    .in(
-      "menu_id",
-      menus.map((m) => m.id),
-    )
-    .order("position")
-    .limit(600);
-  if (itemsError) logger.warn("storefront.menu_items_failed", { tenantId, error: itemsError.message });
-  const rows = items ?? [];
+  const rows = menus.flatMap((m) => m.menu_items);
   const refs = menuLinkRefs(rows);
   const [collections, categories, products, pages, blogPosts] = await Promise.all([
     slugMap("collections", tenantId, refs.collection),

@@ -1,13 +1,13 @@
-import { parseEnv, publicEnvSchema, type PublicEnv } from "./schema";
+import { parsePublicEnv, type PublicEnv } from "./public-parse";
 
 let cached: PublicEnv | undefined;
 
 /**
- * Validated public env. `NEXT_PUBLIC_*` values must be referenced literally so
- * Next.js can inline them into the browser bundle.
+ * Validated public env (zod-free: this module reaches the browser). `NEXT_PUBLIC_*` values must be
+ * referenced literally so Next.js can inline them into the browser bundle.
  */
 export function publicEnv(): PublicEnv {
-  cached ??= parseEnv(publicEnvSchema, {
+  cached ??= parsePublicEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: process.env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN,

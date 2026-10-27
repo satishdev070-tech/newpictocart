@@ -43,10 +43,12 @@ describe("storefront cache", () => {
     expect(unstableCache.mock.calls[1]?.[2].tags).toContain("tenant:tenant-b:storefront");
   });
 
-  it("revalidates the tenant and the directory immediately (no stale window)", async () => {
-    const { revalidateStorefront, revalidateAllStorefronts } = await load("production");
+  it("revalidates only the tenant immediately; the host directory only on domain changes", async () => {
+    const { revalidateStorefront, revalidateTenantDirectory, revalidateAllStorefronts } = await load("production");
     revalidateStorefront("t1");
     expect(revalidateTag).toHaveBeenCalledWith("tenant:t1:storefront", { expire: 0 });
+    expect(revalidateTag).not.toHaveBeenCalledWith("tenant-directory", expect.anything());
+    revalidateTenantDirectory();
     expect(revalidateTag).toHaveBeenCalledWith("tenant-directory", { expire: 0 });
     revalidateAllStorefronts();
     expect(revalidateTag).toHaveBeenCalledWith("storefront-all", { expire: 0 });

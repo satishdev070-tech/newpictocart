@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { revalidateStorefront } from "@/lib/cache/storefront";
+import { revalidateStorefront, revalidateTenantDirectory } from "@/lib/cache/storefront";
 import { runAction, type ActionResult } from "@/lib/actions/result";
 import { formToObject } from "@/lib/actions/form";
 import { parseInput } from "@/lib/validation/common";
@@ -23,6 +23,7 @@ export async function addDomainAction(_prev: ActionResult<{ hostname: string }> 
     const row = await addCustomDomain(ctx, input.hostname);
     revalidatePath(PATH);
     revalidateStorefront(ctx.tenantId);
+    revalidateTenantDirectory();
     return { hostname: row.hostname };
   });
 }
@@ -37,6 +38,7 @@ export async function verifyDomainAction(_prev: ActionResult<VerifyOutcome> | nu
     const outcome = await verifyTenantDomain(ctx, domainId);
     revalidatePath(PATH);
     revalidateStorefront(ctx.tenantId);
+    revalidateTenantDirectory();
     return outcome;
   });
 }
@@ -48,6 +50,7 @@ export async function setPrimaryDomainAction(_prev: ActionResult | null, fd: For
     await setPrimaryDomain(ctx, domainId);
     revalidatePath(PATH);
     revalidateStorefront(ctx.tenantId);
+    revalidateTenantDirectory();
   });
 }
 
@@ -58,6 +61,7 @@ export async function removeDomainAction(_prev: ActionResult | null, fd: FormDat
     await removeCustomDomain(ctx, domainId);
     revalidatePath(PATH);
     revalidateStorefront(ctx.tenantId);
+    revalidateTenantDirectory();
   });
 }
 
@@ -72,6 +76,7 @@ export async function moveDomainAction(_prev: ActionResult<{ hostname: string; m
     await rateLimit("domain-move", ctx.tenantId, 10, 3600);
     const moved = await moveCustomDomain(ctx, input.domainId, input.targetTenantId);
     revalidateStorefront(ctx.tenantId);
+    revalidateTenantDirectory();
     revalidateStorefront(input.targetTenantId);
     target = input.targetTenantId;
     return moved;

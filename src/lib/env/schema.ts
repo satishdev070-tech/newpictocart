@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { EnvValidationError, HOSTNAME_MESSAGE, HOSTNAME_PATTERN, normalizeRootDomain } from "./public-parse";
+
+export { EnvValidationError };
 
 /**
  * Environment contracts. Pure module (no `server-only`) so it can be unit tested.
@@ -10,10 +13,7 @@ const hostnameLike = z
   .string()
   .trim()
   .toLowerCase()
-  .regex(
-    /^(localhost|([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+)$/,
-    "must be a bare hostname such as pictocart.in or localhost (no scheme, port or path)",
-  );
+  .regex(HOSTNAME_PATTERN, HOSTNAME_MESSAGE);
 
 /**
  * The platform root domain. Accepts the usual paste mistakes (`https://www.example.in/`) and
@@ -25,7 +25,7 @@ const rootDomain = z
   .string()
   .trim()
   .toLowerCase()
-  .transform((v) => v.replace(/^[a-z][a-z0-9+.-]*:\/\//, "").replace(/\/.*$/, "").replace(/\.$/, "").replace(/^www\./, ""))
+  .transform(normalizeRootDomain)
   .pipe(hostnameLike);
 
 export const publicEnvSchema = z.object({
@@ -120,12 +120,6 @@ export const serverEnvSchema = publicEnvSchema.extend({
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 
-export class EnvValidationError extends Error {
-  constructor(public readonly issues: string[]) {
-    super(`Invalid environment configuration:\n  - ${issues.join("\n  - ")}`);
-    this.name = "EnvValidationError";
-  }
-}
 
 export function parseEnv<S extends z.ZodType>(schema: S, source: Record<string, string | undefined>): z.infer<S> {
   // Treat empty strings as unset so `.optional()` behaves as expected with blank .env lines.
