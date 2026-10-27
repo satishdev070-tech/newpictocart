@@ -1,6 +1,6 @@
 "use server";
 
-import { refresh } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { runAction, type ActionResult } from "@/lib/actions/result";
 import { formToObject } from "@/lib/actions/form";
@@ -18,14 +18,21 @@ const schema = z.object({
 });
 
 export async function updateCustomerAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  let id = "";
   const result = await runAction("customers.update", async () => {
     const ctx = await requireTenant();
     assertPermission(ctx, "customers.write");
     const v = parseInput(schema, formToObject(fd));
+    id = v.id;
     const { error } = await (await createSupabaseServerClient()).from("customers").update({ tags: v.tags, note: v.note ?? null, status: v.status }).eq("id", v.id).eq("tenant_id", ctx.tenantId);
     if (error) throw mapDbError(error);
     await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "customer.updated", entityType: "customer", entityId: v.id, metadata: { status: v.status } });
   });
-  if (result.ok) refresh();
+  // Revalidate the list too (not just refresh this page): the client router otherwise keeps the
+  // Customers list it already rendered, so "Blocked" only showed after leaving and coming back.
+  if (result.ok) {
+    revalidatePath("/dashboard/customers");
+    revalidatePath(`/dashboard/customers/${id}`);
+  }
   return result;
 }

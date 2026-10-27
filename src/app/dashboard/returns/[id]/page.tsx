@@ -9,6 +9,8 @@ import { nextReturnStatuses } from "@/features/orders-admin/schemas";
 import { RefundButton, ReturnStatusActions } from "@/features/orders-admin/components/order-actions";
 import { StatusBadge } from "@/features/orders-admin/components/status-badge";
 import { formatDateTime } from "@/features/analytics/dates";
+import { photoItems, signReturnPhotos } from "@/features/customer-account/server/return-photo-urls";
+import { PhotoLightbox } from "@/components/ui/photo-lightbox";
 
 export const metadata: Metadata = { title: "Return" };
 
@@ -22,6 +24,7 @@ export default async function ReturnDetailPage({ params }: PageProps<"/dashboard
   const itemValue = (d.items ?? []).reduce((s, i) => s + toMinor(i.order_items.unit_price) * i.quantity, 0);
   const suggested = Math.min(refundable, itemValue);
   const writable = can(ctx, "orders.write");
+  const photos = photoItems(ret.photo_paths, await signReturnPhotos(ret.photo_paths), `Return #${ret.return_number}`);
   return (
     <div className="space-y-6">
       <PageHeader title={`Return #${ret.return_number}`} description={`Order #${order.order_number} · ${formatDateTime(ret.created_at)}`} back={<Link href="/dashboard/returns" className="text-muted hover:text-foreground">← Returns</Link>} actions={<StatusBadge status={ret.status} />} />
@@ -40,6 +43,12 @@ export default async function ReturnDetailPage({ params }: PageProps<"/dashboard
           </ul>
           <p className="mt-3 text-sm"><span className="text-muted">Reason:</span> {ret.reason}</p>
           {ret.customer_note ? <p className="mt-1 text-sm"><span className="text-muted">Customer note:</span> {ret.customer_note}</p> : null}
+          {photos.length ? (
+            <div className="mt-4 space-y-2">
+              <p className="text-sm text-muted">Customer photos ({photos.length})</p>
+              <PhotoLightbox photos={photos} label="Customer photos" />
+            </div>
+          ) : null}
         </Card>
         <div className="space-y-6">
           <Card title="Actions">

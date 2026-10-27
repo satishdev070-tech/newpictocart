@@ -3,7 +3,7 @@
 import { UseMyLocation } from "@/features/geo/components/use-my-location";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { EmailCodeFlow } from "@/components/auth/email-code-flow";
 import {
   cancelMyOrderAction,
@@ -20,6 +20,7 @@ import {
 } from "@/features/customer-account/actions";
 import { INDIAN_STATES } from "@/features/customer-account/address";
 import { RETURN_REASONS } from "@/features/customer-account/schemas";
+import { MAX_RETURN_PHOTO_BYTES, MAX_RETURN_PHOTOS, PHOTO_REQUIRED_REASONS, RETURN_PHOTO_ACCEPT } from "@/features/customer-account/return-photos";
 import type { ActionResult } from "@/lib/actions/result";
 
 function errs(state: ActionResult<unknown> | null) {
@@ -249,8 +250,10 @@ export function CancelOrderForm({ orderId }: { orderId: string }) {
 
 export function ReturnRequestForm({ orderId, items }: { orderId: string; items: { id: string; title: string; variantTitle: string | null; returnable: number }[] }) {
   const [state, action, pending] = useActionState(requestReturnAction, null);
+  const [reason, setReason] = useState("");
   if (state?.ok) return <p role="status" className="text-sm">Return requested. We&apos;ll email you with next steps.</p>;
   if (!items.some((i) => i.returnable > 0)) return null;
+  const photoRequired = PHOTO_REQUIRED_REASONS.includes(reason);
   return (
     <details>
       <summary className="sf-link cursor-pointer text-sm">Request a return</summary>
@@ -278,7 +281,7 @@ export function ReturnRequestForm({ orderId, items }: { orderId: string; items: 
         <label htmlFor="rq-reason" className="block text-sm">
           Reason
         </label>
-        <select id="rq-reason" name="reason" required className="sf-input w-full" defaultValue="">
+        <select id="rq-reason" name="reason" required className="sf-input w-full" value={reason} onChange={(e) => setReason(e.target.value)}>
           <option value="" disabled>
             Choose a reason
           </option>
@@ -288,13 +291,69 @@ export function ReturnRequestForm({ orderId, items }: { orderId: string; items: 
             </option>
           ))}
         </select>
+        <ReturnPhotosInput required={photoRequired} error={errs(state).photos?.[0]} />
         <textarea name="note" maxLength={1000} rows={2} className="sf-input w-full" placeholder="Anything else we should know?" aria-label="Note" />
-        <FormError state={state} />
+        {/* A photo problem is shown next to the photo field, not again as a generic form error. */}
+        <FormError state={state && !state.ok && state.error.fieldErrors?.photos && !state.error.fieldErrors._form ? null : state} />
         <button type="submit" disabled={pending} className="sf-btn sf-btn-outline">
-          Submit return request
+          {pending ? "Submitting…" : "Submit return request"}
         </button>
       </form>
     </details>
+  );
+}
+
+/** Up to 5 photos with previews; checked again on the server by real file content. */
+function ReturnPhotosInput({ required, error }: { required: boolean; error?: string }) {
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const live = useRef<string[]>([]);
+  useEffect(() => () => live.current.forEach((u) => URL.revokeObjectURL(u)), []);
+  const shown = localError ?? error;
+  return (
+    <div>
+      <label htmlFor="rq-photos" className="block text-sm">
+        Photos {required ? "(required for damaged items)" : "(optional)"}
+      </label>
+      <p id="rq-photos-hint" className="sf-muted mb-1.5 text-xs">
+        Up to {MAX_RETURN_PHOTOS} JPG, PNG or WebP images, {MAX_RETURN_PHOTO_BYTES / 1024 / 1024} MB each.
+      </p>
+      <input
+        id="rq-photos"
+        name="photos"
+        type="file"
+        multiple
+        accept={RETURN_PHOTO_ACCEPT}
+        required={required}
+        aria-invalid={shown ? true : undefined}
+        aria-describedby={shown ? "rq-photos-hint rq-photos-error" : "rq-photos-hint"}
+        className="block w-full text-sm"
+        onChange={(e) => {
+          const list = Array.from(e.target.files ?? []);
+          live.current.forEach((u) => URL.revokeObjectURL(u));
+          live.current = list.slice(0, MAX_RETURN_PHOTOS).map((f) => URL.createObjectURL(f));
+          setPreviews(live.current);
+          if (list.length > MAX_RETURN_PHOTOS) setLocalError(`Attach up to ${MAX_RETURN_PHOTOS} photos.`);
+          else if (list.some((f) => f.size > MAX_RETURN_PHOTO_BYTES)) setLocalError("Each photo must be 5 MB or smaller.");
+          else setLocalError(null);
+        }}
+      />
+      {previews.length ? (
+        <ul className="mt-2 flex flex-wrap gap-2" aria-label="Selected photos">
+          {previews.map((src, n) => (
+            <li key={src} className="sf-border size-16 overflow-hidden rounded border">
+              {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview */}
+              <img src={src} alt={`Selected photo ${n + 1}`} className="size-full object-cover" />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {shown ? (
+        <p id="rq-photos-error" role="alert" className="mt-1 text-sm text-[var(--sf-sale)]">
+          {shown}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

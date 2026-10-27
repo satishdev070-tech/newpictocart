@@ -41,7 +41,7 @@ export default async function CustomersPage({ searchParams }: PageProps<"/dashbo
                 <th className={th}>Orders</th>
                 <th className={th}>Spent</th>
                 <th className={th}>Last order</th>
-                <th className={th}>Tags</th>
+                <th className={th}>Status &amp; tags</th>
               </tr>
             </thead>
             <tbody>

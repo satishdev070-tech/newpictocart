@@ -33,7 +33,7 @@ export type OrderViewItem = {
 
 export type OrderViewEvent = { id: number; type: string; message: string | null; at: string; data: Record<string, unknown> };
 export type OrderViewShipment = { id: string; carrier: string | null; trackingNumber: string | null; trackingUrl: string | null; status: string; shippedAt: string | null; deliveredAt: string | null };
-export type OrderViewReturn = { id: string; number: number; status: string; reason: string; createdAt: string; refundAmount: number | null; items: { orderItemId: string; quantity: number }[] };
+export type OrderViewReturn = { id: string; number: number; status: string; reason: string; createdAt: string; refundAmount: number | null; items: { orderItemId: string; quantity: number }[]; photoPaths: string[] };
 
 export type OrderView = {
   id: string;
@@ -110,7 +110,7 @@ export const loadOrderView = cache(async (tenantId: string, orderId: string, tok
       .order("product_title"),
     admin.from("order_events").select("id, type, message, data, created_at").eq("tenant_id", tenantId).eq("order_id", orderId).eq("visible_to_customer", true).order("created_at"),
     admin.from("shipments").select("id, carrier, tracking_number, tracking_url, status, shipped_at, delivered_at").eq("tenant_id", tenantId).eq("order_id", orderId).order("created_at", { ascending: false }),
-    admin.from("returns").select("id, return_number, status, reason, created_at, refund_amount, return_items(order_item_id, quantity)").eq("tenant_id", tenantId).eq("order_id", orderId).order("created_at", { ascending: false }),
+    admin.from("returns").select("id, return_number, status, reason, created_at, refund_amount, photo_paths, return_items(order_item_id, quantity)").eq("tenant_id", tenantId).eq("order_id", orderId).order("created_at", { ascending: false }),
     admin.from("invoices").select("id").eq("tenant_id", tenantId).eq("order_id", orderId).maybeSingle(),
   ]);
 
@@ -172,6 +172,7 @@ export const loadOrderView = cache(async (tenantId: string, orderId: string, tok
       createdAt: r.created_at,
       refundAmount: r.refund_amount === null ? null : toMinor(r.refund_amount),
       items: (r.return_items ?? []).map((x) => ({ orderItemId: x.order_item_id, quantity: x.quantity })),
+      photoPaths: r.photo_paths ?? [],
     })),
     hasInvoice: Boolean(invoice.data),
     accessToken: orderAccessToken(o.id),

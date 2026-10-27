@@ -19,7 +19,7 @@ export default async function CustomerPage({ params }: PageProps<"/dashboard/cus
   const c = d.customer;
   return (
     <div className="space-y-6">
-      <PageHeader title={customerDisplayName(c)} description={[c.email, c.phone].filter(Boolean).join(" · ")} back={<Link href="/dashboard/customers" className="text-muted hover:text-foreground">← Customers</Link>} />
+      <PageHeader title={customerDisplayName(c)} description={[c.email, c.phone].filter(Boolean).join(" · ")} back={<Link href="/dashboard/customers" className="text-muted hover:text-foreground">← Customers</Link>} actions={c.status === "blocked" ? <Badge tone="error">Blocked</Badge> : null} />
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Orders" value={c.orders_count} />
         <StatCard label="Lifetime value" value={formatMoney(toMinor(c.total_spent))} />
