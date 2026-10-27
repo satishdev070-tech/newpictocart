@@ -1,7 +1,17 @@
 # Implementation Status
 
-_Last updated: 2026-10-27 (seller/admin Phase 1 speed) · 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-28 (seller AI suite) · 2026-10-27 (seller/admin Phase 1 speed) · 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
+
+## Seller AI suite (2026-10-28)
+
+Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coach. Next.js owns auth, permissions (`runAction` + membership), and `ai_credit_debit` / refund; Supabase Edge Functions run the LLM.
+
+- **Edge functions:** `supabase/functions/generate-product`, `generate-blog`, `generate-contact-reply`, `business-coach` (+ `_shared` auth/LLM). Invoked from Next with the secret key (optional `AI_EDGE_INVOKE_SECRET` / `x-seller-ai-invoke`).
+- **UI:** Products editor “Generate with AI” (file upload and/or https gallery URLs); Blog editor “AI Write”; Messages “Draft AI reply”; Dashboard home Business Coach card.
+- **Credits / registry:** Migration `20261028004200_seller_ai_suite.sql` seeds costs, widens `ai_generations.kind`, and lets `catalog.write` / `content.write` / `analytics.read` debit. Features registered in `ai-health/registry.ts`; ledger labels in AI credits UI.
+- **Deploy:** `supabase functions deploy generate-product generate-blog generate-contact-reply business-coach` on project `ugbjlpdhktrlkyuijkfc`; apply the migration; set provider keys via Admin → Social apps (passed ephemerally to the function). Optional: `supabase secrets set AI_EDGE_INVOKE_SECRET=…` matching app env.
+- **Branch:** `cursor/seller-ai-generate-suite-c73e`.
 
 ## Seller / admin Phase 1 speed (2026-10-27)
 

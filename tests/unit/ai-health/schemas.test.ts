@@ -5,6 +5,8 @@ import { aiHealthTab, featureRouteSchema, modelPriceSchema, testModelSchema, tok
 
 const SCHEMAS = readFileSync(new URL("../../../src/features/neural-pulse/schemas.ts", import.meta.url), "utf8");
 const MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261025003900_ai_economy.sql", import.meta.url), "utf8");
+const SELLER_AI_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261028004200_seller_ai_suite.sql", import.meta.url), "utf8");
+const COST_SEEDS = `${MIGRATION}\n${SELLER_AI_MIGRATION}`;
 
 describe("AI feature registry", () => {
   it("lists every Neural Pulse GenerationKind plus the section, seed and voice features", () => {
@@ -23,7 +25,15 @@ describe("AI feature registry", () => {
   });
 
   it("every credit kind has a seeded action cost", () => {
-    for (const f of AI_FEATURES) if (f.creditKind) expect(MIGRATION, f.creditKind).toContain(`('${f.creditKind}',`);
+    for (const f of AI_FEATURES) if (f.creditKind) expect(COST_SEEDS, f.creditKind).toContain(`('${f.creditKind}',`);
+  });
+
+  it("registers seller AI suite features as routable with credit kinds", () => {
+    for (const k of ["generate_product", "generate_blog", "contact_reply", "business_coach"]) {
+      expect(findFeature(k)?.routable).toBe(true);
+      expect(findFeature(k)?.creditKind).toBe(k);
+      expect(ROUTABLE_FEATURE_KEYS).toContain(k);
+    }
   });
 });
 

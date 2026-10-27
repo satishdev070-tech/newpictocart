@@ -25,6 +25,7 @@ import {
 } from "@/features/settings/actions";
 import type { ContentBlock } from "@/features/content/blocks";
 import { assetUrl } from "@/lib/storage/assets";
+import { BlogAiWrite } from "@/features/seller-ai/components/blog-ai-write";
 
 type Opt = { id: string; label: string };
 
@@ -271,11 +272,27 @@ export function DocumentEditor({ table, value }: { table: "pages" | "blog_posts"
   const [title, setTitle] = useState(value.title);
   const [slug, setSlug] = useState(value.slug);
   const [slugTouched, setSlugTouched] = useState(Boolean(value.id || value.slug));
+  const [excerpt, setExcerpt] = useState(value.excerpt ?? "");
+  const [tags, setTags] = useState(value.tags ?? "");
+  const [seoTitle, setSeoTitle] = useState(value.seoTitle);
+  const [seoDescription, setSeoDescription] = useState(value.seoDescription);
+
+  const applyBlogAi = (data: { title: string; excerpt: string; tags: string; seoTitle: string; seoDescription: string; blocks: ContentBlock[] }) => {
+    setTitle(data.title);
+    if (!slugTouched) setSlug(slugify(data.title));
+    setExcerpt(data.excerpt);
+    setTags(data.tags);
+    setSeoTitle(data.seoTitle || data.title.slice(0, 70));
+    setSeoDescription(data.seoDescription || data.excerpt.slice(0, 160));
+    setBlocks(data.blocks);
+  };
+
   return (
     <ActionForm action={saveDocumentAction} fields={{ table, blocks: JSON.stringify(blocks), ...(value.id ? { id: value.id } : {}) }} submitLabel="Save" encType="multipart/form-data">
       {(e) => (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="space-y-4">
+            {table === "blog_posts" ? <BlogAiWrite onApply={applyBlogAi} /> : null}
             <TextField
               label="Title"
               name="title"
@@ -311,9 +328,9 @@ export function DocumentEditor({ table, value }: { table: "pages" | "blog_posts"
               <SelectField label="Page type" name="kind" defaultValue={value.kind ?? "page"} options={[{ value: "page", label: "Page" }, { value: "policy", label: "Policy" }, { value: "about", label: "About" }, { value: "contact", label: "Contact" }, { value: "faq", label: "FAQ" }]} />
             ) : (
               <>
-                <TextAreaField label="Excerpt" name="excerpt" defaultValue={value.excerpt ?? ""} rows={3} />
+                <TextAreaField label="Excerpt" name="excerpt" value={excerpt} onChange={(ev) => setExcerpt(ev.target.value)} rows={3} />
                 <TextField label="Author" name="authorName" defaultValue={value.authorName ?? ""} optional />
-                <TextField label="Tags" name="tags" defaultValue={value.tags ?? ""} optional />
+                <TextField label="Tags" name="tags" value={tags} onChange={(ev) => setTags(ev.target.value)} optional />
                 <div>
                   <label htmlFor="cover" className="mb-1.5 block text-sm font-medium">Cover image</label>
                   <input id="cover" name="cover" type="file" accept="image/*" className="text-sm" />
@@ -321,8 +338,8 @@ export function DocumentEditor({ table, value }: { table: "pages" | "blog_posts"
                 </div>
               </>
             )}
-            <TextField label="SEO title" name="seoTitle" defaultValue={value.seoTitle} optional />
-            <TextAreaField label="SEO description" name="seoDescription" defaultValue={value.seoDescription} rows={2} optional />
+            <TextField label="SEO title" name="seoTitle" value={seoTitle} onChange={(ev) => setSeoTitle(ev.target.value)} optional />
+            <TextAreaField label="SEO description" name="seoDescription" value={seoDescription} onChange={(ev) => setSeoDescription(ev.target.value)} rows={2} optional />
           </div>
         </div>
       )}

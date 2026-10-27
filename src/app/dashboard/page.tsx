@@ -14,6 +14,7 @@ import { getLaunchStatusForMember } from "@/features/stores/launch";
 import { PreviewStoreButton, PublishStoreButton } from "@/features/stores/components/launch-controls";
 import { RecentActivityCard } from "@/features/notifications/inbox/components/recent-activity-card";
 import { CopyButton } from "@/features/domains/components/domain-controls";
+import { BusinessCoachCard } from "@/features/seller-ai/components/business-coach-card";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -171,6 +172,8 @@ export default async function DashboardHome() {
 
         <div className="space-y-6">
           <RecentActivityCard audience={{ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId }} href="/dashboard/notifications" />
+
+          {can(ctx, "analytics.read") ? <BusinessCoachCard /> : null}
 
           {home.counts.toFulfil !== null || home.lowStock ? (
             <Card title="Needs attention">
