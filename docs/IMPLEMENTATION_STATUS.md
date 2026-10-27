@@ -12,6 +12,7 @@ Dashboard and Super Admin stay **live** (no Data Cache on private tenant product
 - **Theme editor:** menus load in the first `Promise.all` (embedded `menus→menu_items`, filter by handles after); `hasAiProviderConfigured()` gates AI without decrypting secrets; `SiteBuilder` is a `next/dynamic` import with a loading skeleton.
 - **Admin signup chart:** `getSignupSeries` one `tenants.created_at` range select + `bucketCounts` (was 12 head counts).
 - **Products list:** unused category/collection/SKU prep already skipped; filter picker uses lean `listCategoryFilterOptions`; `platformRows()` cached in production (tag `platform-product-types`, 600 s) with write-path revalidate.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, 126 files / 1,531 tests, build). Branch `cursor/seller-admin-speed-phase1-c73e`.
 
 ## Optional Upstash Redis L2 for public storefront cache (2026-10-27)
 
