@@ -67,3 +67,35 @@ export function setColumnName(c: SizeChartData, col: number, value: string): Siz
 export function compactChart(c: SizeChartData): SizeChartData {
   return { ...c, rows: c.rows.filter((r) => r.some((v) => v.trim() !== "")) };
 }
+
+// -----------------------------------------------------------------------------
+// Which chart a product shows (product → category → parent categories → none)
+// -----------------------------------------------------------------------------
+
+/** products.attributes key; "none" = this product shows no size chart even if its category has one. */
+export const SIZE_CHART_ATTR = "_size_chart";
+
+export function sizeChartHidden(attributes: unknown): boolean {
+  return Boolean(attributes && typeof attributes === "object" && !Array.isArray(attributes) && (attributes as Record<string, unknown>)[SIZE_CHART_ATTR] === "none");
+}
+
+type ChartCategory = { id: string; parentId: string | null; sizeChartId: string | null };
+
+/** Nearest chart assigned to the category or one of its ancestors (cycle-safe). */
+export function categorySizeChartId(categories: ChartCategory[], categoryId: string | null): string | null {
+  const byId = new Map(categories.map((c) => [c.id, c]));
+  const seen = new Set<string>();
+  let cur = categoryId ? byId.get(categoryId) : undefined;
+  while (cur && !seen.has(cur.id)) {
+    if (cur.sizeChartId) return cur.sizeChartId;
+    seen.add(cur.id);
+    cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+  }
+  return null;
+}
+
+/** The product's own chart, else its category's (inherited up the tree), unless the product opted out. */
+export function resolveSizeChartId(product: { sizeChartId: string | null; hideSizeChart: boolean; categoryId: string | null }, categories: ChartCategory[]): string | null {
+  if (product.hideSizeChart) return null;
+  return product.sizeChartId ?? categorySizeChartId(categories, product.categoryId);
+}

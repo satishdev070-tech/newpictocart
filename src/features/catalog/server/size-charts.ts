@@ -6,19 +6,25 @@ import type { z } from "zod";
 import type { sizeChartSchema } from "../schemas";
 import { parseChart, type SizeChartData } from "../size-chart";
 
-export type SizeChart = { id: string; name: string; unit: "in" | "cm"; chart: SizeChartData; productCount: number; updatedAt: string };
+export type SizeChart = { id: string; name: string; unit: "in" | "cm"; chart: SizeChartData; productCount: number; categoryIds: string[]; updatedAt: string };
 
 export async function listSizeCharts(tenantId: string, opts: { withCounts?: boolean } = {}): Promise<SizeChart[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("size_charts").select("id, name, unit, chart, updated_at").eq("tenant_id", tenantId).order("name").limit(500);
   if (error) throw mapDbError(error);
   const counts = new Map<string, number>();
+  const categoryIds = new Map<string, string[]>();
   if (opts.withCounts && data?.length) {
-    const { data: prods, error: pErr } = await supabase.from("products").select("size_chart_id").eq("tenant_id", tenantId).not("size_chart_id", "is", null).limit(20000);
+    const [{ data: prods, error: pErr }, { data: cats, error: cErr }] = await Promise.all([
+      supabase.from("products").select("size_chart_id").eq("tenant_id", tenantId).not("size_chart_id", "is", null).limit(20000),
+      supabase.from("categories").select("id, size_chart_id").eq("tenant_id", tenantId).not("size_chart_id", "is", null).limit(2000),
+    ]);
     if (pErr) throw mapDbError(pErr);
+    if (cErr) throw mapDbError(cErr);
     for (const p of prods ?? []) if (p.size_chart_id) counts.set(p.size_chart_id, (counts.get(p.size_chart_id) ?? 0) + 1);
+    for (const c of cats ?? []) if (c.size_chart_id) categoryIds.set(c.size_chart_id, [...(categoryIds.get(c.size_chart_id) ?? []), c.id]);
   }
-  return (data ?? []).map((c) => ({ id: c.id, name: c.name, unit: c.unit === "cm" ? "cm" : "in", chart: parseChart(c.chart), productCount: counts.get(c.id) ?? 0, updatedAt: c.updated_at }));
+  return (data ?? []).map((c) => ({ id: c.id, name: c.name, unit: c.unit === "cm" ? "cm" : "in", chart: parseChart(c.chart), productCount: counts.get(c.id) ?? 0, categoryIds: categoryIds.get(c.id) ?? [], updatedAt: c.updated_at }));
 }
 
 export async function getSizeChart(tenantId: string, id: string): Promise<SizeChart | null> {
@@ -26,8 +32,11 @@ export async function getSizeChart(tenantId: string, id: string): Promise<SizeCh
   const { data, error } = await supabase.from("size_charts").select("id, name, unit, chart, updated_at").eq("tenant_id", tenantId).eq("id", id).maybeSingle();
   if (error) throw mapDbError(error);
   if (!data) return null;
-  const { count } = await supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("size_chart_id", id);
-  return { id: data.id, name: data.name, unit: data.unit === "cm" ? "cm" : "in", chart: parseChart(data.chart), productCount: count ?? 0, updatedAt: data.updated_at };
+  const [{ count }, { data: cats }] = await Promise.all([
+    supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("size_chart_id", id),
+    supabase.from("categories").select("id").eq("tenant_id", tenantId).eq("size_chart_id", id),
+  ]);
+  return { id: data.id, name: data.name, unit: data.unit === "cm" ? "cm" : "in", chart: parseChart(data.chart), productCount: count ?? 0, categoryIds: (cats ?? []).map((c) => c.id), updatedAt: data.updated_at };
 }
 
 export type SizeChartInput = z.infer<typeof sizeChartSchema>;
@@ -39,11 +48,26 @@ export async function saveSizeChart(tenantId: string, input: SizeChartInput): Pr
     const { data, error } = await supabase.from("size_charts").update({ name: input.name, unit: input.unit, chart }).eq("tenant_id", tenantId).eq("id", input.id).select("id");
     if (error) throw mapDbError(error);
     if (!data?.length) throw new AppError("NOT_FOUND");
+    if (input.categoryIds) await setChartCategories(tenantId, input.id, input.categoryIds);
     return { id: input.id, created: false };
   }
   const { data, error } = await supabase.from("size_charts").insert({ tenant_id: tenantId, name: input.name, unit: input.unit, chart }).select("id").single();
   if (error) throw mapDbError(error);
+  if (input.categoryIds) await setChartCategories(tenantId, data.id, input.categoryIds);
   return { id: data.id, created: true };
+}
+
+/** Makes the chart the default of exactly these categories (others that used it fall back to none). */
+async function setChartCategories(tenantId: string, chartId: string, categoryIds: string[]): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const ids = [...new Set(categoryIds)];
+  let clear = supabase.from("categories").update({ size_chart_id: null }).eq("tenant_id", tenantId).eq("size_chart_id", chartId);
+  if (ids.length) clear = clear.not("id", "in", `(${ids.join(",")})`);
+  const { error } = await clear;
+  if (error) throw mapDbError(error);
+  if (!ids.length) return;
+  const { error: setErr } = await supabase.from("categories").update({ size_chart_id: chartId }).eq("tenant_id", tenantId).in("id", ids);
+  if (setErr) throw mapDbError(setErr);
 }
 
 /** Deletes a chart; products using it simply lose their size chart (FK set null). */

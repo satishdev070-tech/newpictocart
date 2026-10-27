@@ -1040,3 +1040,21 @@ above and in `docs/THEME_BUILDER.md`):
     listed. Now relayed through the platform (`/auth/store-google` → Google → `/auth/store-google/callback` → single-use token →
     the store's `/account/auth/callback`), which links the existing customer profile by email (or creates one) and opens
     `/account`. `features/customer-account/server/google-relay.ts`; only stores we serve are accepted as return hosts.
+
+## QA item 4: size charts by category, product override, PDP dialog (2026-10-27, branch `claude/qa-size-chart-cf9da4`)
+
+Tester: a size chart could be created but not attached to products and never showed on the storefront.
+Causes: the product editor only offered the chart picker for clothing/sized product types, the PDP link only
+appeared next to an option literally named "Size", and categories had no chart at all.
+
+- Migration `20261027004100_category_size_charts.sql`: `categories.size_chart_id` (tenant-scoped FK, set null on delete).
+- Size charts page: "Apply to categories" checkboxes (saved with the chart; unticked categories lose it). Category form: "Size chart" select.
+- Product editor: picker shown for every product once the store has a chart: Category default (shows the inherited chart) / a specific chart / No size chart.
+  "No size chart" is stored as `products.attributes._size_chart = "none"` (internal `_` key), so `save_product` is unchanged.
+- Storefront (`getProductBySlug`): product's own chart → nearest chart on its category or a parent category → none
+  (`resolveSizeChartId` in `src/features/catalog/size-chart.ts`, unit tests in `tests/unit/catalog/size-chart.test.ts`).
+  Only active categories are visible to the storefront (RLS), so a hidden parent category does not pass its chart down.
+- PDP: "Size chart" link by the Size option (or under the options when the product has none) opens a centred native
+  `<dialog>` (`size-chart-dialog.tsx`) with the table, unit and note; closes on Esc, Close or backdrop. The chart model has no image field.
+- Verified on the local seeded store (:3302): created a chart and ticked Sarees → saree PDP shows it; product set to
+  "No size chart" → hidden; kurta with its own chart → own chart; dupatta (no chart) → no link; mobile dialog checked.
