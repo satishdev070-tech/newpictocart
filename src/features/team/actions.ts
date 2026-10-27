@@ -135,7 +135,7 @@ export async function revokeInvitationAction(_prev: ActionResult | null, fd: For
 async function loadEditableMember(ctx: Awaited<ReturnType<typeof teamManager>>, membershipId: string) {
   const { data } = await (await createSupabaseServerClient()).from("tenant_memberships").select("user_id, role").eq("id", membershipId).eq("tenant_id", ctx.tenantId).maybeSingle();
   if (!data) throw new AppError("NOT_FOUND");
-  if (data.role === "owner") throw new AppError("FORBIDDEN", { message: "The Store Owner can't be changed." });
+  if (data.role === "owner") throw new AppError("FORBIDDEN", { message: "The store owner can't be changed or removed." });
   if (data.user_id === ctx.user.id) throw new AppError("FORBIDDEN", { message: "You can't change your own access." });
   return data;
 }

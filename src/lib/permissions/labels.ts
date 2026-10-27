@@ -2,23 +2,28 @@ import type { MembershipRole, TenantPermission, TenantRole } from "./matrix";
 
 /** Display names and descriptions for system roles (pure; safe in client and server code). */
 export const ROLE_INFO: Record<TenantRole, { label: string; description: string }> = {
-  owner: { label: "Store Owner", description: "Full control of the store, including billing, roles and ownership. Cannot be removed." },
-  admin: { label: "Store Admin", description: "Everything except billing: settings, payments, domains, team and roles." },
-  manager: { label: "Store Manager", description: "Runs the store day to day: catalogue, orders, refunds, marketing, content and theme drafts." },
-  catalog_manager: { label: "Catalog Manager", description: "Creates, edits, publishes and removes products, collections and categories; manages stock." },
-  order_manager: { label: "Order Manager", description: "Processes, fulfils, cancels and refunds orders; manages customers." },
-  inventory_manager: { label: "Inventory Manager", description: "Adjusts stock levels and thresholds; can see products and orders." },
-  marketing_manager: { label: "Marketing Manager", description: "Runs coupons and campaigns, moderates reviews, reads analytics." },
-  content_manager: { label: "Content Manager", description: "Edits pages, blog, menus, FAQs and theme drafts (cannot publish the theme)." },
-  analyst: { label: "Analyst", description: "Read-only access to sales, orders, customers and catalogue reports." },
-  support_agent: { label: "Support Agent", description: "Looks up orders and customers, updates order notes and status, moderates reviews." },
-  staff: { label: "Staff", description: "General catalogue and order work (legacy role)." },
-  viewer: { label: "Viewer", description: "Read-only access to the dashboard (legacy role)." },
+  owner: { label: "Store Admin (Owner)", description: "The merchant who registered the store. Full access, including billing and ownership. Cannot be removed or changed by others." },
+  manager: { label: "Manager", description: "Runs the store just below the owner: catalogue, orders, refunds, marketing, content, theme, settings, payments, domains and the team. No billing." },
+  sales_associate: { label: "Sales Associate", description: "Day-to-day selling: orders, customers, products (view and edit) and stock. No settings, payments, domains or team." },
+};
+
+/** Labels for roles retired by the QA #3 migration, in case an old audit entry or row still names one. */
+const LEGACY_ROLE_LABEL: Record<string, string> = {
+  admin: "Manager",
+  catalog_manager: "Manager",
+  order_manager: "Manager",
+  inventory_manager: "Manager",
+  marketing_manager: "Manager",
+  content_manager: "Manager",
+  analyst: "Sales Associate",
+  support_agent: "Sales Associate",
+  staff: "Sales Associate",
+  viewer: "Sales Associate",
 };
 
 export function roleLabel(role: MembershipRole | string, customName?: string | null): string {
   if (role === "custom") return customName ?? "Custom role";
-  return ROLE_INFO[role as TenantRole]?.label ?? role;
+  return ROLE_INFO[role as TenantRole]?.label ?? LEGACY_ROLE_LABEL[role] ?? role;
 }
 
 export type PermissionGroup = { key: string; label: string; permissions: { key: TenantPermission; label: string; description: string }[] };

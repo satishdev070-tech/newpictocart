@@ -3,6 +3,8 @@ import {
   PLATFORM_PERMISSIONS,
   PLATFORM_ROLE_PERMISSIONS,
   TENANT_PERMISSIONS,
+  SUPPORT_SESSION_PERMISSIONS,
+  TENANT_ROLES,
   TENANT_ROLE_PERMISSIONS,
   platformRoleCan,
   tenantRoleCan,
@@ -13,25 +15,32 @@ describe("tenant permission matrix", () => {
     for (const p of TENANT_PERMISSIONS) expect(tenantRoleCan("owner", p)).toBe(true);
   });
 
-  it("reserves billing to owners", () => {
-    expect(tenantRoleCan("admin", "billing.manage")).toBe(false);
+  it("has exactly three standard roles: owner, manager, sales associate", () => {
+    expect([...TENANT_ROLES]).toEqual(["owner", "manager", "sales_associate"]);
   });
 
-  it("keeps viewers read-only", () => {
-    for (const p of TENANT_ROLE_PERMISSIONS.viewer) expect(p.endsWith(".read")).toBe(true);
+  it("gives managers everything except owner-only billing", () => {
+    for (const p of TENANT_PERMISSIONS) expect(tenantRoleCan("manager", p)).toBe(p !== "billing.manage");
   });
 
-  it("does not let staff publish themes, refund, or manage members", () => {
-    expect(tenantRoleCan("staff", "theme.publish")).toBe(false);
-    expect(tenantRoleCan("staff", "orders.refund")).toBe(false);
-    expect(tenantRoleCan("staff", "members.manage")).toBe(false);
+  it("keeps sales associates to orders, customers, products and stock", () => {
+    for (const p of ["orders.read", "orders.write", "customers.read", "customers.write", "catalog.read", "catalog.write", "inventory.write"] as const) {
+      expect(tenantRoleCan("sales_associate", p)).toBe(true);
+    }
+    for (const p of ["settings.write", "payments.manage", "domains.manage", "members.read", "members.manage", "roles.manage", "billing.manage", "orders.refund", "theme.publish"] as const) {
+      expect(tenantRoleCan("sales_associate", p)).toBe(false);
+    }
   });
 
   it("is monotonic: each role includes the role below it", () => {
-    const ladder = ["viewer", "staff", "manager", "admin", "owner"] as const;
+    const ladder = ["sales_associate", "manager", "owner"] as const;
     for (let i = 1; i < ladder.length; i++) {
       for (const p of TENANT_ROLE_PERMISSIONS[ladder[i - 1]!]) expect(TENANT_ROLE_PERMISSIONS[ladder[i]!].has(p)).toBe(true);
     }
+  });
+
+  it("keeps platform support sessions read-only", () => {
+    for (const p of SUPPORT_SESSION_PERMISSIONS) expect(p.endsWith(".read")).toBe(true);
   });
 });
 

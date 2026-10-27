@@ -1,6 +1,7 @@
 import { PRODUCT_STATUSES, type ProductStatus } from "./constants";
 import { PRODUCT_TYPE_KEY_RE, effectiveProductType } from "./product-types";
 import { dbMoneyToMinor, minorToInput } from "./format";
+import { sizeChartHidden } from "./size-chart";
 import type { ProductDraft } from "./types";
 import type { OptionDraft, VariantDraft } from "./variants";
 
@@ -113,6 +114,7 @@ export function dbToDraft(p: DbProduct, options: DbOption[], values: DbOptionVal
     brand: p.brand ?? "",
     categoryId: p.category_id,
     sizeChartId: p.size_chart_id,
+    hideSizeChart: sizeChartHidden(p.attributes),
     status: (PRODUCT_STATUSES as readonly string[]).includes(p.status) ? (p.status as ProductStatus) : "draft",
     featured: p.featured,
     tags: p.tags ?? [],

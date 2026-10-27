@@ -17,6 +17,8 @@ export type ProductDraft = {
   brand: string;
   categoryId: string | null;
   sizeChartId: string | null;
+  /** Show no size chart, not even the category's (stored as attributes._size_chart = "none"). */
+  hideSizeChart: boolean;
   status: ProductStatus;
   featured: boolean;
   tags: string[];
@@ -55,6 +57,7 @@ export function emptyProductDraft(productType = "other"): ProductDraft {
     brand: "",
     categoryId: null,
     sizeChartId: null,
+    hideSizeChart: false,
     status: "draft",
     featured: false,
     tags: [],

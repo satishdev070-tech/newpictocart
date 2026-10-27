@@ -1,16 +1,14 @@
 # Implementation Status
 
-_Last updated: 2026-10-27 (QA sheet #7, #9, #11, #13, #14) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
 
-## QA sheet fixes #7, #9, #11, #13, #14 (2026-10-27)
+## Team roles: Store Admin (Owner) / Manager / Sales Associate (2026-10-27, QA #2 #3)
 
-- **#7 Marketing → Social → Posts crashed** ("This page couldn't load") as soon as a store had any post. Cause: the server pages (Overview, Posts, post detail) called `isManualDue` / `manualChannels`, which lived in the `"use client"` module `manual-panel.tsx`; Next throws when a server component calls a client function. They now live in `features/social/planner.ts` (pure, unit tested). Empty and plan-less states were already fine.
-- **#9 Orders "Print all" not showing:** the order page button combined `bg-surface` with `bg-foreground text-background`; `bg-surface` won in the CSS order, so it was near-white text on white. It now uses `buttonClass`. The orders list gets a bulk bar for the selected orders (**Invoices**, Packing slips, Shipping labels, **Print all**) and a select-all checkbox.
-- **#11 Theme marketplace:** a **Current theme** section at the top (live theme card with Customize / Details / Preview; stores without a published marketplace theme get a note that they use the built-in Aangan theme), then **Other themes** (the catalogue without the live theme; counts match).
-- **#13 Pages & menu — Contact twice / rename:** new stores get a "Contact" content page (`/pages/contact`, kind contact) from onboarding, and the builder also lists the built-in Contact (`/contact`, which already shows that page's text with the form). Both were called "Contact". The builder now shows them as one Contact row (`contactContentPage()`; both addresses open it). Rename there sets the built-in heading and also renames the content page (`renameContentPageAction`, content.write), so the address the menu links to shows the new name too. Any other duplicate names in the list get their address added. The exact save error from the hosted store was **not reproduced** locally: renaming the built-in page, the content page and a site-builder page all saved.
-- **#14 WhatsApp button not showing:** the button needs `embeds.whatsapp.enabled` and a valid store number (`whatsappUrl`). The canvas already updated live (verified). The panel now uses the same check as the storefront: with no number, or one that isn't a valid Indian mobile, it shows a WhatsApp number field inline (`saveWhatsappNumberAction`, settings.write). Saving reloads the canvas. `whatsappUrl` also accepts a leading 0.
-- **Verification:** typecheck, lint (changed files), `pnpm test` (1,460 tests) ✅; `pnpm build` left to CI (machine low on memory). Browser-checked on the local stack (seeded Aangan owner): #7, #9, #13 (merged row + rename), #14 live toggle with a valid number. Unit-tested only: #11 layout (no published marketplace theme locally; only the "built-in theme" state was seen), the #14 inline number form, and the #13 content-page rename error path.
+- **Three standard roles** instead of twelve: **Store Admin (Owner)** (the registering merchant, all access, can't be removed or changed by others), **Manager** (everything except billing; manages the team and roles but can't touch the owner) and **Sales Associate** (orders incl. cancel, customers, products view/edit, inventory; no settings, payments, domains, team, refunds, publish or delete). Invite and role pickers list only Manager, Sales Associate and the store's own custom roles; default is Sales Associate.
+- **Migration `20261027004150_team_roles.sql`** (⏳ not yet applied to the hosted project): maps existing members and invitations (Store Admin, Store Manager, Catalog/Order/Inventory/Marketing/Content Manager → Manager; Analyst, Support Agent, Staff, Viewer → Sales Associate), reseeds `role_permissions`, tightens the role CHECK constraints, moves platform support sessions to the internal read-only `support_viewer` set, and reorders `list_tenant_members`. Seed user `staff@aangan.test` is now a Sales Associate.
+- **Team page:** change role per member (Save role), deactivate/reactivate, remove (confirmed), resend / cancel invite (confirmed), plus a Roles card explaining each role. Custom roles (create / edit / delete) stay under Settings → Roles & permissions. All actions keep the `members.manage` / `roles.manage` server checks and DB escalation guards.
+- **Verification:** unit tests for the matrix, SQL ↔ matrix seed and CHECK lists, role choice; `pnpm test:db` (24 files / 181 tests) ✅ on Postgres 17, including new manager/sales-associate/owner-protection/retired-role tests; migration checked on a DB with all 12 old roles (7 → Manager, 4 → Sales Associate, owner untouched).
 
 ## Header layouts, Logo badge design, fit-to-logo crop (2026-10-26)
 
@@ -502,7 +500,7 @@ Since migration 1800, compare snapshots with `SNAPSHOT_IGNORE_COLUMNS=tenants.st
 | App shell (seller + console): collapsible sidebar, breadcrumbs, ⌘K, notifications, account menu | ✅ built, ⏳ visual QA | UI_UX_REDESIGN_AUDIT.md |
 | Auth redesign: staff, merchant login/register/forgot, customer login/register/forgot | ✅ built + screenshotted | UI_UX_REDESIGN_AUDIT.md |
 | Super admin dashboard (8 KPIs, GMV trend, plans, activity) | ✅ built, ⏳ needs migration 1400 | UI_UX_REDESIGN_AUDIT.md |
-| RBAC: 27 permissions, 12 system roles, custom roles, escalation guards, Team + Roles UI | ✅ built, 8 DB tests, ⏳ needs migration 1200 | RBAC_AUDIT.md |
+| RBAC: 27 permissions, 3 system roles (12 until 2026-10-27), custom roles, escalation guards, Team + Roles UI | ✅ built, 8 DB tests, ⏳ needs migration 1200 | RBAC_AUDIT.md |
 | Media library + picker (drag & drop, progress, cancel/retry, replace, usage, alt text) | ✅ built, 3 DB + 4 unit tests, ⏳ needs migration 1300 | MEDIA_LIBRARY_AUDIT.md |
 | 10 unique demo stores (data, art, themes, owners) | ✅ generator written, ⏳ not yet run on the cloud DB | MULTI_STORE_AUDIT.md |
 | Customer account overview | ✅ built + screenshotted | |
@@ -1042,3 +1040,21 @@ above and in `docs/THEME_BUILDER.md`):
     listed. Now relayed through the platform (`/auth/store-google` → Google → `/auth/store-google/callback` → single-use token →
     the store's `/account/auth/callback`), which links the existing customer profile by email (or creates one) and opens
     `/account`. `features/customer-account/server/google-relay.ts`; only stores we serve are accepted as return hosts.
+
+## QA item 4: size charts by category, product override, PDP dialog (2026-10-27, branch `claude/qa-size-chart-cf9da4`)
+
+Tester: a size chart could be created but not attached to products and never showed on the storefront.
+Causes: the product editor only offered the chart picker for clothing/sized product types, the PDP link only
+appeared next to an option literally named "Size", and categories had no chart at all.
+
+- Migration `20261027004100_category_size_charts.sql`: `categories.size_chart_id` (tenant-scoped FK, set null on delete).
+- Size charts page: "Apply to categories" checkboxes (saved with the chart; unticked categories lose it). Category form: "Size chart" select.
+- Product editor: picker shown for every product once the store has a chart: Category default (shows the inherited chart) / a specific chart / No size chart.
+  "No size chart" is stored as `products.attributes._size_chart = "none"` (internal `_` key), so `save_product` is unchanged.
+- Storefront (`getProductBySlug`): product's own chart → nearest chart on its category or a parent category → none
+  (`resolveSizeChartId` in `src/features/catalog/size-chart.ts`, unit tests in `tests/unit/catalog/size-chart.test.ts`).
+  Only active categories are visible to the storefront (RLS), so a hidden parent category does not pass its chart down.
+- PDP: "Size chart" link by the Size option (or under the options when the product has none) opens a centred native
+  `<dialog>` (`size-chart-dialog.tsx`) with the table, unit and note; closes on Esc, Close or backdrop. The chart model has no image field.
+- Verified on the local seeded store (:3302): created a chart and ticked Sarees → saree PDP shows it; product set to
+  "No size chart" → hidden; kurta with its own chart → own chart; dupatta (no chart) → no link; mobile dialog checked.
