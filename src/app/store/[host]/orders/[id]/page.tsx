@@ -8,6 +8,8 @@ import { formatMoney } from "@/lib/money";
 import { StoreImage } from "@/features/storefront/components/store-image";
 import { TrackEvent } from "@/features/tracking/components/track-event";
 import { CancelOrderForm, ReturnRequestForm } from "@/features/customer-account/components/forms";
+import { photoItems, signReturnPhotos } from "@/features/customer-account/server/return-photo-urls";
+import { PhotoLightbox } from "@/components/ui/photo-lightbox";
 
 export const metadata: Metadata = { title: "Order", robots: { index: false } };
 
@@ -34,6 +36,8 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/st
   const justPlaced = sp.placed === "1";
   const addr = order.shippingAddress;
   const tokenQs = `?t=${encodeURIComponent(order.accessToken)}`;
+  // Return photos are private: signed with the shopper's own session (storage RLS), owner only.
+  const photoUrls = order.viewerIsOwner ? await signReturnPhotos(order.returns.flatMap((r) => r.photoPaths)) : new Map<string, string>();
   return (
     <div className="sf-container sf-section mx-auto max-w-4xl space-y-8">
       {!order.awaitingPayment && order.status !== "cancelled" && order.status !== "pending" ? (
@@ -49,6 +53,32 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/st
             items: order.items.map((i) => ({ item_id: i.sku || i.id, item_name: i.title, ...(i.variantTitle ? { item_variant: i.variantTitle } : {}), price: i.unitPrice / 100, quantity: i.quantity })),
           }}
         />
+      ) : null}
+      {order.viewerIsOwner ? (
+        <div className="space-y-3">
+          <nav aria-label="Breadcrumb" className="sf-muted text-xs">
+            <ol className="flex flex-wrap items-center gap-1.5">
+              <li>
+                <Link href="/account" className="sf-link-quiet">
+                  Account
+                </Link>
+              </li>
+              <li aria-hidden>/</li>
+              <li>
+                <Link href="/account/orders" className="sf-link-quiet">
+                  Orders
+                </Link>
+              </li>
+              <li aria-hidden>/</li>
+              <li aria-current="page" className="text-[var(--sf-text)]">
+                Order {order.number}
+              </li>
+            </ol>
+          </nav>
+          <Link href="/account/orders" className="sf-link inline-block text-sm">
+            ← Back to orders
+          </Link>
+        </div>
       ) : null}
       <header className="space-y-2">
         {justPlaced || order.status === "confirmed" ? <p className="sf-eyebrow">Thank you</p> : null}
@@ -167,11 +197,14 @@ export default async function OrderPage({ params, searchParams }: PageProps<"/st
       {order.returns.length ? (
         <section>
           <h2 className="sf-heading mb-3 text-2xl">Returns</h2>
-          <ul className="space-y-2 text-sm">
+          <ul className="space-y-4 text-sm">
             {order.returns.map((r) => (
-              <li key={r.id}>
-                Return #{r.number} · {r.status} · {r.reason}
-                {r.refundAmount ? ` · refunded ${formatMoney(r.refundAmount)}` : ""}
+              <li key={r.id} className="space-y-2">
+                <p>
+                  Return #{r.number} · {r.status} · {r.reason}
+                  {r.refundAmount ? ` · refunded ${formatMoney(r.refundAmount)}` : ""}
+                </p>
+                <PhotoLightbox photos={photoItems(r.photoPaths, photoUrls, `Return #${r.number}`)} label={`Return #${r.number} photos`} />
               </li>
             ))}
           </ul>

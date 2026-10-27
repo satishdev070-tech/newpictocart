@@ -15,6 +15,8 @@ import { nextFulfillmentActions } from "@/features/orders-admin/schemas";
 import { formatDateTime } from "@/features/analytics/dates";
 import { customerDisplayName } from "@/features/customers/export";
 import { StatusBadge } from "@/features/orders-admin/components/status-badge";
+import { photoItems, signReturnPhotos } from "@/features/customer-account/server/return-photo-urls";
+import { PhotoLightbox } from "@/components/ui/photo-lightbox";
 import { getShippingSetup } from "@/features/shipping/service";
 import { parseAttribution } from "@/features/tracking/items";
 import { BookCourierButton, CourierShipmentActions } from "@/features/shipping/components/courier-actions";
@@ -50,6 +52,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   const { order: o } = d;
   const attribution = parseAttribution(JSON.stringify((o as { attribution?: unknown }).attribution ?? null));
   const canWrite = can(ctx, "orders.write");
+  const returnPhotoUrls = await signReturnPhotos(d.returns.flatMap((r) => r.photo_paths));
   const canRefund = can(ctx, "orders.refund");
   const number = orderNumberLabel(o.order_number, store.order_prefix);
   const refundable = refundableMinor(o);
@@ -355,11 +358,14 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
             <Card title="Returns">
               <ul className="space-y-2 text-sm">
                 {d.returns.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between gap-2">
-                    <Link href={`/dashboard/returns/${r.id}`} className="text-accent hover:underline">
-                      Return #{r.return_number}
-                    </Link>
-                    <StatusBadge status={r.status} />
+                  <li key={r.id} className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Link href={`/dashboard/returns/${r.id}`} className="text-accent hover:underline">
+                        Return #{r.return_number}
+                      </Link>
+                      <StatusBadge status={r.status} />
+                    </div>
+                    <PhotoLightbox size="sm" photos={photoItems(r.photo_paths, returnPhotoUrls, `Return #${r.return_number}`)} label={`Return #${r.return_number} photos`} />
                   </li>
                 ))}
               </ul>

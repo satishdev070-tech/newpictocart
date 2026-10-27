@@ -4245,6 +4245,7 @@ export type Database = {
           customer_note: string | null
           id: string
           order_id: string
+          photo_paths: string[]
           reason: string
           refund_amount: number | null
           resolution: string
@@ -4261,6 +4262,7 @@ export type Database = {
           customer_note?: string | null
           id?: string
           order_id: string
+          photo_paths?: string[]
           reason: string
           refund_amount?: number | null
           resolution?: string
@@ -4277,6 +4279,7 @@ export type Database = {
           customer_note?: string | null
           id?: string
           order_id?: string
+          photo_paths?: string[]
           reason?: string
           refund_amount?: number | null
           resolution?: string
@@ -6495,6 +6498,7 @@ export type Database = {
           p_items: Json
           p_note: string
           p_order: string
+          p_photos?: string[]
           p_reason: string
           p_tenant: string
         }

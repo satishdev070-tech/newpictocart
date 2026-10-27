@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { logger } from "@/lib/observability/logger";
+import { customerAccess, type CustomerAccess } from "./blocked";
 import { nameFromAuthMetadata, splitPersonName } from "./names";
 
 /**
@@ -53,8 +54,8 @@ function toCustomer(row: Row, authUserId: string): StoreCustomer | null {
   };
 }
 
-/** The signed-in shopper's customer row for this tenant, or null (signed out / not linked / blocked). */
-export const getStoreCustomer = cache(async (tenantId: string): Promise<StoreCustomer | null> => {
+/** The signed-in user's raw customer row for this tenant (any status), or null. */
+const getSessionCustomerRow = cache(async (tenantId: string): Promise<{ row: Row; userId: string } | null> => {
   const user = await getSessionUser();
   if (!user) return null;
   const { data, error } = await createSupabaseAdminClient()
@@ -67,8 +68,25 @@ export const getStoreCustomer = cache(async (tenantId: string): Promise<StoreCus
     logger.error("customer.lookup_failed", { tenantId, error: error.message });
     return null;
   }
-  return data ? toCustomer(data, user.id) : null;
+  return data ? { row: data, userId: user.id } : null;
 });
+
+/** The signed-in shopper's customer row for this tenant, or null (signed out / not linked / blocked). */
+export const getStoreCustomer = cache(async (tenantId: string): Promise<StoreCustomer | null> => {
+  const found = await getSessionCustomerRow(tenantId);
+  return found ? toCustomer(found.row, found.userId) : null;
+});
+
+/**
+ * Whether the signed-in user's customer row for this tenant is active or blocked by the store.
+ * Read fresh (not the request cache): it runs right after sign-in may have linked the row.
+ */
+export async function getStoreCustomerAccess(tenantId: string): Promise<CustomerAccess> {
+  const user = await getSessionUser();
+  if (!user) return "none";
+  const { data } = await createSupabaseAdminClient().from("customers").select("status").eq("tenant_id", tenantId).eq("auth_user_id", user.id).maybeSingle();
+  return customerAccess(data);
+}
 
 /**
  * Links the signed-in auth user to this tenant's customer row, creating it if needed.
@@ -134,6 +152,8 @@ export async function ensureStoreCustomer(tenantId: string): Promise<StoreCustom
 export async function requireStoreCustomer(tenantId: string, next: string): Promise<StoreCustomer> {
   const customer = (await getStoreCustomer(tenantId)) ?? (await ensureStoreCustomer(tenantId));
   if (!customer) {
+    // A blocked shopper gets a clear message on the login page instead of a silent bounce.
+    if ((await getStoreCustomerAccess(tenantId)) === "blocked") redirect("/account/login?error=blocked");
     const user = await getSessionUser();
     const target = safeRedirectPath(next, "/account");
     redirect(user ? `/account/login?verify=1&next=${encodeURIComponent(target)}` : `/account/login?next=${encodeURIComponent(target)}`);

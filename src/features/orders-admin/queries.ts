@@ -73,7 +73,7 @@ export async function getOrderDetail(ctx: TenantContext, orderId: string) {
     supabase.from("payments").select("*").eq("tenant_id", ctx.tenantId).eq("order_id", orderId).order("created_at"),
     supabase.from("refunds").select("*").eq("tenant_id", ctx.tenantId).eq("order_id", orderId).order("created_at"),
     supabase.from("shipments").select("*").eq("tenant_id", ctx.tenantId).eq("order_id", orderId).order("created_at", { ascending: false }),
-    supabase.from("returns").select("id, return_number, status, reason, created_at").eq("tenant_id", ctx.tenantId).eq("order_id", orderId).order("created_at"),
+    supabase.from("returns").select("id, return_number, status, reason, created_at, photo_paths").eq("tenant_id", ctx.tenantId).eq("order_id", orderId).order("created_at"),
     supabase.from("invoices").select("id, invoice_number, issued_at").eq("tenant_id", ctx.tenantId).eq("order_id", orderId).maybeSingle(),
   ]);
   for (const r of [items, events, payments, refunds, shipments, returns, invoice]) if (r.error) throw mapDbError(r.error);
@@ -108,7 +108,7 @@ export async function listReturns(ctx: TenantContext, f: { status?: string; page
   const supabase = await createSupabaseServerClient();
   let q = supabase
     .from("returns")
-    .select("id, return_number, status, resolution, reason, refund_amount, created_at, order_id, orders!inner(order_number, email, phone, shipping_address)", { count: "exact" })
+    .select("id, return_number, status, resolution, reason, refund_amount, created_at, order_id, photo_paths, orders!inner(order_number, email, phone, shipping_address)", { count: "exact" })
     .eq("tenant_id", ctx.tenantId);
   if (f.status) q = q.eq("status", f.status);
   const offset = (f.page - 1) * RETURNS_PAGE_SIZE;

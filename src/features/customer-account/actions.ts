@@ -1,6 +1,7 @@
 "use server";
 
 import { getPublicPlatformConfig } from "@/features/platform/server/public-config";
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { refresh } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -18,7 +19,9 @@ import { mergeGuestCartIntoCustomer } from "@/features/cart/service";
 import { clearCartCookie } from "@/features/cart/token";
 import { emit } from "@/features/notifications/events";
 import { trackCommerceEvent } from "@/features/checkout/analytics";
-import { ensureStoreCustomer, getStoreCustomer } from "./session";
+import { ensureStoreCustomer, getStoreCustomer, getStoreCustomerAccess } from "./session";
+import { BLOCKED_ACCOUNT_MESSAGE } from "./blocked";
+import { MAX_RETURN_PHOTO_BYTES, RETURN_PHOTO_BUCKET, returnPhotoPath, validateReturnPhotos } from "./return-photos";
 import { authCodeFailureMessage, knownCodeLength, sendAuthCode } from "@/features/auth/server/auth-codes";
 import { flagClientEvent } from "@/features/tracking/server/flag";
 import {
@@ -76,7 +79,18 @@ export async function toggleWishlistAction(_prev: ActionResult<{ saved: boolean 
 async function afterSignIn(tenantId: string): Promise<boolean> {
   const customer = await ensureStoreCustomer(tenantId);
   if (customer) await mergeGuestCartIntoCustomer(tenantId, customer.id);
+  else await rejectIfBlocked(tenantId);
   return Boolean(customer);
+}
+
+/**
+ * A shopper the store blocked is signed out again and told so. Runs only after the password,
+ * code or link was accepted, so the message never reveals anything about other emails.
+ */
+async function rejectIfBlocked(tenantId: string): Promise<void> {
+  if ((await getStoreCustomerAccess(tenantId)) !== "blocked") return;
+  await (await createSupabaseServerClient()).auth.signOut();
+  throw new AppError("FORBIDDEN", { message: BLOCKED_ACCOUNT_MESSAGE, fieldErrors: { _form: [BLOCKED_ACCOUNT_MESSAGE] } });
 }
 
 function callbackUrl(host: string, next: string): string {
@@ -224,7 +238,10 @@ export async function storeSignOutAction(): Promise<void> {
 async function requireCustomerForAction() {
   const tenant = await requireStoreTenant();
   const customer = (await getStoreCustomer(tenant.tenantId)) ?? (await ensureStoreCustomer(tenant.tenantId));
-  if (!customer) throw new AppError("UNAUTHENTICATED");
+  if (!customer) {
+    if ((await getStoreCustomerAccess(tenant.tenantId)) === "blocked") throw new AppError("FORBIDDEN", { message: BLOCKED_ACCOUNT_MESSAGE, fieldErrors: { _form: [BLOCKED_ACCOUNT_MESSAGE] } });
+    throw new AppError("UNAUTHENTICATED");
+  }
   return { tenant, customer };
 }
 
@@ -368,6 +385,26 @@ export async function requestReturnAction(_prev: ActionResult<{ returnId: string
     }
     if (items.length === 0) throw new AppError("VALIDATION", { fieldErrors: { _form: ["Choose at least one item to return."] } });
 
+    // Photos: checked by real bytes, then uploaded with the shopper's own session so storage RLS
+    // (own delivered order, private bucket) applies; oversized files aren't read at all.
+    const files = fd.getAll("photos").filter((f): f is File => typeof f !== "string");
+    const checked = validateReturnPhotos(
+      await Promise.all(files.map(async (f) => ({ size: f.size, bytes: f.size > 0 && f.size <= MAX_RETURN_PHOTO_BYTES ? new Uint8Array(await f.arrayBuffer()) : new Uint8Array() }))),
+      input.reason,
+    );
+    if (!checked.ok) throw new AppError("VALIDATION", { fieldErrors: { photos: [checked.error] } });
+    const photoPaths: string[] = [];
+    const removeUploaded = () => (photoPaths.length ? supabase.storage.from(RETURN_PHOTO_BUCKET).remove(photoPaths) : null);
+    for (const photo of checked.photos) {
+      const path = returnPhotoPath(tenant.tenantId, order.id, randomUUID(), photo.ext);
+      const { error: upErr } = await supabase.storage.from(RETURN_PHOTO_BUCKET).upload(path, photo.bytes, { contentType: photo.mime, upsert: false });
+      if (upErr) {
+        await removeUploaded();
+        throw new AppError("FORBIDDEN", { fieldErrors: { photos: ["We couldn't upload your photos. Please try again."] }, context: { storage: upErr.message } });
+      }
+      photoPaths.push(path);
+    }
+
     const { data: returnId, error } = await createSupabaseAdminClient().rpc("svc_create_return", {
       p_tenant: tenant.tenantId,
       p_order: order.id,
@@ -375,8 +412,12 @@ export async function requestReturnAction(_prev: ActionResult<{ returnId: string
       p_reason: RETURN_REASONS[input.reason],
       p_note: (input.note ?? null) as string,
       p_items: items,
+      p_photos: photoPaths,
     });
-    if (error || !returnId) throw error ? mapDbError(error, { orderId: order.id }) : new AppError("INTERNAL");
+    if (error || !returnId) {
+      await removeUploaded();
+      throw error ? mapDbError(error, { orderId: order.id }) : new AppError("INTERNAL");
+    }
     emit({ type: "return.updated", tenantId: tenant.tenantId, orderId: order.id, returnId: String(returnId), status: "requested" });
     return { returnId };
   });

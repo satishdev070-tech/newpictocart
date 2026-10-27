@@ -10,6 +10,8 @@ import { FilterBar } from "@/features/settings/ui/filter-bar";
 import { listReturns } from "@/features/orders-admin/queries";
 import { StatusBadge } from "@/features/orders-admin/components/status-badge";
 import { formatDateTime } from "@/features/analytics/dates";
+import { photoItems, signReturnPhotos } from "@/features/customer-account/server/return-photo-urls";
+import { PhotoLightbox } from "@/components/ui/photo-lightbox";
 
 export const metadata: Metadata = { title: "Returns" };
 const STATUSES = ["requested", "approved", "rejected", "received", "refunded", "closed"];
@@ -20,6 +22,7 @@ export default async function ReturnsPage({ searchParams }: PageProps<"/dashboar
   const status = typeof sp.status === "string" && STATUSES.includes(sp.status) ? sp.status : undefined;
   const page = Math.max(1, Number(typeof sp.page === "string" ? sp.page : 1) || 1);
   const { rows, total } = await listReturns(ctx, { status, page });
+  const photoUrls = await signReturnPhotos(rows.flatMap((r) => r.photo_paths));
   return (
     <div>
       <PageHeader title="Returns" description="Return requests from customers. Approve, receive (restocks) and refund." />
@@ -36,6 +39,7 @@ export default async function ReturnsPage({ searchParams }: PageProps<"/dashboar
                 <th className={th}>Return</th>
                 <th className={th}>Order</th>
                 <th className={th}>Reason</th>
+                <th className={th}>Photos</th>
                 <th className={th}>Status</th>
                 <th className={th}>Refunded</th>
                 <th className={th}>Requested</th>
@@ -51,6 +55,7 @@ export default async function ReturnsPage({ searchParams }: PageProps<"/dashboar
                     <Link href={`/dashboard/orders/${r.order_id}`} className="hover:underline">#{r.orders.order_number}</Link>
                   </td>
                   <td className={td}>{r.reason}</td>
+                  <td className={td}>{r.photo_paths.length ? <PhotoLightbox size="sm" photos={photoItems(r.photo_paths, photoUrls, `Return #${r.return_number}`)} label={`Return #${r.return_number} photos`} /> : "—"}</td>
                   <td className={td}><StatusBadge status={r.status} /></td>
                   <td className={`${td} tabular-nums`}>{r.refund_amount ? formatMoney(toMinor(r.refund_amount)) : "—"}</td>
                   <td className={td}>{formatDateTime(r.created_at)}</td>

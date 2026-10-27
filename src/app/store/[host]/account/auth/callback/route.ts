@@ -3,7 +3,7 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { findStoreTenant } from "@/features/cart/context";
-import { ensureStoreCustomer } from "@/features/customer-account/session";
+import { ensureStoreCustomer, getStoreCustomerAccess } from "@/features/customer-account/session";
 
 const OTP_TYPES: EmailOtpType[] = ["signup", "magiclink", "recovery", "email_change", "email"];
 
@@ -28,7 +28,11 @@ export async function GET(request: NextRequest) {
   }
   if (ok) {
     const tenant = await findStoreTenant();
-    if (tenant) await ensureStoreCustomer(tenant.tenantId);
+    if (tenant && !(await ensureStoreCustomer(tenant.tenantId)) && (await getStoreCustomerAccess(tenant.tenantId)) === "blocked") {
+      // Blocked by the store: end the session and say so on the login page.
+      await supabase.auth.signOut();
+      return NextResponse.redirect(new URL("/account/login?error=blocked", origin));
+    }
     return NextResponse.redirect(new URL(next, origin));
   }
   return NextResponse.redirect(new URL("/account/login?error=link", origin));
