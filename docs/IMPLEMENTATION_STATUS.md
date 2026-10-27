@@ -1,7 +1,15 @@
 # Implementation Status
 
-_Last updated: 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
+
+## Optional Upstash Redis L2 for public storefront cache (2026-10-27)
+
+- **Why:** cold Vercel instances miss Next Data Cache and re-hit Supabase for directory/theme/profile. Free-tier Upstash shares those public reads across instances.
+- **How:** `@upstash/redis` behind `cachedStorefront` (`src/lib/cache/storefront.ts` + `src/lib/cache/redis.ts`). L1 stays `unstable_cache`; L2 is Redis when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set (both optional; unset = previous behaviour). Invalidation deletes indexed Redis keys with `revalidateStorefront` / `revalidateTenantDirectory` / `revalidateAllStorefronts`.
+- **Scope:** public storefront loaders only (same ADR-010 rules). Not cart, session, dashboard, secrets, or catalog/product/price/stock. Rate limits stay Postgres (ADR-025).
+- **Ops:** create an Upstash DB near Mumbai, set the two env vars on Vercel. Aim to stay on the free tier; upgrade only if commands approach the daily cap.
+- **Verification:** unit tests in `storefront-cache.test.ts` (env-off, L2 hit/miss, indexed delete).
 
 ## Storefront performance: cache scope, fewer DB waves, zod out of the client (2026-10-27)
 
