@@ -115,6 +115,12 @@ export const serverEnvSchema = publicEnvSchema.extend({
    * a validation AppError (`sarvam_not_configured`).
    */
   SARVAM_API_KEY: z.string().min(10).optional(),
+  /**
+   * Optional Upstash Redis REST credentials for storefront L2 cache (ADR-010).
+   * Both must be set together; when either is blank the storefront stays on Next Data Cache only.
+   */
+  UPSTASH_REDIS_REST_URL: z.url().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().min(10).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;

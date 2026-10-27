@@ -72,6 +72,8 @@ Proposal: enable it at the start of Phase 7 with tags `tenant:{id}`, `tenant:{id
 
 **Update (2026-10-02):** cross-request caching is now done with `unstable_cache` (`src/lib/cache/storefront.ts`; production only): tenant directory (tags `tenant-directory`, `host:<host>`), published theme, store profile and features (`tenant:<id>:storefront`), 120 s TTL. Every mutation that changes them calls `revalidateStorefront(tenantId)`; plan/flag changes call `revalidateAllStorefronts()`. **Update (2026-10-27):** `revalidateStorefront` drops only that tenant's entries (incl. its directory identity); the host → tenant mapping is dropped only by domain changes via `revalidateTenantDirectory()`. Site mode, tracking tags (public IDs only) are cached per tenant too. Draft preview and Live Preview are never cached; product, price and stock reads are not cached.
 
+**Update (2026-10-27, Redis L2):** optional Upstash Redis (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`) sits behind `unstable_cache` for the same public storefront loaders. Cold instances hit Redis before Supabase. Invalidation deletes indexed Redis keys alongside `revalidateTag`. Unset env = previous behaviour. Rate limiting stays Postgres (ADR-025); cart/session/dashboard stay uncached. Catalog/product Redis deferred until free-tier usage is measured.
+
 ## ADR-011 — Hosting target for the Next.js app · Open (needed by Phase 11; affects nothing before)
 Options:
 1. **Vercel** for Next.js + Cloudflare in front (DNS, Cloudflare for SaaS custom hostnames, Worker). Most compatible with Next 16 features; two vendors; custom hostnames must also be added to Vercel via its API.
