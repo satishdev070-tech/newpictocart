@@ -6,6 +6,7 @@ import { can, requireTenantPermission } from "@/lib/tenant/membership";
 import { formatMoney, toMinor, toDecimalString } from "@/lib/money";
 import { assetUrl } from "@/lib/storage/assets";
 import { Card, PageHeader } from "@/components/ui/layout";
+import { buttonClass } from "@/components/ui/button";
 import { uuid } from "@/lib/validation/common";
 import { getStoreProfile } from "@/features/settings/queries";
 import { getOrderDetail } from "@/features/orders-admin/queries";
@@ -83,7 +84,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
             <Link href={`/print/orders?ids=${o.id}&docs=slip`} className={linkBtn}>
               Packing slip
             </Link>
-            <Link href={`/print/orders?ids=${o.id}&docs=invoice,slip,label,thanks`} className={`${linkBtn} bg-foreground text-background hover:bg-foreground/90`} title="Invoice, packing slip, shipping label and thank-you card">
+            <Link href={`/print/orders?ids=${o.id}&docs=invoice,slip,label,thanks`} className={buttonClass({ size: "sm" })} title="Invoice, packing slip, shipping label and thank-you card">
               Print all
             </Link>
             {canWrite && cancellable ? <CancelOrderButton orderId={o.id} paid={paid} /> : null}

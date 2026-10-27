@@ -9,7 +9,8 @@ import { CHANNEL_LABELS, type PlatformResult, type SocialPlatform } from "@/feat
 import { PostComposer } from "@/features/social/components/composer";
 import { PostActions } from "@/features/social/components/social-ui";
 import { ChannelChip, STATUS_LABEL, STATUS_TONE } from "@/features/social/components/channels";
-import { ManualPostPanel, isManualDue, manualChannels } from "@/features/social/components/manual-panel";
+import { ManualPostPanel } from "@/features/social/components/manual-panel";
+import { isManualDue, manualChannels } from "@/features/social/planner";
 import { PlanNotice, loadSocialBase } from "../../_lib/data";
 
 export const metadata: Metadata = { title: "Social post" };

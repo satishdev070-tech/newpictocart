@@ -1,11 +1,12 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, useTransition } from "react";
 import { ExternalLink, FileText, GripVertical, Home, Lock, Megaphone, Plus, Settings, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { BUILTIN_TITLE_DEFAULTS, builtinTitlesSchema, pageMetaSchema, MAX_POPUPS, MAX_THEME_PAGES, type BuiltinTitleKey } from "@/features/theme/schema/site";
 import type { SectionInstance, SectionType } from "@/features/theme/sections/types";
+import { renameContentPageAction } from "@/features/content/actions";
 import { useBuilder } from "../../context";
 import { addPage, duplicatePage, newPopup, removePage, slugify, uniqueHandle, updatePageMeta, upsertPopup } from "../../ops";
 import { headerMenu, menuParentIndex, nestPageInMenu, pageLink, setBuiltinTitle, setHomePage } from "../../page-ops";
@@ -20,6 +21,7 @@ import { Dialog, FieldRow, IconButton, MoreMenu, PanelFrame, Row, Toggle, input,
  *  - site-builder pages: SEO & page setup · Rename · Set as subitem · Set as homepage · Duplicate · Delete
  *  - the Home row: the homepage's own actions when a page is set as homepage (config.homePageId)
  *  - Blog: Manage blog · Rename; Contact / FAQ: Rename · Set as subitem; content pages: Set as subitem
+ *    (the store's Contact content page is merged into the Contact row; Rename there renames both)
  * Site-builder pages can be reordered by dragging; new ones start from a blank page or a template
  * (page-templates.ts) via "Add new page" pinned at the bottom.
  */
@@ -322,6 +324,7 @@ function RenameDialog({ page, onClose }: { page: BuilderPage; onClose: () => voi
   const builtinKey = !themePage && BUILTIN_RENAMABLE.has(page.key) ? (page.key as BuiltinTitleKey) : null;
   const [title, setTitle] = useState(themePage?.title ?? (builtinKey ? config.builtinTitles[builtinKey] || page.label : page.label));
   const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
   const id = useId();
 
   const save = () => {
@@ -332,7 +335,19 @@ function RenameDialog({ page, onClose }: { page: BuilderPage; onClose: () => voi
     } else if (builtinKey) {
       const r = builtinTitlesSchema.safeParse({ ...config.builtinTitles, [builtinKey]: title });
       if (!r.success) return setError(r.error.issues[0]?.message ?? "Check the title");
-      apply((c) => setBuiltinTitle(c, builtinKey, r.data[builtinKey]));
+      const value = r.data[builtinKey];
+      // The merged Contact row is also a content page (/pages/contact, where menus usually link):
+      // rename it too, or the store keeps showing the old name there.
+      if (page.contentPageId && value) {
+        const contentPageId = page.contentPageId;
+        return startTransition(async () => {
+          const res = await renameContentPageAction({ id: contentPageId, title: value });
+          if (!res.ok) return setError(res.error.message);
+          apply((c) => setBuiltinTitle(c, builtinKey, value));
+          onClose();
+        });
+      }
+      apply((c) => setBuiltinTitle(c, builtinKey, value));
     }
     onClose();
   };
@@ -347,7 +362,7 @@ function RenameDialog({ page, onClose }: { page: BuilderPage; onClose: () => voi
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="accent" type="submit" form={`${id}-form`}>
+          <Button variant="accent" type="submit" form={`${id}-form`} pending={pending}>
             Save
           </Button>
         </>
@@ -363,7 +378,13 @@ function RenameDialog({ page, onClose }: { page: BuilderPage; onClose: () => voi
         <FieldRow
           label="Page name"
           htmlFor={id}
-          hint={builtinKey ? `Shown as the page heading on your store. Leave empty for “${BUILTIN_TITLE_DEFAULTS[builtinKey]}”.` : "The address stays the same; change it in SEO & page setup."}
+          hint={
+            builtinKey
+              ? page.contentPageId
+                ? "Shown as the page heading on your store. Also renames this page in Content → Pages (saved right away); the address stays the same."
+                : `Shown as the page heading on your store. Leave empty for “${BUILTIN_TITLE_DEFAULTS[builtinKey]}”.`
+              : "The address stays the same; change it in SEO & page setup."
+          }
         >
           <input
             id={id}

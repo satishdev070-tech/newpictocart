@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/ui/states";
 import { getCalendar, getPlannerOverview } from "@/features/social/server/planner";
 import { CHANNEL_LABELS, CONTENT_PILLARS, PILLAR_LABELS, SOCIAL_PLATFORMS } from "@/features/social/compose";
 import { ChannelChip, STATUS_LABEL, STATUS_TONE } from "@/features/social/components/channels";
-import { isManualDue } from "@/features/social/components/manual-panel";
+import { isManualDue } from "@/features/social/planner";
 import { OAuthBanners, PlanNotice, loadSocialBase } from "./_lib/data";
 
 export const metadata: Metadata = { title: "Social" };

@@ -25,11 +25,15 @@ export type BuilderPage = {
   popupId?: string;
   /** Where its settings live when they are not in the theme (dashboard path). */
   settingsHref?: string;
+  /** Content page shown in this row too (the store's Contact content page is merged into the built-in Contact row). */
+  contentPageId?: string;
+  /** Another storefront path that opens this row (in-canvas navigation). */
+  altPath?: string;
 };
 
 export type PageSources = {
   /** Content pages from the database (Content → Pages). */
-  contentPages: { id: string; title: string; slug: string }[];
+  contentPages: { id: string; title: string; slug: string; kind?: string }[];
   /** A product and a collection to show the product / product-list templates with real data. */
   sampleProductSlug: string | null;
   sampleCollectionSlug: string | null;
@@ -45,9 +49,19 @@ export function builderPages(config: ThemeConfig, src: PageSources, siteMode?: S
       : { key: "home", label: "Home", group: "pages", path: paths.home(), list: "templates.home" },
   ];
   for (const p of config.pages) if (p !== homePage) out.push({ key: `theme:${p.id}`, label: p.title, group: "pages", path: paths.page(p.handle), list: `pages.${p.id}`, themePageId: p.id });
-  for (const p of src.contentPages) out.push({ key: `content:${p.id}`, label: p.title, group: "pages", path: paths.page(p.slug), list: "templates.page", settingsHref: `/dashboard/content/pages/${p.id}` });
+  // New stores get a "Contact" content page (/pages/contact) besides the built-in /contact, which
+  // already shows that page's text with the contact form. List them as one Contact row.
+  const contactPage = contactContentPage(src.contentPages);
+  for (const p of src.contentPages) {
+    if (p === contactPage) continue;
+    out.push({ key: `content:${p.id}`, label: p.title, group: "pages", path: paths.page(p.slug), list: "templates.page", settingsHref: `/dashboard/content/pages/${p.id}` });
+  }
   const t = config.builtinTitles;
-  out.push({ key: "contact", label: t.contact || "Contact", group: "pages", path: paths.contact(), list: "templates.page", settingsHref: "/dashboard/settings" });
+  out.push(
+    contactPage
+      ? { key: "contact", label: t.contact || contactPage.title || "Contact", group: "pages", path: paths.contact(), list: "templates.page", settingsHref: `/dashboard/content/pages/${contactPage.id}`, contentPageId: contactPage.id, altPath: paths.page(contactPage.slug) }
+      : { key: "contact", label: t.contact || "Contact", group: "pages", path: paths.contact(), list: "templates.page", settingsHref: "/dashboard/settings" },
+  );
   out.push({ key: "faq", label: t.faq || "FAQ", group: "pages", path: paths.faq(), list: "templates.page", settingsHref: "/dashboard/content/faqs" });
   if (src.blog) out.push({ key: "blog", label: t.blog || "Blog", group: "pages", path: paths.blog(), list: "templates.blog", settingsHref: "/dashboard/content/blog" });
 
@@ -63,13 +77,25 @@ export function builderPages(config: ThemeConfig, src: PageSources, siteMode?: S
   out.push({ key: "reset-password", label: "Reset password", group: "members", path: "/account/forgot-password", list: "templates.account" });
 
   for (const p of config.popups) out.push({ key: `popup:${p.id}`, label: p.name, group: "popups", path: paths.home(), list: null, popupId: p.id });
-  return out.filter((page) => builderGroupVisible(page.group, siteMode));
+  return withDistinctLabels(out.filter((page) => builderGroupVisible(page.group, siteMode)));
+}
+
+/** The content page merged into the built-in Contact row: slug "contact", else the first page of kind "contact". */
+export function contactContentPage<T extends { slug: string; kind?: string }>(pages: T[]): T | undefined {
+  return pages.find((p) => p.slug === "contact") ?? pages.find((p) => p.kind === "contact");
+}
+
+/** Pages that would show the same name get their address added, so the list never shows two identical rows. */
+function withDistinctLabels(pages: BuilderPage[]): BuilderPage[] {
+  const seen = new Map<string, number>();
+  for (const p of pages) if (p.group === "pages") seen.set(p.label.trim().toLowerCase(), (seen.get(p.label.trim().toLowerCase()) ?? 0) + 1);
+  return pages.map((p) => (p.group === "pages" && p.key !== "home" && (seen.get(p.label.trim().toLowerCase()) ?? 0) > 1 ? { ...p, label: `${p.label} (${p.path})` } : p));
 }
 
 /** The registry page for a canvas path (after in-canvas navigation), or null. */
 export function pageForPath(pages: BuilderPage[], path: string): BuilderPage | null {
   const clean = path.split("?")[0]!.split("#")[0]!.replace(/\/$/, "") || "/";
-  const exact = pages.find((p) => p.group !== "popups" && p.path === clean);
+  const exact = pages.find((p) => p.group !== "popups" && (p.path === clean || p.altPath === clean));
   if (exact) return exact;
   if (clean.startsWith("/products/")) return pages.find((p) => p.key === "product") ?? null;
   if (clean.startsWith("/collections/") || clean.startsWith("/categories/")) return pages.find((p) => p.key === "product-list") ?? null;

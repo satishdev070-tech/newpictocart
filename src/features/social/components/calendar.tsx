@@ -12,7 +12,8 @@ import { formatDateTime, isoToIstLocal } from "@/features/analytics/dates";
 import { reschedulePostAction } from "../planner-actions";
 import type { Campaign, CalendarPost, MarketingDate } from "../planner-types";
 import { ChannelChip, STATUS_LABEL, STATUS_TONE } from "./channels";
-import { ManualPostPanel, isManualDue } from "./manual-panel";
+import { ManualPostPanel } from "./manual-panel";
+import { isManualDue } from "../planner";
 
 const BASE = "/dashboard/marketing/social";
 const MOVABLE = new Set(["draft", "planned", "scheduled"]);

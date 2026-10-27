@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { builtInDates, builtInDatesBetween, buildUtmLink, istDayKey, istWeekRange, parseIstInput, pillarMix } from "@/features/social/planner";
+import { builtInDates, builtInDatesBetween, buildUtmLink, isManualDue, istDayKey, istWeekRange, manualChannels, parseIstInput, pillarMix } from "@/features/social/planner";
 import { overallStatus } from "@/features/social/compose";
 
 const on = (year: number, title: string) => builtInDates(year).find((d) => d.title === title)?.onDate;
@@ -65,5 +65,19 @@ describe("overallStatus with planned channels", () => {
     expect(overallStatus(["facebook", "whatsapp", "x"], { facebook: { ok: true, at } })).toBe("published");
     expect(overallStatus(["instagram", "linkedin"], { instagram: { ok: false, error: "x", at } })).toBe("failed");
     expect(overallStatus(["whatsapp"], {})).toBe("failed");
+  });
+});
+
+describe("manual (planned) channels", () => {
+  const now = Date.parse("2026-10-27T10:00:00Z");
+  const post = { channels: ["instagram", "whatsapp"] as const, manualDone: [] as ("whatsapp" | "instagram")[], at: "2026-10-27T10:30:00Z" };
+  it("lists only channels posted by hand", () => {
+    expect(manualChannels({ channels: ["instagram", "whatsapp"] })).toEqual(["whatsapp"]);
+  });
+  it("is due within the next hour until every manual channel is marked posted", () => {
+    expect(isManualDue({ ...post, channels: [...post.channels] }, now)).toBe(true);
+    expect(isManualDue({ ...post, channels: [...post.channels], at: "2026-10-27T12:00:00Z" }, now)).toBe(false);
+    expect(isManualDue({ ...post, channels: [...post.channels], manualDone: ["whatsapp"] }, now)).toBe(false);
+    expect(isManualDue({ ...post, channels: [...post.channels], at: null }, now)).toBe(false);
   });
 });
