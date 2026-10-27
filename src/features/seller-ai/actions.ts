@@ -6,13 +6,18 @@ import { parseInput } from "@/lib/validation/common";
 import { assertPermission, requireTenant } from "@/lib/tenant/membership";
 import { AppError } from "@/lib/errors";
 import { getDashboardHome } from "@/features/analytics/home";
-import { fileToImagePayload, runSellerAiGeneration } from "./server";
+import { fetchHttpsImages, fileToImagePayload, runSellerAiGeneration } from "./server";
+import { blogWritePrompt, businessCoachPrompt, contactReplyPrompt, productGeneratePrompt } from "./prompts";
 import {
+  businessCoachContentSchema,
   businessCoachResultSchema,
+  contactReplyContentSchema,
   contactReplyInputSchema,
   contactReplyResultSchema,
+  generateBlogContentSchema,
   generateBlogInputSchema,
   generateBlogResultSchema,
+  generateProductContentSchema,
   generateProductInputSchema,
   generateProductResultSchema,
   toContentBlocks,
@@ -43,21 +48,23 @@ export async function generateProductFromImageAction(input: {
       locale: input.locale,
     });
     const uploads = input.images?.length ? input.images : [];
-    const imagePayloads = (await Promise.all(uploads.map(fileToImagePayload))).filter((x): x is NonNullable<typeof x> => Boolean(x));
-    if (!parsed.imageUrls.length && !imagePayloads.length && !(parsed.hint && parsed.hint.length >= 3)) {
+    const fromFiles = (await Promise.all(uploads.map(fileToImagePayload))).filter((x): x is NonNullable<typeof x> => Boolean(x));
+    const fromUrls = parsed.imageUrls.length ? await fetchHttpsImages(parsed.imageUrls) : [];
+    const images = [...fromFiles, ...fromUrls].slice(0, 4);
+    if (!images.length && !(parsed.hint && parsed.hint.length >= 3)) {
       throw new AppError("VALIDATION", { fieldErrors: { _form: ["Add a product photo or a short hint describing what to generate"] } });
     }
+    const prompt = productGeneratePrompt({ hint: parsed.hint, locale: parsed.locale ?? "en-IN", images });
     const r = await runSellerAiGeneration({
       tenantId: ctx.tenantId,
       userId: ctx.user.id,
       feature: "generate_product",
       creditKind: "generate_product",
-      fn: "generate-product",
-      input: { imageCount: parsed.imageUrls.length + imagePayloads.length, hint: parsed.hint ?? null },
-      body: { imageUrls: parsed.imageUrls, images: imagePayloads, hint: parsed.hint, locale: parsed.locale ?? "en-IN" },
-      schema: generateProductResultSchema,
+      input: { imageCount: images.length, hint: parsed.hint ?? null },
+      prompt,
+      schema: generateProductContentSchema,
     });
-    return r.data;
+    return generateProductResultSchema.parse(r.data);
   });
 }
 
@@ -86,17 +93,18 @@ export async function generateBlogAction(input: { topic: string; locale?: string
     const ctx = await requireTenant();
     assertPermission(ctx, "content.write");
     const v = parseInput(generateBlogInputSchema, input);
+    const prompt = blogWritePrompt({ storeName: ctx.tenantName, topic: v.topic, locale: v.locale ?? "en-IN" });
     const r = await runSellerAiGeneration({
       tenantId: ctx.tenantId,
       userId: ctx.user.id,
       feature: "generate_blog",
       creditKind: "generate_blog",
-      fn: "generate-blog",
       input: { topic: v.topic },
-      body: { topic: v.topic, storeName: ctx.tenantName, locale: v.locale ?? "en-IN" },
-      schema: generateBlogResultSchema,
+      prompt,
+      schema: generateBlogContentSchema,
     });
-    return { ...r.data, contentBlocks: toContentBlocks(r.data.blocks) };
+    const data = generateBlogResultSchema.parse(r.data);
+    return { ...data, contentBlocks: toContentBlocks(data.blocks) };
   });
 }
 
@@ -105,17 +113,22 @@ export async function generateContactReplyAction(input: z.input<typeof contactRe
     const ctx = await requireTenant();
     assertPermission(ctx, "content.write");
     const v = parseInput(contactReplyInputSchema, input);
+    const prompt = contactReplyPrompt({
+      storeName: ctx.tenantName,
+      name: v.name,
+      subject: v.subject,
+      message: v.message,
+    });
     const r = await runSellerAiGeneration({
       tenantId: ctx.tenantId,
       userId: ctx.user.id,
       feature: "contact_reply",
       creditKind: "contact_reply",
-      fn: "generate-contact-reply",
       input: { messageId: v.messageId },
-      body: { name: v.name, subject: v.subject, message: v.message, storeName: ctx.tenantName },
-      schema: contactReplyResultSchema,
+      prompt,
+      schema: contactReplyContentSchema,
     });
-    return r.data;
+    return contactReplyResultSchema.parse(r.data);
   });
 }
 
@@ -136,16 +149,21 @@ export async function refreshBusinessCoachAction(): Promise<ActionResult<Busines
       revenueChangePct: home.sales?.kpis.revenueChange ?? null,
     };
     const setupPending = home.setup.filter((s) => !s.done).map((s) => s.label);
+    const prompt = businessCoachPrompt({
+      storeName: ctx.tenantName,
+      locale: "en-IN",
+      metrics,
+      setupPending,
+    });
     const r = await runSellerAiGeneration({
       tenantId: ctx.tenantId,
       userId: ctx.user.id,
       feature: "business_coach",
       creditKind: "business_coach",
-      fn: "business-coach",
       input: { metrics, setupPending },
-      body: { storeName: ctx.tenantName, locale: "en-IN", metrics, setupPending },
-      schema: businessCoachResultSchema,
+      prompt,
+      schema: businessCoachContentSchema,
     });
-    return r.data;
+    return businessCoachResultSchema.parse(r.data);
   });
 }

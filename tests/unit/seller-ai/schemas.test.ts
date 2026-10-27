@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
+  businessCoachContentSchema,
   businessCoachResultSchema,
+  contactReplyContentSchema,
   contactReplyResultSchema,
+  generateBlogContentSchema,
   generateBlogResultSchema,
+  generateProductContentSchema,
   generateProductInputSchema,
   generateProductResultSchema,
   SELLER_AI_CREDIT_KINDS,
@@ -19,8 +23,8 @@ describe("seller AI schemas", () => {
     expect(generateProductInputSchema.safeParse({ imageUrls: ["http://insecure.example/a.jpg"] }).success).toBe(false);
   });
 
-  it("parses product result with integer paise", () => {
-    const r = generateProductResultSchema.parse({
+  it("parses product content and result with integer paise", () => {
+    const content = generateProductContentSchema.parse({
       title: "Silk Saree",
       description: "Handwoven silk.",
       shortDescription: "Festive silk saree",
@@ -30,11 +34,10 @@ describe("seller AI schemas", () => {
       categoryHint: null,
       seoTitle: "Silk Saree",
       seoDescription: "Handwoven",
-      provider: "gemini",
-      model: "gemini-2.0-flash",
-      tokens: 120,
     });
-    expect(r.priceMinor).toBe(249900);
+    expect(content.priceMinor).toBe(249900);
+    const r = generateProductResultSchema.parse({ ...content, provider: "gemini", model: "gemini-2.0-flash", tokens: 120 });
+    expect(r.provider).toBe("gemini");
   });
 
   it("softens blog blocks into content blocks", () => {
@@ -56,7 +59,9 @@ describe("seller AI schemas", () => {
   });
 
   it("parses contact reply and coach payloads", () => {
+    expect(contactReplyContentSchema.parse({ reply: "Thanks for writing.", subject: "Re: Hello" }).reply).toContain("Thanks");
     expect(contactReplyResultSchema.parse({ reply: "Thanks for writing.", subject: "Re: Hello", provider: "anthropic", model: "claude" }).reply).toContain("Thanks");
+    expect(generateBlogContentSchema.safeParse({ title: "T", excerpt: "", tags: [], seoTitle: "", seoDescription: "", blocks: [{ type: "paragraph", text: "Hi" }] }).success).toBe(true);
     expect(
       businessCoachResultSchema.parse({
         headline: "Ship faster",
@@ -66,6 +71,7 @@ describe("seller AI schemas", () => {
         model: "g",
       }).tips,
     ).toHaveLength(1);
+    expect(businessCoachContentSchema.safeParse({ headline: "H", focus: "F", tips: [{ title: "T", detail: "D", priority: "low" }] }).success).toBe(true);
   });
 
   it("seeds every seller AI credit kind in the migration", () => {

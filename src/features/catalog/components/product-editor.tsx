@@ -174,9 +174,9 @@ export function ProductEditor({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
+          <ProductGenerateAi imageUrls={mediaUrls.filter((u) => u.startsWith("https://"))} onApply={applyAi} />
           <Card title="Basics">
             <div className="space-y-4">
-              <ProductGenerateAi imageUrls={mediaUrls.filter((u) => u.startsWith("https://"))} onApply={applyAi} />
               <div>
                 <L htmlFor="p-title">Title</L>
                 <input id="p-title" className={input} value={d.title} maxLength={200} required onChange={(e) => set({ title: e.target.value, ...(slugTouched ? {} : { slug: slugify(e.target.value) }) })} />
