@@ -18,9 +18,15 @@ export const metadata: Metadata = { title: "Theme marketplace" };
 export default async function ThemesPage({ searchParams }: PageProps<"/dashboard/themes">) {
   const ctx = await requireTenantPermission("theme.edit");
   const sp = await searchParams;
-  const themes = await getMarketplaceThemes();
-  const demos = [...new Set(themes.flatMap((t) => (t.demo ? [t.demo] : [])))];
-  const [keys, ent, own, live] = await Promise.all([getThemeKeys(ctx.tenantId), getEntitlements(ctx.tenantId), getStoreIndustry(ctx.tenantId), liveDemoOrigins(demos)]);
+  // Catalogue + tenant reads in one wave; demos wait on themes inside the same Promise.all.
+  const themesPromise = getMarketplaceThemes();
+  const [themes, keys, ent, own, live] = await Promise.all([
+    themesPromise,
+    getThemeKeys(ctx.tenantId),
+    getEntitlements(ctx.tenantId),
+    getStoreIndustry(ctx.tenantId),
+    themesPromise.then((list) => liveDemoOrigins([...new Set(list.flatMap((t) => (t.demo ? [t.demo] : [])))])),
+  ]);
   const enabled = ent.isEnabled("theme_marketplace");
   const asked = typeof sp.industry === "string" && isIndustry(sp.industry) ? sp.industry : "";
 

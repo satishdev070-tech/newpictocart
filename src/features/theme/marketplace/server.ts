@@ -4,6 +4,7 @@ import { tenantDirectory } from "@/lib/tenant/directory";
 import { storefrontAvailability } from "@/lib/tenant/context";
 import { storeSubdomain } from "@/lib/platform/urls";
 import { isIndustry, type IndustrySlug } from "@/features/stores/industries";
+import { cachedMarketplacePublic, MARKETPLACE_DEMO_ORIGINS_TAG } from "./cache";
 import { canPreviewThemes } from "./showcase";
 
 /**
@@ -14,13 +15,25 @@ import { canPreviewThemes } from "./showcase";
  * returned null here and no Live Preview buttons were ever shown.
  */
 export async function liveDemoOrigins(slugs: string[]): Promise<Set<string>> {
-  const found = await Promise.all(
-    slugs.map(async (slug) => {
-      const t = await tenantDirectory.findByHost(storeSubdomain(slug));
-      return t && storefrontAvailability(t.status) === "open" && canPreviewThemes(t) ? slug : null;
-    }),
-  );
-  return new Set(found.filter((s): s is string => !!s));
+  const unique = [...new Set(slugs.filter(Boolean))].sort();
+  if (!unique.length) return new Set();
+
+  const open = await cachedMarketplacePublic(
+    `demo-origins:${unique.join(",")}`,
+    async () => {
+      const found = await Promise.all(
+        unique.map(async (slug) => {
+          const t = await tenantDirectory.findByHost(storeSubdomain(slug));
+          return t && storefrontAvailability(t.status) === "open" && canPreviewThemes(t) ? slug : null;
+        }),
+      );
+      return found.filter((s): s is string => !!s);
+    },
+    [MARKETPLACE_DEMO_ORIGINS_TAG],
+    300,
+  )();
+
+  return new Set(open);
 }
 
 /** The seller's store category (migration 1800), or null when unset / not migrated yet. */

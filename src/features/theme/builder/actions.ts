@@ -11,6 +11,7 @@ import { getStockImages } from "@/lib/unsplash";
 import { assertPlatformPermission, getPlatformContext, type PlatformContext } from "@/lib/platform/access";
 import { INDUSTRY_SLUGS, type IndustrySlug } from "@/features/stores/industries";
 import { findMarketplaceTheme } from "../marketplace/catalog";
+import { revalidateMarketplaceCatalogue } from "../marketplace/cache";
 import { THEME_STYLES } from "../marketplace/types";
 import { THEME_KEY_RE, normalizePreset, validateBuiltTheme, type BuiltTheme } from "./schema";
 import { fillThemeImages } from "./images";
@@ -38,6 +39,7 @@ function refresh(key?: string) {
   revalidatePath("/admin/themes");
   revalidatePath("/dashboard/themes");
   if (key) revalidatePath(`/admin/themes/${key}`);
+  revalidateMarketplaceCatalogue();
 }
 
 const keySchema = z.object({ key: z.string().regex(THEME_KEY_RE, "Unknown theme") });
