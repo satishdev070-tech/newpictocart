@@ -10,7 +10,7 @@ describe("list_tenant_members", () => {
     const rows = await as(user(USERS.aanganOwner), (q) => q<{ email: string; role: string }>("select * from public.list_tenant_members($1)", [TENANTS.aangan]));
     expect(rows.map((r) => [r.email, r.role])).toEqual([
       ["owner@aangan.test", "owner"],
-      ["staff@aangan.test", "staff"],
+      ["staff@aangan.test", "sales_associate"],
     ]);
   });
 
