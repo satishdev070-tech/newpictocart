@@ -1099,3 +1099,11 @@ appeared next to an option literally named "Size", and categories had no chart a
   `<dialog>` (`size-chart-dialog.tsx`) with the table, unit and note; closes on Esc, Close or backdrop. The chart model has no image field.
 - Verified on the local seeded store (:3302): created a chart and ticked Sarees → saree PDP shows it; product set to
   "No size chart" → hidden; kurta with its own chart → own chart; dupatta (no chart) → no link; mobile dialog checked.
+
+## Seller AI Phase 3: Business coach dashboard card (2026-10-27, branch `cursor/seller-ai-business-coach-c73e`)
+
+- **Edge Function** `business-coach`: returns 3–5 actionable tips from store metrics, top products and pending setup (LLM keys passed from Next; invoke gated by the Supabase secret key).
+- **Next action** `generateBusinessCoachAction`: `runAction` + `parseInput`, `marketing.write`, `ai_credit_debit` / refund on failure, then Edge invoke; logs to `ai_generations`.
+- **Dashboard home card**: credit cost + generate/refresh CTA matching existing Card language (no purple AI chrome).
+- **Economy**: migration `20261028004300_business_coach.sql` seeds `business_coach` action cost and widens `ai_generations.kind`; registry entry in `ai-health/registry.ts`.
+- **Deploy notes:** apply the migration; `supabase functions deploy business-coach` with platform LLM keys available to the Next server (Admin → Social apps). Edge Function auth uses `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY` (or optional `AI_EDGE_INVOKE_SECRET`).

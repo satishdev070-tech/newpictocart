@@ -14,6 +14,8 @@ import { getLaunchStatusForMember } from "@/features/stores/launch";
 import { PreviewStoreButton, PublishStoreButton } from "@/features/stores/components/launch-controls";
 import { RecentActivityCard } from "@/features/notifications/inbox/components/recent-activity-card";
 import { CopyButton } from "@/features/domains/components/domain-controls";
+import { BusinessCoachCard } from "@/features/business-coach/components/coach-card";
+import { getBusinessCoachCardProps } from "@/features/business-coach/server/cost";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -98,9 +100,10 @@ function SetupChecklist({ steps }: { steps: SetupStep[] }) {
 
 export default async function DashboardHome() {
   const ctx = await requireTenant();
-  const [home, launch] = await Promise.all([getDashboardHome(ctx), getLaunchStatusForMember(ctx.tenantId)]);
+  const [home, launch, coach] = await Promise.all([getDashboardHome(ctx), getLaunchStatusForMember(ctx.tenantId), getBusinessCoachCardProps(ctx.tenantId)]);
   const storeUrl = storeOrigin(storeSubdomain(ctx.tenantSlug));
   const firstName = ctx.user.displayName?.split(" ")[0];
+  const canCoach = can(ctx, "marketing.write");
 
   return (
     <div className="space-y-6">
@@ -171,6 +174,8 @@ export default async function DashboardHome() {
 
         <div className="space-y-6">
           <RecentActivityCard audience={{ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId }} href="/dashboard/notifications" />
+
+          <BusinessCoachCard creditCost={coach.creditCost} balance={coach.balance} canGenerate={canCoach} />
 
           {home.counts.toFulfil !== null || home.lowStock ? (
             <Card title="Needs attention">

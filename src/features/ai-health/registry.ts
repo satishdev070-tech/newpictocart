@@ -41,6 +41,7 @@ export const AI_FEATURES: readonly AiFeature[] = [
   { key: "theme_builder", label: "AI theme builder", description: "Builds a marketplace theme from a reference site and screenshots (vision models go first when images are attached).", usedIn: "Admin → Themes → New theme", source: "features/theme/builder/server/generate.ts (generateThemeForAdmin)", engine: "llm", routable: true, creditKind: null },
   { key: "onboarding_seed", label: "Store starter content", description: "Categories, products, hero, SEO, blogs and testimonials for a new store. A deterministic plan is used when Sarvam is missing or fails.", usedIn: "Seller onboarding (ready store)", source: "features/onboarding/seed/generate.ts (generateReadyStorePlan)", engine: "sarvam", routable: false, creditKind: "onboarding_seed" },
   { key: "voice_onboarding", label: "Voice onboarding (Tara)", description: "Speech-to-text, chat and text-to-speech in Indian languages to set a store up by voice.", usedIn: "Seller onboarding (voice method)", source: "features/onboarding/voice/turn.ts (runTaraTurn)", engine: "sarvam", routable: false, creditKind: null },
+  { key: "business_coach", label: "Business coach", description: "Actionable tips from the store's products, orders summary and setup gaps on the seller dashboard home.", usedIn: "Dashboard → Home", source: "features/business-coach/actions.ts (generateBusinessCoachAction)", engine: "llm", routable: true, creditKind: "business_coach" },
 ];
 
 export const ROUTABLE_FEATURE_KEYS = AI_FEATURES.filter((f) => f.routable).map((f) => f.key);
