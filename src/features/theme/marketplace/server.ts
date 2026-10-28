@@ -5,7 +5,40 @@ import { storefrontAvailability } from "@/lib/tenant/context";
 import { storeSubdomain } from "@/lib/platform/urls";
 import { isIndustry, type IndustrySlug } from "@/features/stores/industries";
 import { cachedMarketplacePublic, MARKETPLACE_DEMO_ORIGINS_TAG } from "./cache";
-import { canPreviewThemes } from "./showcase";
+import { canPreviewThemes, SHOWCASE_STORES } from "./showcase";
+
+/** Sorted showcase slugs — stable cache key for the common Live Preview catalogue load. */
+const SHOWCASE_SLUGS = Object.keys(SHOWCASE_STORES).sort();
+const SHOWCASE_SLUG_SET = new Set(SHOWCASE_SLUGS);
+
+/**
+ * Module-scoped loader so every request reuses the same `unstable_cache` / Redis entry
+ * (`demo-origins:showcase`) instead of allocating a new factory per call.
+ */
+const loadShowcaseDemoOrigins = cachedMarketplacePublic(
+  "demo-origins:showcase",
+  async () => {
+    const found = await Promise.all(
+      SHOWCASE_SLUGS.map(async (slug) => {
+        const t = await tenantDirectory.findByHost(storeSubdomain(slug));
+        return t && storefrontAvailability(t.status) === "open" && canPreviewThemes(t) ? slug : null;
+      }),
+    );
+    return found.filter((s): s is string => !!s);
+  },
+  [MARKETPLACE_DEMO_ORIGINS_TAG],
+  300,
+);
+
+async function resolveOpenDemos(slugs: string[]): Promise<string[]> {
+  const found = await Promise.all(
+    slugs.map(async (slug) => {
+      const t = await tenantDirectory.findByHost(storeSubdomain(slug));
+      return t && storefrontAvailability(t.status) === "open" && canPreviewThemes(t) ? slug : null;
+    }),
+  );
+  return found.filter((s): s is string => !!s);
+}
 
 /**
  * Demo slugs whose store exists and is open, so Live Preview is only offered where it works
@@ -13,27 +46,25 @@ import { canPreviewThemes } from "./showcase";
  * Looks the demo host up in the tenant directory directly: resolveStorefrontTenant() only accepts
  * the host of the CURRENT request, which on the dashboard is the platform host, so it always
  * returned null here and no Live Preview buttons were ever shown.
+ *
+ * When `slugs` is the showcase set (or a subset of it), uses one stable cached loader. Other
+ * args still resolve, but without minting a new cache factory per request.
  */
 export async function liveDemoOrigins(slugs: string[]): Promise<Set<string>> {
   const unique = [...new Set(slugs.filter(Boolean))].sort();
   if (!unique.length) return new Set();
 
-  const open = await cachedMarketplacePublic(
-    `demo-origins:${unique.join(",")}`,
-    async () => {
-      const found = await Promise.all(
-        unique.map(async (slug) => {
-          const t = await tenantDirectory.findByHost(storeSubdomain(slug));
-          return t && storefrontAvailability(t.status) === "open" && canPreviewThemes(t) ? slug : null;
-        }),
-      );
-      return found.filter((s): s is string => !!s);
-    },
-    [MARKETPLACE_DEMO_ORIGINS_TAG],
-    300,
-  )();
+  const subsetOfShowcase = unique.every((s) => SHOWCASE_SLUG_SET.has(s));
+  if (subsetOfShowcase) {
+    const open = await loadShowcaseDemoOrigins();
+    if (unique.length === SHOWCASE_SLUGS.length && unique.every((s, i) => s === SHOWCASE_SLUGS[i])) {
+      return new Set(open);
+    }
+    const wanted = new Set(unique);
+    return new Set(open.filter((s) => wanted.has(s)));
+  }
 
-  return new Set(open);
+  return new Set(await resolveOpenDemos(unique));
 }
 
 /** The seller's store category (migration 1800), or null when unset / not migrated yet. */
