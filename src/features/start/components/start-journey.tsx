@@ -404,6 +404,8 @@ export function StartJourney({
       rootDomain={rootDomain}
       onDashboard={() => {
         leavingDone.current = true;
+        // Hard nav avoids a soft-nav race with empty-draft redirect after clearing storage.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- intentional full page leave from Done
         window.location.assign("/dashboard");
         clearStartDraftStorage();
       }}
