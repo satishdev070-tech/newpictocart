@@ -7,16 +7,20 @@ import { z } from "zod";
  * masked hint.
  */
 
-export const APP_PROVIDERS = ["meta", "pinterest", "google", "nvidia", "gemini", "groq", "anthropic", "resend", "unsplash"] as const;
+export const APP_PROVIDERS = ["meta", "pinterest", "google", "nvidia", "gemini", "groq", "anthropic", "resend", "unsplash", "razorpay", "cashfree"] as const;
 export type AppProvider = (typeof APP_PROVIDERS)[number];
 
 export const AI_PROVIDERS = ["nvidia", "gemini", "groq", "anthropic"] as const satisfies readonly AppProvider[];
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
-/** OAuth providers need a client id + secret; AI providers only an API key (stored as `secret`). */
-export const needsClientId = (p: AppProvider) => p === "meta" || p === "pinterest" || p === "google";
+/** Platform payment gateways for AI credit wallet recharge (not store checkout). */
+export const PAYMENT_APP_PROVIDERS = ["razorpay", "cashfree"] as const satisfies readonly AppProvider[];
+export type PaymentAppProvider = (typeof PAYMENT_APP_PROVIDERS)[number];
 
-/** Non-secret settings kept in `extra` (plain JSON). Anything else is dropped. */
+/** OAuth + payment gateways need a client id + secret; AI providers only an API key (stored as `secret`). */
+export const needsClientId = (p: AppProvider) => p === "meta" || p === "pinterest" || p === "google" || p === "razorpay" || p === "cashfree";
+
+/** Non-secret settings kept in `extra` (plain JSON). Anything else is dropped. Razorpay webhook secret is stored encrypted under webhookSecretCiphertext. */
 export const EXTRA_KEYS: Record<AppProvider, readonly string[]> = {
   meta: ["webhookVerifyToken"],
   pinterest: [],
@@ -27,6 +31,8 @@ export const EXTRA_KEYS: Record<AppProvider, readonly string[]> = {
   anthropic: ["model"],
   resend: ["from"],
   unsplash: [],
+  razorpay: ["webhookSecretCiphertext"],
+  cashfree: ["environment"],
 };
 
 export type AppCredential = { clientId: string | null; secret: string; extra: Record<string, string>; source: "db" | "env" };
@@ -45,6 +51,9 @@ const ENV_NAMES: Record<AppProvider, { id?: string; secret: string; extra?: Reco
   anthropic: { secret: "ANTHROPIC_API_KEY" },
   resend: { secret: "RESEND_API_KEY", extra: { from: "EMAIL_FROM" } },
   unsplash: { secret: "UNSPLASH_ACCESS_KEY" },
+  // No env fallback: AI-wallet gateways are configured only in Admin → Credits economy.
+  razorpay: { id: "PLATFORM_RAZORPAY_KEY_ID", secret: "PLATFORM_RAZORPAY_KEY_SECRET" },
+  cashfree: { id: "PLATFORM_CASHFREE_APP_ID", secret: "PLATFORM_CASHFREE_SECRET_KEY" },
 };
 export const envNamesFor = (p: AppProvider) => ENV_NAMES[p];
 
@@ -135,6 +144,10 @@ export const saveAppCredentialSchema = z.object({
   secret: z.preprocess(blankToUndef, z.string().min(10, "That secret looks too short").max(500).regex(/^\S+$/, "Secrets don't contain spaces").optional()),
   /** Resend only: the sender mailbox, on a domain verified in Resend. Not secret. */
   from: z.preprocess(blankToUndef, z.string().max(200).regex(FROM_RE, "Use an address on your verified domain, e.g. Pictocart <no-reply@mail.pictocart.in>").optional()),
+  /** Razorpay only: write-only webhook secret (encrypted into extra). Blank keeps the saved value. */
+  webhookSecret: z.preprocess(blankToUndef, z.string().min(10, "That webhook secret looks too short").max(500).regex(/^\S+$/, "Secrets don't contain spaces").optional()),
+  /** Cashfree only: sandbox vs production. */
+  environment: z.preprocess(blankToUndef, z.enum(["test", "live"]).optional()),
 });
 export type SaveAppCredentialInput = z.infer<typeof saveAppCredentialSchema>;
 

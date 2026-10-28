@@ -96,6 +96,7 @@ export const DASHBOARD_NAV: { label: string; icon: NavIconName; items: TenantNav
     icon: "settings",
     items: [
       { href: "/dashboard/settings", label: "General", permission: "store.read", icon: "settings" },
+      { href: "/dashboard/wallet", label: "AI Wallet", permission: "marketing.read", icon: "billing" },
       { href: "/dashboard/settings/payments", label: "Payment methods", permission: "payments.manage", icon: "payments" },
       { href: "/dashboard/settings/checkout", label: "Checkout", permission: "store.read", icon: "checkout" },
       { href: "/dashboard/settings/shipping", label: "Shipping & COD", permission: "store.read", icon: "shipping" },

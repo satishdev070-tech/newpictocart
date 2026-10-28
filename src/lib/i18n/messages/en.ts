@@ -55,6 +55,7 @@ export const en = {
       Domains: "Domains",
       Analytics: "Analytics",
       General: "General",
+      "AI Wallet": "AI Wallet",
       "Payment methods": "Payment methods",
       Checkout: "Checkout",
       "Shipping & COD": "Shipping & COD",
@@ -83,6 +84,7 @@ export const en = {
       "/dashboard/settings/roles": "Roles & permissions",
       "/dashboard/settings/security": "Security & activity",
       "/dashboard/settings/plan": "Plan & billing",
+      "/dashboard/wallet": "AI Wallet",
     },
   },
   shell: {

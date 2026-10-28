@@ -58,6 +58,8 @@ Inbound `x-paliya-host` headers from clients are stripped.
 
 **Addition (2026-10-28, seller AI on NVIDIA):** the NVIDIA NIM key is one more `platform_app_credentials` row (`nvidia`, same encryption, read by the secret-key client as in (1) above). The seller AI `ai_generations` log write (secret-key client) now also follows a `catalog.write`, `content.write` or `analytics.read` membership check (product, blog, coach, store assistant, store setup), always with the tenant from the membership. Store data for the assistant and store setup writes use the seller's own RLS session.
 
+**Addition (2026-10-28, platform AI wallet gateways):** `platform_app_credentials` may also hold **Razorpay** and **Cashfree** secrets used only to collect AI credit recharges for the platform (not store checkout; never `tenant_integrations`). Reads/writes follow the same secret-key + `platform.settings.manage` pattern as (1). Verified platform webhooks at `/api/webhooks/platform/razorpay` and `/api/webhooks/platform/cashfree` use the secret-key client to stamp and complete `ai_credit_purchase_requests` (RPC `complete_ai_credit_purchase_payment`, service_role only).
+
 ## ADR-007 — Edge → origin trust via HMAC-signed host · Accepted
 The Worker forwards the original hostname with `x-paliya-edge-{host,ts,sig}` where `sig = HMAC-SHA256(EDGE_SHARED_SECRET, host + "\n" + ts)`.
 The proxy accepts it only if the signature is valid and ≤ 300 s old; otherwise it falls back to the literal Host header. Anyone hitting the origin directly cannot claim a tenant host.

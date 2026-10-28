@@ -63,7 +63,7 @@ export async function SellerTopbarChrome({
     <>
       {aiCreditBalance !== null ? (
         <Link
-          href="/dashboard/marketing/neural-pulse"
+          href="/dashboard/wallet"
           className="inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/20 bg-accent-soft px-2.5 text-caption font-semibold text-accent transition-colors hover:bg-accent/15"
           title={creditsLabel}
         >

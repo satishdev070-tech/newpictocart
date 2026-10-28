@@ -54,6 +54,7 @@ export const hi: Messages = {
       Domains: "डोमेन",
       Analytics: "एनालिटिक्स",
       General: "सामान्य",
+      "AI Wallet": "AI वॉलेट",
       "Payment methods": "पेमेंट के तरीके",
       Checkout: "चेकआउट",
       "Shipping & COD": "शिपिंग और COD",
@@ -81,6 +82,7 @@ export const hi: Messages = {
       "/dashboard/settings/roles": "रोल और अनुमतियाँ",
       "/dashboard/settings/security": "सुरक्षा और गतिविधि",
       "/dashboard/settings/plan": "प्लान और बिलिंग",
+      "/dashboard/wallet": "AI वॉलेट",
     },
   },
   shell: {
