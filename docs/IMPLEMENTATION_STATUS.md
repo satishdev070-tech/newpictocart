@@ -84,6 +84,7 @@ Lean live queries for Seller **Products** (no Data Cache / Redis on private tena
 - **Index:** migration `20261028004400_products_list_updated_at_idx.sql` — `(tenant_id, updated_at desc)` for default `updated_desc` sort.
 - **Editor options:** lean category (`id, parent_id, name, position, size_chart_id`) and size-chart (`id, name`) selects; soft-fail non-critical detail embeds (collections, inventory levels); `[id]/loading.tsx` FormSkeleton.
 - **`countProducts`:** request-memoized via `React.cache` (plan limits / import).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **137 files / 1,625 tests**, build).
 - **Branch:** `cursor/seller-pages-speed-crash-c73e`.
 
 ## Seller / admin Part B — stream shell chrome (2026-10-28)
