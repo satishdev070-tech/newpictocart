@@ -144,7 +144,7 @@ function ExpandedNav({ groups, active, storageKey, onNavigate, onAfterNavigate }
   const text = useContext(TextContext);
   const row = (item: NavItem, nested = false) => (
     <NavRow
-      key={item.href}
+      key={item.label}
       item={item}
       nested={nested}
       active={item.href === active}
@@ -428,7 +428,7 @@ function RailNav({ groups, active, storageKey, onNavigate, tip }: RailNavProps) 
               const Icon = NAV_ICONS[item.icon];
               const isActive = item.href === active;
               return (
-                <li key={item.href} role="none">
+                <li key={item.label} role="none">
                   <Link
                     role="menuitem"
                     href={item.href}
@@ -536,7 +536,7 @@ function CommandSearch({ groups }: { groups: NavGroup[] }) {
             role="combobox"
             aria-expanded="true"
             aria-controls="cmd-results"
-            aria-activedescendant={results[cursor] ? `cmd-${results[cursor].href}` : undefined}
+            aria-activedescendant={results[cursor] ? `cmd-${results[cursor].label}` : undefined}
             className="h-12 flex-1 bg-transparent text-body outline-none placeholder:text-subtle"
           />
           <kbd className="rounded border border-border px-1.5 text-caption text-muted">Esc</kbd>
@@ -546,7 +546,7 @@ function CommandSearch({ groups }: { groups: NavGroup[] }) {
             results.map((r, i) => {
               const Icon = NAV_ICONS[r.icon];
               return (
-                <li key={r.href} id={`cmd-${r.href}`} role="option" aria-selected={i === cursor}>
+                <li key={r.label} id={`cmd-${r.label}`} role="option" aria-selected={i === cursor}>
                   <button
                     type="button"
                     onMouseEnter={() => setCursor(i)}

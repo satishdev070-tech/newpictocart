@@ -56,7 +56,7 @@ describe("dictionaries", () => {
       const items: Record<string, string> = MESSAGES[l].nav.items;
       for (const g of DASHBOARD_NAV) {
         expect(groups[g.label], `${l} group ${g.label}`).toBeTruthy();
-        for (const i of g.items) expect(items[i.href], `${l} ${i.href}`).toBeTruthy();
+        for (const i of g.items) expect(items[i.label], `${l} ${i.label}`).toBeTruthy();
       }
     }
   });
@@ -65,9 +65,12 @@ describe("dictionaries", () => {
     const hi = localizeNav(DASHBOARD_NAV, MESSAGES.hi.nav);
     const catalog = hi.find((g) => g.id === "Catalog")!;
     expect(catalog.label).toBe(MESSAGES.hi.nav.groups.Catalog);
-    const products = catalog.items.find((i) => i.href === "/dashboard/products")!;
-    expect(products.label).toBe(MESSAGES.hi.nav.items["/dashboard/products"]);
+    const products = catalog.items.find((i) => i.alt === "Products")!;
+    expect(products.label).toBe(MESSAGES.hi.nav.items.Products);
     expect(products.alt).toBe("Products");
+    const sales = hi.find((g) => g.id === "Sales")!;
+    expect(sales.items.find((i) => i.alt === "Exchanges")!.label).toBe(MESSAGES.hi.nav.items.Exchanges);
+    expect(sales.items.find((i) => i.alt === "Returns")!.label).toBe(MESSAGES.hi.nav.items.Returns);
   });
 
   it("t() fills placeholders and falls back to the key", () => {
