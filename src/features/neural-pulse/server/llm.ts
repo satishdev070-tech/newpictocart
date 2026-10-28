@@ -150,6 +150,9 @@ export function nvidiaRequestBody(model: string, prompt: Prompt): { model: strin
       top_p: 0.95,
       max_tokens: vision ? 4096 : 8192,
       stream: false,
+      // Text JSON features (reviews, blog, coach): ask NIM for a JSON object. Vision models vary;
+      // keep them free-form and rely on extractJson.
+      ...(vision ? {} : { response_format: { type: "json_object" } }),
     },
   };
 }

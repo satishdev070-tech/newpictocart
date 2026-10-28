@@ -8,13 +8,14 @@ import type { Json } from "@/lib/supabase/database.types";
 import { debitAiCredit, getAiCreditBalance, refundAiCredit, type AiCreditCharge } from "@/features/ai-credits/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { summarizeWallet, type WalletSummary } from "./wallet";
-import { loadProviders, SETUP_MESSAGE, FAILED_MESSAGE } from "@/features/neural-pulse/server/generate";
+import { loadProviders, SETUP_MESSAGE } from "@/features/neural-pulse/server/generate";
 import { LlmError, generateJson } from "@/features/neural-pulse/server/llm";
 import type { Prompt, PromptImage } from "@/features/neural-pulse/prompts";
 import { orderForImages } from "@/features/theme/builder/server/generate";
 import type { SellerAiCreditKind } from "./schemas";
 import type { AiProvider } from "@/features/neural-pulse/schemas";
 import { invokeSellerAi, type SellerAiFunction } from "./invoke";
+import { friendlySellerAiFailure } from "./errors";
 
 const DAILY_LIMIT = 40;
 const LIMIT_MESSAGE = `You've used today's ${DAILY_LIMIT} seller AI generations for this store. Try again tomorrow.`;
@@ -87,7 +88,10 @@ export async function runSellerAiGeneration<S extends z.ZodType>(args: {
       if (err.reason === "not_configured") {
         throw new AppError("VALIDATION", { fieldErrors: { _form: [SETUP_MESSAGE] }, context: { reason: "ai_not_configured" } });
       }
-      throw new AppError("INTERNAL", { fieldErrors: { _form: [FAILED_MESSAGE] }, context: { failures: err.failures } });
+      throw new AppError("INTERNAL", {
+        fieldErrors: { _form: [friendlySellerAiFailure(err.failures)] },
+        context: { failures: err.failures },
+      });
     }
     throw err;
   }

@@ -1,8 +1,9 @@
 /**
  * Pure provider ordering for runGeneration / loadProviders (unit tested, no I/O).
- * With an enabled route: [primary(model), fallback(model)] restricted to configured providers.
- * Without a route, with a disabled one, or when none of its providers is configured: the platform
- * order (today's behaviour), so a stale route never switches AI off.
+ * With an enabled route: [primary(model), fallback(model)], then any other configured providers
+ * in platform order. That way a dead Admin key (e.g. Gemini 403) does not hard-fail the feature
+ * when NVIDIA/Groq still work. Without a route, with a disabled one, or when none of the routed
+ * providers is configured: the full platform order.
  */
 import type { AiProvider } from "@/features/neural-pulse/schemas";
 import type { FeatureRoute } from "./registry";
@@ -21,5 +22,10 @@ export function routeProviders<P extends RoutableProvider>(configured: readonly 
     if (out.some((p) => p.id === step.id && p.model === model)) continue;
     out.push({ ...base, model });
   }
-  return out.length ? out : [...configured];
+  if (!out.length) return [...configured];
+  for (const p of configured) {
+    if (out.some((x) => x.id === p.id)) continue;
+    out.push(p);
+  }
+  return out;
 }
