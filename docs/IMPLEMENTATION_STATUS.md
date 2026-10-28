@@ -27,8 +27,8 @@ _Last updated: 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razor
 ## NVIDIA Nemotron Omni defaults (2026-10-28, branch `cursor/nvidia-pica2-notif-sounds-c73e`)
 
 - **In-process defaults** (`neural-pulse/server/llm.ts`): text `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`; vision (when photos + text-only route) `meta/llama-3.2-11b-vision-instruct`. Keeps `/no_think`, `<think>` strip, 60 s timeout. `extractJson` hardened (think/fence/array, reply preview); NVIDIA parse failures tagged `NVIDIA parse failure: …` in `LlmError.failures`.
-- **AI Health seeds** (migration `20261028004700_nvidia_seller_ai_default_routes.sql`): inserts NVIDIA primary routes for `generate_product`, `generate_blog`, `store_agent`, `contact_reply`, `business_coach` when unset (`on conflict do nothing`). Registry: `SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS`.
-- **Hosted still needs** migration `20261028004300_nvidia_provider_store_agent.sql` (NVIDIA in provider CHECKs + store_agent/store_setup costs) before 04700 can apply; then apply 04700 for the route seeds.
+- **AI Health seeds** (migration `20261028004700_nvidia_seller_ai_default_routes.sql`): inserts NVIDIA primary routes for `generate_product`, `generate_blog`, `store_agent`, `contact_reply`, `business_coach` when unset (`on conflict do nothing`). Registry: `SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS`. `generate_product` seeds Gemini (`gemini-3.8-flash`) as fallback; Groq stays in the platform order when the route is off. Migration `20261028004800_generate_product_gemini_fallback.sql` backfills that fallback on hosts that already applied 04700 with a null fallback.
+- **Hosted still needs** migration `20261028004300_nvidia_provider_store_agent.sql` (NVIDIA in provider CHECKs + store_agent/store_setup costs) before 04700 can apply; then apply 04700 (+ 04800) for the route seeds.
 - Product Generate with AI + Blog AI Write stay on `runSellerAiGeneration` → `orderForImages` + credits.
 
 ## Seller AI on NVIDIA NIM + store assistant (2026-10-28, branch `claude/dreamy-raman-b1149f`)

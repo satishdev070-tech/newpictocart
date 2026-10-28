@@ -110,6 +110,7 @@ describe("NVIDIA NIM provider", () => {
     for (const key of SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS) {
       expect(ROUTES_MIGRATION).toContain(`('${key}', 'nvidia', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'`);
     }
+    expect(ROUTES_MIGRATION).toContain("('generate_product', 'nvidia', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning', 'gemini', 'gemini-3.8-flash', true)");
     expect(ROUTES_MIGRATION).toContain("on conflict (feature_key) do nothing");
   });
 });

@@ -46,6 +46,7 @@ describe("AI feature registry", () => {
       expect(findFeature(k)?.routable).toBe(true);
       expect(NVIDIA_ROUTES_MIGRATION).toContain(`('${k}', 'nvidia', '${DEFAULT_MODELS.nvidia}'`);
     }
+    expect(NVIDIA_ROUTES_MIGRATION).toContain(`('generate_product', 'nvidia', '${DEFAULT_MODELS.nvidia}', 'gemini', '${DEFAULT_MODELS.gemini}', true)`);
   });
 });
 
