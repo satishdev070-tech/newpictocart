@@ -76,6 +76,28 @@ Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coac
 - **Verification:** `pnpm check` ✅ (typecheck, lint, **130 files / 1,546 tests**, build). Seller-ai unit tests under `tests/unit/seller-ai/`.
 - **Branch (backend fix):** `cursor/seller-ai-false-setup-ui-c73e`.
 
+## Seller pages speed / crash fix (2026-10-28, ADR-010-safe)
+
+Fixes slow skeletons and pink **"This page couldn't load"** on Products, product detail, Theme marketplace, and Theme editor. Private lists stay live (no Redis). Store assistant AI quality is out of scope.
+
+- **Redis L2 timeout (~300ms):** `withTimeout` in `src/lib/cache/public-cache.ts` wraps get / pipeline exec / smembers / del; hang → miss / fail-open so `/dashboard/themes` cannot stick forever. Tests: timeout-as-miss in `tests/unit/public-cache.test.ts`.
+- **Theme marketplace:** module-scoped `demo-origins:showcase` loader; catalogue cards ship slim `mockup` (full `preset` on apply/detail); demos stream under Suspense.
+- **Theme editor:** `getBuilderData` soft-fails to null → inline retry UI (no `dashboard/error.tsx`); lean pickers; menus/pickers/AI gate degrade; no Redis on drafts.
+- **Products:** see section below (lean list/detail + `updated_at` index).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **137 files / 1,625 tests**, build).
+- **Branch:** `cursor/seller-pages-speed-crash-c73e` (PR #44). Hosted: apply migration `20261028004400_products_list_updated_at_idx.sql`.
+
+## Products list/detail speed (2026-10-28, ADR-010 — no Redis on private products)
+
+Lean live queries for Seller **Products** (no Data Cache / Redis on private tenant lists).
+
+- **List (`listProducts`):** drop unused `attributes` JSONB from the select; PostgREST `estimated` count when unfiltered (exact when filters apply); soft-fail `stockTotals` when `inventory.read` / embed fails (stock cell shows "—", list still loads).
+- **Index:** migration `20261028004400_products_list_updated_at_idx.sql` — `(tenant_id, updated_at desc)` for default `updated_desc` sort.
+- **Editor options:** lean category (`id, parent_id, name, position, size_chart_id`) and size-chart (`id, name`) selects; soft-fail non-critical detail embeds (collections, inventory levels); `[id]/loading.tsx` FormSkeleton.
+- **`countProducts`:** request-memoized via `React.cache` (plan limits / import).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **137 files / 1,625 tests**, build).
+- **Branch:** `cursor/seller-pages-speed-crash-c73e`.
+
 ## Seller / admin Part B — stream shell chrome (2026-10-28)
 
 Cut skeleton time for Seller dashboard and Admin console **without** caching private data (ADR-010). No Redis on private RPCs (`dashboard_home`, `platform_overview`, users directory).
@@ -91,7 +113,7 @@ Cut skeleton time for Seller dashboard and Admin console **without** caching pri
 Dashboard and Super Admin stay **live** (no Data Cache on private tenant product/order lists — ADR-010). Phase 1 cuts serial DB waves and caches only public catalogues (marketplace themes, open demo origins, platform `product_types`).
 
 - **Dashboard layout:** `getStoreSiteMode` runs in the same `Promise.all` as alerts / bell / trial (was a solo query before those).
-- **Theme marketplace:** catalogue + tenant keys/entitlements/industry + open demos in one wave; `publishedCustomThemes` and open demo origins use production `unstable_cache` (`MARKETPLACE_*` tags); theme builder `refresh()` calls `revalidateMarketplaceCatalogue()`.
+- **Theme marketplace:** catalogue + tenant keys/entitlements/industry paint first; open demos stream under Suspense for Live Preview URLs. `liveDemoOrigins` uses one module-scoped `demo-origins:showcase` loader (tag `MARKETPLACE_DEMO_ORIGINS_TAG`) instead of a new factory per request. Catalogue cards ship slim `mockup` (tokens/layout) — full `preset` only on apply/detail. `publishedCustomThemes` still uses production `unstable_cache`; theme builder `refresh()` calls `revalidateMarketplaceCatalogue()`.
 - **Theme editor:** menus load in the first `Promise.all` (embedded `menus→menu_items`, filter by handles after); `hasAiProviderConfigured()` gates AI without decrypting secrets; `SiteBuilder` is a `next/dynamic` import with a loading skeleton.
 - **Admin signup chart:** `getSignupSeries` one `tenants.created_at` range select + `bucketCounts` (was 12 head counts).
 - **Products list:** unused category/collection/SKU prep already skipped; filter picker uses lean `listCategoryFilterOptions`; `platformRows()` cached in production (tag `platform-product-types`, 600 s) with write-path revalidate.

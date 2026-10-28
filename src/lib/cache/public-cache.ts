@@ -11,12 +11,15 @@ import { getRedis } from "@/lib/cache/redis";
  * - Public / anon-readable platform data only. Never session, cookies, or private dashboard lists.
  * - Cache keys are `keyPrefix` + name + string args (never headers/cookies).
  * - Off outside production so `next dev` always hits the database.
- * - Redis errors fail open (request continues from L1/DB).
+ * - Redis errors and L2 op timeouts (~300ms) fail open (request continues from L1/DB).
  */
 
 type Box<T> = { v: T };
 
 const enabled = process.env.NODE_ENV === "production";
+
+/** Cap Redis L2 wait so a hung Upstash call cannot stall public catalogue reads. */
+export const REDIS_OP_TIMEOUT_MS = 300;
 
 /** Prefixes that have registered L2 entries (invalidation walks these). */
 const registeredPrefixes = new Set<string>();
@@ -38,11 +41,31 @@ export function resetPublicCachePrefixesForTests() {
   registeredPrefixes.clear();
 }
 
+/**
+ * Race `promise` against a timer. On timeout, rejects with `Error("timeout")`
+ * so callers can treat it like any other Redis failure (fail-open / miss).
+ */
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err: unknown) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 async function redisGet<R>(key: string): Promise<{ hit: true; value: R } | { hit: false }> {
   const redis = getRedis();
   if (!redis) return { hit: false };
   try {
-    const box = await redis.get<Box<R>>(key);
+    const box = await withTimeout(redis.get<Box<R>>(key), REDIS_OP_TIMEOUT_MS);
     if (box == null) return { hit: false };
     return { hit: true, value: box.v };
   } catch {
@@ -62,7 +85,7 @@ async function redisSet<R>(keyPrefix: string, key: string, value: R, tags: strin
       pipe.sadd(index, key);
       pipe.expire(index, indexTtl);
     }
-    await pipe.exec();
+    await withTimeout(pipe.exec(), REDIS_OP_TIMEOUT_MS);
   } catch {
     // fail open
   }
@@ -72,9 +95,9 @@ async function redisDeleteByIndex(indexKey: string): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
   try {
-    const keys = await redis.smembers(indexKey);
-    if (keys.length > 0) await redis.del(...keys, indexKey);
-    else await redis.del(indexKey);
+    const keys = await withTimeout(redis.smembers(indexKey), REDIS_OP_TIMEOUT_MS);
+    if (keys.length > 0) await withTimeout(redis.del(...keys, indexKey), REDIS_OP_TIMEOUT_MS);
+    else await withTimeout(redis.del(indexKey), REDIS_OP_TIMEOUT_MS);
   } catch {
     // fail open
   }

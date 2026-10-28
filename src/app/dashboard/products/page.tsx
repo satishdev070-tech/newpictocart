@@ -111,7 +111,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
                     </td>
                     <td className={td}>{typeLabel(p.productType, catalogue.types)}</td>
                     <td className={`${td} tabular-nums`}>{p.minPrice === null ? "—" : p.maxPrice !== null && p.maxPrice !== p.minPrice ? `${formatMoney(p.minPrice)} – ${formatMoney(p.maxPrice)}` : formatMoney(p.minPrice)}</td>
-                    <td className={`${td} tabular-nums`}>{p.stockTotal === null ? "Not tracked" : `${p.stockTotal} in ${p.variantCount} variant${p.variantCount === 1 ? "" : "s"}`}</td>
+                    <td className={`${td} tabular-nums`}>{p.stockTotal === null ? "—" : `${p.stockTotal} in ${p.variantCount} variant${p.variantCount === 1 ? "" : "s"}`}</td>
                   </tr>
                 ))}
               </tbody>

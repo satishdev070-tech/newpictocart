@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mapDbError } from "@/lib/supabase/errors";
 import { AppError } from "@/lib/errors";
@@ -13,7 +14,7 @@ import { sortByPosition } from "../media-order";
 import { cleanSearch, dbMoneyToMinor, likeEscape } from "../format";
 import type { ProductListQuery, toSaveProductPayload } from "../schemas";
 import type { Json } from "@/lib/supabase/database.types";
-import { effectiveProductType, isTypeCheckViolation, withTypeFallback } from "../product-types";
+import { isTypeCheckViolation, withTypeFallback } from "../product-types";
 import type { ProductDraft, ProductMedia } from "../types";
 
 type Supabase = Awaited<ReturnType<typeof createSupabaseServerClient>>;
@@ -109,11 +110,19 @@ const SORTS: Record<ProductListQuery["sort"], { column: string; ascending: boole
   price_desc: { column: "min_price", ascending: false },
 };
 
+/** True when the list has no search/status/type/category/collection filter (pagination can use estimated count). */
+function isUnfilteredList(f: ProductListQuery): boolean {
+  return !f.status && !f.type && !f.category && !f.collection && !cleanSearch(f.q);
+}
+
 export async function listProducts(tenantId: string, f: ProductListQuery, pageSize = PRODUCT_PAGE_SIZE): Promise<{ rows: ProductListRow[]; total: number }> {
   const supabase = await createSupabaseServerClient();
+  // Lean columns for the table; drop attributes (JSONB) — list shows product_type as stored.
+  // Unfiltered: estimated count (PostgREST) avoids a full exact COUNT(*); filters keep exact for pagination.
+  const countMode = isUnfilteredList(f) ? "estimated" : "exact";
   const base = supabase
     .from("products")
-    .select("id, title, slug, status, product_type, attributes, featured, min_price, max_price, updated_at, categories(name)", { count: "exact" });
+    .select("id, title, slug, status, product_type, featured, min_price, max_price, updated_at, categories(name)", { count: countMode });
   const filtered = await applyProductFilters(supabase, tenantId, base, f);
   if (!filtered) return { rows: [], total: 0 };
   const sort = SORTS[f.sort];
@@ -133,7 +142,7 @@ export async function listProducts(tenantId: string, f: ProductListQuery, pageSi
       title: p.title,
       slug: p.slug,
       status: p.status,
-      productType: effectiveProductType(p.product_type, p.attributes),
+      productType: p.product_type,
       categoryName: p.categories?.name ?? null,
       minPrice: dbMoneyToMinor(p.min_price),
       maxPrice: dbMoneyToMinor(p.max_price),
@@ -162,6 +171,10 @@ async function thumbnails(supabase: Supabase, tenantId: string, ids: string[]) {
   return out;
 }
 
+/**
+ * Variant counts + stock for the list. Soft-fails when inventory.read is missing or the
+ * inventory embed errors — the product list still renders (stock cell shows a dash).
+ */
 async function stockTotals(supabase: Supabase, tenantId: string, ids: string[]) {
   const out = new Map<string, { variants: number; tracked: boolean; available: number }>();
   if (!ids.length) return out;
@@ -170,7 +183,10 @@ async function stockTotals(supabase: Supabase, tenantId: string, ids: string[]) 
     .select("product_id, status, track_inventory, inventory_levels(available)")
     .eq("tenant_id", tenantId)
     .in("product_id", ids);
-  if (error) throw mapDbError(error);
+  if (error) {
+    logger.warn("catalog.stock_unavailable", { tenantId, code: error.code });
+    return out;
+  }
   for (const v of data ?? []) {
     const cur = out.get(v.product_id) ?? { variants: 0, tracked: false, available: 0 };
     if (v.status === "active") {
@@ -242,21 +258,23 @@ export async function getProductForAdmin(tenantId: string, id: string): Promise<
     supabase.from("order_items").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("product_id", id),
   ]);
   if (media.error) throw mapDbError(media.error);
-  if (members.error) throw mapDbError(members.error);
+  // Collection membership is non-critical for editing the product itself.
+  if (members.error) logger.warn("catalog.product_collections_unavailable", { tenantId, productId: id, code: members.error.code });
   const draft = drafts.get(id)!;
   const variantIds = draft.variants.map((v) => v.id).filter((x): x is string => !!x);
   const stock: Record<string, number> = {};
   if (variantIds.length) {
     const { data: levels, error: lErr } = await supabase.from("inventory_levels").select("variant_id, available").eq("tenant_id", tenantId).in("variant_id", variantIds);
-    if (lErr) throw mapDbError(lErr);
-    for (const l of levels ?? []) stock[l.variant_id] = (stock[l.variant_id] ?? 0) + l.available;
+    // inventory.read may be missing — editor still opens without per-variant stock.
+    if (lErr) logger.warn("catalog.stock_unavailable", { tenantId, productId: id, code: lErr.code });
+    else for (const l of levels ?? []) stock[l.variant_id] = (stock[l.variant_id] ?? 0) + l.available;
   }
   return {
     draft,
     publishedAt: p.published_at,
     createdAt: p.created_at,
     media: sortByPosition(media.data ?? []).map((m) => ({ id: m.id, storagePath: m.storage_path, url: assetUrl(m.storage_path), altText: m.alt_text ?? "", variantId: m.variant_id, position: m.position })),
-    collectionIds: (members.data ?? []).map((m) => m.collection_id),
+    collectionIds: members.error ? [] : (members.data ?? []).map((m) => m.collection_id),
     stock,
     // order_items may be unreadable without orders.read; treat errors as "unknown = has orders" for safety
     hasOrders: orders.error ? true : (orders.count ?? 0) > 0,
@@ -265,12 +283,13 @@ export async function getProductForAdmin(tenantId: string, id: string): Promise<
 
 /* ------------------------------------------------------------------ plan limits */
 
-export async function countProducts(tenantId: string): Promise<number> {
+/** Request-memoized exact head count (plan limits / import). ADR-010: live, not Redis. */
+export const countProducts = cache(async (tenantId: string): Promise<number> => {
   const supabase = await createSupabaseServerClient();
   const { count, error } = await supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId);
   if (error) throw mapDbError(error);
   return count ?? 0;
-}
+});
 
 /** Product limit from the tenant's plan (null = unlimited). Fails open (logged) if entitlements can't be read. */
 export async function productLimit(tenantId: string): Promise<number | null> {

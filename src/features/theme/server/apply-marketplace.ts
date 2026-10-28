@@ -25,6 +25,7 @@ export async function applyMarketplaceThemeToDraft(ctx: TenantContext, key: stri
   if (!theme) throw new AppError("NOT_FOUND");
 
   const data = await getThemeEditorData(ctx.tenantId);
+  if (!data) throw new AppError("INTERNAL", { message: "Couldn't load your theme draft. Try again." });
   const parsed = parseThemeConfigStrict(applyThemePreset(data.config, theme.preset));
   if (!parsed.ok) throw new AppError("INTERNAL", { message: "This theme couldn't be applied to your store. Please contact support.", context: { issues: parsed.issues.slice(0, 5) } });
   if (!assetsBelongToTenant(parsed.config, ctx.tenantId)) throw new AppError("VALIDATION", { fieldErrors: { _form: ["Some images don't belong to this store."] } });

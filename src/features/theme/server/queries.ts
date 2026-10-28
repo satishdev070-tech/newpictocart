@@ -4,7 +4,6 @@ import { cookies, headers } from "next/headers";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/observability/logger";
 import { cachedStorefront, storefrontTag } from "@/lib/cache/storefront";
 import type { Json } from "@/lib/supabase/database.types";
@@ -152,7 +151,12 @@ const toSummary = (r: VersionRow): ThemeVersionSummary => ({
   publishedAt: r.published_at,
 });
 
-export async function getThemeEditorData(tenantId: string): Promise<ThemeEditorData> {
+/**
+ * Draft / published theme for the seller editor. Soft-fails like menus: DB errors are logged and
+ * return null (caller shows retry UI) instead of throwing into dashboard/error.tsx. Missing rows
+ * still degrade to the default Aangan theme.
+ */
+export async function getThemeEditorData(tenantId: string): Promise<ThemeEditorData | null> {
   const supabase = await createSupabaseServerClient();
   const [{ data: rows, error }, { data: current, error: currentError }] = await Promise.all([
     supabase
@@ -163,7 +167,10 @@ export async function getThemeEditorData(tenantId: string): Promise<ThemeEditorD
       .limit(40),
     supabase.from("theme_versions").select("status, config, updated_at").eq("tenant_id", tenantId).in("status", ["draft", "published"]),
   ]);
-  if (error || currentError) throw new AppError("INTERNAL", { context: { db: error?.message ?? currentError?.message } });
+  if (error || currentError) {
+    logger.warn("theme.editor_load_failed", { tenantId, error: error?.message ?? currentError?.message });
+    return null;
+  }
 
   const versions = (rows ?? []).map(toSummary);
   const draftRow = current?.find((r) => r.status === "draft");
@@ -191,15 +198,25 @@ export type EditorPickers = {
   menu: PickerOption[];
 };
 
+export const EMPTY_EDITOR_PICKERS: EditorPickers = {
+  collection: [],
+  category: [],
+  product: [],
+  page: [],
+  blogPost: [],
+  menu: [],
+};
+
 /** Options for the editor's collection/category/product/page/blog/menu pickers (seller session, RLS). */
 export async function getEditorPickers(tenantId: string): Promise<EditorPickers> {
   const supabase = await createSupabaseServerClient();
+  // Lean columns only (ids + display names). Product list capped — pickers are autocomplete, not a catalogue.
   const [collections, categories, products, pages, posts, menus] = await Promise.all([
-    supabase.from("collections").select("id, title").eq("tenant_id", tenantId).order("position").limit(300),
-    supabase.from("categories").select("id, name, parent_id").eq("tenant_id", tenantId).order("position").limit(300),
-    supabase.from("products").select("id, title, status").eq("tenant_id", tenantId).neq("status", "archived").order("updated_at", { ascending: false }).limit(500),
-    supabase.from("pages").select("id, title").eq("tenant_id", tenantId).order("title").limit(200),
-    supabase.from("blog_posts").select("id, title").eq("tenant_id", tenantId).order("created_at", { ascending: false }).limit(200),
+    supabase.from("collections").select("id, title").eq("tenant_id", tenantId).order("position").limit(200),
+    supabase.from("categories").select("id, name, parent_id").eq("tenant_id", tenantId).order("position").limit(200),
+    supabase.from("products").select("id, title").eq("tenant_id", tenantId).neq("status", "archived").order("updated_at", { ascending: false }).limit(200),
+    supabase.from("pages").select("id, title").eq("tenant_id", tenantId).order("title").limit(100),
+    supabase.from("blog_posts").select("id, title").eq("tenant_id", tenantId).order("created_at", { ascending: false }).limit(100),
     supabase.from("menus").select("handle, title").eq("tenant_id", tenantId).order("title").limit(50),
   ]);
   for (const r of [collections, categories, products, pages, posts, menus]) {
@@ -208,7 +225,7 @@ export async function getEditorPickers(tenantId: string): Promise<EditorPickers>
   return {
     collection: (collections.data ?? []).map((c) => ({ value: c.id, label: c.title })),
     category: (categories.data ?? []).map((c) => ({ value: c.id, label: c.parent_id ? `— ${c.name}` : c.name })),
-    product: (products.data ?? []).map((p) => ({ value: p.id, label: p.status === "draft" ? `${p.title} (draft)` : p.title })),
+    product: (products.data ?? []).map((p) => ({ value: p.id, label: p.title })),
     page: (pages.data ?? []).map((p) => ({ value: p.id, label: p.title })),
     blogPost: (posts.data ?? []).map((p) => ({ value: p.id, label: p.title })),
     menu: (menus.data ?? []).map((m) => ({ value: m.handle, label: `${m.title} (${m.handle})` })),

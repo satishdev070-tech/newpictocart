@@ -517,12 +517,17 @@ async function writeThemeDraft(ctx: TenantContext, next: ThemeConfig): Promise<b
 
 async function mergeThemeContent(ctx: TenantContext, plan: ReadyStorePlan, ids: Ids, images: ThemeSeedImages): Promise<void> {
   const data = await getThemeEditorData(ctx.tenantId);
+  if (!data) throw new AppError("INTERNAL", { message: "Couldn't load the theme draft while seeding.", context: { tenantId: ctx.tenantId } });
   await writeThemeDraft(ctx, patchHomeSections(data.config, plan, ids, images));
 }
 
 /** Puts imported catalogue photos on empty homepage slots. The caller publishes when this writes a draft. */
 async function paintSeedTheme(ctx: TenantContext, paths: SeedImagePaths): Promise<boolean> {
   const data = await getThemeEditorData(ctx.tenantId);
+  if (!data) {
+    logger.warn("onboarding.seed_theme_load_failed", { tenantId: ctx.tenantId });
+    return false;
+  }
   const filled = fillEmptyThemeImages(data.config, paths);
   if (!filled.changed) return false;
   return writeThemeDraft(ctx, filled.config);
