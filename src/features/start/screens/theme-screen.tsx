@@ -204,7 +204,6 @@ function ThemeCard({
           : "border-white/90 bg-white/55 hover:bg-white/80",
       )}
       aria-selected={active}
-      aria-pressed={active}
     >
       <div className="h-28 overflow-hidden border-b border-[#2A2233]/8 bg-[#FFF7ED]/50" aria-hidden>
         {full ? (
