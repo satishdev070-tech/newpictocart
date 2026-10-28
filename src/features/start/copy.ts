@@ -129,13 +129,25 @@ export type StartCopy = {
   };
   building: { title: string; steps: string[] };
   account: {
+    /** Eyebrow above the main headline (e.g. Create Account). */
+    eyebrow: string;
     title: string;
     titleAccent: string;
     sub: string;
+    valueLine: string;
     signUp: string;
     signIn: string;
+    signInTitle: string;
+    signInTitleAccent: string;
+    signInSub: string;
+    haveAccount: string;
+    needAccount: string;
+    or: string;
     orEmail: string;
+    continueGoogle: string;
+    signInGoogle: string;
     create: string;
+    continueEmail: string;
     checkEmail: string;
     name: string;
     email: string;
@@ -143,10 +155,25 @@ export type StartCopy = {
     passwordHint: string;
     signInSubmit: string;
     sendCode: string;
+    usePassword: string;
+    useEmailCode: string;
+    summaryStore: string;
+    summaryCategory: string;
+    summaryTheme: string;
+    summaryLanguage: string;
+    codeTitle: string;
+    codeTitleAccent: string;
     codeLabel: string;
     codeHint: string;
     codeSubmit: string;
     codeSent: string;
+    codeSentTo: (email: string) => string;
+    didntGetIt: string;
+    resend: string;
+    resendIn: (seconds: number) => string;
+    resending: string;
+    resent: string;
+    changeEmail: string;
     agree: string;
     terms: string;
     and: string;
@@ -157,11 +184,22 @@ export type StartCopy = {
     title: string;
     titleAccent: string;
     sub: string;
+    /** Personalized when store name is known. */
+    subNamed: (name: string) => string;
     copy: string;
     copied: string;
     whatsapp: string;
     dashboard: string;
     tryLook: string;
+    journeyTitle: string;
+    journeySub: string;
+    journeySteps: [
+      { label: string; blurb: string },
+      { label: string; blurb: string },
+      { label: string; blurb: string },
+      { label: string; blurb: string },
+      { label: string; blurb: string },
+    ];
   };
   intents: Record<StartIntentId, { title: string; sub: string }>;
 };
@@ -313,24 +351,50 @@ const EN: StartCopy = {
     ],
   },
   account: {
-    title: "Save your store before ",
-    titleAccent: "going live",
-    sub: "Create an account so we can publish your store.",
+    eyebrow: "Create Account",
+    title: "Create Your ",
+    titleAccent: "Store",
+    sub: "Save your draft and go live when you're ready.",
+    valueLine: "Free forever for up to 10 products. No card details needed.",
     signUp: "Sign up",
     signIn: "Sign in",
-    orEmail: "Or with email",
-    create: "Create account and go live →",
-    checkEmail: "Check your email to confirm, then return here — your draft is saved.",
+    signInTitle: "Welcome ",
+    signInTitleAccent: "back",
+    signInSub: "Sign in to publish the store you just designed.",
+    haveAccount: "Already have an account?",
+    needAccount: "New here?",
+    or: "or",
+    orEmail: "or",
+    continueGoogle: "Signup with Google",
+    signInGoogle: "Continue with Google",
+    create: "Create account",
+    continueEmail: "Continue",
+    checkEmail: "Your draft is saved — enter the code below to continue.",
     name: "Full name",
-    email: "Email",
+    email: "Email address",
     password: "Password",
     passwordHint: "Use 10+ characters with a letter and a number.",
-    signInSubmit: "Sign in",
-    sendCode: "Email me a code",
-    codeLabel: "Email code",
-    codeHint: "Enter the 6-digit code we emailed you.",
-    codeSubmit: "Confirm and continue",
-    codeSent: "We sent a code to your email.",
+    signInSubmit: "Send sign-in code",
+    sendCode: "Submit",
+    usePassword: "Use a password instead",
+    useEmailCode: "Email me a code instead",
+    summaryStore: "Store",
+    summaryCategory: "Category",
+    summaryTheme: "Theme",
+    summaryLanguage: "Language",
+    codeTitle: "Check your ",
+    codeTitleAccent: "inbox",
+    codeLabel: "Verification code",
+    codeHint: "6-digit code from your email",
+    codeSubmit: "Verify OTP",
+    codeSent: "We sent a verification code to your email.",
+    codeSentTo: (email) => `Enter the verification code sent to ${email}`,
+    didntGetIt: "Didn't get it?",
+    resend: "Resend code",
+    resendIn: (seconds) => `Resend code in ${seconds}s`,
+    resending: "Sending…",
+    resent: "We sent a new code.",
+    changeEmail: "Change the email address",
     agree: "By continuing you agree to the",
     terms: "Terms",
     and: "and",
@@ -340,12 +404,22 @@ const EN: StartCopy = {
     badge: "Your store is live",
     title: "Your store is ",
     titleAccent: "open",
-    sub: "Set up manually. Share your link and start taking orders.",
+    sub: "Share your link and start taking orders.",
+    subNamed: (name) => `${name} is ready. Share your link and start taking orders.`,
     copy: "Copy",
     copied: "Copied!",
     whatsapp: "Share on WhatsApp",
     dashboard: "Go to dashboard →",
     tryLook: "Try another look",
+    journeyTitle: "From first tap to a live store",
+    journeySub: "You walked the full path — language, mode, business, look, and account.",
+    journeySteps: [
+      { label: "Language", blurb: "Picked how you want to talk" },
+      { label: "Mode", blurb: "Voice guide or quick quiz" },
+      { label: "Business", blurb: "Named your shop & category" },
+      { label: "Theme", blurb: "Chose a storefront look" },
+      { label: "Account", blurb: "Saved & went live" },
+    ],
   },
   intents: {
     "first-business": { title: "Starting my first business", sub: "I have products, no store yet" },
@@ -502,24 +576,50 @@ const HI: StartCopy = {
     ],
   },
   account: {
-    title: "लाइव होने से पहले ",
-    titleAccent: "अकाउंट बनाएँ",
-    sub: "दुकान सेव करने के लिए अकाउंट जरूरी है।",
+    eyebrow: "अकाउंट बनाएँ",
+    title: "अपनी ",
+    titleAccent: "दुकान बनाएँ",
+    sub: "ड्राफ्ट सेव करें और जब तैयार हों तब लाइव करें।",
+    valueLine: "10 प्रोडक्ट तक हमेशा मुफ्त। कार्ड की ज़रूरत नहीं।",
     signUp: "साइन अप",
     signIn: "साइन इन",
-    orEmail: "या ईमेल से",
-    create: "अकाउंट बनाएं और लाइव करें →",
-    checkEmail: "ईमेल कन्फर्म करें, फिर यहाँ वापस आएँ — ड्राफ्ट सुरक्षित है।",
+    signInTitle: "वापस ",
+    signInTitleAccent: "स्वागत है",
+    signInSub: "जिस दुकान को डिज़ाइन किया है, उसे पब्लिश करने के लिए साइन इन करें।",
+    haveAccount: "पहले से अकाउंट है?",
+    needAccount: "नए हैं?",
+    or: "या",
+    orEmail: "या",
+    continueGoogle: "Google से साइन अप",
+    signInGoogle: "Google से जारी रखें",
+    create: "अकाउंट बनाएँ",
+    continueEmail: "आगे बढ़ें",
+    checkEmail: "आपका ड्राफ्ट सुरक्षित है — नीचे कोड डालकर आगे बढ़ें।",
     name: "पूरा नाम",
-    email: "ईमेल",
+    email: "ईमेल पता",
     password: "पासवर्ड",
     passwordHint: "10+ अक्षर, एक अक्षर और एक नंबर।",
-    signInSubmit: "साइन इन",
-    sendCode: "कोड ईमेल करें",
-    codeLabel: "ईमेल कोड",
-    codeHint: "ईमेल में आया 6 अंकों का कोड लिखें।",
-    codeSubmit: "कन्फर्म करें और आगे बढ़ें",
-    codeSent: "हमने आपके ईमेल पर कोड भेज दिया है।",
+    signInSubmit: "साइन-इन कोड भेजें",
+    sendCode: "सबमिट",
+    usePassword: "पासवर्ड इस्तेमाल करें",
+    useEmailCode: "कोड ईमेल करें",
+    summaryStore: "दुकान",
+    summaryCategory: "कैटेगरी",
+    summaryTheme: "थीम",
+    summaryLanguage: "भाषा",
+    codeTitle: "अपना ",
+    codeTitleAccent: "इनबॉक्स देखें",
+    codeLabel: "वेरिफिकेशन कोड",
+    codeHint: "ईमेल में आया 6 अंकों का कोड",
+    codeSubmit: "OTP वेरिफाई करें",
+    codeSent: "हमने आपके ईमेल पर वेरिफिकेशन कोड भेजा है।",
+    codeSentTo: (email) => `${email} पर भेजा गया वेरिफिकेशन कोड दर्ज करें`,
+    didntGetIt: "नहीं मिला?",
+    resend: "कोड फिर भेजें",
+    resendIn: (seconds) => `${seconds} सेकंड में फिर भेजें`,
+    resending: "भेजा जा रहा है…",
+    resent: "नया कोड भेज दिया है।",
+    changeEmail: "ईमेल पता बदलें",
     agree: "आगे बढ़कर आप सहमत होते हैं",
     terms: "नियम",
     and: "और",
@@ -529,12 +629,22 @@ const HI: StartCopy = {
     badge: "आपकी दुकान लाइव है",
     title: "आपकी दुकान ",
     titleAccent: "खुल गई है",
-    sub: "मैन्युअल रूप से सेट की गई। लिंक शेयर करें और ऑर्डर लें।",
+    sub: "लिंक शेयर करें और ऑर्डर लेना शुरू करें।",
+    subNamed: (name) => `${name} तैयार है। लिंक शेयर करें और ऑर्डर लें।`,
     copy: "कॉपी",
     copied: "कॉपी हो गया!",
     whatsapp: "WhatsApp पर शेयर करें",
     dashboard: "डैशबोर्ड पर जाएं →",
     tryLook: "दूसरा लुक आज़माएं",
+    journeyTitle: "पहले टैप से लाइव दुकान तक",
+    journeySub: "आपने पूरी राह चली — भाषा, मोड, बिज़नेस, लुक और अकाउंट।",
+    journeySteps: [
+      { label: "भाषा", blurb: "बात करने का तरीका चुना" },
+      { label: "मोड", blurb: "आवाज़ गाइड या क्विज़" },
+      { label: "बिज़नेस", blurb: "नाम और कैटेगरी सेट" },
+      { label: "थीम", blurb: "स्टोरफ्रंट लुक चुना" },
+      { label: "अकाउंट", blurb: "सेव करके लाइव गए" },
+    ],
   },
   intents: {
     "first-business": { title: "अपना पहला बिजनेस शुरू कर रहे हैं", sub: "सामान है, दुकान नहीं" },

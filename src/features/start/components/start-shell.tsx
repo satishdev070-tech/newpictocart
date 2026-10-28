@@ -80,7 +80,13 @@ export function StartShell({
           </div>
         ) : null}
       </header>
-      <main className={cn("relative z-10 mx-auto w-full max-w-6xl px-4 pb-16 pt-2 sm:px-8", layout === "split" && "lg:grid lg:grid-cols-2 lg:items-start lg:gap-10")}>
+      <main
+        className={cn(
+          "relative z-10 mx-auto w-full px-4 pb-16 pt-2 sm:px-8",
+          screen === "done" ? "max-w-7xl" : "max-w-6xl",
+          layout === "split" && "lg:grid lg:grid-cols-2 lg:items-start lg:gap-10",
+        )}
+      >
         {children}
       </main>
       <StartKeyframes />

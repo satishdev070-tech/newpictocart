@@ -22,6 +22,7 @@ export function LivePreview({
   draft,
   liveSlug,
   productPhotos,
+  size = "default",
 }: {
   locale: string;
   rootDomain: string;
@@ -29,6 +30,8 @@ export function LivePreview({
   liveSlug?: string | null;
   /** Product id → curated photo URL. Local preview only; not part of the draft. */
   productPhotos?: Record<string, string>;
+  /** `hero` = taller frame for the done / celebration screen. */
+  size?: "default" | "hero";
 }) {
   const c = startCopy(locale);
   const slug = liveSlug ?? draft?.result?.slug ?? null;
@@ -42,9 +45,16 @@ export function LivePreview({
   const categoryLabel = category && isIndustry(category) ? industryShort(category) : null;
   const products = draft?.products ?? [];
   const placeholders = categoryLabel ? [categoryLabel, "New arrival", "Bestseller"] : ["Featured", "New arrival", "Bestseller"];
+  const hero = size === "hero";
 
   return (
-    <div className="flex h-full min-h-[320px] flex-col gap-2 lg:min-h-[480px]">
+    <div
+      className={
+        hero
+          ? "flex h-full min-h-[380px] flex-col gap-2 lg:min-h-[560px]"
+          : "flex h-full min-h-[320px] flex-col gap-2 lg:min-h-[480px]"
+      }
+    >
       <div className="flex items-center justify-between gap-2 text-sm text-[#5E5568]">
         <span className="inline-flex items-center gap-2">
           <span className="size-2 rounded-full bg-[#22C55E]" aria-hidden />
@@ -60,7 +70,11 @@ export function LivePreview({
           <iframe
             title={c.livePreview}
             src={storefrontPreviewUrl(`${slug}.${rootDomain}`, publicEnv().NEXT_PUBLIC_PLATFORM_URL)}
-            className="min-h-[280px] w-full flex-1 bg-white lg:min-h-[420px]"
+            className={
+              hero
+                ? "min-h-[320px] w-full flex-1 bg-white lg:min-h-[520px]"
+                : "min-h-[280px] w-full flex-1 bg-white lg:min-h-[420px]"
+            }
           />
         ) : draft ? (
           <div className="flex flex-1 flex-col" style={{ background: bg }}>

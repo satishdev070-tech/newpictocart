@@ -5,7 +5,6 @@ import { cn } from "@/lib/cn";
 import { findTheme } from "@/features/marketing-site/themes";
 import { ThemeMockup } from "@/features/theme/marketplace/mockup";
 import { listStartThemeOptionsAction } from "../actions";
-import { ACCENT_SWATCHES } from "../moods";
 import { draftCategory, type StartDraft } from "../draft/schema";
 import {
   flattenStartThemeOptions,
@@ -71,7 +70,7 @@ export function ThemeScreen({
   const canContinue = Boolean(selectedKey);
 
   return (
-    <section className="flex w-full flex-col gap-8">
+    <section className="flex w-full flex-col gap-6 sm:gap-7">
       <div className="text-center">
         <h2 className="font-brand text-3xl font-normal leading-tight text-balance sm:text-5xl">
           Let&apos;s design your{" "}
@@ -90,25 +89,28 @@ export function ThemeScreen({
         </p>
       ) : null}
 
-      <div className="overflow-hidden rounded-[28px] border border-white/90 bg-white/70 shadow-[0_20px_50px_-28px_rgba(249,115,22,0.35)]">
-        <div className="flex items-center justify-between gap-3 border-b border-[#2A2233]/8 px-4 py-3 sm:px-5">
+      {/* Large live preview — dominates the viewport */}
+      <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/90 bg-white/70 shadow-[0_24px_60px_-28px_rgba(249,115,22,0.4)]">
+        <div className="flex items-center justify-between gap-3 border-b border-[#2A2233]/8 px-4 py-3.5 sm:px-6">
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[#2A2233]">
+            <p className="truncate text-base font-semibold text-[#2A2233] sm:text-lg">
               {selectedMeta?.name ?? (loading ? "Loading…" : "Pick a theme")}
             </p>
             {selectedKey && options?.recommended.key === selectedKey ? (
-              <p className="text-xs font-medium text-[#C2410C]">AI recommended</p>
+              <p className="text-xs font-medium text-[#C2410C] sm:text-sm">AI recommended</p>
             ) : selectedMeta?.industry ? (
-              <p className="text-xs text-[#6B6275] capitalize">{selectedMeta.industry.replace(/-/g, " ")}</p>
+              <p className="text-xs capitalize text-[#6B6275] sm:text-sm">
+                {selectedMeta.industry.replace(/-/g, " ")}
+              </p>
             ) : null}
           </div>
-          <span className="hidden rounded-full bg-[#FFF7ED] px-2.5 py-1 text-xs font-semibold text-[#C2410C] sm:inline">
+          <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2.5 py-1 text-xs font-semibold text-[#C2410C]">
             Live preview
           </span>
         </div>
-        <div className="relative min-h-[220px] bg-[#FFF7ED]/40 sm:min-h-[300px]">
+        <div className="relative min-h-[360px] bg-[#FFF7ED]/50 sm:min-h-[480px] lg:min-h-[560px]">
           {selectedFull ? (
-            <div className="max-h-[360px] overflow-hidden sm:max-h-[420px]">
+            <div className="max-h-[520px] overflow-hidden sm:max-h-[640px] lg:max-h-[720px]">
               <ThemeMockup
                 preset={selectedFull.preset}
                 name={selectedFull.name.split(" ")[0]!}
@@ -118,47 +120,43 @@ export function ThemeScreen({
             </div>
           ) : selectedMeta?.thumbnail ? (
             // eslint-disable-next-line @next/next/no-img-element -- static theme preview webp
-            <img src={selectedMeta.thumbnail} alt="" className="max-h-[420px] w-full object-cover object-top" />
+            <img
+              src={selectedMeta.thumbnail}
+              alt=""
+              className="max-h-[520px] w-full object-cover object-top sm:max-h-[640px] lg:max-h-[720px]"
+            />
           ) : (
-            <div className="grid min-h-[220px] place-items-center text-sm text-[#6B6275] sm:min-h-[300px]">
+            <div className="grid min-h-[360px] place-items-center text-sm text-[#6B6275] sm:min-h-[480px] lg:min-h-[560px]">
               {loading ? "Loading themes…" : "Select a theme to preview"}
             </div>
           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {loading && themes.length === 0
-          ? Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-36 animate-pulse rounded-2xl border border-white/90 bg-white/50" />
-            ))
-          : themes.map((t) => (
-              <ThemeCard
-                key={t.key}
-                theme={t}
-                recommended={options?.recommended.key === t.key}
-                active={selectedKey === t.key}
-                onSelect={() => onPatch({ theme: t.key })}
-              />
-            ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium text-[#2A2233]">Accent colour</span>
-        {ACCENT_SWATCHES.map((color) => (
-          <button
-            key={color}
-            type="button"
-            onClick={() => onPatch({ accent: color })}
-            className={cn(
-              "size-8 rounded-full border-2 transition",
-              draft.accent === color ? "border-white ring-2 ring-[#F97316]" : "border-transparent",
-            )}
-            style={{ background: color }}
-            aria-label={`Accent ${color}`}
-            aria-pressed={draft.accent === color}
-          />
-        ))}
+      {/* Theme options — horizontal scroll under the preview */}
+      <div className="-mx-1">
+        <div
+          className="flex gap-3 overflow-x-auto px-1 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="listbox"
+          aria-label="Theme options"
+        >
+          {loading && themes.length === 0
+            ? Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-40 w-[148px] shrink-0 animate-pulse rounded-2xl border border-white/90 bg-white/50 sm:w-[168px]"
+                />
+              ))
+            : themes.map((t) => (
+                <ThemeCard
+                  key={t.key}
+                  theme={t}
+                  recommended={options?.recommended.key === t.key}
+                  active={selectedKey === t.key}
+                  onSelect={() => onPatch({ theme: t.key })}
+                />
+              ))}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -197,18 +195,19 @@ function ThemeCard({
   return (
     <button
       type="button"
+      role="option"
       onClick={onSelect}
       className={cn(
-        "relative flex flex-col overflow-hidden rounded-2xl border text-left transition",
+        "relative flex w-[148px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left transition sm:w-[168px]",
         active
-          ? "border-[#F97316] bg-white shadow-[0_16px_36px_-20px_rgba(249,115,22,0.55)]"
+          ? "border-[#F97316] bg-white shadow-[0_16px_36px_-20px_rgba(249,115,22,0.55)] ring-2 ring-[#F97316]/25"
           : "border-white/90 bg-white/55 hover:bg-white/80",
       )}
-      aria-pressed={active}
+      aria-selected={active}
     >
-      <div className="h-24 overflow-hidden border-b border-[#2A2233]/8 bg-[#FFF7ED]/50" aria-hidden>
+      <div className="h-28 overflow-hidden border-b border-[#2A2233]/8 bg-[#FFF7ED]/50" aria-hidden>
         {full ? (
-          <div className="origin-top scale-[0.55] sm:scale-[0.5]" style={{ width: "182%", height: "182%" }}>
+          <div className="origin-top scale-[0.48]" style={{ width: "208%", height: "208%" }}>
             <ThemeMockup preset={full.preset} name={full.name.split(" ")[0]!} tagline={full.tagline} size="card" />
           </div>
         ) : theme.thumbnail ? (

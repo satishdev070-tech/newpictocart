@@ -1,25 +1,23 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { MailCheck } from "lucide-react";
+import { CodeBoxes, RESEND_COOLDOWN_S, boxCount } from "@/components/auth/email-code-flow";
 import { GoogleButton } from "@/components/auth/google-button";
 import { TextField } from "@/components/ui/field";
 import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
-import { PasswordField } from "@/components/ui/password-field";
-import { googleSignInAction, requestStartEmailCodeAction, signInAction, signUpAction, verifyStartEmailCodeAction } from "@/features/auth/actions";
-import type { ActionResult } from "@/lib/actions/result";
-import { LivePreview } from "../components/live-preview";
+import { PLATFORM_ICON } from "@/config/platform";
+import { googleSignInAction, requestStartEmailCodeAction, verifyStartEmailCodeAction } from "@/features/auth/actions";
 import { startCopy, type StartCopy } from "../copy";
-import { industryName, isIndustry } from "@/features/stores/industries";
-import { subcategoryLabel } from "@/features/stores/subcategories";
 import type { StartDraft } from "../draft/schema";
-import { draftCategory, draftStoreName, draftSubcategory } from "../draft/schema";
+import { draftStoreName } from "../draft/schema";
 
-const submitClass = "w-full !rounded-full !bg-[#F97316] !text-white hover:!bg-[#EA580C] focus-visible:!outline-[#F97316]";
+const submitClass =
+  "w-full !rounded-full !bg-[#F97316] !text-white hover:!bg-[#EA580C] focus-visible:!outline-[#F97316]";
 
 export function AccountScreen({
   draft,
-  rootDomain,
   googleAvailable,
 }: {
   draft: StartDraft;
@@ -27,82 +25,130 @@ export function AccountScreen({
   googleAvailable: boolean;
 }) {
   const c = startCopy(draft.locale);
-  const [tab, setTab] = useState<"signup" | "signin">("signup");
+  const [mode, setMode] = useState<"signup" | "signin">("signup");
   const storeName = draftStoreName(draft) || "My store";
-  const category = draftCategory(draft);
-  const subcategory = draftSubcategory(draft);
-  const categoryLabel = category && isIndustry(category) ? industryName(category) : null;
-  const subcategoryText = category && subcategory ? subcategoryLabel(category, subcategory) : null;
+  const [email, setEmail] = useState("");
+  const [codeEmail, setCodeEmail] = useState<string | null>(null);
+
+  if (codeEmail) {
+    return (
+      <div className="mx-auto w-full max-w-md">
+        <AuthCard>
+          <BrandHeader
+            eyebrow={c.account.eyebrow}
+            title={c.account.codeTitle}
+            titleAccent={c.account.codeTitleAccent}
+            sub={null}
+          />
+          <StartCodeForm
+            copy={c}
+            email={codeEmail}
+            type="email"
+            draft={draft}
+            storeName={storeName}
+            onChangeEmail={() => setCodeEmail(null)}
+          />
+        </AuthCard>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div className="flex flex-col gap-5">
-        <h2 className="font-brand text-3xl">
-          {c.account.title}
-          <span className="text-[#C2410C]">{c.account.titleAccent}</span>
-        </h2>
-        <p className="text-sm text-[#5E5568]">{c.account.sub}</p>
-        <dl className="grid gap-2 rounded-[20px] border border-white/90 bg-white/70 px-4 py-3 text-sm text-[#3F3A47] shadow-sm">
-          <div className="flex justify-between gap-3">
-            <dt className="text-[#6B6275]">Store</dt>
-            <dd className="font-medium text-right">{storeName}</dd>
-          </div>
-          {categoryLabel ? (
-            <div className="flex justify-between gap-3">
-              <dt className="text-[#6B6275]">Category</dt>
-              <dd className="font-medium text-right">
-                {categoryLabel}
-                {subcategoryText ? ` · ${subcategoryText}` : ""}
-              </dd>
-            </div>
-          ) : null}
-          {draft.theme ? (
-            <div className="flex justify-between gap-3">
-              <dt className="text-[#6B6275]">Theme</dt>
-              <dd className="font-medium text-right">{draft.theme}</dd>
-            </div>
-          ) : null}
-          <div className="flex justify-between gap-3">
-            <dt className="text-[#6B6275]">Language</dt>
-            <dd className="font-medium text-right">{draft.locale}</dd>
-          </div>
-        </dl>
-        <div className="flex gap-2 rounded-full bg-white/60 p-1">
-          <button
-            type="button"
-            onClick={() => setTab("signup")}
-            className={tab === "signup" ? "flex-1 rounded-full bg-white py-2 text-sm font-semibold shadow" : "flex-1 py-2 text-sm text-[#6B6275]"}
-          >
-            {c.account.signUp}
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("signin")}
-            className={tab === "signin" ? "flex-1 rounded-full bg-white py-2 text-sm font-semibold shadow" : "flex-1 py-2 text-sm text-[#6B6275]"}
-          >
-            {c.account.signIn}
-          </button>
-        </div>
-        <div className="rounded-[28px] border border-white/90 bg-white/75 p-5 shadow-sm">
+    <div className="mx-auto w-full max-w-md">
+      <AuthCard>
+        <BrandHeader
+          eyebrow={c.account.eyebrow}
+          title={mode === "signup" ? c.account.title : c.account.signInTitle}
+          titleAccent={mode === "signup" ? c.account.titleAccent : c.account.signInTitleAccent}
+          sub={mode === "signup" ? c.account.valueLine : c.account.signInSub}
+        />
+
+        <div className="mt-6 space-y-4">
           {googleAvailable ? (
             <>
-              <GoogleButton action={googleSignInAction} next="/start" label="Continue with Google" />
-              <p className="my-4 text-center text-xs uppercase tracking-wider text-[#6B6275]" role="separator">
-                {c.account.orEmail}
-              </p>
+              <GoogleButton
+                action={googleSignInAction}
+                next="/start"
+                label={mode === "signup" ? c.account.continueGoogle : c.account.signInGoogle}
+                className="[&_button]:!rounded-full [&_button]:!py-3.5 [&_button]:!text-[15px]"
+              />
+              <OrDividerLabel label={c.account.or} />
             </>
           ) : null}
-          {tab === "signup" ? (
-            <StartSignUpForm copy={c} draft={draft} storeName={storeName} />
-          ) : (
-            <StartSignInForm copy={c} draft={draft} storeName={storeName} />
-          )}
+
+          <EmailCodeRequest
+            copy={c}
+            draft={draft}
+            storeName={storeName}
+            email={email}
+            onEmailChange={setEmail}
+            onSent={setCodeEmail}
+            submitLabel={mode === "signup" ? c.account.sendCode : c.account.signInSubmit}
+            showTerms={mode === "signup"}
+          />
         </div>
-      </div>
-      <div className="hidden lg:block">
-        <LivePreview locale={draft.locale} rootDomain={rootDomain} draft={draft} />
-      </div>
-    </>
+
+        <p className="mt-6 text-center text-sm text-[#6B6275]">
+          {mode === "signup" ? c.account.haveAccount : c.account.needAccount}{" "}
+          <button
+            type="button"
+            onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
+            className="font-semibold text-[#C2410C] underline-offset-2 hover:underline"
+          >
+            {mode === "signup" ? c.account.signIn : c.account.signUp}
+          </button>
+        </p>
+      </AuthCard>
+    </div>
+  );
+}
+
+function AuthCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-[28px] border border-white/90 bg-white/85 p-6 shadow-[0_24px_60px_-28px_rgba(42,34,51,0.4)] backdrop-blur-md sm:p-9">
+      {children}
+    </div>
+  );
+}
+
+function BrandHeader({
+  eyebrow,
+  title,
+  titleAccent,
+  sub,
+}: {
+  eyebrow: string;
+  title: string;
+  titleAccent: string;
+  sub: string | null;
+}) {
+  return (
+    <div className="flex flex-col items-center text-center">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={PLATFORM_ICON}
+        alt=""
+        width={56}
+        height={56}
+        className="mb-4 size-14 rounded-full object-contain shadow-[0_10px_24px_-12px_rgba(249,115,22,0.55)] ring-4 ring-white"
+      />
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#C2410C]">{eyebrow}</p>
+      <h2 className="mt-2 font-brand text-3xl leading-tight sm:text-4xl">
+        {title}
+        <span className="text-[#C2410C]">{titleAccent}</span>
+      </h2>
+      {sub ? <p className="mt-2.5 max-w-sm text-sm leading-relaxed text-[#5E5568]">{sub}</p> : null}
+    </div>
+  );
+}
+
+function OrDividerLabel({ label }: { label: string }) {
+  return (
+    <div className="my-1 flex items-center gap-3 text-xs uppercase tracking-wider text-[#6B6275]" role="separator">
+      <span className="h-px flex-1 bg-[#2A2233]/12" />
+      {label}
+      <span className="h-px flex-1 bg-[#2A2233]/12" />
+    </div>
   );
 }
 
@@ -119,74 +165,19 @@ function hiddenJourneyFields(draft: StartDraft, storeName: string) {
   );
 }
 
-function StartSignUpForm({ copy, draft, storeName }: { copy: StartCopy; draft: StartDraft; storeName: string }) {
-  const [state, action] = useActionState(signUpAction, null);
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [codeEmail, setCodeEmail] = useState<string | null>(null);
-  const errors = fieldErrors(state);
-  if (state?.ok && state.data.needsConfirmation && email) {
-    return <StartCodeForm copy={copy} email={email} type="signup" />;
-  }
-  if (codeEmail) {
-    return <StartCodeForm copy={copy} email={codeEmail} type="email" />;
-  }
+function TermsLine({ copy }: { copy: StartCopy }) {
   return (
-    <div className="space-y-4">
-      <form action={action} className="space-y-4" noValidate>
-        {hiddenJourneyFields(draft, storeName)}
-        <FormMessage state={state} />
-        <TextField label={copy.account.name} name="displayName" autoComplete="name" required errors={errors.displayName} value={name} onChange={(e) => setName(e.target.value)} />
-        <TextField label={copy.account.email} name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required errors={errors.email} value={email} onChange={(e) => setEmail(e.target.value)} />
-        <PasswordField
-          label={copy.account.password}
-          name="password"
-          autoComplete="new-password"
-          required
-          errors={errors.password}
-          hint={copy.account.passwordHint}
-        />
-        <SubmitButton size="lg" className={submitClass}>
-          {copy.account.create}
-        </SubmitButton>
-        <p className="text-caption text-muted">
-          {copy.account.agree}{" "}
-          <Link href="/terms" className="underline underline-offset-2">
-            {copy.account.terms}
-          </Link>{" "}
-          {copy.account.and}{" "}
-          <Link href="/privacy" className="underline underline-offset-2">
-            {copy.account.privacy}
-          </Link>
-          .
-        </p>
-      </form>
-      <EmailCodeRequest copy={copy} draft={draft} storeName={storeName} email={email} displayName={name} onSent={setCodeEmail} />
-    </div>
-  );
-}
-
-function StartSignInForm({ copy, draft, storeName }: { copy: StartCopy; draft: StartDraft; storeName: string }) {
-  const [state, action] = useActionState(signInAction, null);
-  const [email, setEmail] = useState("");
-  const [codeEmail, setCodeEmail] = useState<string | null>(null);
-  const errors = fieldErrors(state);
-  if (codeEmail) {
-    return <StartCodeForm copy={copy} email={codeEmail} type="email" />;
-  }
-  return (
-    <div className="space-y-4">
-      <form action={action} className="space-y-4" noValidate>
-        <input type="hidden" name="next" value="/start" />
-        <FormMessage state={state as ActionResult<unknown> | null} />
-        <TextField label={copy.account.email} name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} required errors={errors.email} value={email} onChange={(e) => setEmail(e.target.value)} />
-        <PasswordField label={copy.account.password} name="password" autoComplete="current-password" required errors={errors.password} />
-        <SubmitButton size="lg" className={submitClass}>
-          {copy.account.signInSubmit}
-        </SubmitButton>
-      </form>
-      <EmailCodeRequest copy={copy} draft={draft} storeName={storeName} email={email} onSent={setCodeEmail} />
-    </div>
+    <p className="text-center text-xs text-[#6B6275]">
+      {copy.account.agree}{" "}
+      <Link href="/terms" className="underline underline-offset-2">
+        {copy.account.terms}
+      </Link>{" "}
+      {copy.account.and}{" "}
+      <Link href="/privacy" className="underline underline-offset-2">
+        {copy.account.privacy}
+      </Link>
+      .
+    </p>
   );
 }
 
@@ -195,57 +186,158 @@ function EmailCodeRequest({
   draft,
   storeName,
   email,
-  displayName,
+  onEmailChange,
   onSent,
+  submitLabel,
+  showTerms,
 }: {
   copy: StartCopy;
   draft: StartDraft;
   storeName: string;
   email: string;
-  displayName?: string;
+  onEmailChange: (email: string) => void;
   onSent: (email: string) => void;
+  submitLabel: string;
+  showTerms: boolean;
 }) {
   const [state, action] = useActionState(requestStartEmailCodeAction, null);
+  const errors = fieldErrors(state);
   useEffect(() => {
     if (state?.ok) onSent(state.data.email);
   }, [state, onSent]);
+
   return (
-    <form action={action} className="space-y-2">
+    <form action={action} className="space-y-4" noValidate>
       {hiddenJourneyFields(draft, storeName)}
-      <input type="hidden" name="email" value={email} />
-      {displayName ? <input type="hidden" name="displayName" value={displayName} /> : null}
       <FormMessage state={state} />
-      <SubmitButton size="md" variant="secondary" className="w-full" disabled={!email.trim()}>
-        {copy.account.sendCode}
+      <TextField
+        label={copy.account.email}
+        name="email"
+        type="email"
+        autoComplete="email"
+        autoCapitalize="none"
+        spellCheck={false}
+        required
+        placeholder="you@yourbusiness.in"
+        errors={errors.email}
+        value={email}
+        onChange={(e) => onEmailChange(e.target.value)}
+      />
+      <SubmitButton size="lg" className={submitClass} disabled={!email.trim()}>
+        {submitLabel}
       </SubmitButton>
+      {showTerms ? <TermsLine copy={copy} /> : null}
     </form>
   );
 }
 
-function StartCodeForm({ copy, email, type }: { copy: StartCopy; email: string; type: "signup" | "email" }) {
+function StartCodeForm({
+  copy,
+  email,
+  type,
+  draft,
+  storeName,
+  onChangeEmail,
+}: {
+  copy: StartCopy;
+  email: string;
+  type: "signup" | "email";
+  draft: StartDraft;
+  storeName: string;
+  onChangeEmail: () => void;
+}) {
   const [state, action] = useActionState(verifyStartEmailCodeAction, null);
   const errors = fieldErrors(state);
+  const [code, setCode] = useState("");
+  const [length] = useState(boxCount(undefined));
+  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_S);
+  const [resendNote, setResendNote] = useState<string | null>(null);
+  const [resending, startResend] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
+  const canResend = type === "email";
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  const resend = () => {
+    if (!canResend || cooldown > 0) return;
+    setResendNote(null);
+    startResend(async () => {
+      const fd = new FormData();
+      fd.set("email", email);
+      fd.set("next", "/start");
+      fd.set("storeName", storeName);
+      fd.set("lang", draft.locale);
+      if (draft.plan) fd.set("plan", draft.plan);
+      if (draft.theme) fd.set("theme", draft.theme);
+      if (draft.intent) fd.set("intent", draft.intent);
+      const r = await requestStartEmailCodeAction(null, fd);
+      setResendNote(r.ok ? copy.account.resent : (r.error.fieldErrors?._form?.[0] ?? r.error.message));
+      if (r.ok) {
+        setCooldown(RESEND_COOLDOWN_S);
+        setCode("");
+      }
+    });
+  };
+
   return (
-    <form action={action} className="space-y-4" noValidate>
-      <p role="status" className="text-sm text-[#5E5568]">
-        {copy.account.codeSent} {copy.account.checkEmail}
-      </p>
+    <form ref={formRef} action={action} className="mt-6 space-y-5 text-center" noValidate>
+      <span className="mx-auto grid size-14 place-items-center rounded-full bg-[#FFF1E6] text-[#EA580C] shadow-inner">
+        <MailCheck aria-hidden className="size-7" />
+      </span>
+      <div className="space-y-1.5">
+        <p role="status" className="text-[15px] leading-relaxed text-[#3F3A47]">
+          {copy.account.codeSentTo(email)}
+        </p>
+        <p className="text-xs text-[#9A91A4]">{copy.account.checkEmail}</p>
+      </div>
       <input type="hidden" name="email" value={email} />
       <input type="hidden" name="type" value={type} />
       <input type="hidden" name="next" value="/start" />
+      <input type="hidden" name="token" value={code} />
       <FormMessage state={state} />
-      <TextField
-        label={copy.account.codeLabel}
-        name="token"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        required
-        errors={errors.token}
-        hint={copy.account.codeHint}
+      <CodeBoxes
+        length={length}
+        value={code}
+        onChange={setCode}
+        onComplete={() => formRef.current?.requestSubmit()}
+        invalid={Boolean(errors.token)}
+        className="[&_input]:h-12 [&_input]:w-10 [&_input]:rounded-xl [&_input]:border-[#E8DFD6] [&_input]:text-lg [&_input]:font-semibold [&_input]:focus:border-[#F97316] [&_input]:focus:ring-[#F97316]/25 sm:[&_input]:h-14 sm:[&_input]:w-12"
       />
-      <SubmitButton size="lg" className={submitClass}>
+      {errors.token ? <p className="text-sm text-danger">{errors.token[0]}</p> : null}
+      {canResend ? (
+        <p className="text-sm text-[#6B6275]">
+          {copy.account.didntGetIt}{" "}
+          <button
+            type="button"
+            onClick={resend}
+            disabled={cooldown > 0 || resending}
+            className="font-semibold text-[#C2410C] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-[#9A91A4] disabled:no-underline"
+          >
+            {resending ? copy.account.resending : cooldown > 0 ? copy.account.resendIn(cooldown) : copy.account.resend}
+          </button>
+        </p>
+      ) : (
+        <p className="text-sm text-[#6B6275]">{copy.account.codeHint}</p>
+      )}
+      {resendNote ? (
+        <p role="status" className="text-xs text-[#6B6275]">
+          {resendNote}
+        </p>
+      ) : null}
+      <SubmitButton size="lg" className={submitClass} disabled={code.length !== length}>
         {copy.account.codeSubmit}
       </SubmitButton>
+      <button
+        type="button"
+        onClick={onChangeEmail}
+        className="text-sm font-medium text-[#6B6275] underline underline-offset-2 hover:text-[#2A2233]"
+      >
+        {copy.account.changeEmail}
+      </button>
     </form>
   );
 }
