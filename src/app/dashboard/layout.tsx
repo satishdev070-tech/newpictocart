@@ -1,57 +1,32 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { platformIconMetadata } from "@/features/platform/server/public-config";
 import Link from "next/link";
-import { ChevronsUpDown, ExternalLink, LogOut, Shield, Sparkles, UserCircle } from "lucide-react";
+import { ChevronsUpDown, ExternalLink, LogOut, Shield, UserCircle } from "lucide-react";
 import { requireTenant } from "@/lib/tenant/membership";
 import { DASHBOARD_NAV } from "@/components/dashboard/nav";
 import { AppShell } from "@/components/app-shell/app-shell";
-import { NotificationBell } from "@/features/notifications/inbox/components/notification-bell";
-import { getBellData } from "@/features/notifications/inbox/server";
 import { Popover, PopoverItem } from "@/components/app-shell/popover";
 import { AppearanceQuickToggle, AppearanceToggle } from "@/components/ui/appearance-toggle";
 import { PanelLogo, PanelMark } from "@/components/app-shell/panel-logo";
 import { switchTenantAction } from "@/features/tenants/actions";
 import { signOutAction } from "@/features/auth/actions";
-import { getDashboardAlerts } from "@/features/dashboard-ui/alerts";
 import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
 import { roleLabel } from "@/lib/permissions/labels";
 import { cookies } from "next/headers";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { navForSiteMode } from "@/features/stores/site-mode";
 import { getStoreSiteMode } from "@/features/stores/site-mode-server";
-import { getAiCreditBalance } from "@/features/ai-credits/server";
 import { getI18n } from "@/lib/i18n/server";
-import type { T } from "@/lib/i18n/translate";
 import { localizeNav } from "@/components/dashboard/nav-i18n";
 import { LanguageSwitcher } from "@/components/dashboard/language-switcher";
 import { TourLauncher } from "@/features/dashboard-ui/tours/tour-launcher";
 import { StoreAgentLauncher } from "@/features/seller-ai/components/store-agent-launcher";
+import { SellerTopbarChrome, SellerTopbarChromeFallback, SellerTrialBanner } from "@/features/dashboard-ui/shell-chrome";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
 import { accountAccessFor } from "@/lib/auth/landing";
 import { canSwitchPanels } from "@/lib/auth/role-routing";
-
-/** Plan name and trial end of the active store (RLS: members read their tenant). Null on error. */
-async function trialInfo(tenantId: string): Promise<{ plan: string | null; endsAt: string | null } | null> {
-  const { data } = await (await createSupabaseServerClient()).from("tenants").select("trial_ends_at, plans(name)").eq("id", tenantId).maybeSingle();
-  if (!data) return null;
-  const plan = (data as { plans: { name: string } | { name: string }[] | null }).plans;
-  return { plan: (Array.isArray(plan) ? plan[0]?.name : plan?.name) ?? null, endsAt: data.trial_ends_at };
-}
-
-/** "Free trial of the Scale plan · 9 days left (ends 20 Oct 2026)." Status stays "trial" until the platform activates the plan. */
-function trialMessage(trial: { plan: string | null; endsAt: string | null } | null, t: T, locale: string): string {
-  const plan = trial?.plan;
-  if (!trial?.endsAt) return plan ? t("banners.trialOnPlan", { plan }) : t("banners.trial");
-  const end = new Date(trial.endsAt);
-  const days = Math.ceil((end.getTime() - Date.now()) / 86_400_000);
-  const date = new Intl.DateTimeFormat(`${locale}-IN`, { dateStyle: "medium", timeZone: "Asia/Kolkata" }).format(end);
-  if (days < 0) return plan ? t("banners.trialEndedOnPlan", { plan, date }) : t("banners.trialEnded", { date });
-  const left = days === 0 ? t("banners.endsToday") : days === 1 ? t("banners.oneDayLeft") : t("banners.daysLeft", { days });
-  return plan ? t("banners.trialLeftOnPlan", { plan, left, date }) : t("banners.trialLeft", { left, date });
-}
 import { SUPPORT_LOGIN_COOKIE, readSupportLogin } from "@/features/platform/server/store-admin";
 import { endSupportLoginAction } from "@/features/platform/store-admin-actions";
-
 export async function generateMetadata(): Promise<Metadata> {
   return { title: { default: "Dashboard", template: "%s · Dashboard" }, robots: { index: false, follow: false }, ...(await platformIconMetadata()) };
 }
@@ -67,21 +42,13 @@ function Monogram({ name, className = "size-7" }: { name: string; className?: st
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   const ctx = await requireTenant();
   const storeUrl = storeOrigin(storeSubdomain(ctx.tenantSlug));
-  // Independent reads in parallel (incl. site_mode — was a solo wave before alerts/bell).
-  // Started with the reads below (same wave): own platform + store memberships for the panel switch.
-  const accessPromise = accountAccessFor(ctx.user.id);
-  const [alerts, trial, cookieStore, bell, aiCreditBalance, siteMode, { locale, m, t }] = await Promise.all([
-    getDashboardAlerts(ctx),
-    // Free forever (active, no trial end) must not show a trial banner.
-    ctx.tenantStatus === "trial" ? trialInfo(ctx.tenantId) : Promise.resolve(null),
+  // Shell-critical only — bell / alerts / trial / credits stream under Suspense so child routes paint earlier.
+  const [cookieStore, siteMode, { locale, m, t }, access] = await Promise.all([
     cookies(),
-    getBellData({ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId }),
-    ctx.permissions.has("marketing.read") ? getAiCreditBalance(ctx.tenantId) : Promise.resolve(null),
     getStoreSiteMode(ctx.tenantId),
     getI18n(),
+    accountAccessFor(ctx.user.id),
   ]);
-  // Admin ⇄ Seller switch only for platform staff who also belong to a store (RLS read of own rows).
-  const access = await accessPromise;
   const showAdminSwitch = access ? canSwitchPanels(access) : false;
   const groups = localizeNav(
     navForSiteMode(
@@ -90,7 +57,6 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     ),
     m.nav,
   );
-  const showTrialBanner = ctx.tenantStatus === "trial" && Boolean(trial?.endsAt);
   const displayName = ctx.user.displayName ?? ctx.user.email ?? "Account";
 
   const brand = <PanelLogo href="/dashboard" label="Pictocart seller dashboard" />;
@@ -136,18 +102,13 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         autoStart={!supporting}
       />
       <AppearanceQuickToggle />
-      {aiCreditBalance !== null ? (
-        <Link
-          href="/dashboard/marketing/neural-pulse"
-          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/20 bg-accent-soft px-2.5 text-caption font-semibold text-accent transition-colors hover:bg-accent/15"
-          title={t("account.aiCredits")}
-        >
-          <Sparkles aria-hidden className="size-3.5" />
-          <span>{aiCreditBalance}</span>
-          <span className="hidden sm:inline">{t("account.credits")}</span>
-        </Link>
-      ) : null}
-      <NotificationBell scope="tenant" userId={ctx.user.id} initial={bell} attention={alerts} viewAllHref="/dashboard/notifications" />
+      <Suspense fallback={<SellerTopbarChromeFallback />}>
+        <SellerTopbarChrome
+          canCredits={ctx.permissions.has("marketing.read")}
+          creditsLabel={t("account.aiCredits")}
+          creditsWord={t("account.credits")}
+        />
+      </Suspense>
       <div data-tour="account">
       <Popover
         label={t("account.menu")}
@@ -228,7 +189,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
       </div>
     ) : null;
 
-  const statusBanner =
+  const suspendedBanner =
     ctx.tenantStatus === "suspended" ? (
       <div role="alert" className="border-b border-error/30 bg-error/10 px-5 py-2 text-small text-error">
         {t("banners.suspended")}{" "}
@@ -237,20 +198,20 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         </Link>{" "}
         {t("banners.suspendedTail")}
       </div>
-    ) : showTrialBanner ? (
-      <div className="border-b border-border bg-accent-soft px-5 py-2 text-small text-foreground">
-        {trialMessage(trial, t, locale)}{" "}
-        <Link href="/dashboard/settings/plan" className="font-medium underline underline-offset-2">
-          {t("banners.choosePlan")}
-        </Link>
-      </div>
     ) : null;
-  const banner = supportBanner || statusBanner ? (
-    <>
-      {supportBanner}
-      {statusBanner}
-    </>
-  ) : null;
+
+  const banner =
+    supportBanner || suspendedBanner || ctx.tenantStatus === "trial" ? (
+      <>
+        {supportBanner}
+        {suspendedBanner}
+        {ctx.tenantStatus === "trial" ? (
+          <Suspense fallback={null}>
+            <SellerTrialBanner t={t} locale={locale} />
+          </Suspense>
+        ) : null}
+      </>
+    ) : null;
 
   const shellText = {
     mainNav: t("shell.mainNav"),

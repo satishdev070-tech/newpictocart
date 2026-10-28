@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Suspense } from "react";
 import { ChevronsUpDown, LogOut, Shield, Store, UserCircle } from "lucide-react";
 import { requirePlatform } from "@/lib/platform/access";
 import { adminNavFor } from "@/features/platform/nav";
-import { getMyActiveSupportSessions, getPlatformOverview } from "@/features/platform/server/queries";
 import { AppShell } from "@/components/app-shell/app-shell";
-import { NotificationBell } from "@/features/notifications/inbox/components/notification-bell";
-import { getBellData } from "@/features/notifications/inbox/server";
 import { Popover, PopoverItem } from "@/components/app-shell/popover";
 import { AppearanceQuickToggle, AppearanceToggle } from "@/components/ui/appearance-toggle";
 import { PanelLogo, PanelMark } from "@/components/app-shell/panel-logo";
@@ -16,6 +13,7 @@ import { platformIconMetadata } from "@/features/platform/server/public-config";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
 import { accountAccessFor } from "@/lib/auth/landing";
 import { canSwitchPanels } from "@/lib/auth/role-routing";
+import { AdminSupportBanner, AdminTopbarChrome, AdminTopbarChromeFallback } from "@/features/platform/components/admin-shell-chrome";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: { default: "Admin", template: "%s · Admin" }, robots: { index: false, follow: false }, ...(await platformIconMetadata()) };
@@ -26,21 +24,9 @@ const ROLE_LABEL = { super_admin: "Super admin", support: "Support", finance: "F
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const ctx = await requirePlatform();
   const groups = adminNavFor(ctx.permissions);
-  // getPlatformOverview is request-cached, so the overview page reuses this result.
-  const [sessions, overview, bell, access] = await Promise.all([
-    ctx.permissions.has("platform.support.impersonate") ? getMyActiveSupportSessions(ctx.user.id) : Promise.resolve([]),
-    ctx.permissions.has("platform.tenants.read") ? getPlatformOverview().catch(() => null) : Promise.resolve(null),
-    getBellData({ userId: ctx.user.id, scope: "platform", tenantId: null }),
-    accountAccessFor(ctx.user.id),
-  ]);
-  // Admin ⇄ Seller switch only when this staff account also belongs to a store.
+  // Shell-critical only — overview / support sessions / bell stream under Suspense.
+  const access = await accountAccessFor(ctx.user.id);
   const showSellerSwitch = access ? canSwitchPanels(access) : false;
-  const alerts = overview
-    ? [
-        { key: "trials", label: "trials ending in 7 days", count: overview.trialsEnding7d, href: "/admin/tenants?status=trial" },
-        { key: "domains", label: "custom domains awaiting verification", count: overview.customDomainsPending, href: "/admin/domains?status=pending" },
-      ].filter((a) => a.count > 0)
-    : [];
 
   const label = `${PLATFORM_NAME} super admin`;
   const brand = <PanelLogo href="/admin" label={label} />;
@@ -91,7 +77,9 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const topbarEnd = (
     <>
       <AppearanceQuickToggle />
-      <NotificationBell scope="platform" userId={ctx.user.id} initial={bell} attention={alerts} viewAllHref="/admin/notifications" />
+      <Suspense fallback={<AdminTopbarChromeFallback />}>
+        <AdminTopbarChrome userId={ctx.user.id} canOverview={ctx.permissions.has("platform.tenants.read")} />
+      </Suspense>
       <Popover
         label="Account"
         trigger={
@@ -131,18 +119,10 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     </>
   );
 
-  const banner = sessions.length ? (
-    <div role="status" className="border-b border-warning/30 bg-warning/10 px-5 py-2 text-small">
-      Active support session{sessions.length > 1 ? "s" : ""}:{" "}
-      {sessions.map((s, i) => (
-        <span key={s.id}>
-          {i ? ", " : ""}
-          <Link href={`/admin/tenants/${s.tenantId}/support`} className="font-medium underline">
-            {s.tenantName ?? "store"}
-          </Link>
-        </span>
-      ))}
-    </div>
+  const banner = ctx.permissions.has("platform.support.impersonate") ? (
+    <Suspense fallback={null}>
+      <AdminSupportBanner userId={ctx.user.id} />
+    </Suspense>
   ) : null;
 
   return (
