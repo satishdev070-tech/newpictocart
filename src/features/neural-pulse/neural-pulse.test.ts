@@ -107,7 +107,14 @@ describe("output schemas", () => {
   it("extracts JSON from fenced or chatty replies", () => {
     expect(extractJson('```json\n{"a":1}\n```')).toEqual({ a: 1 });
     expect(extractJson('Sure! {"a":2} hope it helps')).toEqual({ a: 2 });
-    expect(() => extractJson("no json")).toThrow();
+    expect(extractJson('<think>plan</think>\n{"a":3}')).toEqual({ a: 3 });
+    expect(extractJson("array: [1,2]")).toEqual([1, 2]);
+    expect(() => extractJson("no json")).toThrow(/reply was not valid JSON \(got:/);
+  });
+
+  it("uses Nemotron Omni as the NVIDIA default model", () => {
+    expect(DEFAULT_MODELS.nvidia).toBe("nvidia/nemotron-3-nano-omni-30b-a3b-reasoning");
+    expect(resolveModel("nvidia", null)).toBe(DEFAULT_MODELS.nvidia);
   });
 });
 

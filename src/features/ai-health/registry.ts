@@ -51,6 +51,18 @@ export const AI_FEATURES: readonly AiFeature[] = [
 
 export const ROUTABLE_FEATURE_KEYS = AI_FEATURES.filter((f) => f.routable).map((f) => f.key);
 
+/**
+ * Seller AI features seeded to NVIDIA (Nemotron Omni text default) when no Admin → AI Health
+ * route row exists yet. Vision still swaps to NVIDIA_VISION_MODEL inside nvidiaRequestBody.
+ */
+export const SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS = [
+  "generate_product",
+  "generate_blog",
+  "store_agent",
+  "contact_reply",
+  "business_coach",
+] as const;
+
 export function findFeature(key: string): AiFeature | undefined {
   return AI_FEATURES.find((f) => f.key === key);
 }
