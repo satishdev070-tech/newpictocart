@@ -11,7 +11,7 @@ export function SettingsNav({ groups }: { groups: SettingsNavGroup[] }) {
   const pathname = usePathname();
   const active = (href: string) => (href === "/dashboard/settings" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`));
   return (
-    <nav aria-label="Settings" className="-mx-4 overflow-x-auto px-4 lg:mx-0 lg:overflow-visible lg:px-0">
+    <nav aria-label="Settings" data-tour="settings-nav" className="-mx-4 overflow-x-auto px-4 lg:mx-0 lg:overflow-visible lg:px-0">
       <div className="flex gap-1 lg:flex-col lg:gap-5">
         {groups.map((g) => (
           <div key={g.label} className="flex gap-1 lg:flex-col lg:gap-0.5">

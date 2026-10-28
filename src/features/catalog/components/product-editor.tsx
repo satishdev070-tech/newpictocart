@@ -151,7 +151,7 @@ export function ProductEditor({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
-          <Card title="Basics">
+          <Card tour="product-basics" title="Basics">
             <div className="space-y-4">
               <div>
                 <L htmlFor="p-title">Title</L>
@@ -258,7 +258,7 @@ export function ProductEditor({
             </div>
           </Card>
 
-          <Card title={`Variants (${d.variants.length})`} description="Prices in ₹. MRP must be at least the price. Enter a % off to set the price from the MRP; shoppers see the MRP struck through with the saving.">
+          <Card tour="product-variants" title={`Variants (${d.variants.length})`} description="Prices in ₹. MRP must be at least the price. Enter a % off to set the price from the MRP; shoppers see the MRP struck through with the saving.">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[840px] text-sm">
                 <thead>
@@ -458,7 +458,7 @@ export function ProductEditor({
         </div>
 
         <div className="space-y-6">
-          <Card title="Status">
+          <Card tour="product-status" title="Status">
             <div className="space-y-3">
               <label htmlFor="p-status" className="sr-only">
                 Status
@@ -479,7 +479,7 @@ export function ProductEditor({
               {dirty ? <p className="text-xs text-warning">Unsaved changes</p> : null}
             </div>
           </Card>
-          <Card title="Organisation">
+          <Card tour="product-organisation" title="Organisation">
             <div className="space-y-4">
               <div>
                 <L htmlFor="p-type">Product type</L>

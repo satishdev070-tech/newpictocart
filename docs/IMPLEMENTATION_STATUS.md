@@ -1,7 +1,27 @@
 # Implementation Status
 
-_Last updated: 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
+
+
+## Seller panel: guided tours + English / Hindi (2026-10-28, branch `claude/seller-tour-i18n-1bacef`)
+
+- **Guided tours (coach marks)** like the old app: the page is dimmed, the element is ringed, and a popover shows a title, short text, "1 of N", Back, Next / Got it and ×.
+  - Tours are data: `features/dashboard-ui/tours/routes.ts` (path → tour), `steps.ts` (steps → `data-tour` ids) and `text/<locale>.ts` (title and text).
+  - 20 pages: home, products list / new / edit, orders list / detail, categories, collections, inventory, settings general, payments, shipping & COD, checkout, domains, SEO, team, theme marketplace, theme editor, coupons and social.
+  - Auto-starts on a seller's first visit to a page (remembered per page in `localStorage` as `pc_tour_done:<tour>`; storage errors are ignored), but not during a super-admin support sign-in. The topbar **?** button ("Take the tour") replays it.
+  - A step whose target is missing or hidden (permissions, empty states, phone layout) is skipped. If no target appears within 15 s (the page may still be streaming), an auto-started tour closes quietly and isn't marked done.
+  - Keyboard: Esc closes, ← → move, Tab stays in the popover, and focus returns afterwards. It's a `role="dialog"` with a polite live step count, docks as a bottom sheet under 640 px, and uses panel tokens, so it works in dark mode.
+  - Bundle: only `routes.ts` and the small launcher are always loaded. The overlay and steps load through `next/dynamic` (`ssr: false`) when a tour runs, and each language's text is its own chunk.
+  - Shared hooks: `PageHeader` (`page-header` / `page-actions`), `Table` (`table`), `EmptyState` (`empty`), `FilterBar` (`filters`), `SettingsNav`, and `Card`'s new `tour` prop. No restyling.
+- **Language (English default, Hindi):**
+  - The choice is kept in cookie `pc_lang`, with no DB column or migration (`lib/i18n/config.ts`, `parseLocale`).
+  - Server components read it with `getI18n()` (`lib/i18n/server.ts`, which returns `{ locale, m, t }`). Dictionaries are typed objects (`lib/i18n/messages/{en,hi}.ts`, `hi: Messages`), and `t()` takes dotted keys with `{placeholders}`.
+  - Switcher: the account menu and Settings → General. It writes the cookie, then calls `router.refresh()`.
+  - Translated: the sidebar nav (groups keep their English `id` for DOM ids; items keep `alt` so ⌘K finds "Orders" in Hindi), the settings menu, topbar / shell labels, breadcrumbs, the account menu, trial / suspended banners, the main page headers, and all tour text. The panel root gets `lang`.
+  - Adding Marathi, Gujarati, Tamil, Telugu or Bengali means adding the code to `LOCALES` plus two files. `Record<Locale, …>` makes typecheck demand them.
+  - Storefront and emails are unchanged.
+- **Tests:** `tests/unit/i18n.test.ts` (cookie parse, key and placeholder parity, nav coverage, `t()`) and `tests/unit/tours.test.ts` (route matching, unique step ids, every target present in the source, text parity per locale, popover placement).
 
 ## Storefront performance: cache scope, fewer DB waves, zod out of the client (2026-10-27)
 

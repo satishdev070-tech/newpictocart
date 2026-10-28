@@ -140,7 +140,7 @@ export function TopBar() {
 
   return (
     // No overflow clipping on the bar: the history popover and notices hang below it.
-    <header className="relative z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
+    <header data-tour="builder-topbar" className="relative z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
       <Link
         href="/dashboard"
         onClick={(e) => {

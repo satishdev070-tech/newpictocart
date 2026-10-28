@@ -12,11 +12,13 @@ import { CurrentThemeCard, MarketplaceBrowser, type MarketplaceCard } from "@/fe
 import { getStoreIndustry, liveDemoOrigins } from "@/features/theme/marketplace/server";
 import { livePreviewUrl } from "@/features/theme/marketplace/live-preview";
 import { themeSiteType } from "@/features/theme/marketplace/types";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Theme marketplace" };
 
 export default async function ThemesPage({ searchParams }: PageProps<"/dashboard/themes">) {
   const ctx = await requireTenantPermission("theme.edit");
+  const { t } = await getI18n();
   const sp = await searchParams;
   const themes = await getMarketplaceThemes();
   const demos = [...new Set(themes.flatMap((t) => (t.demo ? [t.demo] : [])))];
@@ -55,7 +57,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/dashboard
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Theme marketplace"
+        title={t("pages.themes.title")}
         description={`${themes.length} themes across ${industries.length} industries. Live Preview opens a demo store in the theme; applying one creates a draft with your own text, images and products, and your live store only changes when you publish.`}
         actions={
           <Link href="/dashboard/theme" className="inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 text-small font-medium hover:bg-surface-secondary">
@@ -64,7 +66,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/dashboard
         }
       />
       {!enabled ? <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-small text-warning">The theme marketplace isn&apos;t included in your plan. You can still preview themes and customize your current theme.</p> : null}
-      <section aria-labelledby="current-theme" className="space-y-3">
+      <section aria-labelledby="current-theme" data-tour="theme-current" className="space-y-3">
         <h2 id="current-theme" className="text-h3 font-semibold">Current theme</h2>
         {current ? (
           <CurrentThemeCard theme={current} />
@@ -75,7 +77,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/dashboard
           </p>
         )}
       </section>
-      <section aria-labelledby="other-themes" className="space-y-3">
+      <section aria-labelledby="other-themes" data-tour="theme-browse" className="space-y-3">
         <h2 id="other-themes" className="text-h3 font-semibold">{current ? "Other themes" : "All themes"}</h2>
         <MarketplaceBrowser themes={others} industries={industries} initialIndustry={asked} recommended={own} enabled={enabled} canPublish={can(ctx, "theme.publish")} />
       </section>

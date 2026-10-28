@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 /** GET filter form for list pages (works without JavaScript; state lives in the URL). */
 export function FilterBar({ action, resetHref, children, label = "Filters" }: { action: string; resetHref: string; children: ReactNode; label?: string }) {
   return (
-    <form method="get" action={action} role="search" aria-label={label} className="mb-4 rounded-lg border border-border bg-surface p-4">
+    <form method="get" action={action} role="search" aria-label={label} data-tour="filters" className="mb-4 rounded-lg border border-border bg-surface p-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{children}</div>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <Button type="submit" variant="secondary" size="sm">
