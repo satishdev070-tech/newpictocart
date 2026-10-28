@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { GROUP_LABELS, NOTIFICATION_TYPES, groupsForScope, receivableTypes, type NotificationGroup } from "../catalog";
 import { getMutedTypes, listNotifications, type InboxAudience } from "../server";
 import { MarkAllReadButton, NotificationList, PreferencesForm } from "./notification-list";
+import { SoundPreferences } from "./sound-preferences";
 
 const PAGE_SIZE = 20;
 
@@ -58,8 +59,11 @@ export async function NotificationsPage({ audience, sp, basePath, can, descripti
     return (
       <div className="space-y-6">
         {header}
-        <Card title="In-app notifications" description="Choose what shows up in your bell. This only affects you; teammates keep their own settings.">
+        <Card title="In-app notifications" description="Choose what shows up in your bell. This only affects you; teammates keep their own settings. Low stock and sold-out alerts are written by the inventory DB trigger when available stock crosses the threshold.">
           {offered.length ? <PreferencesForm scope={scope} offered={offered} muted={muted} groups={byGroup} /> : <p className="text-small text-muted">Your role doesn&apos;t receive any notification types yet.</p>}
+        </Card>
+        <Card title="Notification sounds" description="Heard in this browser when the tab is visible and unread alerts increase. Mute types above still stop those rows from arriving.">
+          <SoundPreferences />
         </Card>
       </div>
     );

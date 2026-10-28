@@ -23,6 +23,7 @@ export const NOTIFICATION_TYPES = {
   "cart.recovered": { scope: "tenant", permission: "orders.read", label: "Recovered abandoned carts", group: "orders", tone: "success" },
   "payment.received": { scope: "tenant", permission: "orders.read", label: "Payments received", group: "payments", tone: "success" },
   "payment.failed": { scope: "tenant", permission: "orders.read", label: "Failed payments", group: "payments", tone: "error" },
+  // Produced by app.notify_on_stock on inventory_levels (available crossing threshold / hitting 0).
   "stock.low": { scope: "tenant", permission: "inventory.read", label: "Low stock", group: "inventory", tone: "warning" },
   "stock.out": { scope: "tenant", permission: "inventory.read", label: "Sold out", group: "inventory", tone: "error" },
   "review.new": { scope: "tenant", permission: "reviews.moderate", label: "New reviews", group: "customers", tone: "info" },

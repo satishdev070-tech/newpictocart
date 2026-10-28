@@ -901,9 +901,16 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   mark read on click, mark all as read, keeps the "needs attention" counters, link to the page), `/dashboard/notifications`
   and `/admin/notifications` (all/unread + group filters, pagination, mark unread, per-type in-app preferences at
   `?tab=preferences`), "Recent activity" card on the dashboard home. Live via Supabase Realtime + 60 s polling fallback.
+  `stock.low` / `stock.out` are in the catalog and mute UI; rows are produced by the `inventory_levels` DB trigger
+  (`app.notify_on_stock`) when available stock crosses the low threshold or hits zero — no app-level emit required.
+- **Sounds** — when the tab is visible and unread rises for `order.new`, `payment.received`, `stock.low`, or
+  `stock.out`, the seller bell plays a short tone (`public/sounds/*.wav`). Sound on/off + tone (chime / ping / soft /
+  bright / alert) live in `localStorage` (`pc_notification_sound`); type mutes stay in `notification_preferences`.
+  `AudioContext` unlocks on the first dashboard pointer/key/touch. Prefs UI: `?tab=preferences` → Notification sounds.
 - **Tests** — `tests/rls/notifications.test.ts` (RLS, producers, recipients by permission, mutes, dedupe, cart recovery,
   reminders, function grants), `tests/unit/notifications/inbox.test.ts` (catalog ↔ SQL producers, AI limit sync, link
-  safety, relative time, server-resolved audience in actions, preferences).
+  safety, relative time, server-resolved audience in actions, preferences),
+  `tests/unit/notifications/sound-prefs.test.ts` (tone ids, parse/serialize, beep gating).
 - **Not done** — migration not applied to the remote Supabase project; e-mail/WhatsApp copies of these alerts.
 
 ## Demo stores: 2 live stores per category (2026-10-17)
