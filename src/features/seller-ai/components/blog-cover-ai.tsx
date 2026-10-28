@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Hint, Label, inputClassName as input } from "@/components/ui/field";
 import { importUnsplashAction, listUnsplashAction } from "@/features/media/unsplash-actions";
@@ -25,16 +25,12 @@ export function BlogCoverAi({
   onCoverPath: (path: string | null, previewUrl: string | null) => void;
 }) {
   const fileId = useId();
-  const [q, setQ] = useState(topic);
+  const [q, setQ] = useState("");
   const [photos, setPhotos] = useState<UnsplashPhoto[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [importingId, setImportingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (topic.trim().length >= 3) setQ(topic.trim());
-  }, [topic]);
 
   const searchAndMaybePick = (auto: boolean) => {
     const query = q.trim() || topic.trim();
@@ -106,7 +102,7 @@ export function BlogCoverAi({
           className={input}
           value={q}
           maxLength={80}
-          placeholder="Search photos by topic"
+          placeholder={topic.trim() || "Search photos by topic"}
           onChange={(e) => setQ(e.target.value)}
         />
         <div className="flex flex-wrap gap-2">

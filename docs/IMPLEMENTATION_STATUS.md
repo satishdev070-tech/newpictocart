@@ -1,11 +1,18 @@
 # Implementation Status
 
-_Last updated: 2026-10-28 (AI product reviews + blog Unsplash covers) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
-## AI product reviews + blog Unsplash covers (2026-10-28, branch `cursor/seller-ai-admin-ux-c73e`)
+## Seller AI admin UX suite (2026-10-28, branch `cursor/seller-ai-admin-ux-c73e`, PR #47)
 
-- **Reviews:** Dashboard → Reviews → **Generate AI Reviews** modal (product, count 3/5, positive tone) → `generateReviewsAction` / `generateJson` (`generate_reviews`) → pending `source=import` rows. Migration `20261028004800_generate_reviews.sql` (kind, 5 credits, NVIDIA route). Progress via `AiGenerationProgress`.
+- **Shared progress:** `AiGenerationProgress` used by product Generate with AI, store build, AI Reviews, and Blog AI Write (steps + clearer failure copy).
+- **Product Generate with AI:** multi-image polish; NVIDIA primary + Gemini fallback seed (`20261028004900_generate_product_gemini_fallback.sql`).
+- **Build store from prompt:** dashboard card creates categories, draft products, blogs, and pending reviews in the current store (no theme apply). Progress UI; plan product-limit check before debit; refunds on failure.
+- **Reviews:** Dashboard → Reviews → **Generate AI Reviews** modal (product, count 3/5, positive tone) → `generateReviewsAction` / `generateJson` (`generate_reviews`) → pending `source=import` rows. Migration `20261028004800_generate_reviews.sql` (kind, 5 credits, NVIDIA route).
 - **Blog:** `BlogAiWrite` shows `AiGenerationProgress`; cover/hero **Generate with AI** searches Unsplash (`listUnsplashAction` / import) by title/topic with auto-pick or picker; manual upload kept. `saveDocumentAction` accepts `coverPath` from the library import.
+- **Admin → Users list:** row menu exposes Make/Remove super admin, Add customer, Reset / temporary password, Delete (same rules as user detail).
+- **Admin live search:** debounced filters on Users and Stores lists (no full page reload per keystroke).
+- **Hosted:** apply `04800` + `04900` (and prior NVIDIA migrations `04300` / `04700` if missing). NVIDIA NIM + Unsplash keys required in Admin for generation / covers.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **140 files / 1,648 tests**, build).
 
 ## AI Credits Wallet page (2026-10-28, branch `cursor/ai-wallet-sales-gateways-c73e`)
 
