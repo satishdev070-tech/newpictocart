@@ -44,17 +44,30 @@ function StoreCell({ u }: { u: DirectoryUser }) {
 }
 
 export default async function UsersPage({ searchParams }: PageProps<"/admin/users">) {
-  await requirePlatform("platform.users.manage");
+  const ctx = await requirePlatform("platform.users.manage");
   const raw = await searchParams;
   const f = userDirectoryFilterSchema.parse(raw);
   const [dir, stats, stores] = await Promise.all([listUserDirectory(f), getUserStats(), listStoreOptions()]);
   const filtered = Boolean(f.q || f.type || f.store);
+  const actorIsSuperAdmin = ctx.role === "super_admin";
   const qs = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
     for (const [k, v] of Object.entries({ q: f.q, type: f.type, store: f.store, view: f.view === "grid" ? "grid" : undefined, ...patch })) if (v) p.set(k, v);
     const s = p.toString();
     return s ? `?${s}` : "";
   };
+  const rowMenu = (u: DirectoryUser) => (
+    <UserRowMenu
+      userId={u.userId}
+      email={u.email}
+      platformRole={u.platformRole}
+      actorIsSuperAdmin={actorIsSuperAdmin}
+      self={u.userId === ctx.user.id}
+      storeOptions={stores}
+      stores={u.stores}
+      ownedStores={u.stores.filter((s) => s.role === "owner").map((s) => s.name)}
+    />
+  );
   return (
     <div className="space-y-6">
       <PageHeader title="Users" description="Every account on the platform: staff, sellers and shoppers. Open a user for their stores, sign-ins and audit trail." actions={<AddUserButton />} />
@@ -127,7 +140,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/admin/user
                   </Link>
                   <p className="truncate text-caption text-muted">{u.email}</p>
                 </div>
-                <UserRowMenu userId={u.userId} stores={u.stores} />
+                {rowMenu(u)}
               </div>
               <div className="mt-2">
                 <TypeBadges types={u.types} />
@@ -178,9 +191,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/admin/user
                   {formatDate(u.createdAt)}
                   {u.lastSignInAt ? <p className="text-caption text-muted">Last sign-in {formatDateTime(u.lastSignInAt)}</p> : null}
                 </td>
-                <td className={td}>
-                  <UserRowMenu userId={u.userId} stores={u.stores} />
-                </td>
+                <td className={td}>{rowMenu(u)}</td>
               </tr>
             ))}
           </tbody>
