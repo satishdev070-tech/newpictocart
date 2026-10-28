@@ -9,10 +9,12 @@ import { logger } from "@/lib/observability/logger";
 import { assertPlatformPermission, type PlatformContext } from "@/lib/platform/access";
 import type { Json } from "@/lib/supabase/database.types";
 import { listResendDomains, senderDomain } from "@/lib/email/resend";
+import { isSarvamConfigured } from "@/lib/sarvam/client";
 import {
   AI_PROVIDERS,
   APP_PROVIDERS,
   cleanExtra,
+  envNamesFor,
   needsClientId,
   resolveCredential,
   toStatus,
@@ -55,6 +57,21 @@ export const getAppCredential = cache(async (provider: AppProvider): Promise<App
 export async function getAiProviderOrder(): Promise<AiProvider[]> {
   const creds = await Promise.all(AI_PROVIDERS.map((p) => getAppCredential(p)));
   return AI_PROVIDERS.filter((_, i) => creds[i] !== null);
+}
+
+/**
+ * Presence-only check for theme-editor gating: true when Sarvam is configured, any AI env key is
+ * set, or a DB row has `secret_ciphertext`. Does not decrypt — cheap enough for every builder load.
+ */
+export async function hasAiProviderConfigured(): Promise<boolean> {
+  if (isSarvamConfigured()) return true;
+  const env = serverEnv();
+  for (const p of AI_PROVIDERS) {
+    const name = envNamesFor(p).secret;
+    if (env[name as keyof typeof env]) return true;
+  }
+  const rows = await Promise.all(AI_PROVIDERS.map((p) => loadRow(p)));
+  return rows.some((r) => Boolean(r?.secret_ciphertext));
 }
 
 /** Configured or not + source + masked hint for every provider. Never returns secrets. */

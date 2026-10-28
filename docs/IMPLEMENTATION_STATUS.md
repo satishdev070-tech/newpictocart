@@ -22,6 +22,40 @@ _Last updated: 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10
   - Adding Marathi, Gujarati, Tamil, Telugu or Bengali means adding the code to `LOCALES` plus two files. `Record<Locale, …>` makes typecheck demand them.
   - Storefront and emails are unchanged.
 - **Tests:** `tests/unit/i18n.test.ts` (cookie parse, key and placeholder parity, nav coverage, `t()`) and `tests/unit/tours.test.ts` (route matching, unique step ids, every target present in the source, text parity per locale, popover placement).
+_Last updated: 2026-10-28 (seller AI suite) · 2026-10-27 (seller/admin Phase 1 speed) · 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+
+## Seller AI suite (2026-10-28)
+
+Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coach. Next.js owns auth, permissions (`runAction` + membership), credits, and **in-process** LLM calls via neural-pulse `generateJson` (same Admin → Social apps keys as AI Health). Edge Functions remain optional (`invokeSellerAi`).
+
+- **Happy path:** `runSellerAiGeneration` → `loadProviders` (SETUP only when empty) → debit → `generateJson` (+ `orderForImages` when vision) → refund on fail → `ai_generations`. Prompts in `src/features/seller-ai/prompts.ts`.
+- **False SETUP fix:** `invoke.ts` no longer maps every HTTP 503 to SETUP; only `error === "not_configured"` (or Next with zero providers). Other 502/503 → distinct edge-unavailable message. Invoke sends `apikey` + `Authorization`.
+- **Edge functions (optional):** `supabase/functions/generate-product`, `generate-blog`, `generate-contact-reply`, `business-coach` (+ `_shared` auth/LLM).
+- **UI:** Products editor “Generate with AI”; Blog “AI Write”; Messages “Draft AI reply”; Dashboard Business Coach card.
+- **Credits / registry:** Migration `20261028004200_seller_ai_suite.sql`; features in `ai-health/registry.ts`.
+- **Hosted:** Edge + migration applied on `ugbjlpdhktrlkyuijkfc` (2026-10-28).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **130 files / 1,546 tests**, build). Seller-ai unit tests under `tests/unit/seller-ai/`.
+- **Branch (backend fix):** `cursor/seller-ai-false-setup-ui-c73e`.
+
+## Seller / admin Phase 1 speed (2026-10-27)
+
+Dashboard and Super Admin stay **live** (no Data Cache on private tenant product/order lists — ADR-010). Phase 1 cuts serial DB waves and caches only public catalogues (marketplace themes, open demo origins, platform `product_types`).
+
+- **Dashboard layout:** `getStoreSiteMode` runs in the same `Promise.all` as alerts / bell / trial (was a solo query before those).
+- **Theme marketplace:** catalogue + tenant keys/entitlements/industry + open demos in one wave; `publishedCustomThemes` and open demo origins use production `unstable_cache` (`MARKETPLACE_*` tags); theme builder `refresh()` calls `revalidateMarketplaceCatalogue()`.
+- **Theme editor:** menus load in the first `Promise.all` (embedded `menus→menu_items`, filter by handles after); `hasAiProviderConfigured()` gates AI without decrypting secrets; `SiteBuilder` is a `next/dynamic` import with a loading skeleton.
+- **Admin signup chart:** `getSignupSeries` one `tenants.created_at` range select + `bucketCounts` (was 12 head counts).
+- **Products list:** unused category/collection/SKU prep already skipped; filter picker uses lean `listCategoryFilterOptions`; `platformRows()` cached in production (tag `platform-product-types`, 600 s) with write-path revalidate.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, 126 files / 1,531 tests, build). Branch `cursor/seller-admin-speed-phase1-c73e`.
+
+## Optional Upstash Redis L2 for public storefront cache (2026-10-27)
+
+- **Why:** cold Vercel instances miss Next Data Cache and re-hit Supabase for directory/theme/profile. Free-tier Upstash shares those public reads across instances.
+- **How:** `@upstash/redis` behind `cachedStorefront` (`src/lib/cache/storefront.ts` + `src/lib/cache/redis.ts`). L1 stays `unstable_cache`; L2 is Redis when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set (both optional; unset = previous behaviour). Invalidation deletes indexed Redis keys with `revalidateStorefront` / `revalidateTenantDirectory` / `revalidateAllStorefronts`.
+- **Scope:** public storefront loaders only (same ADR-010 rules). Not cart, session, dashboard, secrets, or catalog/product/price/stock. Rate limits stay Postgres (ADR-025).
+- **Ops:** create an Upstash DB near Mumbai, set the two env vars on Vercel. Aim to stay on the free tier; upgrade only if commands approach the daily cap.
+- **Verification:** unit tests in `storefront-cache.test.ts` (env-off, L2 hit/miss, indexed delete).
 
 ## Storefront performance: cache scope, fewer DB waves, zod out of the client (2026-10-27)
 

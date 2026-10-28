@@ -27,6 +27,22 @@ export type CategoryRow = {
 const seoOf = (v: unknown) => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 const s = (v: unknown) => (typeof v === "string" ? v : "");
 
+export type CategoryFilterOption = FlatCategory<{ id: string; parentId: string | null; name: string; position: number }>;
+
+/** Lean category list for dashboard filter pickers (id/parent/name/position only). */
+export async function listCategoryFilterOptions(tenantId: string): Promise<CategoryFilterOption[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, parent_id, name, position")
+    .eq("tenant_id", tenantId)
+    .order("position")
+    .limit(2000);
+  if (error) throw mapDbError(error);
+  const rows = (data ?? []).map((c) => ({ id: c.id, parentId: c.parent_id, name: c.name, position: c.position }));
+  return flattenCategoryTree(rows);
+}
+
 /** All categories of the tenant, depth-first with depth + ancestor path. */
 export async function listCategories(tenantId: string, opts: { withCounts?: boolean } = {}): Promise<FlatCategory<CategoryRow>[]> {
   const supabase = await createSupabaseServerClient();

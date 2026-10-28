@@ -383,6 +383,16 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
+# Seller AI suite: auth is enforced inside each function (service-role / invoke secret from Next).
+[functions.generate-product]
+verify_jwt = false
+[functions.generate-blog]
+verify_jwt = false
+[functions.generate-contact-reply]
+verify_jwt = false
+[functions.business-coach]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

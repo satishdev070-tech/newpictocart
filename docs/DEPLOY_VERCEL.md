@@ -47,6 +47,8 @@ Secrets are never exposed to the browser: only `NEXT_PUBLIC_*` values are.
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | optional | Fallback for Admin → Social apps (Google Business) |
 | `GEMINI_API_KEY`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY` | optional | AI fallbacks for Admin → Social apps |
 | `UNSPLASH_ACCESS_KEY` | optional | Category photos on marketing theme cards (cached 1 day); blank = curated built-in photos |
+| `UPSTASH_REDIS_REST_URL` | optional | Upstash Redis REST URL for storefront L2 cache (pair with token; leave blank to skip) |
+| `UPSTASH_REDIS_REST_TOKEN` | optional | Upstash Redis REST token (server only). Prefer a DB in Mumbai / `ap-south-1` |
 | `EDGE_SHARED_SECRET` | no (Cloudflare only) | Only for the Cloudflare Worker; leave unset on Vercel |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID`, `CUSTOM_DOMAIN_CNAME_TARGET` | no (Cloudflare only) | Ignored for new domains when the Vercel variables are set |
 
