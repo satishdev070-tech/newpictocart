@@ -40,23 +40,30 @@ export function AiGenerationProgress({
   className?: string;
   stepMs?: number;
 }) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  /** Ticks elapsed while pending (advanced only from the interval callback). */
+  const [ticks, setTicks] = useState(0);
 
   useEffect(() => {
-    if (status !== "pending") {
-      if (status === "success") setActiveIndex(Math.max(0, steps.length - 1));
-      return;
-    }
-    setActiveIndex(0);
-    if (steps.length <= 1) return;
-    const lastAdvanceable = steps.length - 2;
+    if (status !== "pending") return;
+    const lastAdvanceable = Math.max(0, steps.length - 2);
     const id = window.setInterval(() => {
-      setActiveIndex((i) => (i >= lastAdvanceable ? i : i + 1));
+      setTicks((t) => (t >= lastAdvanceable ? t : t + 1));
     }, stepMs);
     return () => window.clearInterval(id);
   }, [status, steps.length, stepMs]);
 
+  // Remount-friendly reset: when a new pending run starts, bump via a deferred write so the
+  // effect body itself never calls setState synchronously (react-hooks/set-state-in-effect).
+  useEffect(() => {
+    if (status !== "pending") return;
+    const kick = window.setTimeout(() => setTicks(0), 0);
+    return () => window.clearTimeout(kick);
+  }, [status]);
+
   if (status === "idle" || steps.length === 0) return null;
+
+  const activeIndex =
+    status === "success" ? Math.max(0, steps.length - 1) : Math.min(ticks, Math.max(0, steps.length - 1));
 
   const stateFor = (i: number): StepState => {
     if (status === "success") return "done";
@@ -111,7 +118,7 @@ export function AiGenerationProgress({
         />
       </div>
 
-      <ol className="grid gap-2 sm:grid-cols-4">
+      <ol className={cn("grid gap-2", steps.length <= 3 ? "sm:grid-cols-3" : "sm:grid-cols-4")}>
         {steps.map((step, i) => {
           const state = stateFor(i);
           const Icon = step.icon;
@@ -162,4 +169,18 @@ export const PRODUCT_GENERATE_STEPS: readonly AiGenerationStep[] = [
   { id: "analyze", label: "Analyze", icon: ScanSearch },
   { id: "write", label: "Write", icon: PenLine },
   { id: "done", label: "Done", icon: Check },
+];
+
+/** Blog AI Write stages. */
+export const BLOG_WRITE_STEPS: readonly AiGenerationStep[] = [
+  { id: "topic", label: "Topic", icon: ScanSearch },
+  { id: "write", label: "Write", icon: PenLine },
+  { id: "apply", label: "Apply", icon: Check },
+];
+
+/** Generate AI Reviews stages. */
+export const GENERATE_REVIEWS_STEPS: readonly AiGenerationStep[] = [
+  { id: "product", label: "Product", icon: ScanSearch },
+  { id: "write", label: "Write", icon: PenLine },
+  { id: "save", label: "Save", icon: Check },
 ];
