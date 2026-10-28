@@ -1,18 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LayoutGrid, LayoutList, Search } from "lucide-react";
 import { requirePlatform } from "@/lib/platform/access";
 import { Badge, PageHeader, StatCard, Table, td, th } from "@/components/ui/layout";
 import { EmptyState } from "@/components/ui/states";
 import { Pagination } from "@/components/ui/pagination";
 import { formatDate, formatDateTime } from "@/features/analytics/dates";
-import { USER_PAGE_SIZE, USER_TYPE_LABEL, USER_TYPES, userDirectoryFilterSchema, type DirectoryUser, type UserType } from "@/features/platform-users/schemas";
+import { USER_PAGE_SIZE, USER_TYPE_LABEL, userDirectoryFilterSchema, type DirectoryUser, type UserType } from "@/features/platform-users/schemas";
 import { getUserStats, listStoreOptions, listUserDirectory } from "@/features/platform-users/server";
 import { AddUserButton, UserRowMenu } from "@/features/platform-users/components";
+import { UsersDirectoryFilters } from "@/features/platform-users/directory-filters";
 
 export const metadata: Metadata = { title: "Users" };
 
-const ctl = "h-9 rounded-md border border-border bg-surface px-3 text-small";
 const TYPE_TONE: Record<UserType, "accent" | "success" | "info" | "neutral"> = { platform: "accent", seller: "success", customer: "info", account: "neutral" };
 
 function TypeBadges({ types }: { types: UserType[] }) {
@@ -50,12 +49,6 @@ export default async function UsersPage({ searchParams }: PageProps<"/admin/user
   const [dir, stats, stores] = await Promise.all([listUserDirectory(f), getUserStats(), listStoreOptions()]);
   const filtered = Boolean(f.q || f.type || f.store);
   const actorIsSuperAdmin = ctx.role === "super_admin";
-  const qs = (patch: Record<string, string | undefined>) => {
-    const p = new URLSearchParams();
-    for (const [k, v] of Object.entries({ q: f.q, type: f.type, store: f.store, view: f.view === "grid" ? "grid" : undefined, ...patch })) if (v) p.set(k, v);
-    const s = p.toString();
-    return s ? `?${s}` : "";
-  };
   const rowMenu = (u: DirectoryUser) => (
     <UserRowMenu
       userId={u.userId}
@@ -82,47 +75,7 @@ export default async function UsersPage({ searchParams }: PageProps<"/admin/user
           <StatCard label="Customers" value={stats.customers} tone="sky" hint="Shoppers with an account" />
         </div>
       ) : null}
-      <form className="grid gap-2 sm:flex sm:flex-wrap sm:items-end" role="search">
-        <div className="relative sm:min-w-72 sm:flex-1">
-          <label className="sr-only" htmlFor="q">
-            Search users
-          </label>
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" aria-hidden />
-          <input id="q" name="q" defaultValue={f.q ?? ""} placeholder="Name, email, phone, store or theme" className={`${ctl} w-full pl-9`} />
-        </div>
-        <label className="sr-only" htmlFor="type">
-          Type
-        </label>
-        <select id="type" name="type" defaultValue={f.type ?? ""} className={ctl}>
-          <option value="">All types</option>
-          {USER_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {USER_TYPE_LABEL[t]}
-            </option>
-          ))}
-        </select>
-        <label className="sr-only" htmlFor="store">
-          Store
-        </label>
-        <select id="store" name="store" defaultValue={f.store ?? ""} className={`${ctl} max-w-60`}>
-          <option value="">All stores</option>
-          {stores.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-        {f.view === "grid" ? <input type="hidden" name="view" value="grid" /> : null}
-        <button className="h-9 rounded-md bg-primary px-4 text-small font-medium text-primary-foreground">Filter</button>
-        <div className="ml-auto flex gap-1" aria-label="View">
-          <Link href={qs({ view: undefined })} aria-label="List view" aria-current={f.view === "list" ? "true" : undefined} className="rounded-md p-2 text-muted hover:bg-surface-secondary aria-[current]:bg-surface-secondary aria-[current]:text-foreground">
-            <LayoutList className="size-4" aria-hidden />
-          </Link>
-          <Link href={qs({ view: "grid" })} aria-label="Grid view" aria-current={f.view === "grid" ? "true" : undefined} className="rounded-md p-2 text-muted hover:bg-surface-secondary aria-[current]:bg-surface-secondary aria-[current]:text-foreground">
-            <LayoutGrid className="size-4" aria-hidden />
-          </Link>
-        </div>
-      </form>
+      <UsersDirectoryFilters stores={stores} />
       <p className="text-small text-muted">
         {dir.total} user{dir.total === 1 ? "" : "s"}
         {filtered ? " match your filters" : ""}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useId, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { MoreVertical } from "lucide-react";
 import type { ActionResult } from "@/lib/actions/result";
@@ -38,23 +38,21 @@ function Dialog({ title, trigger, triggerVariant = "secondary", children }: { ti
 /** Opens immediately (e.g. from a ⋮ menu item). Esc / backdrop close call `onClose`. */
 function OpenDialog({ title, onClose, children }: { title: string; onClose: () => void; children: (close: () => void) => ReactNode }) {
   const id = useId();
-  const ref = useRef<HTMLDialogElement>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-  const close = () => {
-    ref.current?.close();
-    onCloseRef.current();
-  };
+  const dialogId = `${id}-open`;
+  const el = () => document.getElementById(dialogId) as HTMLDialogElement | null;
+  // Closing the dialog (button or Esc) fires the native `close` event → onClose.
+  const close = () => el()?.close();
   useEffect(() => {
-    const d = ref.current;
+    const d = el();
     if (!d) return;
     if (!d.open) d.showModal();
-    const onNativeClose = () => onCloseRef.current();
+    const onNativeClose = () => onClose();
     d.addEventListener("close", onNativeClose);
     return () => d.removeEventListener("close", onNativeClose);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open once on mount
   }, []);
   return (
-    <dialog ref={ref} aria-labelledby={id} className="m-auto w-[min(92vw,500px)] rounded-lg border border-border bg-surface p-0 text-foreground backdrop:bg-black/40">
+    <dialog id={dialogId} aria-labelledby={id} className="m-auto w-[min(92vw,500px)] rounded-lg border border-border bg-surface p-0 text-foreground backdrop:bg-black/40">
       <div className="space-y-4 p-5">
         <h2 id={id} className="text-base font-semibold">
           {title}
