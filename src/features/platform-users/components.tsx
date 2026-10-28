@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useId, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useId, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { MoreVertical } from "lucide-react";
 import type { ActionResult } from "@/lib/actions/result";
@@ -9,6 +9,7 @@ import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
 import { Popover, PopoverItem } from "@/components/app-shell/popover";
 import { ActionDialog, HiddenFields } from "@/features/settings/ui/action-controls";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/field";
+import { useToast } from "@/components/ui/toast";
 import { addCustomerRoleAction, createAccountAction, deleteAccountAction, grantSuperAdminAction, revokeSuperAdminAction, sendAccountResetAction, setAccountStatusAction, setTemporaryPasswordAction, type AccountLinkResult } from "./actions";
 import { DELETE_CONFIRM_PHRASE, isDeleteConfirmed } from "./rules";
 
@@ -31,6 +32,34 @@ function Dialog({ title, trigger, triggerVariant = "secondary", children }: { ti
         </div>
       </dialog>
     </>
+  );
+}
+
+/** Opens immediately (e.g. from a ⋮ menu item). Esc / backdrop close call `onClose`. */
+function OpenDialog({ title, onClose, children }: { title: string; onClose: () => void; children: (close: () => void) => ReactNode }) {
+  const id = useId();
+  const dialogId = `${id}-open`;
+  const el = () => document.getElementById(dialogId) as HTMLDialogElement | null;
+  // Closing the dialog (button or Esc) fires the native `close` event → onClose.
+  const close = () => el()?.close();
+  useEffect(() => {
+    const d = el();
+    if (!d) return;
+    if (!d.open) d.showModal();
+    const onNativeClose = () => onClose();
+    d.addEventListener("close", onNativeClose);
+    return () => d.removeEventListener("close", onNativeClose);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open once on mount
+  }, []);
+  return (
+    <dialog id={dialogId} aria-labelledby={id} className="m-auto w-[min(92vw,500px)] rounded-lg border border-border bg-surface p-0 text-foreground backdrop:bg-black/40">
+      <div className="space-y-4 p-5">
+        <h2 id={id} className="text-base font-semibold">
+          {title}
+        </h2>
+        {children(close)}
+      </div>
+    </dialog>
   );
 }
 
@@ -201,6 +230,7 @@ function DeleteBody({ userId, email, ownedStores, close }: { userId: string; ema
             onClick={() => {
               close();
               router.push("/admin/users");
+              router.refresh();
             }}
           >
             Back to users
@@ -326,17 +356,129 @@ export function AccountActions({ userId, email, disabled, manageable, self, plat
   );
 }
 
-/** ⋮ menu on a directory row. */
-export function UserRowMenu({ userId, stores }: { userId: string; stores: { tenantId: string; name: string }[] }) {
+function ReasonActionBody({
+  action,
+  userId,
+  description,
+  submit,
+  success,
+  danger,
+  close,
+}: {
+  action: typeof grantSuperAdminAction;
+  userId: string;
+  description: string;
+  submit: string;
+  success: string;
+  danger?: boolean;
+  close: () => void;
+}) {
+  const [state, formAction] = useActionState(action, null);
+  const { show } = useToast();
+  useEffect(() => {
+    if (state?.ok) {
+      show({ tone: "success", message: success });
+      close();
+    }
+  }, [state, show, success, close]);
   return (
-    <Popover trigger={<MoreVertical className="size-4" aria-hidden />} label="User actions" className="w-60">
-      <PopoverItem href={`/admin/users/${userId}`}>View details & activity</PopoverItem>
-      {stores.slice(0, 3).map((s) => (
-        <PopoverItem key={s.tenantId} href={`/admin/tenants/${s.tenantId}`}>
-          Open store: {s.name}
-        </PopoverItem>
-      ))}
-      <PopoverItem href={`/admin/audit?actor=${userId}`}>Audit log entries</PopoverItem>
-    </Popover>
+    <form action={formAction} className="space-y-4">
+      <HiddenFields fields={{ userId }} />
+      <p className="text-sm text-muted">{description}</p>
+      <FormMessage state={state} />
+      {reasonField(fieldErrors(state).reason)}
+      <DialogButtons close={close} submit={submit} danger={danger} />
+    </form>
+  );
+}
+
+export type UserRowMenuProps = {
+  userId: string;
+  email: string | null;
+  platformRole: string | null;
+  actorIsSuperAdmin: boolean;
+  self: boolean;
+  /** All stores (Add customer role). */
+  storeOptions: { id: string; name: string }[];
+  /** Memberships for quick store links. */
+  stores: { tenantId: string; name: string }[];
+  ownedStores: string[];
+};
+
+type RowDialog = "reset" | "temp" | "customer" | "delete" | "grant" | "revoke";
+
+/** ⋮ menu on a directory row — same actions as the detail page AccountActions. */
+export function UserRowMenu({ userId, email, platformRole, actorIsSuperAdmin, self, storeOptions, stores, ownedStores }: UserRowMenuProps) {
+  const [dialog, setDialog] = useState<RowDialog | null>(null);
+  const closeDialog = () => setDialog(null);
+  const manageable = !platformRole && !self;
+  const titles: Record<RowDialog, string> = {
+    reset: "Send a password reset link",
+    temp: "Set a temporary password",
+    customer: "Add the Customer role",
+    delete: "Delete user",
+    grant: "Make super admin?",
+    revoke: "Remove super admin?",
+  };
+  return (
+    <>
+      <Popover trigger={<MoreVertical className="size-4" aria-hidden />} label="User actions" className="w-60">
+        <PopoverItem href={`/admin/users/${userId}`}>View details & activity</PopoverItem>
+        {stores.slice(0, 3).map((s) => (
+          <PopoverItem key={s.tenantId} href={`/admin/tenants/${s.tenantId}`}>
+            Open store: {s.name}
+          </PopoverItem>
+        ))}
+        <PopoverItem href={`/admin/audit?actor=${userId}`}>Audit log entries</PopoverItem>
+        {manageable && email ? (
+          <>
+            <PopoverItem onClick={() => setDialog("reset")}>Reset password</PopoverItem>
+            {actorIsSuperAdmin ? <PopoverItem onClick={() => setDialog("temp")}>Temporary password</PopoverItem> : null}
+            <PopoverItem onClick={() => setDialog("customer")}>Add customer role</PopoverItem>
+          </>
+        ) : null}
+        {actorIsSuperAdmin && !self && !platformRole ? <PopoverItem onClick={() => setDialog("grant")}>Make super admin</PopoverItem> : null}
+        {actorIsSuperAdmin && !self && platformRole === "super_admin" ? <PopoverItem onClick={() => setDialog("revoke")}>Remove super admin</PopoverItem> : null}
+        {actorIsSuperAdmin && manageable && email ? (
+          <PopoverItem onClick={() => setDialog("delete")}>
+            <span className="text-error">Delete</span>
+          </PopoverItem>
+        ) : null}
+      </Popover>
+      {dialog ? (
+        <OpenDialog title={titles[dialog]} onClose={closeDialog}>
+          {(close) => {
+            if (dialog === "grant")
+              return (
+                <ReasonActionBody
+                  action={grantSuperAdminAction}
+                  userId={userId}
+                  description="Full access to every store, user and platform setting. They sign in on the same page and land in this console."
+                  submit="Make super admin"
+                  success="Super admin granted."
+                  close={close}
+                />
+              );
+            if (dialog === "revoke")
+              return (
+                <ReasonActionBody
+                  action={revokeSuperAdminAction}
+                  userId={userId}
+                  description="They lose access to this console at once. Their stores and customer records stay."
+                  submit="Remove"
+                  success="Super admin removed."
+                  danger
+                  close={close}
+                />
+              );
+            if (!email) return null;
+            if (dialog === "reset") return <ResetBody userId={userId} email={email} close={close} />;
+            if (dialog === "temp") return <TempPasswordBody userId={userId} email={email} close={close} />;
+            if (dialog === "customer") return <AddCustomerBody userId={userId} stores={storeOptions} close={close} />;
+            return <DeleteBody userId={userId} email={email} ownedStores={ownedStores} close={close} />;
+          }}
+        </OpenDialog>
+      ) : null}
+    </>
   );
 }

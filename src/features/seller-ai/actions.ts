@@ -10,7 +10,10 @@ import { can } from "@/lib/tenant/membership";
 import { getLocale } from "@/lib/i18n/server";
 import { logger } from "@/lib/observability/logger";
 import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
+import { refresh } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { mapDbError } from "@/lib/supabase/errors";
+import { audit } from "@/lib/audit";
 import { listCategoryFilterOptions } from "@/features/catalog/server/categories";
 import { getTenantTypeCatalogue } from "@/features/catalog/server/product-types";
 import { productListQuerySchema } from "@/features/catalog/schemas";
@@ -18,7 +21,7 @@ import { getAiCreditBalance, refundAiCredit } from "@/features/ai-credits/server
 import { assertProductCapacity, listProducts } from "@/features/catalog/server/products";
 import { INDUSTRY_SLUGS, isIndustry } from "@/features/stores/industries";
 import { fetchHttpsImages, fileToImagePayload, runSellerAiGeneration } from "./server";
-import { blogWritePrompt, businessCoachPrompt, contactReplyPrompt, productGeneratePrompt, storeAgentPrompt, storeSetupPrompt } from "./prompts";
+import { blogWritePrompt, businessCoachPrompt, contactReplyPrompt, generateReviewsPrompt, productGeneratePrompt, storeAgentPrompt, storeSetupPrompt } from "./prompts";
 import { buildStoreSnapshot, coachMetrics, lowStockLines, topProductLines } from "./snapshot";
 import { persistStoreSetup } from "./store-setup";
 import {
@@ -43,6 +46,9 @@ import {
   generateProductContentSchema,
   generateProductInputSchema,
   generateProductResultSchema,
+  generateReviewsContentSchema,
+  generateReviewsInputSchema,
+  generateReviewsResultSchema,
   toContentBlocks,
   type BusinessCoachResult,
   type ContactReplyResult,
@@ -141,6 +147,72 @@ export async function generateBlogAction(input: { topic: string; locale?: string
     const data = generateBlogResultSchema.parse(r.data);
     return { ...data, contentBlocks: toContentBlocks(data.blocks) };
   });
+}
+
+/** Dashboard → Reviews: draft N positive reviews for one product and insert them as pending. */
+export async function generateReviewsAction(input: {
+  productId: string;
+  count: 3 | 5;
+  tone?: "positive";
+}): Promise<ActionResult<{ inserted: number }>> {
+  const result = await runAction("sellerAi.generateReviews", async () => {
+    const ctx = await requireTenant();
+    assertPermission(ctx, "reviews.moderate");
+    const v = parseInput(generateReviewsInputSchema, { ...input, tone: input.tone ?? "positive" });
+    const supabase = await createSupabaseServerClient();
+    const { data: product, error: productError } = await supabase
+      .from("products")
+      .select("id, title, description, short_description")
+      .eq("id", v.productId)
+      .eq("tenant_id", ctx.tenantId)
+      .maybeSingle();
+    if (productError) throw mapDbError(productError);
+    if (!product) throw new AppError("NOT_FOUND", { fieldErrors: { productId: ["Product not found"] } });
+
+    const prompt = generateReviewsPrompt({
+      storeName: ctx.tenantName,
+      productTitle: product.title,
+      productDescription: product.short_description || product.description,
+      count: v.count,
+      tone: v.tone,
+    });
+    const r = await runSellerAiGeneration({
+      tenantId: ctx.tenantId,
+      userId: ctx.user.id,
+      feature: "generate_reviews",
+      creditKind: "generate_reviews",
+      input: { productId: v.productId, count: v.count, tone: v.tone },
+      prompt,
+      schema: generateReviewsContentSchema,
+    });
+    const data = generateReviewsResultSchema.parse(r.data);
+    const reviews = data.reviews.slice(0, v.count);
+    const rows = reviews.map((rev) => ({
+      tenant_id: ctx.tenantId,
+      product_id: v.productId,
+      rating: rev.rating,
+      title: rev.title.slice(0, 120),
+      body: rev.body.slice(0, 3000),
+      author_name: rev.authorName.slice(0, 80),
+      status: "pending" as const,
+      verified_purchase: false,
+      source: "import" as const,
+    }));
+    const { data: inserted, error } = await supabase.from("reviews").insert(rows).select("id");
+    if (error) throw mapDbError(error);
+    const count = inserted?.length ?? 0;
+    await audit({
+      tenantId: ctx.tenantId,
+      actorUserId: ctx.user.id,
+      action: "review.ai_generated",
+      entityType: "product",
+      entityId: v.productId,
+      metadata: { count, tone: v.tone },
+    });
+    return { inserted: count };
+  });
+  if (result.ok) refresh();
+  return result;
 }
 
 export async function generateContactReplyAction(input: z.input<typeof contactReplyInputSchema>): Promise<ActionResult<ContactReplyResult>> {
@@ -276,8 +348,8 @@ export async function askStoreAgentAction(input: AgentChatInput): Promise<Action
 }
 
 /**
- * "Set up your store from a prompt": description + product names (+ optional photos, matched by
- * position) → categories and draft products in THIS store, optionally the matching theme as a draft.
+ * Build your store from a prompt: description + product names (+ optional photos by position) →
+ * categories, draft products, draft blogs and pending sample reviews in THIS store.
  */
 export async function setupStoreFromPromptAction(fd: FormData): Promise<ActionResult<StoreSetupResult>> {
   return runAction("sellerAi.storeSetup", async () => {
@@ -290,11 +362,9 @@ export async function setupStoreFromPromptAction(fd: FormData): Promise<ActionRe
     const v = parseInput(storeSetupInputSchema, {
       prompt: fd.get("prompt"),
       products: Array.isArray(names) ? names.filter((n) => typeof n === "string" && n.trim()) : [],
-      applyTheme: fd.get("applyTheme") === "true",
     });
     const ctx = await requireTenant();
     assertPermission(ctx, "catalog.write");
-    if (v.applyTheme) assertPermission(ctx, "theme.edit");
     // Fail on the plan's product limit before any credits are spent.
     await assertProductCapacity(ctx.tenantId, v.products.length || 4);
 
@@ -336,7 +406,7 @@ export async function setupStoreFromPromptAction(fd: FormData): Promise<ActionRe
     const plan = storeSetupContentSchema.parse(r.data);
     const industry = currentIndustry ?? (plan.industry && isIndustry(plan.industry) ? plan.industry : null);
     try {
-      return await persistStoreSetup(ctx, plan, { industry, applyTheme: v.applyTheme, images: files });
+      return await persistStoreSetup(ctx, plan, { industry, images: files });
     } catch (err) {
       await refundAiCredit(r.charge, err instanceof Error ? err.message : "store setup failed");
       throw err;

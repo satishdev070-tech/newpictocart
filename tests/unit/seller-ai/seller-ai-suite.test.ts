@@ -14,7 +14,10 @@ import { readFileSync } from "node:fs";
 
 const img = { mediaType: "image/jpeg" as const, data: "QUJD" };
 const NVIDIA_TEXT = DEFAULT_MODELS.nvidia;
-const ROUTES_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261028004700_nvidia_seller_ai_default_routes.sql", import.meta.url), "utf8");
+const ROUTES_MIGRATION = [
+  readFileSync(new URL("../../../supabase/migrations/20261028004700_nvidia_seller_ai_default_routes.sql", import.meta.url), "utf8"),
+  readFileSync(new URL("../../../supabase/migrations/20261028004800_generate_reviews.sql", import.meta.url), "utf8"),
+].join("\n");
 
 describe("NVIDIA NIM provider", () => {
   it("defaults to Nemotron Omni text and Llama vision", () => {
@@ -106,10 +109,11 @@ describe("NVIDIA NIM provider", () => {
   });
 
   it("seeds seller AI Health routes to Nemotron Omni when unset", () => {
-    expect([...SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS]).toEqual(["generate_product", "generate_blog", "store_agent", "contact_reply", "business_coach"]);
+    expect([...SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS]).toEqual(["generate_product", "generate_blog", "store_agent", "contact_reply", "business_coach", "generate_reviews"]);
     for (const key of SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS) {
       expect(ROUTES_MIGRATION).toContain(`('${key}', 'nvidia', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'`);
     }
+    expect(ROUTES_MIGRATION).toContain("('generate_product', 'nvidia', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning', 'gemini', 'gemini-3.8-flash', true)");
     expect(ROUTES_MIGRATION).toContain("on conflict (feature_key) do nothing");
   });
 });
@@ -150,11 +154,14 @@ describe("seller AI prompts", () => {
     for (const key of Object.keys(AGENT_LINKS)) expect(p.system).toContain(key);
   });
 
-  it("asks for one product per seller product name", () => {
+  it("asks for one product per seller product name plus blogs and reviews", () => {
     const p = storeSetupPrompt({ storeName: "Kids", prompt: "Festive kidswear", products: ["Lehenga set", "Kurta pyjama"], industries: ["fashion", "kids"], language: "en" });
     expect(p.system).toContain("2 products");
     expect(p.user).toContain("1. Lehenga set");
     expect(p.system).toContain("[fashion, kids]");
+    expect(p.system).toMatch(/blogs/i);
+    expect(p.system).toMatch(/reviews/i);
+    expect(p.user).toMatch(/blogs and reviews/i);
   });
 });
 
@@ -190,17 +197,28 @@ describe("seller AI response parsing", () => {
     expect(businessCoachContentSchema.safeParse({ headline: "Grow", focus: "", tips: [{ title: "x", detail: "y", priority: "urgent" }] }).success).toBe(false);
   });
 
-  it("normalises a store setup plan", () => {
+  it("normalises a store setup plan with blogs and reviews", () => {
     const plan = storeSetupContentSchema.parse({
       industry: 42,
       categories: [{ name: "Family Sets", slug: "Family Sets!" }],
       products: [{ title: "Matching kurta", categorySlug: "family sets", priceMinor: 129900, tags: "nope" }],
+      blogs: [{ title: "Festive tips", slug: "Festive Tips!", paragraphs: ["Start early.", "Keep it soft."] }],
+      reviews: [
+        { productTitle: "Matching kurta", authorName: "Ananya R.", rating: 5, body: "Lovely set for Diwali." },
+        { productTitle: "Matching kurta", authorName: "Rahul K.", rating: 4, title: "Soft fabric", body: "Comfortable for kids." },
+        { productTitle: "Matching kurta", authorName: "Priya M.", rating: 5, body: "Got many compliments." },
+      ],
     });
     expect(plan.industry).toBeNull();
     expect(plan.categories[0]!.slug).toBe("family-sets");
     expect(plan.products[0]).toMatchObject({ categorySlug: "family-sets", tags: [], description: "" });
+    expect(plan.blogs[0]).toMatchObject({ slug: "festive-tips", paragraphs: ["Start early.", "Keep it soft."] });
+    expect(plan.reviews).toHaveLength(3);
+    expect(storeSetupContentSchema.parse({ categories: [{ name: "A", slug: "a" }], products: [{ title: "x", categorySlug: "a", priceMinor: 129900 }] }).blogs).toEqual([]);
     expect(storeSetupContentSchema.safeParse({ categories: [{ name: "A", slug: "a" }], products: [{ title: "x", categorySlug: "a", priceMinor: 12.5 }] }).success).toBe(false);
     expect(storeSetupInputSchema.safeParse({ prompt: "short" }).success).toBe(false);
+    expect(storeSetupInputSchema.safeParse({ prompt: "A festive kidswear boutique for families", products: ["Kurta"] }).success).toBe(true);
+    expect("applyTheme" in (storeSetupInputSchema.parse({ prompt: "A festive kidswear boutique for families" }) as object)).toBe(false);
   });
 
   it("finds a free slug", () => {

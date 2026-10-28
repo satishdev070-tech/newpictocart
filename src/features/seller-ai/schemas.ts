@@ -98,7 +98,29 @@ export const businessCoachContentSchema = z.object({
 export const businessCoachResultSchema = businessCoachContentSchema.merge(generationMetaSchema);
 export type BusinessCoachResult = z.infer<typeof businessCoachResultSchema>;
 
-export const SELLER_AI_CREDIT_KINDS = ["generate_product", "generate_blog", "contact_reply", "business_coach", "store_agent", "store_setup"] as const;
+export const generateReviewsInputSchema = z.object({
+  productId: z.uuid(),
+  count: z.union([z.literal(3), z.literal(5)]),
+  tone: z.enum(["positive"]).default("positive"),
+});
+
+export const generateReviewsContentSchema = z.object({
+  reviews: z
+    .array(
+      z.object({
+        authorName: z.string().trim().min(1).max(80),
+        rating: z.number().int().min(4).max(5),
+        title: z.string().trim().min(1).max(120),
+        body: z.string().trim().min(1).max(3000),
+      }),
+    )
+    .min(1)
+    .max(5),
+});
+export const generateReviewsResultSchema = generateReviewsContentSchema.merge(generationMetaSchema);
+export type GenerateReviewsResult = z.infer<typeof generateReviewsResultSchema>;
+
+export const SELLER_AI_CREDIT_KINDS = ["generate_product", "generate_blog", "contact_reply", "business_coach", "store_agent", "store_setup", "generate_reviews"] as const;
 export type SellerAiCreditKind = (typeof SELLER_AI_CREDIT_KINDS)[number];
 
 export const SELLER_AI_KIND_LABELS: Record<SellerAiCreditKind, string> = {
@@ -107,7 +129,8 @@ export const SELLER_AI_KIND_LABELS: Record<SellerAiCreditKind, string> = {
   contact_reply: "Contact reply draft",
   business_coach: "Business coach",
   store_agent: "Pica2 AI Assistant",
-  store_setup: "Store setup from a prompt",
+  store_setup: "Build your store from a prompt",
+  generate_reviews: "Generate AI product reviews",
 };
 
 // ---- Store agent chat ------------------------------------------------------------------------
@@ -183,14 +206,17 @@ export const agentReplyContentSchema = z.object({
 export const agentReplyResultSchema = agentReplyContentSchema.merge(generationMetaSchema);
 export type AgentReplyResult = z.infer<typeof agentReplyResultSchema>;
 
-// ---- Store setup from a prompt ---------------------------------------------------------------
+// ---- Build your store from a prompt ----------------------------------------------------------
 
 export const STORE_SETUP_MAX_PRODUCTS = 8;
+export const STORE_SETUP_MAX_BLOGS = 3;
+export const STORE_SETUP_MIN_BLOGS = 1;
+export const STORE_SETUP_MAX_REVIEWS = 8;
+export const STORE_SETUP_MIN_REVIEWS = 3;
 
 export const storeSetupInputSchema = z.object({
   prompt: z.string().trim().min(10, "Describe your shop in a sentence or two").max(1000),
   products: z.array(z.string().trim().max(120)).max(STORE_SETUP_MAX_PRODUCTS).default([]),
-  applyTheme: z.boolean().default(false),
 });
 
 const setupSlug = z
@@ -221,9 +247,39 @@ export const storeSetupContentSchema = z.object({
     )
     .min(1)
     .max(STORE_SETUP_MAX_PRODUCTS),
+  blogs: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(200),
+        slug: setupSlug,
+        excerpt: z.string().trim().max(500).catch("").default(""),
+        paragraphs: z.array(z.string().trim().min(1).max(5000)).min(1).max(8),
+        tags: z.array(z.string().trim().toLowerCase().min(1).max(40)).max(8).catch([]).default([]),
+        seoTitle: z.string().trim().max(120).catch("").default(""),
+        seoDescription: z.string().trim().max(320).catch("").default(""),
+      }),
+    )
+    .min(STORE_SETUP_MIN_BLOGS)
+    .max(STORE_SETUP_MAX_BLOGS)
+    .catch([])
+    .default([]),
+  reviews: z
+    .array(
+      z.object({
+        productTitle: z.string().trim().min(1).max(200),
+        authorName: z.string().trim().min(1).max(80),
+        rating: z.number().int().min(1).max(5),
+        title: z.string().trim().max(120).catch("").default(""),
+        body: z.string().trim().min(1).max(1000),
+      }),
+    )
+    .min(STORE_SETUP_MIN_REVIEWS)
+    .max(STORE_SETUP_MAX_REVIEWS)
+    .catch([])
+    .default([]),
 });
 export type StoreSetupContent = z.infer<typeof storeSetupContentSchema>;
-export type StoreSetupResult = { categories: number; products: number; themeKey: string | null; skipped: number };
+export type StoreSetupResult = { categories: number; products: number; blogs: number; reviews: number; skipped: number };
 
 /** Next free slug: `kurta`, `kurta-2`, `kurta-3`… (adds the result to `taken`). */
 export function uniqueSlug(base: string, taken: Set<string>): string {

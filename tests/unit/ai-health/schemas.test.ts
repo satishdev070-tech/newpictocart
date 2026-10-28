@@ -8,8 +8,12 @@ const SCHEMAS = readFileSync(new URL("../../../src/features/neural-pulse/schemas
 const MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261025003900_ai_economy.sql", import.meta.url), "utf8");
 const SELLER_AI_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261028004200_seller_ai_suite.sql", import.meta.url), "utf8");
 const NVIDIA_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261028004300_nvidia_provider_store_agent.sql", import.meta.url), "utf8");
-const NVIDIA_ROUTES_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261028004700_nvidia_seller_ai_default_routes.sql", import.meta.url), "utf8");
-const COST_SEEDS = `${MIGRATION}\n${SELLER_AI_MIGRATION}\n${NVIDIA_MIGRATION}`;
+const NVIDIA_ROUTES_MIGRATION = [
+  readFileSync(new URL("../../../supabase/migrations/20261028004700_nvidia_seller_ai_default_routes.sql", import.meta.url), "utf8"),
+  readFileSync(new URL("../../../supabase/migrations/20261028004800_generate_reviews.sql", import.meta.url), "utf8"),
+].join("\n");
+const REVIEWS_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261028004800_generate_reviews.sql", import.meta.url), "utf8");
+const COST_SEEDS = `${MIGRATION}\n${SELLER_AI_MIGRATION}\n${NVIDIA_MIGRATION}\n${REVIEWS_MIGRATION}`;
 
 describe("AI feature registry", () => {
   it("lists every Neural Pulse GenerationKind plus the section, seed and voice features", () => {
@@ -46,6 +50,7 @@ describe("AI feature registry", () => {
       expect(findFeature(k)?.routable).toBe(true);
       expect(NVIDIA_ROUTES_MIGRATION).toContain(`('${k}', 'nvidia', '${DEFAULT_MODELS.nvidia}'`);
     }
+    expect(NVIDIA_ROUTES_MIGRATION).toContain(`('generate_product', 'nvidia', '${DEFAULT_MODELS.nvidia}', 'gemini', '${DEFAULT_MODELS.gemini}', true)`);
   });
 });
 

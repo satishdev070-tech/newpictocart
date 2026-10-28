@@ -7,10 +7,23 @@ import { EmptyState } from "@/components/ui/states";
 import { FilterBar } from "@/features/settings/ui/filter-bar";
 import { REVIEWS_PAGE_SIZE, countSampleReviews, listReviews } from "@/features/reviews/queries";
 import { RemoveSampleReviews } from "@/features/reviews/components/remove-samples";
+import { GenerateAiReviews } from "@/features/seller-ai/components/generate-ai-reviews";
 import { ReviewModeration } from "@/features/dashboard-ui/forms";
 import { formatDate } from "@/features/analytics/dates";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Reviews" };
+
+async function listReviewProductOptions(tenantId: string) {
+  const { data } = await (await createSupabaseServerClient())
+    .from("products")
+    .select("id, title, status")
+    .eq("tenant_id", tenantId)
+    .neq("status", "archived")
+    .order("updated_at", { ascending: false })
+    .limit(200);
+  return (data ?? []).map((p) => ({ id: p.id, title: p.status === "active" ? p.title : `${p.title} (${p.status})` }));
+}
 
 export default async function ReviewsPage({ searchParams }: PageProps<"/dashboard/reviews">) {
   const ctx = await requireTenantPermission("reviews.moderate");
@@ -18,10 +31,23 @@ export default async function ReviewsPage({ searchParams }: PageProps<"/dashboar
   const status = typeof sp.status === "string" && ["pending", "approved", "rejected"].includes(sp.status) ? sp.status : sp.status === "all" ? undefined : "pending";
   const rating = Number(sp.rating) >= 1 && Number(sp.rating) <= 5 ? Number(sp.rating) : undefined;
   const page = Math.max(1, Number(sp.page) || 1);
-  const [{ rows, total }, samples] = await Promise.all([listReviews(ctx.tenantId, { status, rating, page }), countSampleReviews(ctx.tenantId)]);
+  const [{ rows, total }, samples, products] = await Promise.all([
+    listReviews(ctx.tenantId, { status, rating, page }),
+    countSampleReviews(ctx.tenantId),
+    listReviewProductOptions(ctx.tenantId),
+  ]);
   return (
     <div>
-      <PageHeader title="Reviews" description="New reviews wait here for approval before they appear on your store." actions={samples ? <RemoveSampleReviews count={samples} /> : null} />
+      <PageHeader
+        title="Reviews"
+        description="New reviews wait here for approval before they appear on your store."
+        actions={
+          <>
+            <GenerateAiReviews products={products} />
+            {samples ? <RemoveSampleReviews count={samples} /> : null}
+          </>
+        }
+      />
       {samples ? (
         <p className="mb-4 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-small text-warning">
           {samples} sample review{samples === 1 ? " is" : "s are"} showing on your store, labelled “Sample review”. Remove them before launch or once real reviews arrive.

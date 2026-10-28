@@ -47,7 +47,10 @@ export function Popover({ trigger, label, children, align = "end", className }: 
       {open ? (
         <div
           id={id}
-          onClick={(e) => (e.target as HTMLElement).closest("a") && setOpen(false)}
+          onClick={(e) => {
+            const el = e.target as HTMLElement;
+            if (el.closest("a, button")) setOpen(false);
+          }}
           className={cn(
             "absolute top-full z-40 mt-2 w-72 origin-top rounded-xl border border-border bg-surface-elevated p-1.5 text-foreground shadow-lg animate-[pop-in_140ms_ease-out]",
             align === "end" ? "right-0" : "left-0",

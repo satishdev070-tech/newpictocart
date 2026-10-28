@@ -1,6 +1,18 @@
 # Implementation Status
 
-_Last updated: 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Seller AI admin UX suite (2026-10-28, branch `cursor/seller-ai-admin-ux-c73e`, PR #47)
+
+- **Shared progress:** `AiGenerationProgress` used by product Generate with AI, store build, AI Reviews, and Blog AI Write (steps + clearer failure copy).
+- **Product Generate with AI:** multi-image polish; NVIDIA primary + Gemini fallback seed (`20261028004900_generate_product_gemini_fallback.sql`).
+- **Build store from prompt:** dashboard card creates categories, draft products, blogs, and pending reviews in the current store (no theme apply). Progress UI; plan product-limit check before debit; refunds on failure.
+- **Reviews:** Dashboard → Reviews → **Generate AI Reviews** modal (product, count 3/5, positive tone) → `generateReviewsAction` / `generateJson` (`generate_reviews`) → pending `source=import` rows. Migration `20261028004800_generate_reviews.sql` (kind, 5 credits, NVIDIA route).
+- **Blog:** `BlogAiWrite` shows `AiGenerationProgress`; cover/hero **Generate with AI** searches Unsplash (`listUnsplashAction` / import) by title/topic with auto-pick or picker; manual upload kept. `saveDocumentAction` accepts `coverPath` from the library import.
+- **Admin → Users list:** row menu exposes Make/Remove super admin, Add customer, Reset / temporary password, Delete (same rules as user detail).
+- **Admin live search:** debounced filters on Users and Stores lists (no full page reload per keystroke).
+- **Hosted:** apply `04800` + `04900` (and prior NVIDIA migrations `04300` / `04700` if missing). NVIDIA NIM + Unsplash keys required in Admin for generation / covers.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **140 files / 1,648 tests**, build).
 
 ## AI Credits Wallet page (2026-10-28, branch `cursor/ai-wallet-sales-gateways-c73e`)
 
@@ -27,8 +39,8 @@ _Last updated: 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razor
 ## NVIDIA Nemotron Omni defaults (2026-10-28, branch `cursor/nvidia-pica2-notif-sounds-c73e`)
 
 - **In-process defaults** (`neural-pulse/server/llm.ts`): text `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`; vision (when photos + text-only route) `meta/llama-3.2-11b-vision-instruct`. Keeps `/no_think`, `<think>` strip, 60 s timeout. `extractJson` hardened (think/fence/array, reply preview); NVIDIA parse failures tagged `NVIDIA parse failure: …` in `LlmError.failures`.
-- **AI Health seeds** (migration `20261028004700_nvidia_seller_ai_default_routes.sql`): inserts NVIDIA primary routes for `generate_product`, `generate_blog`, `store_agent`, `contact_reply`, `business_coach` when unset (`on conflict do nothing`). Registry: `SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS`.
-- **Hosted still needs** migration `20261028004300_nvidia_provider_store_agent.sql` (NVIDIA in provider CHECKs + store_agent/store_setup costs) before 04700 can apply; then apply 04700 for the route seeds.
+- **AI Health seeds** (migration `20261028004700_nvidia_seller_ai_default_routes.sql`): inserts NVIDIA primary routes for `generate_product`, `generate_blog`, `store_agent`, `contact_reply`, `business_coach` when unset (`on conflict do nothing`). Registry: `SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS`. `generate_product` seeds Gemini (`gemini-3.8-flash`) as fallback; Groq stays in the platform order when the route is off. Migration `20261028004900_generate_product_gemini_fallback.sql` backfills that fallback on hosts that already applied 04700 with a null fallback.
+- **Hosted still needs** migration `20261028004300_nvidia_provider_store_agent.sql` (NVIDIA in provider CHECKs + store_agent/store_setup costs) before 04700 can apply; then apply 04700 (+ 04900) for the route seeds.
 - Product Generate with AI + Blog AI Write stay on `runSellerAiGeneration` → `orderForImages` + credits.
 
 ## Seller AI on NVIDIA NIM + store assistant (2026-10-28, branch `claude/dreamy-raman-b1149f`)
