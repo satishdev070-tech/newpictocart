@@ -197,7 +197,24 @@ export function boxCount(n: number | undefined): number {
   return typeof n === "number" && Number.isInteger(n) ? Math.min(10, Math.max(CODE_LENGTH, n)) : CODE_LENGTH;
 }
 
-function CodeBoxes({ length, value, onChange, onComplete, invalid, store }: { length: number; value: string; onChange: (v: string) => void; onComplete: () => void; invalid: boolean; store: boolean }) {
+/** Six (or more) digit boxes with paste / auto-advance. Used by EmailCodeFlow and start AccountScreen. */
+export function CodeBoxes({
+  length,
+  value,
+  onChange,
+  onComplete,
+  invalid,
+  store = false,
+  className,
+}: {
+  length: number;
+  value: string;
+  onChange: (v: string) => void;
+  onComplete: () => void;
+  invalid: boolean;
+  store?: boolean;
+  className?: string;
+}) {
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const focus = (i: number) => refs.current[Math.max(0, Math.min(length - 1, i))]?.focus();
 
@@ -234,7 +251,11 @@ function CodeBoxes({ length, value, onChange, onComplete, invalid, store }: { le
   };
 
   return (
-    <div className={cn("flex justify-center", length > 6 ? "gap-1.5 sm:gap-2" : "gap-2 sm:gap-2.5")} role="group" aria-label="Verification code">
+    <div
+      className={cn("flex justify-center", length > 6 ? "gap-1.5 sm:gap-2" : "gap-2 sm:gap-2.5", className)}
+      role="group"
+      aria-label="Verification code"
+    >
       {Array.from({ length }, (_, i) => (
         <input
           key={i}
