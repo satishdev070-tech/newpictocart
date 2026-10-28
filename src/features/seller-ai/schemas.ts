@@ -17,7 +17,8 @@ export const generateProductContentSchema = z.object({
   description: z.string().trim().max(8000),
   shortDescription: z.string().trim().max(500),
   tags: z.array(z.string().trim().min(1).max(40)).max(12),
-  priceMinor: z.number().int().min(0).max(99_999_999_00),
+  // Coerce so "129900" from a model still validates as paise.
+  priceMinor: z.coerce.number().int().min(0).max(99_999_999_00),
   productTypeHint: z.string().trim().max(60).nullable().optional(),
   categoryHint: z.string().trim().max(80).nullable().optional(),
   seoTitle: z.string().trim().max(120).optional().default(""),
@@ -109,7 +110,7 @@ export const generateReviewsContentSchema = z.object({
     .array(
       z.object({
         authorName: z.string().trim().min(1).max(80),
-        rating: z.number().int().min(4).max(5),
+        rating: z.coerce.number().int().min(4).max(5),
         title: z.string().trim().min(1).max(120),
         body: z.string().trim().min(1).max(3000),
       }),

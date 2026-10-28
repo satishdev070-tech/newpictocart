@@ -1,6 +1,13 @@
 # Implementation Status
 
-_Last updated: 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-28 (Seller AI usable-answer fix) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Seller AI usable-answer fix (2026-10-28, branch `cursor/seller-ai-usable-answer-fix-c73e`)
+
+- **Root cause (hosted):** Product Generate was routed Gemini-only; Gemini returned **HTTP 403**, so every attempt refunded with `All AI providers failed: gemini: HTTP 403`. AI Reviews used NVIDIA with no fallback and occasionally hit **HTTP 503**. The UI “Write” step is only the progress timer — the LLM call failed.
+- **Hosted repair:** `generate_product` → NVIDIA primary + Groq fallback; `generate_reviews` → Groq fallback. Migration `20261028005000_seller_ai_route_fallbacks.sql` repairs Gemini-only product routes and null review fallbacks on other hosts.
+- **Code:** `routeProviders` appends the rest of the platform provider order after the Admin route so a dead key cannot hard-fail when another key works. NVIDIA text calls request `response_format: json_object`. Friendlier seller errors for 403/503/404. Coerce `priceMinor` / review `rating` from string JSON.
+- **Ops note:** Gemini credential still returns 403 — rotate/fix in Admin → Social apps. NVIDIA is working for blog/agent.
 
 ## Seller AI admin UX suite (2026-10-28, branch `cursor/seller-ai-admin-ux-c73e`, PR #47)
 

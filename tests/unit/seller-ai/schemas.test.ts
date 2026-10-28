@@ -40,6 +40,7 @@ describe("seller AI schemas", () => {
       seoDescription: "Handwoven",
     });
     expect(content.priceMinor).toBe(249900);
+    expect(generateProductContentSchema.parse({ ...content, priceMinor: "129900" as unknown as number }).priceMinor).toBe(129900);
     const r = generateProductResultSchema.parse({ ...content, provider: "gemini", model: "gemini-2.0-flash", tokens: 120 });
     expect(r.provider).toBe("gemini");
   });

@@ -33,13 +33,14 @@ describe("NVIDIA NIM provider", () => {
     expect(cred).toMatchObject({ secret: "nvapi-test-key-123", source: "env" });
   });
 
-  it("turns Nemotron reasoning off for text prompts", () => {
+  it("turns Nemotron reasoning off for text prompts and asks for JSON", () => {
     const { model, body } = nvidiaRequestBody(NVIDIA_TEXT, { system: "SYS", user: "Hello" });
     expect(model).toBe(NVIDIA_TEXT);
     const messages = body.messages as { role: string; content: unknown }[];
     expect(messages[0]).toEqual({ role: "system", content: "/no_think\nSYS" });
     expect(messages[1]).toEqual({ role: "user", content: "Hello" });
     expect(body.stream).toBe(false);
+    expect(body.response_format).toEqual({ type: "json_object" });
   });
 
   it("sends photos as data URIs to a vision model, switching from a text-only model", () => {
@@ -51,6 +52,7 @@ describe("NVIDIA NIM provider", () => {
     expect(content[0]).toEqual({ type: "image_url", image_url: { url: "data:image/jpeg;base64,QUJD" } });
     expect(content[1]).toEqual({ type: "text", text: "Describe" });
     expect((body.messages as { content: unknown }[])[0]!.content).toBe("SYS");
+    expect(body.response_format).toBeUndefined();
   });
 
   it("strips a leading think block", () => {
