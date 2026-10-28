@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mapDbError } from "@/lib/supabase/errors";
 import { toMinor } from "@/lib/money";
 import { can, type TenantContext } from "@/lib/tenant/membership";
+import { countOrdersToFulfil } from "@/features/dashboard-ui/alerts";
 import { addDays, istDateKey, istDayStart } from "./dates";
 import { percentChange, zeroFillDays } from "./metrics";
 
@@ -40,7 +41,8 @@ export async function getDashboardHome(ctx: TenantContext, now = new Date()): Pr
   const inventory = can(ctx, "inventory.read");
   const customers = can(ctx, "customers.read");
 
-  const [daily, prevDaily, top, recent, toFulfil, stock, activeProducts, customerCount, media, theme, shipping, cod, payments, allProducts] = await Promise.all([
+  // toFulfil shares countOrdersToFulfil with the layout bell (React.cache — one head query per request).
+  const [daily, prevDaily, top, recent, toFulfilCount, stock, activeProducts, customerCount, media, theme, shipping, cod, payments, allProducts] = await Promise.all([
     analytics ? supabase.rpc("dashboard_sales_daily", range) : null,
     analytics ? supabase.rpc("dashboard_sales_daily", prevRange) : null,
     analytics ? supabase.rpc("dashboard_top_products", { ...range, p_limit: 5 }) : null,
@@ -53,7 +55,7 @@ export async function getDashboardHome(ctx: TenantContext, now = new Date()): Pr
           .order("placed_at", { ascending: false })
           .limit(6)
       : null,
-    orders ? supabase.from("orders").select("id", { count: "exact", head: true }).eq("tenant_id", t).eq("status", "confirmed").in("fulfillment_status", ["unfulfilled", "packed"]) : null,
+    orders ? countOrdersToFulfil(t) : Promise.resolve(null),
     inventory ? supabase.rpc("inventory_overview", { p_tenant: t }) : null,
     supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", t).eq("status", "active"),
     customers ? supabase.from("customers").select("id", { count: "exact", head: true }).eq("tenant_id", t) : null,
@@ -64,7 +66,7 @@ export async function getDashboardHome(ctx: TenantContext, now = new Date()): Pr
     can(ctx, "payments.manage") ? supabase.from("tenant_payment_settings").select("enabled").eq("tenant_id", t).maybeSingle() : null,
     supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", t).neq("status", "archived"),
   ]);
-  for (const r of [daily, prevDaily, top, recent, toFulfil, stock, activeProducts, customerCount, media, theme, shipping]) if (r?.error) throw mapDbError(r.error);
+  for (const r of [daily, prevDaily, top, recent, stock, activeProducts, customerCount, media, theme, shipping]) if (r?.error) throw mapDbError(r.error);
 
   let sales: DashboardHome["sales"] = null;
   if (daily && prevDaily && top) {
@@ -113,7 +115,7 @@ export async function getDashboardHome(ctx: TenantContext, now = new Date()): Pr
 
   return {
     sales,
-    counts: { activeProducts: activeProducts.count ?? 0, allProducts: allProducts.error ? (activeProducts.count ?? 0) : (allProducts.count ?? 0), customers: customerCount ? (customerCount.count ?? 0) : null, toFulfil: toFulfil ? (toFulfil.count ?? 0) : null },
+    counts: { activeProducts: activeProducts.count ?? 0, allProducts: allProducts.error ? (activeProducts.count ?? 0) : (allProducts.count ?? 0), customers: customerCount ? (customerCount.count ?? 0) : null, toFulfil: toFulfilCount },
     recentOrders,
     lowStock,
     setup,

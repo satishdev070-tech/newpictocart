@@ -82,6 +82,8 @@ Proposal: enable it at the start of Phase 7 with tags `tenant:{id}`, `tenant:{id
 
 **Update (2026-10-27, seller/admin Phase 1):** private dashboard and Super Admin list/detail reads stay **live** (no Data Cache / Redis on tenant products, orders, customers, or admin tenant directories). Public catalogues may use Data Cache with tags and write-path `revalidateTag`: marketplace custom themes + open demo origins (`MARKETPLACE_*`), and anon-readable platform `product_types`.
 
+**Update (2026-10-28, public catalogue Redis):** shared helper `cachedPublic` / `revalidatePublicTags` (`src/lib/cache/public-cache.ts`) powers storefront (`sf:v1`) and platform public catalogues (`pub:v1`): marketplace themes/demos, platform `product_types`, marketing landing, public platform config, and `feature_flags` **defaults only** (no tenant overrides). Private admin/dashboard lists stay uncached. Feature-flag writes also invalidate `platform-feature-flag-defaults`.
+
 ## ADR-011 — Hosting target for the Next.js app · Open (needed by Phase 11; affects nothing before)
 Options:
 1. **Vercel** for Next.js + Cloudflare in front (DNS, Cloudflare for SaaS custom hostnames, Worker). Most compatible with Next 16 features; two vendors; custom hostnames must also be added to Vercel via its API.

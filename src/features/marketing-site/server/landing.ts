@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/observability/logger";
@@ -9,6 +9,7 @@ import { AppError } from "@/lib/errors";
 import { mapDbError } from "@/lib/supabase/errors";
 import { assertPlatformPermission, type PlatformContext } from "@/lib/platform/access";
 import type { Json } from "@/lib/supabase/database.types";
+import { cachedPublic, revalidatePublicTags } from "@/lib/cache/public-cache";
 import { DEFAULT_LANDING, LANDING_KEY, parseLanding, validateLanding, type LandingContent } from "../landing";
 
 export const LANDING_TAG = "platform-landing";
@@ -25,7 +26,11 @@ async function load(): Promise<LandingContent> {
   return parseLanding(data?.value ?? null);
 }
 
-const cached = process.env.NODE_ENV === "production" ? unstable_cache(load, ["platform-landing"], { tags: [LANDING_TAG], revalidate: 300 }) : load;
+const cached = cachedPublic("platform-landing", load, {
+  tags: [LANDING_TAG],
+  revalidateSeconds: 300,
+  keyPrefix: "pub:v1",
+});
 
 /** Landing page content edited in /admin/landing. Never throws: any failure means the defaults. */
 export const getLandingContent = cache(async (): Promise<LandingContent> => {
@@ -72,6 +77,6 @@ export async function resetLandingContent(ctx: PlatformContext): Promise<void> {
 
 /** After a save: refresh the cached document and every marketing page (header/footer use it too). */
 export function revalidateLanding() {
-  revalidateTag(LANDING_TAG, { expire: 0 });
+  revalidatePublicTags(LANDING_TAG);
   revalidatePath("/", "layout");
 }

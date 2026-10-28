@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { AppError } from "@/lib/errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -27,8 +28,9 @@ function scoped<Q extends { eq(column: string, value: string): Q; is(column: str
 
 export type BellData = { unread: number; items: NotificationItem[] };
 
-/** Unread count + the latest few, for the header bell. Never throws (the bell must not break the shell). */
-export async function getBellData(a: InboxAudience, limit = 8): Promise<BellData> {
+/** Primitive-keyed so layout bell and home "Recent activity" share one read per request. */
+const loadBellData = cache(async (userId: string, scope: NotificationScope, tenantId: string | null, limit: number): Promise<BellData> => {
+  const a: InboxAudience = scope === "tenant" && tenantId ? { userId, scope: "tenant", tenantId } : { userId, scope: "platform", tenantId: null };
   try {
     const supabase = await createSupabaseServerClient();
     const [count, latest] = await Promise.all([
@@ -41,6 +43,11 @@ export async function getBellData(a: InboxAudience, limit = 8): Promise<BellData
     logger.warn("notifications.bell_failed", { scope: a.scope, error: err });
     return { unread: 0, items: [] };
   }
+});
+
+/** Unread count + the latest few, for the header bell. Never throws (the bell must not break the shell). */
+export function getBellData(a: InboxAudience, limit = 8): Promise<BellData> {
+  return loadBellData(a.userId, a.scope, a.tenantId, limit);
 }
 
 export type ListFilter = { status: "all" | "unread"; group: NotificationGroup | null; page: number; pageSize: number };

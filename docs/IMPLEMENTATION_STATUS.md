@@ -49,8 +49,19 @@ _Last updated: 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10
   - Adding Marathi, Gujarati, Tamil, Telugu or Bengali means adding the code to `LOCALES` plus two files. `Record<Locale, …>` makes typecheck demand them.
   - Storefront and emails are unchanged.
 - **Tests:** `tests/unit/i18n.test.ts` (cookie parse, key and placeholder parity, nav coverage, `t()`) and `tests/unit/tours.test.ts` (route matching, unique step ids, every target present in the source, text parity per locale, popover placement).
-_Last updated: 2026-10-28 (seller AI suite) · 2026-10-27 (seller/admin Phase 1 speed) · 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-28 (Redis L2 for public catalogues) · 2026-10-28 (seller AI suite) · 2026-10-27 (seller/admin Phase 1 speed) · 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
+
+## Redis L2 for seller/admin public catalogues (2026-10-28, Part A)
+
+Extends optional Upstash Redis behind Next Data Cache to **public** platform catalogues only (ADR-010). Private dashboard / Super Admin list reads stay live.
+
+- **Shared helper:** `cachedPublic` + `revalidatePublicTags` in `src/lib/cache/public-cache.ts` (production L1 `unstable_cache` + optional Redis L2, fail-open, tag → Redis index-set delete). Storefront refactored to call it with prefix `sf:v1` (public API unchanged).
+- **Wired (`pub:v1`):** marketplace custom themes + demo origins, platform `product_types`, public platform config, marketing landing, and `feature_flags` defaults only (used by `getEntitlements`; tenant overrides stay live).
+- **Invalidation tags:** `marketplace-custom-themes`, `marketplace-demo-origins`, `platform-product-types`, `platform-public-config`, `platform-landing`, `platform-feature-flag-defaults` (+ existing storefront tags). Flag create/update/delete actions call `revalidatePublicTags(FEATURE_FLAG_DEFAULTS_TAG)` then `revalidateAllStorefronts()`.
+- **Tests:** `tests/unit/public-cache.test.ts` (L2 hit/miss/tag delete); storefront cache tests updated for shared helper.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **137 files / 1,623 tests**, build).
+- **Branch:** `cursor/seller-admin-redis-public-c73e`.
 
 ## Seller AI suite (2026-10-28)
 
@@ -64,6 +75,16 @@ Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coac
 - **Hosted:** Edge + migration applied on `ugbjlpdhktrlkyuijkfc` (2026-10-28).
 - **Verification:** `pnpm check` ✅ (typecheck, lint, **130 files / 1,546 tests**, build). Seller-ai unit tests under `tests/unit/seller-ai/`.
 - **Branch (backend fix):** `cursor/seller-ai-false-setup-ui-c73e`.
+
+## Seller / admin Part B — stream shell chrome (2026-10-28)
+
+Cut skeleton time for Seller dashboard and Admin console **without** caching private data (ADR-010). No Redis on private RPCs (`dashboard_home`, `platform_overview`, users directory).
+
+- **Dashboard layout:** `requireTenant` + site mode / i18n / cookies / panel-switch stay blocking; bell + alerts + AI credits and the trial banner stream under `<Suspense>` (`SellerTopbarChrome` / `SellerTrialBanner`). Child routes use existing `loading.tsx` skeletons and are no longer blocked on chrome reads.
+- **Admin console layout:** `requirePlatform` + nav + panel-switch stay blocking; `platform_overview` attention chips, inbox bell, and support-session banner stream under Suspense.
+- **Dedupe:** shared request-cached `countOrdersToFulfil` for layout alerts + home; `getBellData` React.cache’d on primitives so home “Recent activity” reuses the layout bell read.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **137 files / 1,623 tests**, build). Commit `f54609c`.
+- **Branch:** `cursor/seller-admin-redis-public-c73e` (Part B; Redis agent owns `src/lib/cache/*`).
 
 ## Seller / admin Phase 1 speed (2026-10-27)
 
@@ -79,10 +100,10 @@ Dashboard and Super Admin stay **live** (no Data Cache on private tenant product
 ## Optional Upstash Redis L2 for public storefront cache (2026-10-27)
 
 - **Why:** cold Vercel instances miss Next Data Cache and re-hit Supabase for directory/theme/profile. Free-tier Upstash shares those public reads across instances.
-- **How:** `@upstash/redis` behind `cachedStorefront` (`src/lib/cache/storefront.ts` + `src/lib/cache/redis.ts`). L1 stays `unstable_cache`; L2 is Redis when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set (both optional; unset = previous behaviour). Invalidation deletes indexed Redis keys with `revalidateStorefront` / `revalidateTenantDirectory` / `revalidateAllStorefronts`.
-- **Scope:** public storefront loaders only (same ADR-010 rules). Not cart, session, dashboard, secrets, or catalog/product/price/stock. Rate limits stay Postgres (ADR-025).
+- **How:** `@upstash/redis` behind `cachedStorefront` → shared `cachedPublic` (`src/lib/cache/public-cache.ts` + `redis.ts`; storefront prefix `sf:v1`). L1 stays `unstable_cache`; L2 is Redis when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set (both optional; unset = previous behaviour). Invalidation deletes indexed Redis keys with `revalidateStorefront` / `revalidateTenantDirectory` / `revalidateAllStorefronts` (via `revalidatePublicTags`).
+- **Scope:** public storefront loaders only in the original slice; Part A (2026-10-28) also covers public platform catalogues under `pub:v1`. Not cart, session, dashboard private lists, secrets, or catalog/product/price/stock. Rate limits stay Postgres (ADR-025).
 - **Ops:** create an Upstash DB near Mumbai, set the two env vars on Vercel. Aim to stay on the free tier; upgrade only if commands approach the daily cap.
-- **Verification:** unit tests in `storefront-cache.test.ts` (env-off, L2 hit/miss, indexed delete).
+- **Verification:** unit tests in `storefront-cache.test.ts` and `public-cache.test.ts` (env-off, L2 hit/miss, indexed delete).
 
 ## Storefront performance: cache scope, fewer DB waves, zod out of the client (2026-10-27)
 
