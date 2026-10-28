@@ -1,6 +1,13 @@
 # Implementation Status
 
-_Last updated: 2026-10-28 (Onboarding UI polish) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Onboarding UI polish (2026-10-28, branch `cursor/onboarding-ui-polish-c73e`, PR #53)
+
+- **Theme (step 4):** Accent colour picker removed. Large live preview dominates; theme cards sit in a horizontal scroller under the preview (no side accent row).
+- **Account (step 5):** Centered simple signup/sign-in card (logo, Create Your Store, Google, email → Submit). Enriched OTP (inbox headline, 6 boxes, Didn't get it? / Resend, Verify OTP, change email). Split live-preview column and password-first form removed from this step.
+- **Done:** Left info rail (live badge, URL copy, WhatsApp, dashboard) + full-width hero storefront preview; bottom journey strip with engaging step blurbs (Language → Mode → Business → Theme → Account).
+- **Verification:** `pnpm check` (see latest commit).
 
 ## Seller AI reviews insert + product Omni vision (2026-10-28, branch `cursor/seller-ai-reviews-product-fix-c73e`)
 

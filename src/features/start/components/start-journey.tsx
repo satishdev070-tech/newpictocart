@@ -125,7 +125,7 @@ export function StartJourney({
 
   const finishMessage = finalizeState && !finalizeState.ok;
   const screen = draft.screen;
-  const split = screen === "business" || screen === "account";
+  const split = screen === "business";
   const openingStore =
     signedIn &&
     !draft.result &&
@@ -362,7 +362,7 @@ export function StartJourney({
       <>
         <AccountScreen draft={draft} rootDomain={rootDomain} googleAvailable={googleAvailable} />
         {finishMessage ? (
-          <div className="mt-4 space-y-3">
+          <div className="mx-auto mt-4 max-w-md space-y-3">
             <button
               type="button"
               onClick={() => finalize()}
@@ -373,7 +373,7 @@ export function StartJourney({
           </div>
         ) : null}
       </>,
-      { back: true, layout: "split", backTo: finishMessage ? "building" : "account", screen: "account" },
+      { back: true, layout: "center", backTo: finishMessage ? "building" : "account", screen: "account" },
     );
   }
 
