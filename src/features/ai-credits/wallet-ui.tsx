@@ -6,17 +6,16 @@ import Link from "next/link";
 import { Clock, KeyRound, Plus, Sparkles, Ticket, TrendingDown, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge, Card, StatCard } from "@/components/ui/layout";
-import { SelectField, TextField } from "@/components/ui/field";
+import { TextField } from "@/components/ui/field";
 import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
 import { useToast } from "@/components/ui/toast";
-import { ActionDialog } from "@/features/settings/ui/action-controls";
-import { formatMoney, toMinor } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import type { ActionResult } from "@/lib/actions/result";
 import { hoursLabel, type WalletSummary } from "@/features/seller-ai/wallet";
 import { SELLER_AI_KIND_LABELS } from "@/features/seller-ai/schemas";
 import { AI_FEATURES } from "@/features/ai-health/registry";
-import { FALLBACK_PACKS, type AiCreditCatalog, type AiCreditLedgerRow, type AiCreditPurchaseRow } from "./schemas";
-import { requestAiCreditPurchaseAction } from "./actions";
+import type { AiCreditCatalog, AiCreditLedgerRow, AiCreditPurchaseRow } from "./schemas";
+import { AiCreditBuyPanel } from "./components";
 import * as aiCreditActions from "./actions";
 
 type FormAction = (prev: ActionResult | null, fd: FormData) => Promise<ActionResult>;
@@ -46,89 +45,6 @@ function ledgerNoteLabel(note: string | null): string | null {
 
 function signed(n: number) {
   return `${n > 0 ? "+" : ""}${n}`;
-}
-
-function PromoField({ errors }: { errors?: string[] }) {
-  return <TextField label="Promo code" name="promo" optional maxLength={30} autoCapitalize="characters" placeholder="DIWALI25" hint="Bonus credits are added to this purchase." errors={errors} />;
-}
-
-function MethodField() {
-  return <SelectField label="Payment method" name="method" defaultValue="online" options={[{ value: "online", label: "Online (verified by the platform team)" }, { value: "offline", label: "Offline (bank transfer / UPI, confirmed manually)" }]} />;
-}
-
-function CustomAmount({ custom, errors }: { custom: NonNullable<AiCreditCatalog["custom"]>; errors?: string[] }) {
-  const [value, setValue] = useState("");
-  const minor = /^\d{1,8}(\.\d{1,2})?$/.test(value.trim()) ? toMinor(value.trim()) : 0;
-  const credits = minor > 0 ? Math.floor((minor * custom.creditsPerRupee) / 100) : 0;
-  return (
-    <div>
-      <TextField label="Amount (₹)" name="amount" inputMode="decimal" required value={value} onChange={(e) => setValue(e.target.value)} hint={`Between ${formatMoney(custom.minMinor)} and ${formatMoney(custom.maxMinor)} · ${custom.creditsPerRupee} credits per ₹1`} errors={errors} />
-      <p aria-live="polite" className="mt-1 text-small">
-        {credits > 0 ? (
-          <>
-            You get <span className="font-semibold tabular-nums">{credits.toLocaleString("en-IN")}</span> credits
-            {minor < custom.minMinor || minor > custom.maxMinor ? <span className="text-error"> (outside the allowed range)</span> : null}
-          </>
-        ) : null}
-      </p>
-    </div>
-  );
-}
-
-/** Recharge packs / custom / promo for the wallet slide-over (panel tokens; no orange redesign). */
-function WalletBuyPanel({ catalog, canManage, purchases }: { catalog: AiCreditCatalog; canManage: boolean; purchases: AiCreditPurchaseRow[] }) {
-  const cat = catalog.packs.length ? catalog : { ...catalog, packs: FALLBACK_PACKS };
-  const custom = cat.custom;
-  const pending = purchases.find((p) => p.status === "pending");
-  return (
-    <div className="space-y-3">
-      {pending ? <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-small text-warning">One purchase is already awaiting platform review.</p> : null}
-      <div className="grid gap-3">
-        {cat.packs.map((pack) => (
-          <div key={pack.code} className="rounded-lg border border-border bg-surface p-4">
-            <p className="font-semibold">{pack.label}</p>
-            <p className="mt-1 text-h2 tabular-nums">{pack.credits.toLocaleString("en-IN")}</p>
-            <p className="text-caption text-muted">{formatMoney(pack.priceMinor)}</p>
-            {canManage ? (
-              <div className="mt-3">
-                <ActionDialog action={requestAiCreditPurchaseAction} fields={{ pack: pack.code }} title={`Buy ${pack.credits.toLocaleString("en-IN")} credits`} description={`${pack.label} pack for ${formatMoney(pack.priceMinor)}. Your request is recorded now; the platform team verifies the payment and adds the credits.`} triggerLabel="Buy" confirmLabel="Send purchase request" size="sm" disabled={!!pending} success="Purchase request sent.">
-                  {(e) => (
-                    <div className="space-y-3">
-                      <MethodField />
-                      {cat.configurable ? <PromoField errors={e.promo} /> : null}
-                    </div>
-                  )}
-                </ActionDialog>
-              </div>
-            ) : null}
-          </div>
-        ))}
-        {custom ? (
-          <div className="rounded-lg border border-dashed border-border bg-surface p-4">
-            <p className="font-semibold">Custom amount</p>
-            <p className="mt-1 text-small text-muted">
-              {formatMoney(custom.minMinor)} – {formatMoney(custom.maxMinor)}
-            </p>
-            <p className="text-caption text-muted">{custom.creditsPerRupee} credits per ₹1</p>
-            {canManage ? (
-              <div className="mt-3">
-                <ActionDialog action={requestAiCreditPurchaseAction} fields={{ pack: "custom" }} title="Buy a custom amount of credits" description="Your request is recorded now; the platform team verifies the payment and adds the credits." triggerLabel="Choose amount" confirmLabel="Send purchase request" size="sm" disabled={!!pending} success="Purchase request sent.">
-                  {(e) => (
-                    <div className="space-y-3">
-                      <CustomAmount custom={custom} errors={e.amount} />
-                      <MethodField />
-                      <PromoField errors={e.promo} />
-                    </div>
-                  )}
-                </ActionDialog>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-      {!canManage ? <p className="text-small text-muted">Only the store owner can buy credits.</p> : null}
-    </div>
-  );
 }
 
 function SlideOver({ open, onClose, title, description, children }: { open: boolean; onClose: () => void; title: string; description?: string; children: ReactNode }) {
@@ -230,6 +146,8 @@ export function AiWalletPageView({
   purchases,
   catalog,
   canManage,
+  gatewayConfigured = false,
+  storeName = "AI credits",
 }: {
   summary: WalletSummary;
   moneySavedMinor: number;
@@ -239,6 +157,8 @@ export function AiWalletPageView({
   purchases: AiCreditPurchaseRow[];
   catalog: AiCreditCatalog;
   canManage: boolean;
+  gatewayConfigured?: boolean;
+  storeName?: string;
 }) {
   const [rechargeOpen, setRechargeOpen] = useState(false);
   const [otcOpen, setOtcOpen] = useState(false);
@@ -329,8 +249,13 @@ export function AiWalletPageView({
         </>
       )}
 
-      <SlideOver open={rechargeOpen} onClose={() => setRechargeOpen(false)} title="Recharge AI credits" description="Choose a pack, custom amount, or promo. Credits are added after payment is verified.">
-        <WalletBuyPanel catalog={catalog} canManage={canManage} purchases={purchases} />
+      <SlideOver
+        open={rechargeOpen}
+        onClose={() => setRechargeOpen(false)}
+        title="Recharge AI credits"
+        description={gatewayConfigured ? "Choose a pack or amount and pay online. Credits appear after payment confirms." : "Choose a pack, custom amount, or promo. Credits are added after payment is verified."}
+      >
+        <AiCreditBuyPanel catalog={catalog} canManage={canManage} purchases={purchases} compact gatewayConfigured={gatewayConfigured} storeName={storeName} />
       </SlideOver>
 
       <OtcModal open={otcOpen} onClose={() => setOtcOpen(false)} canManage={canManage} />
