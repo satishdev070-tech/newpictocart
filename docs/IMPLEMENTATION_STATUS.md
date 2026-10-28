@@ -319,6 +319,8 @@ Plan, gap analysis and decisions: [SUPER_ADMIN_PORT.md](SUPER_ADMIN_PORT.md). Re
 - **BusinessScreen:** subcategory chips from `subcategoriesFor(category)` + products/services field;
   Continue requires `businessComplete` (name + category + subcategory).
 - **QuizScreen:** asks subcategory after category (6 questions); finish uses `voiceFactsComplete`.
+- **AccountScreen:** compact summary (store, category · subcategory, theme, language) above signup/signin.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, tests, build).
 
 ## Five-screen `/start` rebuild — Phase 1 (data + flow)
 

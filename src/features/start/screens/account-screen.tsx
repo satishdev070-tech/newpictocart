@@ -10,8 +10,10 @@ import { googleSignInAction, requestStartEmailCodeAction, signInAction, signUpAc
 import type { ActionResult } from "@/lib/actions/result";
 import { LivePreview } from "../components/live-preview";
 import { startCopy, type StartCopy } from "../copy";
+import { industryName, isIndustry } from "@/features/stores/industries";
+import { subcategoryLabel } from "@/features/stores/subcategories";
 import type { StartDraft } from "../draft/schema";
-import { draftStoreName } from "../draft/schema";
+import { draftCategory, draftStoreName, draftSubcategory } from "../draft/schema";
 
 const submitClass = "w-full !rounded-full !bg-[#F97316] !text-white hover:!bg-[#EA580C] focus-visible:!outline-[#F97316]";
 
@@ -27,6 +29,10 @@ export function AccountScreen({
   const c = startCopy(draft.locale);
   const [tab, setTab] = useState<"signup" | "signin">("signup");
   const storeName = draftStoreName(draft) || "My store";
+  const category = draftCategory(draft);
+  const subcategory = draftSubcategory(draft);
+  const categoryLabel = category && isIndustry(category) ? industryName(category) : null;
+  const subcategoryText = category && subcategory ? subcategoryLabel(category, subcategory) : null;
 
   return (
     <>
@@ -36,6 +42,31 @@ export function AccountScreen({
           <span className="text-[#C2410C]">{c.account.titleAccent}</span>
         </h2>
         <p className="text-sm text-[#5E5568]">{c.account.sub}</p>
+        <dl className="grid gap-2 rounded-[20px] border border-white/90 bg-white/70 px-4 py-3 text-sm text-[#3F3A47] shadow-sm">
+          <div className="flex justify-between gap-3">
+            <dt className="text-[#6B6275]">Store</dt>
+            <dd className="font-medium text-right">{storeName}</dd>
+          </div>
+          {categoryLabel ? (
+            <div className="flex justify-between gap-3">
+              <dt className="text-[#6B6275]">Category</dt>
+              <dd className="font-medium text-right">
+                {categoryLabel}
+                {subcategoryText ? ` · ${subcategoryText}` : ""}
+              </dd>
+            </div>
+          ) : null}
+          {draft.theme ? (
+            <div className="flex justify-between gap-3">
+              <dt className="text-[#6B6275]">Theme</dt>
+              <dd className="font-medium text-right">{draft.theme}</dd>
+            </div>
+          ) : null}
+          <div className="flex justify-between gap-3">
+            <dt className="text-[#6B6275]">Language</dt>
+            <dd className="font-medium text-right">{draft.locale}</dd>
+          </div>
+        </dl>
         <div className="flex gap-2 rounded-full bg-white/60 p-1">
           <button
             type="button"
