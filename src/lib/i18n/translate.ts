@@ -19,7 +19,7 @@ export function format(template: string, vars?: Vars): string {
 }
 
 function lookup(messages: Messages, key: string): string | undefined {
-  // Keys like "nav.items./dashboard/products" hold a "/" but never a ".", so split on dots.
+  // Nested keys are dotted paths (e.g. "nav.items.Products"); split on dots only.
   let node: unknown = messages;
   for (const part of key.split(".")) node = node && typeof node === "object" ? (node as Record<string, unknown>)[part] : undefined;
   return typeof node === "string" ? node : undefined;

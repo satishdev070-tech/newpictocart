@@ -9,6 +9,10 @@ import { TabNav } from "@/features/ai-health/tab-nav";
 import { ECONOMY_TABS, economyTab, storeSearchSchema } from "@/features/ai-credits/economy-schemas";
 import { getCreditInsights, getCreditPricing, listActionCosts, listPacks, listPromos, listPromoUses, searchStoresForGrant } from "@/features/ai-credits/economy-server";
 import { ActionCostForm, CreatePackDialog, CreatePromoForm, DeletePackDialog, EditPackDialog, GrantCreditsDialog, PricingForm, PromoStatus, PromoToggle } from "@/features/ai-credits/economy-components";
+import { PlatformPaymentsPanel } from "@/features/ai-credits/gateway-components";
+import { getPlatformGatewayStatus } from "@/features/ai-credits/platform-gateways";
+import { getAppCredentialStatus } from "@/features/platform-apps/server";
+import { platformOrigin } from "@/lib/platform/urls";
 
 export const metadata: Metadata = { title: "Credits economy" };
 
@@ -31,12 +35,13 @@ export default async function CreditsEconomyPage({ searchParams }: PageProps<"/a
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Credits economy" description="AI credit pricing, per-action costs, packs and promo codes sellers see, usage insights and manual grants." />
+      <PageHeader title="Credits economy" description="AI credit pricing, per-action costs, packs and promo codes sellers see, payment gateways for wallet recharge, usage insights and manual grants." />
       <TabNav base="/admin/credits-economy" tabs={ECONOMY_TABS} active={tab} label="Credits economy sections" />
       {tab === "pricing" ? <PricingTab ctx={ctx} /> : null}
       {tab === "actions" ? <ActionsTab ctx={ctx} /> : null}
       {tab === "packs" ? <PacksTab ctx={ctx} /> : null}
       {tab === "promos" ? <PromosTab ctx={ctx} /> : null}
+      {tab === "payments" ? <PaymentsTab ctx={ctx} /> : null}
       {tab === "insights" ? <InsightsTab ctx={ctx} /> : null}
       {tab === "grant" ? <GrantTab ctx={ctx} q={storeSearchSchema.parse({ q: sp.q }).q} /> : null}
     </div>
@@ -72,6 +77,19 @@ async function ActionsTab({ ctx }: { ctx: Ctx }) {
         <EmptyState title="No actions" description="The migration seeds one row per AI action; none were found." />
       )}
     </Card>
+  );
+}
+
+async function PaymentsTab({ ctx }: { ctx: Ctx }) {
+  const origin = platformOrigin();
+  const [status, rz, cf] = await Promise.all([getPlatformGatewayStatus(), getAppCredentialStatus(ctx, "razorpay"), getAppCredentialStatus(ctx, "cashfree")]);
+  return (
+    <PlatformPaymentsPanel
+      status={status}
+      razorpaySavedInDb={rz.savedInDb}
+      cashfreeSavedInDb={cf.savedInDb}
+      webhookUrls={{ razorpay: `${origin}/api/webhooks/platform/razorpay`, cashfree: `${origin}/api/webhooks/platform/cashfree` }}
+    />
   );
 }
 

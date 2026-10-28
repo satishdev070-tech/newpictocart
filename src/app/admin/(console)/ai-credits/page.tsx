@@ -9,5 +9,10 @@ export const metadata: Metadata = { title: "AI credits" };
 export default async function AiCreditsPage() {
   await requirePlatform("platform.settings.manage");
   const credits = await getPlatformAiCreditOverview();
-  return <div className="space-y-6"><PageHeader title="AI credits" description="Review AI-credit purchases and ledger activity, verify payments, and make audited manual adjustments." /><AiCreditAdminPanel {...credits} /></div>;
+  return (
+    <div className="space-y-6">
+      <PageHeader title="AI credits" description="Generate one-time credit codes, review purchases and ledger activity, verify payments, and make audited manual adjustments." />
+      <AiCreditAdminPanel {...credits} />
+    </div>
+  );
 }

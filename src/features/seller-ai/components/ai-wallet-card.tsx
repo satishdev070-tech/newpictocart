@@ -39,11 +39,11 @@ export function AiWalletCard({ summary, text, canRecharge }: { summary: WalletSu
       </dl>
       <div className="flex items-center gap-3 sm:flex-col sm:gap-1">
         {canRecharge ? (
-          <Link href="/dashboard/marketing/neural-pulse#credits" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-accent px-3.5 text-small font-semibold text-white hover:bg-accent/90">
+          <Link href="/dashboard/wallet" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-accent px-3.5 text-small font-semibold text-white hover:bg-accent/90">
             <Plus aria-hidden className="size-4" /> {text.recharge}
           </Link>
         ) : null}
-        <Link href="/dashboard/marketing/neural-pulse#credits" className="text-caption font-medium text-muted hover:text-foreground hover:underline">
+        <Link href="/dashboard/wallet" className="text-caption font-medium text-muted hover:text-foreground hover:underline">
           {text.activity}
         </Link>
       </div>

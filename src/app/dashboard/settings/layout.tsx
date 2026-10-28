@@ -40,6 +40,7 @@ const GROUPS: { label: string; items: { href: string; label: string; permission:
       { href: "/dashboard/settings/roles", label: "Roles & permissions", permission: "roles.manage" },
       { href: "/dashboard/settings/security", label: "Security & activity", permission: "members.manage" },
       { href: "/dashboard/settings/plan", label: "Plan & billing", permission: "store.read" },
+      { href: "/dashboard/wallet", label: "AI Wallet", permission: "marketing.read" },
     ],
   },
 ];

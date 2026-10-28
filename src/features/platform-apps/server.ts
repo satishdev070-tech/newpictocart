@@ -109,9 +109,14 @@ export async function saveAppCredential(ctx: PlatformContext, input: SaveAppCred
   const p = input.provider;
   const clientId = needsClientId(p) ? input.clientId : undefined;
   const from = p === "resend" ? input.from : undefined;
-  if (!clientId && !input.secret && !from) throw new AppError("VALIDATION", { fieldErrors: { _form: ["Enter at least one value to save."] } });
+  const webhookSecret = p === "razorpay" ? input.webhookSecret : undefined;
+  const environment = p === "cashfree" ? input.environment : undefined;
+  if (!clientId && !input.secret && !from && !webhookSecret && !environment) throw new AppError("VALIDATION", { fieldErrors: { _form: ["Enter at least one value to save."] } });
   const before = await freshRow(p);
-  const extra = from ? { ...cleanExtra(p, before?.extra), from } : (before?.extra ?? {});
+  const extra = { ...cleanExtra(p, before?.extra) };
+  if (from) extra.from = from;
+  if (webhookSecret) extra.webhookSecretCiphertext = encryptSecret(webhookSecret, PURPOSE);
+  if (environment) extra.environment = environment;
   const { error } = await createSupabaseAdminClient()
     .from("platform_app_credentials")
     .upsert(
@@ -129,7 +134,13 @@ export async function saveAppCredential(ctx: PlatformContext, input: SaveAppCred
   if (error?.code === "23514") throw new AppError("VALIDATION", { fieldErrors: { _form: [`Saving a ${p} key needs a database update that hasn't been applied yet. Until then, set ${envNamesFor(p).secret} in the environment.`] } });
   if (error) throw new AppError("INTERNAL", { cause: error });
   // Values are never audited, only which fields changed.
-  await platformAudit(ctx, "platform_app_credential.saved", p, { client_id_changed: Boolean(clientId && clientId !== before?.client_id), secret_changed: Boolean(input.secret), from_changed: Boolean(from && from !== cleanExtra(p, before?.extra).from) });
+  await platformAudit(ctx, "platform_app_credential.saved", p, {
+    client_id_changed: Boolean(clientId && clientId !== before?.client_id),
+    secret_changed: Boolean(input.secret),
+    from_changed: Boolean(from && from !== cleanExtra(p, before?.extra).from),
+    webhook_secret_changed: Boolean(webhookSecret),
+    environment_changed: Boolean(environment && environment !== cleanExtra(p, before?.extra).environment),
+  });
 }
 
 /** Deletes the saved row; the provider falls back to env (if set) or becomes unconfigured. */

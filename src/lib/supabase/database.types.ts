@@ -150,6 +150,70 @@ export type Database = {
           },
         ]
       }
+      ai_credit_one_time_codes: {
+        Row: {
+          code_hash: string
+          code_hint: string
+          created_at: string
+          created_by: string | null
+          credits: number
+          id: string
+          note: string | null
+          redeemed_at: string | null
+          redeemed_by_user_id: string | null
+          redeemed_tenant_id: string | null
+          status: string
+        }
+        Insert: {
+          code_hash: string
+          code_hint: string
+          created_at?: string
+          created_by?: string | null
+          credits: number
+          id?: string
+          note?: string | null
+          redeemed_at?: string | null
+          redeemed_by_user_id?: string | null
+          redeemed_tenant_id?: string | null
+          status?: string
+        }
+        Update: {
+          code_hash?: string
+          code_hint?: string
+          created_at?: string
+          created_by?: string | null
+          credits?: number
+          id?: string
+          note?: string | null
+          redeemed_at?: string | null
+          redeemed_by_user_id?: string | null
+          redeemed_tenant_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_credit_one_time_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_credit_one_time_codes_redeemed_by_user_id_fkey"
+            columns: ["redeemed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_credit_one_time_codes_redeemed_tenant_id_fkey"
+            columns: ["redeemed_tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_credit_packs: {
         Row: {
           active: boolean
@@ -238,6 +302,8 @@ export type Database = {
           pack: string
           payment_reference: string | null
           promo_code: string | null
+          provider: string | null
+          provider_order_id: string | null
           requested_by: string | null
           status: string
           tenant_id: string
@@ -255,6 +321,8 @@ export type Database = {
           pack: string
           payment_reference?: string | null
           promo_code?: string | null
+          provider?: string | null
+          provider_order_id?: string | null
           requested_by?: string | null
           status?: string
           tenant_id: string
@@ -272,6 +340,8 @@ export type Database = {
           pack?: string
           payment_reference?: string | null
           promo_code?: string | null
+          provider?: string | null
+          provider_order_id?: string | null
           requested_by?: string | null
           status?: string
           tenant_id?: string
@@ -5856,6 +5926,10 @@ export type Database = {
           units: number
         }[]
       }
+      complete_ai_credit_purchase_payment: {
+        Args: { p_payment_reference?: string | null; p_request: string }
+        Returns: number
+      }
       decide_ai_credit_purchase: {
         Args: { p_approve: boolean; p_note?: string | null; p_payment_reference?: string | null; p_request: string }
         Returns: number
@@ -5960,6 +6034,13 @@ export type Database = {
           tokens: number
         }[]
       }
+      platform_create_ai_credit_code: {
+        Args: {
+          p_credits: number
+          p_note?: string
+        }
+        Returns: string
+      }
       platform_create_partner_code: {
         Args: {
           p_expires?: string
@@ -6035,6 +6116,22 @@ export type Database = {
           p_unit_price: number
         }
         Returns: string
+      }
+      platform_list_ai_credit_codes: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          code_hint: string
+          created_at: string
+          created_by: string
+          credits: number
+          id: string
+          note: string
+          redeemed_at: string
+          redeemed_by_user_id: string
+          redeemed_tenant_id: string
+          status: string
+          tenant_name: string
+        }[]
       }
       platform_list_stores: {
         Args: {
@@ -6142,6 +6239,12 @@ export type Database = {
           p_partner: string
         }
         Returns: number
+      }
+      platform_revoke_ai_credit_code: {
+        Args: {
+          p_code: string
+        }
+        Returns: undefined
       }
       platform_revoke_partner_code: {
         Args: {
@@ -6266,6 +6369,13 @@ export type Database = {
       publish_theme: {
         Args: { p_label?: string; p_tenant: string }
         Returns: string
+      }
+      redeem_ai_credit_code: {
+        Args: {
+          p_code: string
+          p_tenant: string
+        }
+        Returns: number
       }
       redeem_partner_license: {
         Args: {

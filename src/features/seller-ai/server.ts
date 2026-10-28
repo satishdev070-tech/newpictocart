@@ -120,8 +120,9 @@ export async function fetchHttpsImages(urls: string[]): Promise<PromptImage[]> {
 }
 
 /**
- * Dashboard wallet card: balance, credits used and time saved over the last 30 days. Read with
- * the seller's session (RLS: own store's ledger only). Unavailable while the credits migration is pending.
+ * Dashboard / wallet page summary: balance, credits used and time saved over the last 30 days.
+ * Read with the seller's session (RLS: own store's ledger only). Unavailable while the credits
+ * migration is pending. Money saved is computed by callers via minutesSaved × freelancer rate.
  */
 export async function getAiWalletSummary(tenantId: string, now = new Date()): Promise<WalletSummary> {
   const balance = await getAiCreditBalance(tenantId);
