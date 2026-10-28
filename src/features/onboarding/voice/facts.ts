@@ -5,6 +5,10 @@ import { SITE_MODES, type SiteMode } from "@/features/stores/site-mode";
 export type VoiceFacts = {
   name: string | null;
   category: IndustrySlug | null;
+  /** Optional start-flow subcategory slug (industry-scoped). */
+  subcategory: string | null;
+  /** Optional free-text products / services blurb. */
+  productsServices: string | null;
   siteMode: SiteMode | null;
   tagline: string | null;
   city: string | null;
@@ -13,6 +17,8 @@ export type VoiceFacts = {
 export const EMPTY_FACTS: VoiceFacts = {
   name: null,
   category: null,
+  subcategory: null,
+  productsServices: null,
   siteMode: null,
   tagline: null,
   city: null,

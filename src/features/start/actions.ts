@@ -25,14 +25,19 @@ import { assertEmailVerifiedForOnboarding } from "@/features/onboarding/email-ga
 import { listOwnedStores, ownerContext } from "@/features/onboarding/server";
 import { seedReadyStore } from "@/features/onboarding/seed/pipeline";
 import { backfillSeedImages } from "@/features/onboarding/seed/persist";
+import { pickBestMarketplaceTheme, listRankedMarketplaceThemes } from "@/features/onboarding/seed/theme-pick";
 import { suggestSlugFromName } from "@/features/onboarding/voice/facts";
 import { parseTaraHistory, runTaraTurn } from "@/features/onboarding/voice/turn";
 import { voiceTurnInputSchema } from "@/features/onboarding/voice/schemas";
 import type { VoiceTurnData } from "@/features/onboarding/voice/actions";
 import { EMPTY_FACTS, mergeFacts, mapCategoryToIndustry, mapSiteMode, type VoiceFacts } from "@/features/onboarding/voice/facts";
+import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { themeSiteType } from "@/features/theme/marketplace/types";
+import { themeShot } from "@/features/marketing-site/theme-shots";
 import { isStartIntentId } from "./intents";
 import { buildSeedBrief } from "./brief";
-import { startDraftSchema, draftCategory, draftSiteMode, draftStoreName, type StartDraft } from "./draft/schema";
+import { parseStartDraft, draftCategory, draftSiteMode, draftStoreName, type StartDraft } from "./draft/schema";
+import { selectStartThemeOptions, type StartThemeOptions } from "./theme-options";
 
 function parseFactsJson(raw: unknown): VoiceFacts {
   if (typeof raw !== "string" || !raw.trim()) return { ...EMPTY_FACTS };
@@ -41,6 +46,8 @@ function parseFactsJson(raw: unknown): VoiceFacts {
     return mergeFacts(EMPTY_FACTS, {
       name: typeof parsed.name === "string" ? parsed.name : null,
       category: mapCategoryToIndustry(typeof parsed.category === "string" ? parsed.category : null),
+      subcategory: typeof parsed.subcategory === "string" ? parsed.subcategory : null,
+      productsServices: typeof parsed.productsServices === "string" ? parsed.productsServices : null,
       siteMode: mapSiteMode(typeof parsed.siteMode === "string" ? parsed.siteMode : null),
       tagline: typeof parsed.tagline === "string" ? parsed.tagline : null,
       city: typeof parsed.city === "string" ? parsed.city : null,
@@ -283,6 +290,35 @@ function finishError(err: unknown): never {
 
 export type FinalizeStartResult = { slug: string; name: string };
 
+const listThemeOptionsSchema = z.object({
+  industry: z.string().max(64).nullable().optional(),
+  preferredTheme: z.string().max(80).nullable().optional(),
+});
+
+/**
+ * AI-recommended marketplace theme + a few alternatives for the start Theme screen.
+ * Uses the same industry ranking as `pickBestMarketplaceTheme` (ecommerce only). No secrets.
+ */
+export async function listStartThemeOptionsAction(input: {
+  industry?: string | null;
+  preferredTheme?: string | null;
+}): Promise<ActionResult<StartThemeOptions>> {
+  return runAction("start.listThemeOptions", async () => {
+    const parsed = parseInput(listThemeOptionsSchema, input);
+    const industry = parsed.industry && isIndustry(parsed.industry) ? parsed.industry : "general";
+    // Assert non-empty catalogue for this industry (throws INTERNAL like seed theme-pick).
+    pickBestMarketplaceTheme(industry);
+    const ranked = listRankedMarketplaceThemes(industry);
+    const preferredKey = parsed.preferredTheme?.trim() || null;
+    const preferred =
+      preferredKey && isThemeKey(preferredKey)
+        ? (MARKETPLACE_THEMES.find((t) => t.key === preferredKey && themeSiteType(t) === "ecommerce") ?? null)
+        : null;
+
+    return selectStartThemeOptions(ranked, preferred, (key) => themeShot(key, "desktop"));
+  });
+}
+
 export async function finalizeStartDraftAction(
   _prev: ActionResult<FinalizeStartResult> | null,
   fd: FormData,
@@ -292,10 +328,13 @@ export async function finalizeStartDraftAction(
     await assertEmailVerifiedForOnboarding();
     await rateLimit("start-finalize", user.id, 10, 3600);
     const { draftJson } = parseInput(finalizeSchema, formToObject(fd));
-    let draft: StartDraft;
+    let draft: StartDraft | null = null;
     try {
-      draft = startDraftSchema.parse(JSON.parse(draftJson));
+      draft = parseStartDraft(JSON.parse(draftJson));
     } catch {
+      draft = null;
+    }
+    if (!draft) {
       throw new AppError("VALIDATION", { fieldErrors: { _form: ["Your saved journey looks invalid. Start again from /start."] } });
     }
 

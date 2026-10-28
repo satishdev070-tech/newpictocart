@@ -30,6 +30,9 @@ export function QuizScreen({
     return {
       name: (patch.name ?? name).trim() || null,
       category: patch.category !== undefined ? patch.category : facts.category && isIndustry(facts.category) ? facts.category : null,
+      subcategory: patch.subcategory !== undefined ? patch.subcategory : facts.subcategory,
+      productsServices:
+        patch.productsServices !== undefined ? patch.productsServices : facts.productsServices,
       siteMode: patch.siteMode !== undefined ? patch.siteMode : facts.siteMode,
       city: (patch.city ?? city).trim() || null,
       tagline: (patch.tagline ?? tagline).trim() || null,

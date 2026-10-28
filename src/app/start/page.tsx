@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** Cache-first journey: welcome → language → intent → AI or manual → account → ready store. */
+/** Cache-first journey: language → path (voice|quiz) → build → account → ready store. */
 export default async function StartPage({ searchParams }: PageProps<"/start">) {
   const sp = await searchParams;
   const plans = await getMarketingPlans();

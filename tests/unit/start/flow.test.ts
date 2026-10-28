@@ -1,39 +1,99 @@
 import { describe, expect, it } from "vitest";
-import { backTarget, progressFor } from "@/features/start/flow";
+import {
+  backTarget,
+  businessComplete,
+  draftHasProgress,
+  draftReadyToFinalize,
+  nextScreenAfterPath,
+  progressFor,
+  voiceFactsComplete,
+} from "@/features/start/flow";
 import { emptyStartDraft } from "@/features/start/draft/schema";
 
 describe("start flow progress", () => {
-  it("labels language step", () => {
-    expect(progressFor("lang", null, "en-IN").overall).toBe("Step 1 of 6");
-    expect(progressFor("lang", null, "hi-IN").overall).toBe("चरण 1 / 6");
+  it("labels five-screen steps", () => {
+    expect(progressFor("lang", null, "en-IN").overall).toBe("Step 1 of 5");
+    expect(progressFor("lang", null, "hi-IN").overall).toBe("चरण 1 / 5");
+    expect(progressFor("path", null, "en-IN")).toMatchObject({ overall: "Step 2 of 5", percent: 40 });
+    expect(progressFor("business", "manual", "en-IN")).toMatchObject({
+      overall: "Step 3 of 5",
+      manual: null,
+      percent: 60,
+    });
+    expect(progressFor("voice", "ai", "en-IN").overall).toBe("Step 3 of 5");
+    expect(progressFor("quiz", "ai", "en-IN").overall).toBe("Step 3 of 5");
+    expect(progressFor("theme", "manual", "en-IN").overall).toBe("Step 4 of 5");
+    expect(progressFor("account", "ai", "en-IN").overall).toBe("Step 5 of 5");
   });
 
-  it("labels manual business and payment", () => {
+  it("hides progress on welcome, building, and done", () => {
+    expect(progressFor("welcome", null, "en-IN").overall).toBeNull();
+    expect(progressFor("building", "ai", "en-IN").overall).toBeNull();
+    expect(progressFor("done", "manual", "en-IN").overall).toBeNull();
+  });
+
+  it("maps legacy content screens onto theme/business progress", () => {
+    expect(progressFor("intent", null, "en-IN").overall).toBe("Step 2 of 5");
+    expect(progressFor("mood", "manual", "en-IN").overall).toBe("Step 4 of 5");
+    expect(progressFor("payment", "manual", "en-IN").overall).toBe("Step 4 of 5");
+  });
+});
+
+describe("start flow graph", () => {
+  it("routes path → voice/quiz for AI modes and path → business for manual", () => {
+    expect(nextScreenAfterPath("ai")).toBe("voice");
+    expect(nextScreenAfterPath("ai", "talk")).toBe("voice");
+    expect(nextScreenAfterPath("ai", "quiz")).toBe("quiz");
+    expect(nextScreenAfterPath("manual")).toBe("business");
+  });
+
+  it("backs through the five-screen graph", () => {
+    expect(backTarget("lang", null)).toBeNull();
+    expect(backTarget("path", null)).toBe("lang");
+    expect(backTarget("business", "manual")).toBe("path");
+    expect(backTarget("voice", "ai")).toBe("path");
+    expect(backTarget("quiz", "ai", "quiz")).toBe("path");
+    expect(backTarget("theme", "manual")).toBe("business");
+    expect(backTarget("theme", "ai", "talk")).toBe("voice");
+    expect(backTarget("theme", "ai", "quiz")).toBe("quiz");
+    expect(backTarget("account", "ai")).toBe("theme");
+    expect(backTarget("building", "ai")).toBe("account");
+    expect(backTarget("done", "manual")).toBeNull();
+  });
+});
+
+describe("start flow completeness", () => {
+  it("requires name, category, and subcategory for business", () => {
     const d = emptyStartDraft();
     d.path = "manual";
-    expect(progressFor("business", "manual", "en-IN")).toMatchObject({
-      overall: "Step 4 of 8",
-      manual: "Manual • Step 1 of 4",
-    });
-    expect(progressFor("payment", "manual", "hi-IN").overall).toBe("चरण 7 / 8");
-    expect(progressFor("account", "manual", "en-IN").overall).toBe("Step 8 of 8");
+    expect(businessComplete(d)).toBe(false);
+    d.business.name = "Meera";
+    d.business.category = "fashion";
+    expect(businessComplete(d)).toBe(false);
+    d.business.subcategory = "ethnic";
+    expect(businessComplete(d)).toBe(true);
+    expect(draftReadyToFinalize(d)).toBe(true);
   });
 
-  it("labels AI voice and account", () => {
-    expect(progressFor("voice", "ai", "en-IN").overall).toBe("Step 5 of 6");
-    expect(progressFor("account", "ai", "en-IN").overall).toBe("Step 6 of 6");
+  it("treats voice facts as complete without siteMode", () => {
+    const d = emptyStartDraft();
+    d.path = "ai";
+    d.voice.facts = {
+      ...d.voice.facts,
+      name: "Kia",
+      category: "fashion",
+      subcategory: "western",
+      siteMode: null,
+    };
+    expect(voiceFactsComplete(d)).toBe(true);
+    expect(draftReadyToFinalize(d)).toBe(true);
   });
 
-  it("hides progress on welcome", () => {
-    expect(progressFor("welcome", null, "en-IN").overall).toBeNull();
-  });
-
-  it("treats the quiz as the AI step and returns to it from building", () => {
-    expect(progressFor("quiz", "ai", "en-IN").overall).toBe("Step 5 of 6");
-    expect(progressFor("quiz", "ai", "hi-IN").overall).toBe("चरण 5 / 6");
-    expect(backTarget("quiz", "ai", "quiz")).toBe("voice");
-    expect(backTarget("building", "ai", "quiz")).toBe("quiz");
-    expect(backTarget("building", "ai", "talk")).toBe("voice");
-    expect(backTarget("building", "manual")).toBe("payment");
+  it("treats lang with no fields as no progress", () => {
+    const d = emptyStartDraft();
+    expect(d.screen).toBe("lang");
+    expect(draftHasProgress(d)).toBe(false);
+    d.business.name = "A";
+    expect(draftHasProgress(d)).toBe(true);
   });
 });

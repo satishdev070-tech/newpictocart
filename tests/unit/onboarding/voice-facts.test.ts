@@ -34,6 +34,8 @@ describe("voice fact mapping", () => {
     expect(next).toEqual({
       name: "Asha Crafts",
       category: "handicrafts",
+      subcategory: null,
+      productsServices: null,
       siteMode: "ecommerce",
       tagline: "Handmade in Jaipur",
       city: null,
