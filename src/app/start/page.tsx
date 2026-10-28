@@ -31,15 +31,17 @@ export default async function StartPage({ searchParams }: PageProps<"/start">) {
   const user = await getSessionUser();
   const jar = await cookies();
   const draftCookie = jar.get(START_DRAFT_COOKIE)?.value === "1";
+  const resume = sp.resume === "1";
   const signedIn = Boolean(user);
   let landingPath: string | null = null;
 
-  if (user && !draftCookie) {
+  // Signed-in sellers with no store land on /onboarding historically; keep them on /start
+  // for the five-screen flow (resume=1 or no draft cookie yet).
+  if (user && !draftCookie && !resume) {
     const landing = await landingPathFor(user.id);
-    const qs = new URLSearchParams();
-    if (plan) qs.set("plan", plan);
-    if (theme) qs.set("theme", theme);
-    redirect(landing === "/onboarding" && qs.size ? `/onboarding?${qs}` : landing);
+    if (landing !== "/onboarding") {
+      redirect(landing);
+    }
   }
 
   if (user) {

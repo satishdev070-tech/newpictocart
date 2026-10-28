@@ -1,5 +1,6 @@
 import { INDUSTRIES, isIndustry, type IndustrySlug } from "@/features/stores/industries";
 import { SITE_MODES, type SiteMode } from "@/features/stores/site-mode";
+import { isSubcategory, subcategoriesFor } from "@/features/stores/subcategories";
 
 /** Facts Tara extracts during voice onboarding. */
 export type VoiceFacts = {
@@ -13,6 +14,15 @@ export type VoiceFacts = {
   tagline: string | null;
   city: string | null;
 };
+
+export type CategoryMapping = {
+  category: IndustrySlug | null;
+  subcategory: string | null;
+};
+
+function normalizeCategoryText(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[_/]+/g, " ").replace(/\s+/g, " ");
+}
 
 export const EMPTY_FACTS: VoiceFacts = {
   name: null,
@@ -102,23 +112,114 @@ const CATEGORY_ALIASES: Record<string, IndustrySlug> = {
 
 /** Map free-text / model output to a known industry slug. */
 export function mapCategoryToIndustry(raw: string | null | undefined): IndustrySlug | null {
-  if (!raw) return null;
-  const cleaned = raw.trim().toLowerCase().replace(/[_/]+/g, " ").replace(/\s+/g, " ");
-  if (!cleaned) return null;
-  if (isIndustry(cleaned)) return cleaned;
+  return mapCategoryInput(raw).category;
+}
+
+/** True when cleaned text is only the industry itself (no subcategory signal). */
+function isIndustryOnlyPhrase(cleaned: string, industry: IndustrySlug): boolean {
   const dashed = cleaned.replace(/\s+/g, "-");
-  if (isIndustry(dashed)) return dashed;
-  if (CATEGORY_ALIASES[cleaned]) return CATEGORY_ALIASES[cleaned]!;
-  if (CATEGORY_ALIASES[dashed]) return CATEGORY_ALIASES[dashed]!;
-  // Fuzzy: industry short/name contains or is contained by input.
-  for (const ind of INDUSTRIES) {
-    const name = ind.name.toLowerCase();
-    const short = ind.short.toLowerCase();
-    if (cleaned.includes(short) || short.includes(cleaned) || cleaned.includes(name) || name.includes(cleaned)) {
-      return ind.slug;
+  if (cleaned === industry || dashed === industry) return true;
+  if (CATEGORY_ALIASES[cleaned] === industry || CATEGORY_ALIASES[dashed] === industry) return true;
+  const ind = INDUSTRIES.find((i) => i.slug === industry);
+  if (!ind) return false;
+  const name = ind.name.toLowerCase();
+  const short = ind.short.toLowerCase();
+  return cleaned === name || cleaned === short || dashed === name.replace(/\s+/g, "-");
+}
+
+/**
+ * Suggest an industry-scoped subcategory slug from free text (label, slug, or phrase).
+ * Returns null when the text only names the industry or nothing matches.
+ */
+export function suggestSubcategory(
+  industry: IndustrySlug,
+  raw: string | null | undefined,
+): string | null {
+  if (!raw) return null;
+  const cleaned = normalizeCategoryText(raw);
+  if (!cleaned) return null;
+  const dashed = cleaned.replace(/\s+/g, "-");
+  if (isSubcategory(industry, cleaned)) return cleaned;
+  if (isSubcategory(industry, dashed)) return dashed;
+
+  const list = subcategoriesFor(industry);
+  for (const entry of list) {
+    const label = entry.label.toLowerCase();
+    const slugWords = entry.slug.replace(/-/g, " ");
+    if (label === cleaned || slugWords === cleaned) return entry.slug;
+  }
+
+  // Bare industry name/alias (e.g. "fashion", "clothing") is not a subcategory.
+  if (isIndustryOnlyPhrase(cleaned, industry)) return null;
+
+  for (const entry of list) {
+    const label = entry.label.toLowerCase();
+    const slugWords = entry.slug.replace(/-/g, " ");
+    if (cleaned.includes(label) || label.includes(cleaned)) return entry.slug;
+    if (cleaned.includes(slugWords) || cleaned.includes(entry.slug)) return entry.slug;
+    // Token hit: "ethnic clothing" → ethnic
+    const tokens = cleaned.split(" ");
+    if (tokens.includes(entry.slug) || tokens.some((t) => t.length >= 4 && (label.includes(t) || entry.slug.includes(t)))) {
+      return entry.slug;
     }
   }
   return null;
+}
+
+/**
+ * Map free-text category to industry and, when the phrase is specific enough, a subcategory.
+ * Prefers exact subcategory label/slug matches across industries, then industry aliases.
+ */
+export function mapCategoryInput(raw: string | null | undefined): CategoryMapping {
+  if (!raw) return { category: null, subcategory: null };
+  const cleaned = normalizeCategoryText(raw);
+  if (!cleaned) return { category: null, subcategory: null };
+  const dashed = cleaned.replace(/\s+/g, "-");
+
+  // Exact subcategory slug or label across industries (more specific than industry alone).
+  for (const ind of INDUSTRIES) {
+    for (const entry of subcategoriesFor(ind.slug)) {
+      const label = entry.label.toLowerCase();
+      const slugWords = entry.slug.replace(/-/g, " ");
+      if (
+        entry.slug === cleaned ||
+        entry.slug === dashed ||
+        label === cleaned ||
+        slugWords === cleaned
+      ) {
+        return { category: ind.slug, subcategory: entry.slug };
+      }
+    }
+  }
+
+  // Industry from slug / alias / fuzzy name.
+  let category: IndustrySlug | null = null;
+  if (isIndustry(cleaned)) category = cleaned;
+  else if (isIndustry(dashed)) category = dashed;
+  else if (CATEGORY_ALIASES[cleaned]) category = CATEGORY_ALIASES[cleaned]!;
+  else if (CATEGORY_ALIASES[dashed]) category = CATEGORY_ALIASES[dashed]!;
+  else {
+    for (const ind of INDUSTRIES) {
+      const name = ind.name.toLowerCase();
+      const short = ind.short.toLowerCase();
+      if (cleaned.includes(short) || short.includes(cleaned) || cleaned.includes(name) || name.includes(cleaned)) {
+        category = ind.slug;
+        break;
+      }
+    }
+  }
+
+  // Phrase matched a subcategory label inside free text (e.g. "ethnic wear boutique").
+  if (!category) {
+    for (const ind of INDUSTRIES) {
+      const sub = suggestSubcategory(ind.slug, cleaned);
+      if (sub) return { category: ind.slug, subcategory: sub };
+    }
+    return { category: null, subcategory: null };
+  }
+
+  const subcategory = suggestSubcategory(category, cleaned);
+  return { category, subcategory };
 }
 
 export function mapSiteMode(raw: string | null | undefined): SiteMode | null {
@@ -142,15 +243,16 @@ export function mergeFacts(prev: VoiceFacts, patch: Partial<VoiceFacts>): VoiceF
   return next;
 }
 
+/** Required for five-screen /start: name, category, subcategory. siteMode defaults at finalize. */
 export function factsComplete(facts: VoiceFacts): boolean {
-  return Boolean(facts.name && facts.category && facts.siteMode);
+  return Boolean(facts.name && facts.category && facts.subcategory);
 }
 
 export function missingFactLabels(facts: VoiceFacts): string[] {
   const missing: string[] = [];
   if (!facts.name) missing.push("business name");
   if (!facts.category) missing.push("category");
-  if (!facts.siteMode) missing.push("website or online store");
+  if (!facts.subcategory) missing.push("subcategory");
   return missing;
 }
 

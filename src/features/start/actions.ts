@@ -30,7 +30,15 @@ import { suggestSlugFromName } from "@/features/onboarding/voice/facts";
 import { parseTaraHistory, runTaraTurn } from "@/features/onboarding/voice/turn";
 import { voiceTurnInputSchema } from "@/features/onboarding/voice/schemas";
 import type { VoiceTurnData } from "@/features/onboarding/voice/actions";
-import { EMPTY_FACTS, mergeFacts, mapCategoryToIndustry, mapSiteMode, type VoiceFacts } from "@/features/onboarding/voice/facts";
+import {
+  EMPTY_FACTS,
+  mergeFacts,
+  mapCategoryInput,
+  mapCategoryToIndustry,
+  mapSiteMode,
+  suggestSubcategory,
+  type VoiceFacts,
+} from "@/features/onboarding/voice/facts";
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
 import { themeSiteType } from "@/features/theme/marketplace/types";
 import { themeShot } from "@/features/marketing-site/theme-shots";
@@ -43,10 +51,17 @@ function parseFactsJson(raw: unknown): VoiceFacts {
   if (typeof raw !== "string" || !raw.trim()) return { ...EMPTY_FACTS };
   try {
     const parsed = JSON.parse(raw) as Partial<VoiceFacts>;
+    const mapped = mapCategoryInput(typeof parsed.category === "string" ? parsed.category : null);
+    const category = mapped.category ?? mapCategoryToIndustry(typeof parsed.category === "string" ? parsed.category : null);
+    const subcategoryRaw = typeof parsed.subcategory === "string" ? parsed.subcategory : null;
+    const subcategory =
+      (category && subcategoryRaw ? suggestSubcategory(category, subcategoryRaw) : null) ??
+      mapped.subcategory ??
+      (typeof subcategoryRaw === "string" ? subcategoryRaw : null);
     return mergeFacts(EMPTY_FACTS, {
       name: typeof parsed.name === "string" ? parsed.name : null,
-      category: mapCategoryToIndustry(typeof parsed.category === "string" ? parsed.category : null),
-      subcategory: typeof parsed.subcategory === "string" ? parsed.subcategory : null,
+      category,
+      subcategory,
       productsServices: typeof parsed.productsServices === "string" ? parsed.productsServices : null,
       siteMode: mapSiteMode(typeof parsed.siteMode === "string" ? parsed.siteMode : null),
       tagline: typeof parsed.tagline === "string" ? parsed.tagline : null,

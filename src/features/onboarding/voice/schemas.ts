@@ -6,6 +6,8 @@ import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
 export const voiceFactsSchema = z.object({
   name: z.string().trim().min(2).max(120).nullable().optional(),
   category: z.string().nullable().optional(),
+  subcategory: z.string().trim().max(80).nullable().optional(),
+  productsServices: z.string().trim().max(300).nullable().optional(),
   siteMode: z.enum(SITE_MODES).nullable().optional(),
   tagline: z.string().trim().max(160).nullable().optional(),
   city: z.string().trim().max(80).nullable().optional(),
@@ -18,6 +20,8 @@ export const taraTurnResultSchema = z.object({
     .object({
       name: z.string().trim().min(1).max(120).nullable().optional(),
       category: z.string().trim().min(1).max(80).nullable().optional(),
+      subcategory: z.string().trim().min(1).max(80).nullable().optional(),
+      productsServices: z.string().trim().max(300).nullable().optional(),
       siteMode: z.string().trim().min(1).max(40).nullable().optional(),
       tagline: z.string().trim().max(160).nullable().optional(),
       city: z.string().trim().max(80).nullable().optional(),

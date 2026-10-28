@@ -331,7 +331,14 @@ Plan, gap analysis and decisions: [SUPER_ADMIN_PORT.md](SUPER_ADMIN_PORT.md). Re
   `businessComplete` / `voiceFactsComplete` require name+category+subcategory; theme optional at finalize.
   `nextScreenAfterPath(path, mode)` → voice | quiz | business.
 - **Brief:** seed brief includes subcategory + products/services.
-- **Tests:** `tests/unit/stores/subcategories.test.ts`, updated `tests/unit/start/{draft,flow,brief}.test.ts`.
+- **Voice facts:** Tara prompt/schemas collect `subcategory` + `productsServices`;
+  `mapCategoryInput` / `suggestSubcategory` map free-text to industry + subcategory;
+  `factsComplete` requires name+category+subcategory.
+- **`/onboarding` thin:** email-verify + existing-owner chooser kept; `pc_start_draft` or no-store
+  sellers redirect to `/start` (`?resume=1`); store-scoped ready/building/theme/plan unchanged;
+  `seedReadyStore` retained.
+- **Tests:** `tests/unit/stores/subcategories.test.ts`, updated `tests/unit/start/{draft,flow,brief}.test.ts`,
+  `tests/unit/onboarding/voice-facts.test.ts`.
 
 ## Cache-first `/start` journey (2026-10-19)
 
