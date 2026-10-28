@@ -308,12 +308,25 @@ Plan, gap analysis and decisions: [SUPER_ADMIN_PORT.md](SUPER_ADMIN_PORT.md). Re
 - **Add with AI:** when Gemini, Groq, and Anthropic are missing or fail, `generateSectionAction` asks Sarvam for one JSON section, sanitizes it, and inserts it like any other section. One AI credit is debited before the model call and refunded only if every model fails. If Sarvam is also unset, the panel shows the existing setup sentence.
 - **Verification:** `pnpm check` ✅ (typecheck, lint, 99 files / 1,277 tests, build). The local dev server returns `EnvValidationError` because Supabase env vars are unset, so the register, `/start`, contact, and site-builder screens were not clicked through in a browser. Apply the contact migration, then finish `/start` again so an existing store receives About and Contact.
 
+## Five-screen `/start` rebuild — Phase 1 (data + flow)
+
+- **Draft v2:** `emptyStartDraft` starts at `lang`; `parseStartDraft` migrates v1 (screen remap +
+  `business.subcategory` / `productsServices` + voice fact mirrors). Helper `draftSubcategory` /
+  `draftProductsServices`.
+- **Subcategories:** `src/features/stores/subcategories.ts` — 4–8 `{slug,label}` per `IndustrySlug`;
+  `subcategoriesFor` / `isSubcategory` / `subcategoryLabel`.
+- **Flow (Step N of 5):** lang=1, path=2, business|voice|quiz=3, theme=4, account=5.
+  `businessComplete` / `voiceFactsComplete` require name+category+subcategory; theme optional at finalize.
+  `nextScreenAfterPath(path, mode)` → voice | quiz | business.
+- **Brief:** seed brief includes subcategory + products/services.
+- **Tests:** `tests/unit/stores/subcategories.test.ts`, updated `tests/unit/start/{draft,flow,brief}.test.ts`.
+
 ## Cache-first `/start` journey (2026-10-19)
 
 - **`/start`** is a full prototype-order onboarding flow with **no database writes until the seller
   has a verified account**. Progress lives in **`localStorage`** (`pictocart.start.draft.v1`) and a
   **`pc_start_draft=1`** cookie (set after welcome) so signed-in users can return to finalize.
-- **Screens:** Welcome → Language → Intent → Path (AI vs Manual) → **AI:** Tara voice → Building →
+- **Screens (legacy, being replaced by five-screen rebuild):** Welcome → Language → Intent → Path (AI vs Manual) → **AI:** Tara voice → Building →
   Account (if needed) → persist → Done · **Manual:** Business → Products → Mood → Payment → Building →
   Account → persist → Done.
 - **`finalizeStartDraftAction`** creates or reuses the owned store, applies payment/WhatsApp/city prefs,
