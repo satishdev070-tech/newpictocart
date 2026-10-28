@@ -136,7 +136,7 @@ describe("provider calls", () => {
     await generateJson([P("groq")], ideasPrompt(ctx), ideasOutput, fetchMock as unknown as typeof fetch);
     const groqBody = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
     expect(fetchMock.mock.calls[0]![0]).toBe("https://api.groq.com/openai/v1/chat/completions");
-    expect(groqBody).toMatchObject({ model: "llama-3.3-70b-versatile", response_format: { type: "json_object" } });
+    expect(groqBody).toMatchObject({ model: "openai/gpt-oss-120b", response_format: { type: "json_object" } });
     expect((fetchMock.mock.calls[0]![1].headers as Record<string, string>).authorization).toBe("Bearer secret-groq-key");
 
     const r = await generateJson([P("anthropic")], ideasPrompt(ctx), ideasOutput, fetchMock as unknown as typeof fetch);

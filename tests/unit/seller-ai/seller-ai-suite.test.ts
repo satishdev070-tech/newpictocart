@@ -17,6 +17,7 @@ const NVIDIA_TEXT = DEFAULT_MODELS.nvidia;
 const ROUTES_MIGRATION = [
   readFileSync(new URL("../../../supabase/migrations/20261028004700_nvidia_seller_ai_default_routes.sql", import.meta.url), "utf8"),
   readFileSync(new URL("../../../supabase/migrations/20261028004800_generate_reviews.sql", import.meta.url), "utf8"),
+  readFileSync(new URL("../../../supabase/migrations/20261028005100_reviews_insert_groq_model.sql", import.meta.url), "utf8"),
 ].join("\n");
 
 describe("NVIDIA NIM provider", () => {
@@ -43,15 +44,24 @@ describe("NVIDIA NIM provider", () => {
     expect(body.response_format).toEqual({ type: "json_object" });
   });
 
-  it("sends photos as data URIs to a vision model, switching from a text-only model", () => {
+  it("keeps Nemotron Omni for photos (no Llama swap) and treats omni as vision", () => {
     expect(isNvidiaVisionModel(NVIDIA_VISION_MODEL)).toBe(true);
-    expect(isNvidiaVisionModel(NVIDIA_TEXT)).toBe(false);
+    expect(isNvidiaVisionModel(NVIDIA_TEXT)).toBe(true);
+    expect(DEFAULT_MODELS.groq).toBe("openai/gpt-oss-120b");
     const { model, body } = nvidiaRequestBody(NVIDIA_TEXT, { system: "SYS", user: "Describe", images: [img] });
-    expect(model).toBe(NVIDIA_VISION_MODEL);
+    expect(model).toBe(NVIDIA_TEXT);
     const content = (body.messages as { content: unknown }[])[1]!.content as { type: string; image_url?: { url: string }; text?: string }[];
     expect(content[0]).toEqual({ type: "image_url", image_url: { url: "data:image/jpeg;base64,QUJD" } });
     expect(content[1]).toEqual({ type: "text", text: "Describe" });
-    expect((body.messages as { content: unknown }[])[0]!.content).toBe("SYS");
+    expect((body.messages as { content: unknown }[])[0]!.content).toBe("/no_think\nSYS");
+    expect(body.response_format).toBeUndefined();
+  });
+
+  it("switches text-only NVIDIA models to the Llama vision id when photos are present", () => {
+    const textOnly = "nvidia/nemotron-mini-4b-instruct";
+    expect(isNvidiaVisionModel(textOnly)).toBe(false);
+    const { model, body } = nvidiaRequestBody(textOnly, { system: "SYS", user: "Describe", images: [img] });
+    expect(model).toBe(NVIDIA_VISION_MODEL);
     expect(body.response_format).toBeUndefined();
   });
 
@@ -117,6 +127,8 @@ describe("NVIDIA NIM provider", () => {
     }
     expect(ROUTES_MIGRATION).toContain("('generate_product', 'nvidia', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning', 'gemini', 'gemini-3.8-flash', true)");
     expect(ROUTES_MIGRATION).toContain("on conflict (feature_key) do nothing");
+    expect(ROUTES_MIGRATION).toContain("reviews_staff_insert");
+    expect(ROUTES_MIGRATION).toContain("openai/gpt-oss-120b");
   });
 });
 
