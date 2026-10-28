@@ -22,6 +22,7 @@ import { blogWritePrompt, businessCoachPrompt, contactReplyPrompt, productGenera
 import { buildStoreSnapshot, coachMetrics, lowStockLines, topProductLines } from "./snapshot";
 import { persistStoreSetup } from "./store-setup";
 import {
+  AGENT_PRODUCT_SNAPSHOT_LIMIT,
   agentChatInputSchema,
   agentReplyContentSchema,
   agentReplyResultSchema,
@@ -196,8 +197,21 @@ export async function refreshBusinessCoachAction(): Promise<ActionResult<Busines
 
 const AGENT_DAILY_LIMIT = 60;
 
+/** Lean plan/trial brief for the Pica2 snapshot (seller session + RLS). */
+async function loadAgentPlanBrief(tenantId: string): Promise<{ planName: string | null; status: string | null; trialEndsAt: string | null }> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from("tenants").select("status, trial_ends_at, plans(name)").eq("id", tenantId).maybeSingle();
+  if (error || !data) {
+    if (error) logger.warn("seller_ai.agent_plan_unavailable", { message: error.message.slice(0, 120) });
+    return { planName: null, status: null, trialEndsAt: null };
+  }
+  const plan = data.plans as { name: string } | { name: string }[] | null;
+  const planName = Array.isArray(plan) ? (plan[0]?.name ?? null) : (plan?.name ?? null);
+  return { planName, status: data.status, trialEndsAt: data.trial_ends_at };
+}
+
 /**
- * Store assistant chat. The store is the caller's active membership (never a client id); facts
+ * Pica2 AI Assistant chat. The store is the caller's active membership (never a client id); facts
  * are read with the seller's own session, so RLS limits them to this store and to what the
  * member's role may see. One credit-debited generation per question.
  */
@@ -206,18 +220,30 @@ export async function askStoreAgentAction(input: AgentChatInput): Promise<Action
     const v = parseInput(agentChatInputSchema, input);
     const ctx = await requireTenant();
     assertPermission(ctx, "analytics.read");
-    const [home, language, balance, products] = await Promise.all([
+    const catalog = can(ctx, "catalog.read");
+    const [home, language, balance, products, categories, plan] = await Promise.all([
       getDashboardHome(ctx),
       getLocale(),
       getAiCreditBalance(ctx.tenantId),
-      can(ctx, "catalog.read")
-        ? listProducts(ctx.tenantId, productListQuerySchema.parse({}), 25)
+      catalog
+        ? listProducts(ctx.tenantId, productListQuerySchema.parse({}), AGENT_PRODUCT_SNAPSHOT_LIMIT)
             .then((r) => r.rows)
             .catch((err: unknown) => {
               logger.warn("seller_ai.agent_products_unavailable", { message: err instanceof Error ? err.message.slice(0, 120) : "unknown" });
               return [];
             })
         : Promise.resolve([]),
+      catalog
+        ? listCategoryFilterOptions(ctx.tenantId)
+            .then((rows) => rows.map((c) => c.name).filter(Boolean).slice(0, 40))
+            .catch((err: unknown) => {
+              logger.warn("seller_ai.agent_categories_unavailable", { message: err instanceof Error ? err.message.slice(0, 120) : "unknown" });
+              return [] as string[];
+            })
+        : Promise.resolve([] as string[]),
+      can(ctx, "store.read")
+        ? loadAgentPlanBrief(ctx.tenantId)
+        : Promise.resolve({ planName: null, status: null, trialEndsAt: null }),
     ]);
     const snapshot = buildStoreSnapshot({
       storeName: ctx.tenantName,
@@ -226,6 +252,8 @@ export async function askStoreAgentAction(input: AgentChatInput): Promise<Action
       home,
       products: products.map((p) => ({ title: p.title, status: p.status, minPrice: p.minPrice, stockTotal: p.stockTotal, categoryName: p.categoryName })),
       creditBalance: balance,
+      categories,
+      plan,
     });
     const prompt = storeAgentPrompt({ storeName: ctx.tenantName, language, snapshot, messages: v.messages });
     const r = await runSellerAiGeneration({
@@ -236,7 +264,12 @@ export async function askStoreAgentAction(input: AgentChatInput): Promise<Action
       input: { question: v.messages[v.messages.length - 1]!.content.slice(0, 500), turns: v.messages.length, language },
       prompt,
       schema: agentReplyContentSchema,
-      limit: { key: "seller-agent", perDay: AGENT_DAILY_LIMIT, message: `You've asked the store assistant ${AGENT_DAILY_LIMIT} questions today. Try again tomorrow.` },
+      limit: { key: "seller-agent", perDay: AGENT_DAILY_LIMIT, message: `You've asked Pica2 AI Assistant ${AGENT_DAILY_LIMIT} questions today. Try again tomorrow.` },
+      // In-process generateJson is primary; merchant-assistant Edge is an optional fallback.
+      edgeFallback: {
+        name: "merchant-assistant",
+        body: { storeName: ctx.tenantName, language, snapshot, messages: v.messages },
+      },
     });
     return agentReplyResultSchema.parse(r.data);
   });

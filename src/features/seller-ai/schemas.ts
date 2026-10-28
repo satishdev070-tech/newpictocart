@@ -106,7 +106,7 @@ export const SELLER_AI_KIND_LABELS: Record<SellerAiCreditKind, string> = {
   generate_blog: "Blog AI Write",
   contact_reply: "Contact reply draft",
   business_coach: "Business coach",
-  store_agent: "Store assistant chat",
+  store_agent: "Pica2 AI Assistant",
   store_setup: "Store setup from a prompt",
 };
 
@@ -145,6 +145,12 @@ export type AgentLinkKey = keyof typeof AGENT_LINKS;
 export const AGENT_LINK_KEYS = Object.keys(AGENT_LINKS) as AgentLinkKey[];
 
 export const AGENT_MAX_TURNS = 8;
+
+/** Soft cap for the store snapshot text fed into Pica2 (kept in sync in snapshot + prompt). */
+export const STORE_SNAPSHOT_MAX_CHARS = 8000;
+
+/** How many catalogue rows to include in the agent snapshot (plus separate low-stock lines). */
+export const AGENT_PRODUCT_SNAPSHOT_LIMIT = 40;
 
 export const agentChatInputSchema = z.object({
   messages: z

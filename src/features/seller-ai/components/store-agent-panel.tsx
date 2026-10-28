@@ -64,7 +64,7 @@ export function StoreAgentPanel({ text, open, onClose }: { text: StoreAgentText;
 
   if (!open) return null;
   return (
-    <div role="dialog" aria-modal="false" aria-label={text.title} className="fixed inset-x-2 bottom-2 z-50 flex max-h-[min(36rem,calc(100dvh-1rem))] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[24rem]">
+    <div role="dialog" aria-modal="false" aria-label={text.title} className="fixed inset-x-2 bottom-2 z-50 flex max-h-[min(85dvh,calc(100dvh-1rem))] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[min(32rem,calc(100vw-1rem))]">
       <header className="flex items-center gap-3 bg-gradient-to-br from-[#7c3aed] to-[#c026d3] px-4 py-3 text-white">
         <Bot aria-hidden className="size-5 shrink-0" />
         <div className="min-w-0 flex-1">

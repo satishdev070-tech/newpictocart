@@ -97,12 +97,23 @@ Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coac
 
 - **Happy path:** `runSellerAiGeneration` → `loadProviders` (SETUP only when empty) → debit → `generateJson` (+ `orderForImages` when vision) → refund on fail → `ai_generations`. Prompts in `src/features/seller-ai/prompts.ts`.
 - **False SETUP fix:** `invoke.ts` no longer maps every HTTP 503 to SETUP; only `error === "not_configured"` (or Next with zero providers). Other 502/503 → distinct edge-unavailable message. Invoke sends `apikey` + `Authorization`.
-- **Edge functions (optional):** `supabase/functions/generate-product`, `generate-blog`, `generate-contact-reply`, `business-coach` (+ `_shared` auth/LLM).
+- **Edge functions (optional):** `supabase/functions/generate-product`, `generate-blog`, `generate-contact-reply`, `business-coach`, `merchant-assistant` (+ `_shared` auth/LLM with NVIDIA NIM).
 - **UI:** Products editor “Generate with AI”; Blog “AI Write”; Messages “Draft AI reply”; Dashboard Business Coach card.
 - **Credits / registry:** Migration `20261028004200_seller_ai_suite.sql`; features in `ai-health/registry.ts`.
 - **Hosted:** Edge + migration applied on `ugbjlpdhktrlkyuijkfc` (2026-10-28).
 - **Verification:** `pnpm check` ✅ (typecheck, lint, **130 files / 1,546 tests**, build). Seller-ai unit tests under `tests/unit/seller-ai/`.
 - **Branch (backend fix):** `cursor/seller-ai-false-setup-ui-c73e`.
+
+## NVIDIA Edge LLM + merchant-assistant (2026-10-28, branch `cursor/nvidia-pica2-notif-sounds-c73e`)
+
+- **Edge `_shared/llm.ts`:** NVIDIA NIM provider (parity with Next `neural-pulse/server/llm.ts`): `integrate.api.nvidia.com/v1/chat/completions`, Bearer key, `/no_think` for Nemotron, `<think>` stripped, vision as `image_url` data URIs, `extractJson`. `normalizeProviders` accepts `nvidia`.
+- **`merchant-assistant` Edge Function:** store-agent parity — JSON `{ answer, links }` from snapshot + messages; link keys whitelisted like Next `AGENT_LINK_KEYS`.
+- **Fallback:** `askStoreAgentAction` keeps in-process `generateJson` primary; on provider exhaustion, `runSellerAiGeneration` may invoke `merchant-assistant` via `invokeSellerAi` before refunding.
+- **Redeploy (hosted project `ugbjlpdhktrlkyuijkfc`):**
+  ```bash
+  supabase functions deploy generate-product generate-blog generate-contact-reply business-coach merchant-assistant --project-ref ugbjlpdhktrlkyuijkfc
+  ```
+  Optional: `supabase secrets set AI_EDGE_INVOKE_SECRET=… --project-ref ugbjlpdhktrlkyuijkfc` (same value as app env).
 
 ## Seller pages speed / crash fix (2026-10-28, ADR-010-safe)
 
