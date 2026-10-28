@@ -11,12 +11,14 @@ export function PathScreen({
   path,
   mode,
   onSelect,
+  onBack,
   onContinue,
 }: {
   locale: string;
   path: "ai" | "manual" | null;
   mode: "talk" | "quiz";
   onSelect: (choice: PathChoice) => void;
+  onBack: () => void;
   onContinue: () => void;
 }) {
   const c = startCopy(locale);
@@ -54,7 +56,14 @@ export function PathScreen({
           badge={c.path.quizBadge}
         />
       </div>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="rounded-full border border-white/90 bg-white/60 px-5 py-3 text-sm font-medium text-[#5E5568]"
+        >
+          ← {c.back}
+        </button>
         <button
           type="button"
           disabled={!canContinue}

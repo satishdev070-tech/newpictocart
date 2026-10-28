@@ -13,6 +13,7 @@ export function VoiceScreen({
   draft,
   voiceReady,
   voiceEnabled,
+  onBack,
   onFacts,
   onDone,
   onManual,
@@ -21,6 +22,7 @@ export function VoiceScreen({
   draft: StartDraft;
   voiceReady: boolean;
   voiceEnabled: boolean;
+  onBack: () => void;
   onFacts: (facts: VoiceFacts, done: boolean, turns: StartVoiceTurn[]) => void;
   onDone: () => void;
   onManual: () => void;
@@ -106,6 +108,13 @@ export function VoiceScreen({
         <button type="button" onClick={onManual} className="rounded-full bg-[#F97316] px-6 py-3 font-semibold text-white">
           {c.voice.continueManual}
         </button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="rounded-full border border-white/90 bg-white/60 px-5 py-3 text-sm font-medium text-[#5E5568]"
+        >
+          ← {c.back}
+        </button>
       </section>
     );
   }
@@ -187,11 +196,22 @@ export function VoiceScreen({
         <button type="button" onClick={onQuiz} className="rounded-full border border-[#2A2233]/10 bg-white/60 px-4 py-2 text-sm">
           {c.voice.preferQuiz}
         </button>
-        {factsComplete(draft.voice.facts as VoiceFacts) ? (
-          <button type="button" onClick={onDone} className="rounded-full bg-[#F97316] px-6 py-3 font-semibold text-white">
-            Continue →
+        <div className="flex w-full max-w-md flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-full border border-white/90 bg-white/60 px-5 py-3 text-sm font-medium text-[#5E5568]"
+          >
+            ← {c.back}
           </button>
-        ) : null}
+          {factsComplete(draft.voice.facts as VoiceFacts) ? (
+            <button type="button" onClick={onDone} className="rounded-full bg-[#F97316] px-6 py-3 font-semibold text-white">
+              Continue →
+            </button>
+          ) : (
+            <span />
+          )}
+        </div>
       </div>
     </section>
   );

@@ -17,12 +17,14 @@ export function BusinessScreen({
   voiceReady,
   rootDomain,
   onChange,
+  onBack,
   onNext,
 }: {
   draft: StartDraft;
   voiceReady: boolean;
   rootDomain: string;
   onChange: (patch: Partial<StartDraft["business"]>) => void;
+  onBack: () => void;
   onNext: () => void;
 }) {
   const c = startCopy(draft.locale);
@@ -162,14 +164,23 @@ export function BusinessScreen({
             <input value={b.whatsapp} onChange={(e) => onChange({ whatsapp: e.target.value })} className="mt-1 w-full rounded-xl border px-3 py-2.5" />
           </label>
         </div>
-        <button
-          type="button"
-          disabled={!canContinue}
-          onClick={onNext}
-          className="self-start rounded-full bg-[#F97316] px-7 py-3.5 font-semibold text-white disabled:opacity-40"
-        >
-          {c.business.next}
-        </button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-full border border-white/90 bg-white/60 px-5 py-3 text-sm font-medium text-[#5E5568]"
+          >
+            ← {c.back}
+          </button>
+          <button
+            type="button"
+            disabled={!canContinue}
+            onClick={onNext}
+            className="rounded-full bg-[#F97316] px-7 py-3.5 font-semibold text-white disabled:opacity-40"
+          >
+            {c.business.next}
+          </button>
+        </div>
       </div>
       <div className="hidden lg:block">
         <LivePreview locale={draft.locale} rootDomain={rootDomain} draft={draft} />

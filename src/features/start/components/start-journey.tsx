@@ -7,7 +7,7 @@ import { finalizeStartDraftAction } from "../actions";
 import type { ActionResult } from "@/lib/actions/result";
 import type { FinalizeStartResult } from "../actions";
 import { useStartDraft } from "../draft/use-start-draft";
-import { clearStartDraftStorage, setStartDraftCookie } from "../draft/storage";
+import { clearStartDraftCookie, clearStartDraftStorage, setStartDraftCookie } from "../draft/storage";
 import type { StartDraft, StartScreen } from "../draft/schema";
 import { draftReadyToFinalize, draftHasProgress, backTarget, nextScreenAfterPath } from "../flow";
 import { draftStoreName } from "../draft/schema";
@@ -63,6 +63,7 @@ export function StartJourney({
   const [finalizeState, setFinalizeState] = useState<ActionResult<FinalizeStartResult> | null>(null);
   const finalizing = useRef(false);
   const routedEmpty = useRef(false);
+  const leavingDone = useRef(false);
 
   const finalize = useCallback(() => {
     if (!draft || finalizing.current || draft.result) return;
@@ -74,6 +75,8 @@ export function StartJourney({
       setFinalizeState(res);
       if (res.ok) {
         setDraft((d) => ({ ...d, result: { slug: res.data.slug, name: res.data.name }, screen: "done" }));
+        // Mid-journey gates should stop treating this as in-progress; keep LS for Done UI.
+        clearStartDraftCookie();
       } else {
         finalizing.current = false;
         const message =
@@ -90,7 +93,7 @@ export function StartJourney({
     (screen: StartScreen) => {
       if (!draft) return;
       const next = { ...draft, screen };
-      if (screen !== "welcome") setStartDraftCookie();
+      if (screen !== "welcome" && screen !== "done") setStartDraftCookie();
       setDraft(next);
     },
     [draft, setDraft],
@@ -103,9 +106,11 @@ export function StartJourney({
   }, [hydrated, draft, patchDraft]);
 
   useEffect(() => {
-    if (!hydrated || !draft || routedEmpty.current) return;
+    if (!hydrated || !draft || routedEmpty.current || leavingDone.current) return;
     if (signedIn && draft.result) {
       if (draft.screen !== "done") patchDraft({ screen: "done" });
+      // Drop in-progress cookie; keep LS so Done UI still has the result.
+      clearStartDraftCookie();
       return;
     }
     if (signedIn && !draftHasProgress(draft) && landingPath) {
@@ -174,21 +179,13 @@ export function StartJourney({
     });
   }
 
-  const shell = (children: React.ReactNode, opts?: { back?: boolean; layout?: "center" | "split"; backTo?: StartScreen; screen?: StartScreen }) => (
+  const shell = (children: React.ReactNode, opts?: { layout?: "center" | "split"; screen?: StartScreen }) => (
     <StartShell
       draft={draft}
       screen={opts?.screen ?? screen}
       logo={logo}
       voiceEnabled={voiceEnabled}
       onVoiceToggle={() => setVoiceEnabled((v) => !v)}
-      onBack={
-        opts?.back
-          ? () => {
-              const t = backTarget(opts.backTo ?? screen, draft.path, draft.voice.mode);
-              if (t) go(t);
-            }
-          : undefined
-      }
       onLangClick={() => go("lang")}
       layout={opts?.layout ?? (split ? "split" : "center")}
     >
@@ -223,12 +220,15 @@ export function StartJourney({
             voice: { ...draft.voice, mode: choice.mode },
           })
         }
+        onBack={() => {
+          const t = backTarget("path", draft.path, draft.voice.mode);
+          if (t) go(t);
+        }}
         onContinue={() => {
           if (!draft.path) return;
           go(nextScreenAfterPath(draft.path, draft.voice.mode ?? "talk"));
         }}
       />,
-      { back: true },
     );
   }
 
@@ -239,6 +239,10 @@ export function StartJourney({
         draft={draft}
         voiceReady={voiceReady}
         voiceEnabled={voiceEnabled}
+        onBack={() => {
+          const t = backTarget("voice", draft.path, draft.voice.mode);
+          if (t) go(t);
+        }}
         onFacts={(facts, done, turns: StartVoiceTurn[]) => {
           const nextFacts = applyVoiceFacts(draft.voice.facts, facts);
           patchDraft({
@@ -267,7 +271,6 @@ export function StartJourney({
           setStartDraftCookie();
         }}
       />,
-      { back: true },
     );
   }
 
@@ -275,6 +278,10 @@ export function StartJourney({
     return shell(
       <QuizScreen
         draft={draft}
+        onBack={() => {
+          const t = backTarget("quiz", draft.path, draft.voice.mode);
+          if (t) go(t);
+        }}
         onSave={(facts, done) => {
           setDraft((d) => {
             const categoryChanged =
@@ -309,7 +316,6 @@ export function StartJourney({
           if (done) setStartDraftCookie();
         }}
       />,
-      { back: true },
     );
   }
 
@@ -320,9 +326,13 @@ export function StartJourney({
         voiceReady={voiceReady}
         rootDomain={rootDomain}
         onChange={(b) => patchDraft({ business: { ...draft.business, ...b } })}
+        onBack={() => {
+          const t = backTarget("business", draft.path, draft.voice.mode);
+          if (t) go(t);
+        }}
         onNext={() => go("theme")}
       />,
-      { back: true, layout: "split" },
+      { layout: "split" },
     );
   }
 
@@ -337,7 +347,6 @@ export function StartJourney({
         }}
         onContinue={() => go("account")}
       />,
-      { back: true },
     );
   }
 
@@ -353,14 +362,22 @@ export function StartJourney({
           if (!signedIn) go("account");
         }}
       />,
-      { back: !openingStore, layout: "center" },
+      { layout: "center" },
     );
   }
 
   if (screen === "account" || (screen === "building" && finishMessage)) {
     return shell(
       <>
-        <AccountScreen draft={draft} rootDomain={rootDomain} googleAvailable={googleAvailable} />
+        <AccountScreen
+          draft={draft}
+          rootDomain={rootDomain}
+          googleAvailable={googleAvailable}
+          onBack={() => {
+            const t = backTarget(finishMessage ? "building" : "account", draft.path, draft.voice.mode);
+            if (t) go(t);
+          }}
+        />
         {finishMessage ? (
           <div className="mx-auto mt-4 max-w-md space-y-3">
             <button
@@ -373,7 +390,7 @@ export function StartJourney({
           </div>
         ) : null}
       </>,
-      { back: true, layout: "center", backTo: finishMessage ? "building" : "account", screen: "account" },
+      { layout: "center", screen: "account" },
     );
   }
 
@@ -386,8 +403,11 @@ export function StartJourney({
       storeName={storeName}
       rootDomain={rootDomain}
       onDashboard={() => {
+        leavingDone.current = true;
+        // Hard nav avoids a soft-nav race with empty-draft redirect after clearing storage.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- intentional full page leave from Done
+        window.location.assign("/dashboard");
         clearStartDraftStorage();
-        router.push("/dashboard");
       }}
     />,
   );

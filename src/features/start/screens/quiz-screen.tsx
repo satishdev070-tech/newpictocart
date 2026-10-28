@@ -16,9 +16,11 @@ const STEPS = 6;
 
 export function QuizScreen({
   draft,
+  onBack,
   onSave,
 }: {
   draft: StartDraft;
+  onBack: () => void;
   onSave: (facts: VoiceFacts, done: boolean) => void;
 }) {
   const c = startCopy(draft.locale);
@@ -192,38 +194,51 @@ export function QuizScreen({
           />
         </Question>
       ) : null}
-      <div className="flex items-center justify-between gap-3">
-        {step >= 4 ? (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => {
-              if (step === 4) setCity("");
-              if (step === 5) setTagline("");
-              const cleared = current(step === 4 ? { city: "" } : { tagline: "" });
-              if (step < STEPS - 1) {
-                onSave(cleared, false);
-                setStep((s) => s + 1);
-              } else {
-                const draftLike = {
-                  ...draft,
-                  voice: { ...draft.voice, facts: cleared },
-                  business: {
-                    ...draft.business,
-                    name: cleared.name?.trim() || draft.business.name,
-                    category: cleared.category ?? draft.business.category,
-                    subcategory: cleared.subcategory ?? draft.business.subcategory,
-                  },
-                };
-                onSave(cleared, voiceFactsComplete(draftLike));
+              if (step > 0) {
+                setStep((s) => s - 1);
+                return;
               }
+              onBack();
             }}
-            className="text-sm text-[#6B6275] underline"
+            className="rounded-full border border-white/90 bg-white/60 px-5 py-3 text-sm font-medium text-[#5E5568]"
           >
-            {c.quiz.skip}
+            ← {c.back}
           </button>
-        ) : (
-          <span />
-        )}
+          {step >= 4 ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (step === 4) setCity("");
+                if (step === 5) setTagline("");
+                const cleared = current(step === 4 ? { city: "" } : { tagline: "" });
+                if (step < STEPS - 1) {
+                  onSave(cleared, false);
+                  setStep((s) => s + 1);
+                } else {
+                  const draftLike = {
+                    ...draft,
+                    voice: { ...draft.voice, facts: cleared },
+                    business: {
+                      ...draft.business,
+                      name: cleared.name?.trim() || draft.business.name,
+                      category: cleared.category ?? draft.business.category,
+                      subcategory: cleared.subcategory ?? draft.business.subcategory,
+                    },
+                  };
+                  onSave(cleared, voiceFactsComplete(draftLike));
+                }
+              }}
+              className="text-sm text-[#6B6275] underline"
+            >
+              {c.quiz.skip}
+            </button>
+          ) : null}
+        </div>
         <button
           type="button"
           disabled={!canNext}
