@@ -34,7 +34,8 @@ export function writeStartDraft(draft: StartDraft): void {
   } catch {
     /* quota / private mode */
   }
-  if (draft.screen !== "welcome") {
+  // Done keeps LS for the success UI but must not look "in progress" to mid-journey gates.
+  if (draft.screen !== "welcome" && draft.screen !== "done") {
     setStartDraftCookie();
   }
   emit();
@@ -45,6 +46,12 @@ export function setStartDraftCookie(): void {
   document.cookie = `${START_DRAFT_COOKIE}=1; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
 }
 
+/** Expire the in-progress cookie without wiping localStorage (e.g. Done screen still needs the draft). */
+export function clearStartDraftCookie(): void {
+  if (!isBrowser()) return;
+  document.cookie = `${START_DRAFT_COOKIE}=; path=/; max-age=0; samesite=lax`;
+}
+
 export function clearStartDraftStorage(): void {
   if (!isBrowser()) return;
   try {
@@ -52,6 +59,6 @@ export function clearStartDraftStorage(): void {
   } catch {
     /* ignore */
   }
-  document.cookie = `${START_DRAFT_COOKIE}=; path=/; max-age=0; samesite=lax`;
+  clearStartDraftCookie();
   emit();
 }

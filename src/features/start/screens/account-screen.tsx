@@ -19,10 +19,12 @@ const submitClass =
 export function AccountScreen({
   draft,
   googleAvailable,
+  onBack,
 }: {
   draft: StartDraft;
   rootDomain: string;
   googleAvailable: boolean;
+  onBack?: () => void;
 }) {
   const c = startCopy(draft.locale);
   const [mode, setMode] = useState<"signup" | "signin">("signup");
@@ -30,9 +32,19 @@ export function AccountScreen({
   const [email, setEmail] = useState("");
   const [codeEmail, setCodeEmail] = useState<string | null>(null);
 
+  const backLink = onBack ? (
+    <button
+      type="button"
+      onClick={onBack}
+      className="mt-4 text-sm font-medium text-[#5E5568] underline-offset-2 hover:underline"
+    >
+      ← {c.back}
+    </button>
+  ) : null;
+
   if (codeEmail) {
     return (
-      <div className="mx-auto w-full max-w-md">
+      <div className="mx-auto flex w-full max-w-md flex-col items-start">
         <AuthCard>
           <BrandHeader
             eyebrow={c.account.eyebrow}
@@ -49,12 +61,13 @@ export function AccountScreen({
             onChangeEmail={() => setCodeEmail(null)}
           />
         </AuthCard>
+        {backLink}
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-md">
+    <div className="mx-auto flex w-full max-w-md flex-col items-start">
       <AuthCard>
         <BrandHeader
           eyebrow={c.account.eyebrow}
@@ -99,6 +112,7 @@ export function AccountScreen({
           </button>
         </p>
       </AuthCard>
+      {backLink}
     </div>
   );
 }
