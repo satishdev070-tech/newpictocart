@@ -323,7 +323,7 @@ export async function resetPasswordAction(_prev: ActionResult | null, fd: FormDa
 /** Signs out to the shared sign-in page (sellers and platform staff use the same one). */
 export async function signOutAction(): Promise<void> {
   const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
   redirect(LOGIN_PATH);
 }
 
