@@ -11,7 +11,7 @@ _Last updated: 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits W
 - **Blog:** `BlogAiWrite` shows `AiGenerationProgress`; cover/hero **Generate with AI** searches Unsplash (`listUnsplashAction` / import) by title/topic with auto-pick or picker; manual upload kept. `saveDocumentAction` accepts `coverPath` from the library import.
 - **Admin → Users list:** row menu exposes Make/Remove super admin, Add customer, Reset / temporary password, Delete (same rules as user detail).
 - **Admin live search:** debounced filters on Users and Stores lists (no full page reload per keystroke).
-- **Hosted:** apply `04800` + `04900` (and prior NVIDIA migrations `04300` / `04700` if missing). NVIDIA NIM + Unsplash keys required in Admin for generation / covers.
+- **Hosted:** `04800` + `04900` applied on `ugbjlpdhktrlkyuijkfc` (2026-10-28; `04300` / `04700` already present). NVIDIA NIM + Unsplash keys required in Admin for generation / covers.
 - **Verification:** `pnpm check` ✅ (typecheck, lint, **140 files / 1,648 tests**, build).
 
 ## AI Credits Wallet page (2026-10-28, branch `cursor/ai-wallet-sales-gateways-c73e`)
@@ -20,14 +20,14 @@ _Last updated: 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits W
 - **Retargets:** topbar credit badge, home `AiWalletCard` Recharge / activity, Settings sidebar + Settings centre nav (“AI Wallet”) → `/dashboard/wallet`.
 - **Neural Pulse:** studio tabs kept; bolted `#credits` panel replaced with `AiWalletLinkBanner` link to the wallet.
 - **Code:** `src/app/dashboard/wallet/page.tsx`, `src/features/ai-credits/wallet-ui.tsx`.
-- **Verification:** `pnpm check` ✅ (typecheck, lint, **139 files / 1,637 tests**, build). PR #45. Hosted: apply `20261028004500` + `20261028004600`.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **139 files / 1,637 tests**, build). PR #45. Hosted: `20261028004500` + `20261028004600` applied on `ugbjlpdhktrlkyuijkfc`.
 
 ## Platform AI wallet payment gateways (2026-10-28, branch `cursor/ai-wallet-sales-gateways-c73e`)
 
 - **Admin → Credits economy → Payments:** Super Admin saves + tests **Razorpay** (key id, secret, webhook secret) and **Cashfree** (app id, secret, env) for AI credit recharge. Encrypted in `platform_app_credentials` (providers `razorpay` / `cashfree`); not `tenant_integrations`. Razorpay is preferred when both are set.
 - **Seller buy path:** when a platform gateway is configured and the seller chooses online, `requestAiCreditPurchaseAction` creates the purchase request, opens a Razorpay/Cashfree order via existing helpers in `features/payments/{razorpay,cashfree}.ts` with **platform** creds, and returns a checkout payload. Otherwise the offline / manual-approve request flow is unchanged.
 - **Webhooks:** `/api/webhooks/platform/razorpay` and `/api/webhooks/platform/cashfree` verify with platform secrets, then `complete_ai_credit_purchase_payment` (same ledger effect as `decide_ai_credit_purchase` approve).
-- **Migration `20261028004600_platform_ai_payment_gateways.sql` (needs applying):** widens `platform_app_credentials` provider check; adds `provider` + `provider_order_id` on `ai_credit_purchase_requests`; service_role-only complete RPC. ADR-006 notes gateway secrets are for AI wallet only.
+- **Migration `20261028004600_platform_ai_payment_gateways.sql` (applied on hosted):** widens `platform_app_credentials` provider check; adds `provider` + `provider_order_id` on `ai_credit_purchase_requests`; service_role-only complete RPC. ADR-006 notes gateway secrets are for AI wallet only.
 
 ## AI credit one-time codes (2026-10-28, branch `cursor/ai-wallet-sales-gateways-c73e`)
 
@@ -40,7 +40,7 @@ _Last updated: 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits W
 
 - **In-process defaults** (`neural-pulse/server/llm.ts`): text `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`; vision (when photos + text-only route) `meta/llama-3.2-11b-vision-instruct`. Keeps `/no_think`, `<think>` strip, 60 s timeout. `extractJson` hardened (think/fence/array, reply preview); NVIDIA parse failures tagged `NVIDIA parse failure: …` in `LlmError.failures`.
 - **AI Health seeds** (migration `20261028004700_nvidia_seller_ai_default_routes.sql`): inserts NVIDIA primary routes for `generate_product`, `generate_blog`, `store_agent`, `contact_reply`, `business_coach` when unset (`on conflict do nothing`). Registry: `SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS`. `generate_product` seeds Gemini (`gemini-3.8-flash`) as fallback; Groq stays in the platform order when the route is off. Migration `20261028004900_generate_product_gemini_fallback.sql` backfills that fallback on hosts that already applied 04700 with a null fallback.
-- **Hosted still needs** migration `20261028004300_nvidia_provider_store_agent.sql` (NVIDIA in provider CHECKs + store_agent/store_setup costs) before 04700 can apply; then apply 04700 (+ 04900) for the route seeds.
+- **Hosted:** `04300` / `04700` / `04900` applied on `ugbjlpdhktrlkyuijkfc` (NVIDIA provider + seller AI default routes + Gemini fallback).
 - Product Generate with AI + Blog AI Write stay on `runSellerAiGeneration` → `orderForImages` + credits.
 
 ## Seller AI on NVIDIA NIM + store assistant (2026-10-28, branch `claude/dreamy-raman-b1149f`)
@@ -52,7 +52,7 @@ _Last updated: 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits W
 - **AI Credits Wallet** (`/dashboard/wallet`): see dedicated section above (nav retargets + Neural Pulse banner).
 - **Pica2 AI Assistant** (store agent chat): floating “Pica2 AI Assistant” button (seller dashboard, `analytics.read`); taller/wider panel (`min(85dvh)` / `sm:w min(32rem)`). Each question re-reads the store's data with the seller's RLS session (dashboard home + up to 40 products, categories, plan/trial, low stock, recent-order + fulfilment summary), answers in the panel language with growth-oriented tips, and returns up to 3 links chosen by key from a `/dashboard` whitelist (`AGENT_LINKS`). Snapshot soft-capped at 8k chars. 1 credit per question, 60 questions/store/day.
 - All seller AI calls are server actions (`runAction` + `parseInput` + membership permission); keys never reach the client; failures/timeouts refund credits and show a friendly message.
-- **Migration `20261028004300_nvidia_provider_store_agent.sql` (still needs applying to the hosted DB):** widens the `platform_app_credentials`, `ai_feature_routes` (primary/fallback) and `ai_model_prices` provider checks to include `nvidia`, adds `store_agent` / `store_setup` to `ai_generations_kind_check`, seeds their credit costs (1 and 10). Before it is applied: `NVIDIA_API_KEY` still works, saving an NVIDIA key/route/price shows a clear "database update" message, the new actions cost 1 credit and skip the `ai_generations` log row. It also re-states the 4200 kinds, so it is safe even where 4200 is missing. Apply before `20261028004700` (seller AI NVIDIA default routes).
+- **Migration `20261028004300_nvidia_provider_store_agent.sql` (applied on hosted):** widens the `platform_app_credentials`, `ai_feature_routes` (primary/fallback) and `ai_model_prices` provider checks to include `nvidia`, adds `store_agent` / `store_setup` to `ai_generations_kind_check`, seeds their credit costs (1 and 10).
 - Tests: `tests/unit/seller-ai/seller-ai-suite.test.ts` (NVIDIA request/response, fallback, vision ordering, prompts + language, agent link whitelist, coach/setup parsing, slugs, snapshot, wallet).
 
 ## My Profile pages + Admin ⇄ Seller panel switch (2026-10-28, branch `claude/dreamy-raman-b1149f`)
@@ -204,7 +204,7 @@ Measured audit and before/after numbers are in `docs/PERFORMANCE_AUDIT.md`.
 ## Team roles: Store Admin (Owner) / Manager / Sales Associate (2026-10-27, QA #2 #3)
 
 - **Three standard roles** instead of twelve: **Store Admin (Owner)** (the registering merchant, all access, can't be removed or changed by others), **Manager** (everything except billing; manages the team and roles but can't touch the owner) and **Sales Associate** (orders incl. cancel, customers, products view/edit, inventory; no settings, payments, domains, team, refunds, publish or delete). Invite and role pickers list only Manager, Sales Associate and the store's own custom roles; default is Sales Associate.
-- **Migration `20261027004150_team_roles.sql`** (⏳ not yet applied to the hosted project): maps existing members and invitations (Store Admin, Store Manager, Catalog/Order/Inventory/Marketing/Content Manager → Manager; Analyst, Support Agent, Staff, Viewer → Sales Associate), reseeds `role_permissions`, tightens the role CHECK constraints, moves platform support sessions to the internal read-only `support_viewer` set, and reorders `list_tenant_members`. Seed user `staff@aangan.test` is now a Sales Associate.
+- **Migration `20261027004150_team_roles.sql`** (applied on hosted): maps existing members and invitations (Store Admin, Store Manager, Catalog/Order/Inventory/Marketing/Content Manager → Manager; Analyst, Support Agent, Staff, Viewer → Sales Associate), reseeds `role_permissions`, tightens the role CHECK constraints, moves platform support sessions to the internal read-only `support_viewer` set, and reorders `list_tenant_members`. Seed user `staff@aangan.test` is now a Sales Associate.
 - **Team page:** change role per member (Save role), deactivate/reactivate, remove (confirmed), resend / cancel invite (confirmed), plus a Roles card explaining each role. Custom roles (create / edit / delete) stay under Settings → Roles & permissions. All actions keep the `members.manage` / `roles.manage` server checks and DB escalation guards.
 - **Verification:** unit tests for the matrix, SQL ↔ matrix seed and CHECK lists, role choice; `pnpm test:db` (24 files / 181 tests) ✅ on Postgres 17, including new manager/sales-associate/owner-protection/retired-role tests; migration checked on a DB with all 12 old roles (7 → Manager, 4 → Sales Associate, owner untouched).
 
