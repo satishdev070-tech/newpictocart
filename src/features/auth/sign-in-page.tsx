@@ -51,7 +51,7 @@ export async function SharedSignInPage({ searchParams }: { searchParams: SearchP
       <MerchantSignIn next={requested || undefined} />
       <p className="mt-6 text-center text-small text-muted">
         New to Pictocart?{" "}
-        <a href="/seller/register" className="font-semibold text-accent underline-offset-2 hover:underline">
+        <a href="/start" className="font-semibold text-accent underline-offset-2 hover:underline">
           Create your store
         </a>
       </p>

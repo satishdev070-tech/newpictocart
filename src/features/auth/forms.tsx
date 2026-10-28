@@ -64,7 +64,7 @@ export function SignInForm({ next, variant = "seller" }: { next?: string; varian
       {variant === "seller" ? (
         <p className="text-center text-small text-muted">
           New to the platform?{" "}
-          <Link href={next ? `/seller/register?next=${encodeURIComponent(next)}` : "/seller/register"} className="font-medium text-foreground underline-offset-2 hover:underline">
+          <Link href={next ? `/start?next=${encodeURIComponent(next)}` : "/start"} className="font-medium text-foreground underline-offset-2 hover:underline">
             Create a merchant account
           </Link>
         </p>

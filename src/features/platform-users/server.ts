@@ -297,19 +297,47 @@ export async function deleteAccount(ctx: PlatformContext, input: { userId: strin
   const others = new Map<string, number>();
   for (const c of coOwners ?? []) others.set(c.tenant_id, (others.get(c.tenant_id) ?? 0) + 1);
   const doomed = storesToDelete((memberships ?? []).map((m) => ({ tenantId: m.tenant_id, role: m.role, otherOwners: others.get(m.tenant_id) ?? 0 })));
+  // Prior failed deletes can leave ownerless tenants (memberships cleared, CASCADE into
+  // append-only audit_logs blocked). Also remove stores this account created that have no owners left.
+  const { data: createdTenants, error: createdErr } = await admin.from("tenants").select("id, name").eq("created_by", input.userId);
+  if (createdErr) throw mapDbError(createdErr);
+  for (const row of createdTenants ?? []) {
+    if (doomed.includes(row.id)) continue;
+    const { count, error: ownErr } = await admin
+      .from("tenant_memberships")
+      .select("user_id", { count: "exact", head: true })
+      .eq("tenant_id", row.id)
+      .eq("role", "owner")
+      .eq("status", "active");
+    if (ownErr) throw mapDbError(ownErr);
+    if ((count ?? 0) === 0) doomed.push(row.id);
+  }
   const nameOf = (id: string) => {
+    const created = (createdTenants ?? []).find((x) => x.id === id);
+    if (created?.name) return created.name;
     const m = (memberships ?? []).find((x) => x.tenant_id === id);
     const tn = m?.tenants as { name: string } | { name: string }[] | null | undefined;
     return (Array.isArray(tn) ? tn[0]?.name : tn?.name) ?? id;
   };
+
   for (const tenantId of doomed) {
     const { error: dm } = await admin.from("tenant_memberships").delete().eq("tenant_id", tenantId);
     if (dm) throw mapDbError(dm);
     const { error: dt } = await admin.from("tenants").delete().eq("id", tenantId);
-    if (dt) throw new AppError("INTERNAL", { message: `Couldn't delete the store ${nameOf(tenantId)}. Nothing else was deleted after it.`, context: { tenantId, error: dt.message } });
+    if (dt) {
+      throw new AppError("INTERNAL", {
+        fieldErrors: { _form: [`Couldn't delete the store ${nameOf(tenantId)}. Nothing else was deleted after it.`] },
+        context: { tenantId, error: dt.message },
+      });
+    }
   }
   const { error } = await admin.auth.admin.deleteUser(input.userId);
-  if (error) throw new AppError("INTERNAL", { message: "Stores were deleted, but the account couldn't be. Try again.", context: { error: error.message } });
+  if (error) {
+    throw new AppError("INTERNAL", {
+      fieldErrors: { _form: ["Stores were deleted, but the account couldn't be. Try again."] },
+      context: { error: error.message },
+    });
+  }
   const kept = (memberships ?? []).map((m) => m.tenant_id).filter((id) => !doomed.includes(id));
   await audit({
     tenantId: null,
