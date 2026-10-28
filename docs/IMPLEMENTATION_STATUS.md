@@ -7,7 +7,7 @@ _Last updated: 2026-10-28 (Seller AI reviews insert + product Omni vision) · 20
 - **AI Reviews:** LLM succeeded but insert hit RLS — `reviews` had no INSERT policy. Migration `20261028005100_reviews_insert_groq_model.sql` adds `reviews_staff_insert` (`reviews.moderate`). Insert failure after generate now refunds credits.
 - **Product Generate:** Photos forced a swap from working Nemotron Omni to `meta/llama-3.2-11b-vision-instruct` (HTTP 400) because `isNvidiaVisionModel` missed `omni`. Omni is treated as vision-capable; photos stay on the same model as Blog AI. True text-only NVIDIA models still swap to Llama vision.
 - **Groq:** Default + route backfill `llama-3.3-70b-versatile` → `openai/gpt-oss-120b` (retired id was HTTP 404).
-- **Verification:** `pnpm check` pending; hosted `05100` applied on `ugbjlpdhktrlkyuijkfc`.
+- **Verification:** `pnpm check` ✅. Hosted migration `05100` applied on `ugbjlpdhktrlkyuijkfc`.
 
 ## Seller AI usable-answer fix (2026-10-28, branch `cursor/seller-ai-usable-answer-fix-c73e`)
 
