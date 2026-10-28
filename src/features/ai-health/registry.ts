@@ -17,7 +17,7 @@ export type AiFeature = {
   /** Call site in the code, for whoever debugs it. */
   source: string;
   engine: AiEngine;
-  /** True when ai_feature_routes applies (Gemini / Groq / Anthropic through loadProviders). */
+  /** True when ai_feature_routes applies (NVIDIA / Gemini / Groq / Anthropic through loadProviders). */
   routable: boolean;
   /** Credit kind debited per use (ai_credit_action_costs.kind), or null when free. */
   creditKind: string | null;
@@ -38,10 +38,12 @@ const NEURAL_PULSE: NeuralPulseFeature[] = [
 
 export const AI_FEATURES: readonly AiFeature[] = [
   ...NEURAL_PULSE,
-  { key: "generate_product", label: "Product from image", description: "Vision model fills title, description, tags and suggested price from a product photo (or hint).", usedIn: "Dashboard → Products → Add / edit (Generate with AI)", source: "features/seller-ai/actions.ts (generateProductFromImageAction) → Edge generate-product", engine: "llm", routable: true, creditKind: "generate_product" },
-  { key: "generate_blog", label: "Blog AI Write", description: "Drafts a blog title, excerpt, tags, SEO and content blocks from a short topic.", usedIn: "Dashboard → Content → Blog", source: "features/seller-ai/actions.ts (generateBlogAction) → Edge generate-blog", engine: "llm", routable: true, creditKind: "generate_blog" },
-  { key: "contact_reply", label: "Contact reply draft", description: "Drafts a polite email reply to a store contact-form message (not sent).", usedIn: "Dashboard → Content → Messages", source: "features/seller-ai/actions.ts (generateContactReplyAction) → Edge generate-contact-reply", engine: "llm", routable: true, creditKind: "contact_reply" },
-  { key: "business_coach", label: "Business coach", description: "Store-aware tips from dashboard metrics and pending setup steps.", usedIn: "Dashboard home", source: "features/seller-ai/actions.ts (refreshBusinessCoachAction) → Edge business-coach", engine: "llm", routable: true, creditKind: "business_coach" },
+  { key: "generate_product", label: "Product from image", description: "Vision model fills title, description, tags and suggested price from a product photo (or hint).", usedIn: "Dashboard → Products → Add / edit (Generate with AI)", source: "features/seller-ai/actions.ts (generateProductFromImageAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "generate_product" },
+  { key: "generate_blog", label: "Blog AI Write", description: "Drafts a blog title, excerpt, tags, SEO and content blocks from a short topic.", usedIn: "Dashboard → Content → Blog", source: "features/seller-ai/actions.ts (generateBlogAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "generate_blog" },
+  { key: "contact_reply", label: "Contact reply draft", description: "Drafts a polite email reply to a store contact-form message (not sent).", usedIn: "Dashboard → Content → Messages", source: "features/seller-ai/actions.ts (generateContactReplyAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "contact_reply" },
+  { key: "business_coach", label: "Business coach", description: "Checklist of next steps from the store's real metrics, top sellers, low stock and pending setup, in the seller's panel language (English or Hindi).", usedIn: "Dashboard home", source: "features/seller-ai/actions.ts (refreshBusinessCoachAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "business_coach" },
+  { key: "store_agent", label: "Store assistant chat", description: "Answers the seller's questions from their own orders, products, stock and sales, with growth tips and links to dashboard pages. Replies in the panel language.", usedIn: "Dashboard (floating “Ask AI about your store” button)", source: "features/seller-ai/actions.ts (askStoreAgentAction)", engine: "llm", routable: true, creditKind: "store_agent" },
+  { key: "store_setup", label: "Store setup from a prompt", description: "Turns a shop description and product names (optionally photos) into categories and draft products, and can apply the best-fit marketplace theme as a draft.", usedIn: "Dashboard home (Set up your store from a prompt)", source: "features/seller-ai/actions.ts (setupStoreFromPromptAction)", engine: "llm", routable: true, creditKind: "store_setup" },
   { key: "theme_builder", label: "AI theme builder", description: "Builds a marketplace theme from a reference site and screenshots (vision models go first when images are attached).", usedIn: "Admin → Themes → New theme", source: "features/theme/builder/server/generate.ts (generateThemeForAdmin)", engine: "llm", routable: true, creditKind: null },
   { key: "onboarding_seed", label: "Store starter content", description: "Categories, products, hero, SEO, blogs and testimonials for a new store. A deterministic plan is used when Sarvam is missing or fails.", usedIn: "Seller onboarding (ready store)", source: "features/onboarding/seed/generate.ts (generateReadyStorePlan)", engine: "sarvam", routable: false, creditKind: "onboarding_seed" },
   { key: "voice_onboarding", label: "Voice onboarding (Tara)", description: "Speech-to-text, chat and text-to-speech in Indian languages to set a store up by voice.", usedIn: "Seller onboarding (voice method)", source: "features/onboarding/voice/turn.ts (runTaraTurn)", engine: "sarvam", routable: false, creditKind: null },
@@ -53,7 +55,7 @@ export function findFeature(key: string): AiFeature | undefined {
   return AI_FEATURES.find((f) => f.key === key);
 }
 
-export const ENGINE_LABELS: Record<AiEngine, string> = { llm: "Gemini / Groq / Anthropic", llm_sarvam: "LLM, then Sarvam", sarvam: "Sarvam only" };
+export const ENGINE_LABELS: Record<AiEngine, string> = { llm: "NVIDIA / Gemini / Groq / Anthropic", llm_sarvam: "LLM, then Sarvam", sarvam: "Sarvam only" };
 
 export type FeatureRoute = {
   featureKey: string;

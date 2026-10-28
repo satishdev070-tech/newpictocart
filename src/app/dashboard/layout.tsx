@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { platformIconMetadata } from "@/features/platform/server/public-config";
 import Link from "next/link";
-import { ChevronsUpDown, ExternalLink, LogOut, Sparkles } from "lucide-react";
+import { ChevronsUpDown, ExternalLink, LogOut, Shield, Sparkles, UserCircle } from "lucide-react";
 import { requireTenant } from "@/lib/tenant/membership";
 import { DASHBOARD_NAV } from "@/components/dashboard/nav";
 import { AppShell } from "@/components/app-shell/app-shell";
@@ -25,6 +25,10 @@ import type { T } from "@/lib/i18n/translate";
 import { localizeNav } from "@/components/dashboard/nav-i18n";
 import { LanguageSwitcher } from "@/components/dashboard/language-switcher";
 import { TourLauncher } from "@/features/dashboard-ui/tours/tour-launcher";
+import { StoreAgentLauncher } from "@/features/seller-ai/components/store-agent-launcher";
+import { SidebarLink } from "@/components/app-shell/sidebar-link";
+import { accountAccessFor } from "@/lib/auth/landing";
+import { canSwitchPanels } from "@/lib/auth/role-routing";
 
 /** Plan name and trial end of the active store (RLS: members read their tenant). Null on error. */
 async function trialInfo(tenantId: string): Promise<{ plan: string | null; endsAt: string | null } | null> {
@@ -64,6 +68,8 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   const ctx = await requireTenant();
   const storeUrl = storeOrigin(storeSubdomain(ctx.tenantSlug));
   // Independent reads in parallel (incl. site_mode — was a solo wave before alerts/bell).
+  // Started with the reads below (same wave): own platform + store memberships for the panel switch.
+  const accessPromise = accountAccessFor(ctx.user.id);
   const [alerts, trial, cookieStore, bell, aiCreditBalance, siteMode, { locale, m, t }] = await Promise.all([
     getDashboardAlerts(ctx),
     // Free forever (active, no trial end) must not show a trial banner.
@@ -74,6 +80,9 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     getStoreSiteMode(ctx.tenantId),
     getI18n(),
   ]);
+  // Admin ⇄ Seller switch only for platform staff who also belong to a store (RLS read of own rows).
+  const access = await accessPromise;
+  const showAdminSwitch = access ? canSwitchPanels(access) : false;
   const groups = localizeNav(
     navForSiteMode(
       DASHBOARD_NAV.map((g) => ({ ...g, items: g.items.filter((i) => ctx.permissions.has(i.permission)) })).filter((g) => g.items.length),
@@ -90,6 +99,14 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   // Store identity (opens the live storefront) and sign-out, above the sidebar's Collapse control.
   const sidebarFooter = (
     <>
+      <SidebarLink href="/dashboard/profile" icon={<UserCircle aria-hidden strokeWidth={1.75} />}>
+        {t("account.myProfile")}
+      </SidebarLink>
+      {showAdminSwitch ? (
+        <SidebarLink href="/admin" tone="admin" icon={<Shield aria-hidden strokeWidth={1.75} />}>
+          {t("account.adminPanel")}
+        </SidebarLink>
+      ) : null}
       <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-secondary">
         <Monogram name={ctx.tenantName} className="size-8" />
         <span className="min-w-0 flex-1">
@@ -174,6 +191,14 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
           <LanguageSwitcher current={locale} label={t("account.language")} className="w-full" />
         </div>
         <div className="border-t border-border pt-1.5">
+          <PopoverItem href="/dashboard/profile">
+            <UserCircle aria-hidden /> {t("account.myProfile")}
+          </PopoverItem>
+          {showAdminSwitch ? (
+            <PopoverItem href="/admin">
+              <Shield aria-hidden /> {t("account.adminPanel")}
+            </PopoverItem>
+          ) : null}
           <PopoverItem href={storeUrl} external>
             <ExternalLink aria-hidden /> {t("account.viewStorefront")}
           </PopoverItem>
@@ -245,6 +270,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   return (
     <AppShell groups={groups} homeHref="/dashboard" brand={brand} brandMark={brandMark} sidebarFooter={sidebarFooter} topbarEnd={topbarEnd} banner={banner} storageKey="paliya-seller-sidebar" lang={locale} text={shellText}>
       {children}
+      {ctx.permissions.has("analytics.read") ? <StoreAgentLauncher text={m.ai.agent} /> : null}
     </AppShell>
   );
 }

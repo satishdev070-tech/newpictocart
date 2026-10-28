@@ -29,7 +29,7 @@ async function platformActor() {
 
 function dbFail(error: { code?: string }, operation: string): never {
   if (isMissingSchemaError(error)) throw new AppError("CONFLICT", { fieldErrors: { _form: [PENDING] }, context: { code: error.code } });
-  if (error.code === "23514") throw new AppError("VALIDATION", { fieldErrors: { _form: ["These values are not allowed. Check the provider and model names."] } });
+  if (error.code === "23514") throw new AppError("VALIDATION", { fieldErrors: { _form: ["These values are not allowed. Check the provider and model names (NVIDIA needs database migration 20261028004300 applied)."] } });
   throw new AppError("INTERNAL", { context: { operation, code: error.code } });
 }
 

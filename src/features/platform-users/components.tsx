@@ -1,14 +1,16 @@
 "use client";
 
 import { useActionState, useId, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { MoreVertical } from "lucide-react";
 import type { ActionResult } from "@/lib/actions/result";
 import { Button } from "@/components/ui/button";
 import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
-import { TextAreaField, TextField } from "@/components/ui/field";
 import { Popover, PopoverItem } from "@/components/app-shell/popover";
 import { ActionDialog, HiddenFields } from "@/features/settings/ui/action-controls";
-import { createAccountAction, sendAccountResetAction, setAccountStatusAction, type AccountLinkResult } from "./actions";
+import { SelectField, TextAreaField, TextField } from "@/components/ui/field";
+import { addCustomerRoleAction, createAccountAction, deleteAccountAction, grantSuperAdminAction, revokeSuperAdminAction, sendAccountResetAction, setAccountStatusAction, setTemporaryPasswordAction, type AccountLinkResult } from "./actions";
+import { DELETE_CONFIRM_PHRASE, isDeleteConfirmed } from "./rules";
 
 function Dialog({ title, trigger, triggerVariant = "secondary", children }: { title: string; trigger: ReactNode; triggerVariant?: "secondary" | "ghost" | "primary"; children: (close: () => void) => ReactNode }) {
   const id = useId();
@@ -108,14 +110,201 @@ function ResetBody({ userId, email, close }: { userId: string; email: string; cl
   );
 }
 
-/** Account actions for one user (detail page). Staff accounts and your own are read-only here. */
-export function AccountActions({ userId, email, disabled, manageable }: { userId: string; email: string | null; disabled: boolean; manageable: boolean }) {
-  if (!manageable || !email) return <p className="text-caption text-muted">Platform staff and your own account are managed on Platform users.</p>;
+const reasonField = (errors?: string[]) => <TextAreaField label="Reason" name="reason" required minLength={10} maxLength={500} rows={2} errors={errors} hint="Recorded in the audit log." />;
+
+function DialogButtons({ close, submit, danger }: { close: () => void; submit: string; danger?: boolean }) {
+  return (
+    <div className="flex justify-end gap-2">
+      <Button variant="secondary" onClick={close}>
+        Cancel
+      </Button>
+      <SubmitButton variant={danger ? "danger" : "primary"}>{submit}</SubmitButton>
+    </div>
+  );
+}
+
+function TempPasswordBody({ userId, email, close }: { userId: string; email: string; close: () => void }) {
+  const [state, action] = useActionState(setTemporaryPasswordAction, null);
+  const [copied, setCopied] = useState(false);
+  if (state?.ok)
+    return (
+      <div className="space-y-3 text-sm">
+        <p role="status" className="text-success">
+          Temporary password set for {email}. It is shown only once: share it securely and ask them to change it from My Profile.
+        </p>
+        <div className="flex gap-2">
+          <input readOnly value={state.data.password} aria-label="Temporary password" className="h-9 min-w-0 flex-1 rounded-md border border-border bg-surface-secondary px-2 font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+          <Button size="sm" variant="secondary" onClick={() => void navigator.clipboard?.writeText(state.data.password).then(() => setCopied(true))}>
+            {copied ? "Copied" : "Copy"}
+          </Button>
+        </div>
+        <div className="flex justify-end">
+          <Button size="sm" onClick={close}>
+            Done
+          </Button>
+        </div>
+      </div>
+    );
+  return (
+    <form action={action} className="space-y-4">
+      <HiddenFields fields={{ userId }} />
+      <p className="text-sm text-muted">Replaces the current password of {email} with a generated one. Their old password stops working at once.</p>
+      <FormMessage state={state} />
+      {reasonField(fieldErrors(state).reason)}
+      <DialogButtons close={close} submit="Set temporary password" danger />
+    </form>
+  );
+}
+
+function AddCustomerBody({ userId, stores, close }: { userId: string; stores: { id: string; name: string }[]; close: () => void }) {
+  const [state, action] = useActionState(addCustomerRoleAction, null);
+  const e = fieldErrors(state);
+  if (state?.ok)
+    return (
+      <div className="space-y-3 text-sm">
+        <p role="status" className="text-success">Added as a customer of {state.data.storeName}.</p>
+        <div className="flex justify-end">
+          <Button size="sm" onClick={close}>
+            Done
+          </Button>
+        </div>
+      </div>
+    );
+  return (
+    <form action={action} className="space-y-4">
+      <HiddenFields fields={{ userId }} />
+      <p className="text-sm text-muted">Creates a shopper record in the store, linked to this account, so they can sign in to that store&apos;s account pages.</p>
+      <FormMessage state={state} />
+      <SelectField label="Store" name="tenantId" required errors={e.tenantId} defaultValue="" options={[{ value: "", label: "Choose a store" }, ...stores.map((s) => ({ value: s.id, label: s.name }))]} />
+      {reasonField(e.reason)}
+      <DialogButtons close={close} submit="Add customer role" />
+    </form>
+  );
+}
+
+function DeleteBody({ userId, email, ownedStores, close }: { userId: string; email: string; ownedStores: string[]; close: () => void }) {
+  const [state, action] = useActionState(deleteAccountAction, null);
+  const [typed, setTyped] = useState("");
+  const router = useRouter();
+  const e = fieldErrors(state);
+  if (state?.ok)
+    return (
+      <div className="space-y-3 text-sm">
+        <p role="status" className="text-success">
+          Deleted {state.data.email ?? "the account"}
+          {state.data.deletedStores.length ? ` and ${state.data.deletedStores.length} store${state.data.deletedStores.length === 1 ? "" : "s"} (${state.data.deletedStores.join(", ")})` : ""}.
+          {state.data.keptStores.length ? ` Kept shared stores: ${state.data.keptStores.join(", ")}.` : ""}
+        </p>
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            onClick={() => {
+              close();
+              router.push("/admin/users");
+            }}
+          >
+            Back to users
+          </Button>
+        </div>
+      </div>
+    );
+  return (
+    <form action={action} className="space-y-4">
+      <HiddenFields fields={{ userId }} />
+      <div role="note" className="rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
+        This permanently deletes {email} and cannot be undone.
+        {ownedStores.length ? ` Stores they own (${ownedStores.join(", ")}) are deleted too, with their products, orders and customers, unless another owner shares them.` : " They own no stores."}
+      </div>
+      <FormMessage state={state} />
+      {reasonField(e.reason)}
+      <TextField
+        label={`Type ${DELETE_CONFIRM_PHRASE} to confirm`}
+        name="confirm"
+        required
+        autoComplete="off"
+        spellCheck={false}
+        value={typed}
+        onChange={(ev) => setTyped(ev.currentTarget.value)}
+        errors={e.confirm}
+      />
+      <div className="flex justify-end gap-2">
+        <Button variant="secondary" onClick={close}>
+          Cancel
+        </Button>
+        <SubmitButton variant="danger" disabled={!isDeleteConfirmed(typed)}>
+          Delete account
+        </SubmitButton>
+      </div>
+    </form>
+  );
+}
+
+export type AccountActionsProps = {
+  userId: string;
+  email: string | null;
+  disabled: boolean;
+  /** Not platform staff and not the acting admin. */
+  manageable: boolean;
+  self: boolean;
+  /** Target's platform role, if any. */
+  platformRole: string | null;
+  actorIsSuperAdmin: boolean;
+  stores: { id: string; name: string }[];
+  ownedStores: string[];
+};
+
+/** Account actions for one user (detail page). Rules mirror rules.ts; the server re-checks everything. */
+export function AccountActions({ userId, email, disabled, manageable, self, platformRole, actorIsSuperAdmin, stores, ownedStores }: AccountActionsProps) {
+  if (self) return <p className="text-caption text-muted">This is your account. Manage it from My Profile.</p>;
+  const superAdminToggle = actorIsSuperAdmin ? (
+    platformRole === "super_admin" ? (
+      <ActionDialog
+        action={revokeSuperAdminAction}
+        fields={{ userId }}
+        title="Remove super admin?"
+        description="They lose access to this console at once. Their stores and customer records stay."
+        triggerLabel="Remove super admin"
+        confirmLabel="Remove"
+        variant="danger"
+        success="Super admin removed."
+      >
+        {(e) => reasonField(e.reason)}
+      </ActionDialog>
+    ) : !platformRole ? (
+      <ActionDialog
+        action={grantSuperAdminAction}
+        fields={{ userId }}
+        title="Make super admin?"
+        description="Full access to every store, user and platform setting. They sign in on the same page and land in this console."
+        triggerLabel="Make super admin"
+        confirmLabel="Make super admin"
+        success="Super admin granted."
+      >
+        {(e) => reasonField(e.reason)}
+      </ActionDialog>
+    ) : null
+  ) : null;
+  if (!manageable || !email)
+    return (
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">{superAdminToggle}</div>
+        <p className="text-caption text-muted">Platform staff are managed on Platform users. Remove their platform access to manage the account here.</p>
+      </div>
+    );
   return (
     <div className="flex flex-wrap gap-2">
       <Dialog title="Send a password reset link" trigger="Reset password">
         {(close) => <ResetBody userId={userId} email={email} close={close} />}
       </Dialog>
+      {actorIsSuperAdmin ? (
+        <Dialog title="Set a temporary password" trigger="Temporary password">
+          {(close) => <TempPasswordBody userId={userId} email={email} close={close} />}
+        </Dialog>
+      ) : null}
+      <Dialog title="Add the Customer role" trigger="Add customer role">
+        {(close) => <AddCustomerBody userId={userId} stores={stores} close={close} />}
+      </Dialog>
+      {superAdminToggle}
       <ActionDialog
         action={setAccountStatusAction}
         fields={{ userId, status: disabled ? "active" : "disabled" }}
@@ -126,8 +315,13 @@ export function AccountActions({ userId, email, disabled, manageable }: { userId
         variant={disabled ? "primary" : "danger"}
         success={disabled ? "Account enabled." : "Account disabled."}
       >
-        {(e) => <TextAreaField label="Reason" name="reason" required minLength={10} maxLength={500} rows={2} errors={e.reason} hint="Recorded in the audit log." />}
+        {(e) => reasonField(e.reason)}
       </ActionDialog>
+      {actorIsSuperAdmin ? (
+        <Dialog title="Delete user" trigger="Delete user" triggerVariant="ghost">
+          {(close) => <DeleteBody userId={userId} email={email} ownedStores={ownedStores} close={close} />}
+        </Dialog>
+      ) : null}
     </div>
   );
 }

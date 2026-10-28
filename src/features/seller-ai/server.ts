@@ -5,12 +5,15 @@ import { rateLimit } from "@/lib/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/observability/logger";
 import type { Json } from "@/lib/supabase/database.types";
-import { debitAiCredit, refundAiCredit, type AiCreditCharge } from "@/features/ai-credits/server";
+import { debitAiCredit, getAiCreditBalance, refundAiCredit, type AiCreditCharge } from "@/features/ai-credits/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { summarizeWallet, type WalletSummary } from "./wallet";
 import { loadProviders, SETUP_MESSAGE, FAILED_MESSAGE } from "@/features/neural-pulse/server/generate";
 import { LlmError, generateJson } from "@/features/neural-pulse/server/llm";
 import type { Prompt, PromptImage } from "@/features/neural-pulse/prompts";
 import { orderForImages } from "@/features/theme/builder/server/generate";
 import type { SellerAiCreditKind } from "./schemas";
+import type { AiProvider } from "@/features/neural-pulse/schemas";
 
 const DAILY_LIMIT = 40;
 const LIMIT_MESSAGE = `You've used today's ${DAILY_LIMIT} seller AI generations for this store. Try again tomorrow.`;
@@ -31,19 +34,21 @@ export async function runSellerAiGeneration<S extends z.ZodType>(args: {
   prompt: Prompt;
   /** Content schema only (no provider/model/tokens) — those are attached after generateJson. */
   schema: S;
-}): Promise<SellerAiOutcome<z.output<S> & { provider: "gemini" | "groq" | "anthropic"; model: string; tokens: number | null }>> {
+  /** Separate daily bucket (e.g. chat), instead of the shared seller AI limit. */
+  limit?: { key: string; perDay: number; message: string };
+}): Promise<SellerAiOutcome<z.output<S> & { provider: AiProvider; model: string; tokens: number | null }>> {
   const providers = await loadProviders(args.feature);
   if (!providers.length) {
     throw new AppError("VALIDATION", { fieldErrors: { _form: [SETUP_MESSAGE] }, context: { reason: "ai_not_configured" } });
   }
   try {
-    await rateLimit("seller-ai", args.tenantId, DAILY_LIMIT, 86_400);
+    await rateLimit(args.limit?.key ?? "seller-ai", args.tenantId, args.limit?.perDay ?? DAILY_LIMIT, 86_400);
   } catch (err) {
-    if (err instanceof AppError && err.code === "RATE_LIMITED") throw new AppError("RATE_LIMITED", { fieldErrors: { _form: [LIMIT_MESSAGE] } });
+    if (err instanceof AppError && err.code === "RATE_LIMITED") throw new AppError("RATE_LIMITED", { fieldErrors: { _form: [args.limit?.message ?? LIMIT_MESSAGE] } });
     throw err;
   }
   const charge = await debitAiCredit(args.tenantId, args.creditKind);
-  let generated: { data: z.output<S>; provider: "gemini" | "groq" | "anthropic"; model: string; tokens: number | null };
+  let generated: { data: z.output<S>; provider: AiProvider; model: string; tokens: number | null };
   try {
     const ordered = orderForImages(providers, !!args.prompt.images?.length);
     generated = await generateJson(ordered, args.prompt, args.schema);
@@ -63,7 +68,7 @@ export async function runSellerAiGeneration<S extends z.ZodType>(args: {
     provider: generated.provider,
     model: generated.model,
     tokens: generated.tokens,
-  } as z.output<S> & { provider: "gemini" | "groq" | "anthropic"; model: string; tokens: number | null };
+  } as z.output<S> & { provider: AiProvider; model: string; tokens: number | null };
   const { error } = await createSupabaseAdminClient()
     .from("ai_generations")
     .insert({
@@ -112,4 +117,24 @@ export async function fetchHttpsImages(urls: string[]): Promise<PromptImage[]> {
     }
   }
   return out;
+}
+
+/**
+ * Dashboard wallet card: balance, credits used and time saved over the last 30 days. Read with
+ * the seller's session (RLS: own store's ledger only). Unavailable while the credits migration is pending.
+ */
+export async function getAiWalletSummary(tenantId: string, now = new Date()): Promise<WalletSummary> {
+  const balance = await getAiCreditBalance(tenantId);
+  if (balance === null) return summarizeWallet(null, [], {});
+  const since = new Date(now.getTime() - 30 * 86_400_000).toISOString();
+  const supabase = await createSupabaseServerClient();
+  const [ledger, costs] = await Promise.all([
+    supabase.from("ai_credit_ledger").select("id, delta, kind, note, reference_id, created_at").eq("tenant_id", tenantId).in("kind", ["usage", "usage_refund"]).gte("created_at", since).order("created_at", { ascending: false }).limit(1000),
+    supabase.from("ai_credit_action_costs").select("kind, minutes_saved"),
+  ]);
+  if (ledger.error) logger.warn("seller_ai.wallet_ledger_unavailable", { code: ledger.error.code });
+  const minutes: Record<string, number> = {};
+  for (const c of costs.data ?? []) minutes[c.kind] = c.minutes_saved;
+  const rows = (ledger.data ?? []).map((r) => ({ id: r.id, delta: r.delta, kind: r.kind, note: r.note, referenceId: r.reference_id, createdAt: r.created_at }));
+  return summarizeWallet(balance, rows, minutes);
 }

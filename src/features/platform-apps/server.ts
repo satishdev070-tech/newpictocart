@@ -53,7 +53,7 @@ export const getAppCredential = cache(async (provider: AppProvider): Promise<App
   return resolveCredential(provider, await loadRow(provider), decrypt, serverEnv());
 });
 
-/** Configured AI providers, in the platform's preference order (gemini, groq, anthropic). */
+/** Configured AI providers, in the platform's preference order (nvidia, gemini, groq, anthropic). */
 export async function getAiProviderOrder(): Promise<AiProvider[]> {
   const creds = await Promise.all(AI_PROVIDERS.map((p) => getAppCredential(p)));
   return AI_PROVIDERS.filter((_, i) => creds[i] !== null);
@@ -125,6 +125,8 @@ export async function saveAppCredential(ctx: PlatformContext, input: SaveAppCred
       },
       { onConflict: "provider" },
     );
+  // 23514: the provider check constraint predates this provider (e.g. NVIDIA before migration 4300).
+  if (error?.code === "23514") throw new AppError("VALIDATION", { fieldErrors: { _form: [`Saving a ${p} key needs a database update that hasn't been applied yet. Until then, set ${envNamesFor(p).secret} in the environment.`] } });
   if (error) throw new AppError("INTERNAL", { cause: error });
   // Values are never audited, only which fields changed.
   await platformAudit(ctx, "platform_app_credential.saved", p, { client_id_changed: Boolean(clientId && clientId !== before?.client_id), secret_changed: Boolean(input.secret), from_changed: Boolean(from && from !== cleanExtra(p, before?.extra).from) });

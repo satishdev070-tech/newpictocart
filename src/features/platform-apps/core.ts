@@ -7,10 +7,10 @@ import { z } from "zod";
  * masked hint.
  */
 
-export const APP_PROVIDERS = ["meta", "pinterest", "google", "gemini", "groq", "anthropic", "resend", "unsplash"] as const;
+export const APP_PROVIDERS = ["meta", "pinterest", "google", "nvidia", "gemini", "groq", "anthropic", "resend", "unsplash"] as const;
 export type AppProvider = (typeof APP_PROVIDERS)[number];
 
-export const AI_PROVIDERS = ["gemini", "groq", "anthropic"] as const satisfies readonly AppProvider[];
+export const AI_PROVIDERS = ["nvidia", "gemini", "groq", "anthropic"] as const satisfies readonly AppProvider[];
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
 /** OAuth providers need a client id + secret; AI providers only an API key (stored as `secret`). */
@@ -21,6 +21,7 @@ export const EXTRA_KEYS: Record<AppProvider, readonly string[]> = {
   meta: ["webhookVerifyToken"],
   pinterest: [],
   google: [],
+  nvidia: ["model"],
   gemini: ["model"],
   groq: ["model"],
   anthropic: ["model"],
@@ -38,6 +39,7 @@ const ENV_NAMES: Record<AppProvider, { id?: string; secret: string; extra?: Reco
   meta: { id: "META_APP_ID", secret: "META_APP_SECRET", extra: { webhookVerifyToken: "META_WEBHOOK_VERIFY_TOKEN" } },
   pinterest: { id: "PINTEREST_APP_ID", secret: "PINTEREST_APP_SECRET" },
   google: { id: "GOOGLE_OAUTH_CLIENT_ID", secret: "GOOGLE_OAUTH_CLIENT_SECRET" },
+  nvidia: { secret: "NVIDIA_API_KEY" },
   gemini: { secret: "GEMINI_API_KEY" },
   groq: { secret: "GROQ_API_KEY" },
   anthropic: { secret: "ANTHROPIC_API_KEY" },

@@ -163,9 +163,37 @@ export function ProductGenerateAi({
               ) : null}
               <div>
                 <dt className="text-caption text-muted">Suggested price</dt>
-                <dd className="tabular-nums">{formatMoney(preview.priceMinor)}</dd>
+                <dd className="tabular-nums">{preview.priceMinor > 0 ? formatMoney(preview.priceMinor) : "—"}</dd>
               </div>
+              {preview.tags.length ? (
+                <div>
+                  <dt className="text-caption text-muted">Tags</dt>
+                  <dd className="flex flex-wrap gap-1">
+                    {preview.tags.map((t) => (
+                      <Badge key={t} tone="neutral">
+                        {t}
+                      </Badge>
+                    ))}
+                  </dd>
+                </div>
+              ) : null}
+              {preview.seoTitle || preview.seoDescription ? (
+                <div>
+                  <dt className="text-caption text-muted">Search listing (SEO)</dt>
+                  <dd>
+                    <span className="block font-medium">{preview.seoTitle}</span>
+                    <span className="block text-muted">{preview.seoDescription}</span>
+                  </dd>
+                </div>
+              ) : null}
+              {preview.description ? (
+                <div>
+                  <dt className="text-caption text-muted">Description</dt>
+                  <dd className="line-clamp-4 whitespace-pre-line text-muted">{preview.description}</dd>
+                </div>
+              ) : null}
             </dl>
+            <p className="text-caption text-subtle">Apply fills the title, descriptions, price, tags, category, type and SEO fields. You can edit everything before saving.</p>
             <div className="flex flex-wrap gap-2">
               <Button type="button" size="sm" onClick={apply}>
                 Apply to form

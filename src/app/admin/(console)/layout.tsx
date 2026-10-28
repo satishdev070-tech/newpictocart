@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronsUpDown, LogOut, Shield } from "lucide-react";
+import { ChevronsUpDown, LogOut, Shield, Store, UserCircle } from "lucide-react";
 import { requirePlatform } from "@/lib/platform/access";
 import { adminNavFor } from "@/features/platform/nav";
 import { getMyActiveSupportSessions, getPlatformOverview } from "@/features/platform/server/queries";
@@ -13,6 +13,9 @@ import { PanelLogo, PanelMark } from "@/components/app-shell/panel-logo";
 import { signOutAction } from "@/features/auth/actions";
 import { PLATFORM_NAME } from "@/config/platform";
 import { platformIconMetadata } from "@/features/platform/server/public-config";
+import { SidebarLink } from "@/components/app-shell/sidebar-link";
+import { accountAccessFor } from "@/lib/auth/landing";
+import { canSwitchPanels } from "@/lib/auth/role-routing";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: { default: "Admin", template: "%s · Admin" }, robots: { index: false, follow: false }, ...(await platformIconMetadata()) };
@@ -24,11 +27,14 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const ctx = await requirePlatform();
   const groups = adminNavFor(ctx.permissions);
   // getPlatformOverview is request-cached, so the overview page reuses this result.
-  const [sessions, overview, bell] = await Promise.all([
+  const [sessions, overview, bell, access] = await Promise.all([
     ctx.permissions.has("platform.support.impersonate") ? getMyActiveSupportSessions(ctx.user.id) : Promise.resolve([]),
     ctx.permissions.has("platform.tenants.read") ? getPlatformOverview().catch(() => null) : Promise.resolve(null),
     getBellData({ userId: ctx.user.id, scope: "platform", tenantId: null }),
+    accountAccessFor(ctx.user.id),
   ]);
+  // Admin ⇄ Seller switch only when this staff account also belongs to a store.
+  const showSellerSwitch = access ? canSwitchPanels(access) : false;
   const alerts = overview
     ? [
         { key: "trials", label: "trials ending in 7 days", count: overview.trialsEnding7d, href: "/admin/tenants?status=trial" },
@@ -46,16 +52,32 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   );
 
   const sidebarFooter = (
-    <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-      {shield}
-      <span className="min-w-0">
-        <span className="block truncate text-small font-semibold">Super Admin</span>
-        <span className="flex items-center gap-1.5 text-caption text-muted">
-          <span className="size-1.5 rounded-full bg-success" aria-hidden />
-          Signed in as {ROLE_LABEL[ctx.role]}
+    <>
+      <SidebarLink href="/admin/profile" icon={<UserCircle aria-hidden strokeWidth={1.75} />}>
+        My Profile
+      </SidebarLink>
+      {showSellerSwitch ? (
+        <SidebarLink href="/dashboard" icon={<Store aria-hidden strokeWidth={1.75} />}>
+          Seller Dashboard
+        </SidebarLink>
+      ) : null}
+      <div className="flex items-center gap-3 rounded-lg px-2 py-2">
+        {shield}
+        <span className="min-w-0">
+          <span className="block truncate text-small font-semibold">Super Admin</span>
+          <span className="flex items-center gap-1.5 text-caption text-muted">
+            <span className="size-1.5 rounded-full bg-success" aria-hidden />
+            Signed in as {ROLE_LABEL[ctx.role]}
+          </span>
         </span>
-      </span>
-    </div>
+      </div>
+      <form action={signOutAction}>
+        <button type="submit" className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-small text-error transition-colors hover:bg-error/10">
+          <LogOut aria-hidden className="size-[18px]" strokeWidth={1.75} />
+          Sign out
+        </button>
+      </form>
+    </>
   );
 
   // Always-visible marker that this is the platform console, not a store dashboard.
@@ -91,8 +113,15 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           <AppearanceToggle className="w-full justify-between" />
         </div>
         <div className="border-t border-border pt-1.5">
+          <PopoverItem href="/admin/profile">
+            <UserCircle aria-hidden /> My Profile
+          </PopoverItem>
+          {showSellerSwitch ? (
+            <PopoverItem href="/dashboard">
+              <Store aria-hidden /> Seller Dashboard
+            </PopoverItem>
+          ) : null}
           <form action={signOutAction}>
-            <input type="hidden" name="to" value="admin" />
             <PopoverItem>
               <LogOut aria-hidden /> Sign out
             </PopoverItem>

@@ -16,6 +16,9 @@ import { RecentActivityCard } from "@/features/notifications/inbox/components/re
 import { CopyButton } from "@/features/domains/components/domain-controls";
 import { getI18n } from "@/lib/i18n/server";
 import { BusinessCoachCard } from "@/features/seller-ai/components/business-coach-card";
+import { AiWalletCard } from "@/features/seller-ai/components/ai-wallet-card";
+import { StoreSetupCard } from "@/features/seller-ai/components/store-setup-card";
+import { getAiWalletSummary } from "@/features/seller-ai/server";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -100,7 +103,12 @@ function SetupChecklist({ steps }: { steps: SetupStep[] }) {
 
 export default async function DashboardHome() {
   const ctx = await requireTenant();
-  const [home, launch, { t }] = await Promise.all([getDashboardHome(ctx), getLaunchStatusForMember(ctx.tenantId), getI18n()]);
+  const [home, launch, { t, m }, wallet] = await Promise.all([
+    getDashboardHome(ctx),
+    getLaunchStatusForMember(ctx.tenantId),
+    getI18n(),
+    can(ctx, "marketing.read") ? getAiWalletSummary(ctx.tenantId).catch(() => null) : Promise.resolve(null),
+  ]);
   const storeUrl = storeOrigin(storeSubdomain(ctx.tenantSlug));
   const firstName = ctx.user.displayName?.split(" ")[0];
 
@@ -131,9 +139,15 @@ export default async function DashboardHome() {
         </Card>
       ) : null}
 
+      {wallet ? <AiWalletCard summary={wallet} text={m.ai.wallet} canRecharge={can(ctx, "billing.manage")} /> : null}
+
       <SetupChecklist steps={home.setup} />
 
+      {can(ctx, "catalog.write") ? <StoreSetupCard text={m.ai.setup} canTheme={can(ctx, "theme.edit")} /> : null}
+
       <KpiStrip kpis={home.sales?.kpis ?? null} customers={home.counts.customers} products={home.counts.activeProducts} allProducts={home.counts.allProducts} />
+
+      {can(ctx, "analytics.read") ? <BusinessCoachCard text={m.ai.coach} /> : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
@@ -173,8 +187,6 @@ export default async function DashboardHome() {
 
         <div className="space-y-6">
           <RecentActivityCard audience={{ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId }} href="/dashboard/notifications" />
-
-          {can(ctx, "analytics.read") ? <BusinessCoachCard /> : null}
 
           {home.counts.toFulfil !== null || home.lowStock ? (
             <Card title="Needs attention">

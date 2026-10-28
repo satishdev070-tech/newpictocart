@@ -5,9 +5,9 @@
 import { z } from "zod";
 import { ALL_CHANNELS, CONTENT_PILLARS } from "@/features/social/compose";
 
-export const AI_PROVIDERS = ["gemini", "groq", "anthropic"] as const;
+export const AI_PROVIDERS = ["nvidia", "gemini", "groq", "anthropic"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
-export const PROVIDER_LABELS: Record<AiProvider, string> = { gemini: "Google Gemini", groq: "Groq (Llama)", anthropic: "Anthropic Claude" };
+export const PROVIDER_LABELS: Record<AiProvider, string> = { nvidia: "NVIDIA NIM (Nemotron)", gemini: "Google Gemini", groq: "Groq (Llama)", anthropic: "Anthropic Claude" };
 
 export const BRAND_LANGUAGES = ["en", "hi", "hinglish", "bn", "gu", "kn", "ml", "mr", "pa", "ta", "te"] as const;
 export type BrandLanguage = (typeof BRAND_LANGUAGES)[number];

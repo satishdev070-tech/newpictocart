@@ -27,12 +27,12 @@ export function EditRouteDialog({ feature, route, defaults }: { feature: AiFeatu
       {(e) => (
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <SelectField label="Primary provider" name="primaryProvider" options={providerOptions} defaultValue={route?.primaryProvider ?? "gemini"} errors={e.primaryProvider} />
-            <TextField label="Primary model" name="primaryModel" optional defaultValue={route?.primaryModel ?? ""} placeholder={defaults[route?.primaryProvider ?? "gemini"]} maxLength={100} errors={e.primaryModel} />
+            <SelectField label="Primary provider" name="primaryProvider" options={providerOptions} defaultValue={route?.primaryProvider ?? "nvidia"} errors={e.primaryProvider} />
+            <TextField label="Primary model" name="primaryModel" optional defaultValue={route?.primaryModel ?? ""} placeholder={defaults[route?.primaryProvider ?? "nvidia"]} maxLength={100} errors={e.primaryModel} />
             <SelectField label="Fallback provider" name="fallbackProvider" options={[{ value: "none", label: "None" }, ...providerOptions]} defaultValue={route?.fallbackProvider ?? "none"} errors={e.fallbackProvider} />
             <TextField label="Fallback model" name="fallbackModel" optional defaultValue={route?.fallbackModel ?? ""} maxLength={100} errors={e.fallbackModel} />
           </div>
-          <CheckboxField label="Use this route" name="enabled" defaultChecked={route?.enabled ?? true} hint="When off, the feature uses the platform order (Gemini, Groq, Anthropic)." />
+          <CheckboxField label="Use this route" name="enabled" defaultChecked={route?.enabled ?? true} hint="When off, the feature uses the platform order (NVIDIA, Gemini, Groq, Anthropic)." />
         </div>
       )}
     </ActionDialog>

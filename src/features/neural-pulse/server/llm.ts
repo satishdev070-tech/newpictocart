@@ -14,17 +14,25 @@ import type { Prompt } from "../prompts";
  *   generationConfig.responseMimeType = "application/json".
  * - Groq: POST https://api.groq.com/openai/v1/chat/completions (OpenAI-compatible), Bearer key,
  *   response_format {type: "json_object"} (the prompt must mention JSON).
+ * - NVIDIA NIM: POST https://integrate.api.nvidia.com/v1/chat/completions (OpenAI-compatible), Bearer key.
+ *   Nemotron reasoning is switched off with the `/no_think` system flag and any <think> block is
+ *   stripped; photos go to a Nemotron vision (VL) model as image_url data URIs.
  * - Anthropic: POST https://api.anthropic.com/v1/messages, x-api-key + anthropic-version, with
  *   server-side refusal fallback (`fallbacks: "default"`, beta server-side-fallback-2026-07-01).
  */
 
 export const DEFAULT_MODELS: Record<AiProvider, string> = {
+  nvidia: "nvidia/llama-3.3-nemotron-super-49b-v1.5",
   gemini: "gemini-3.8-flash",
   groq: "llama-3.3-70b-versatile",
   anthropic: "claude-opus-5-5",
 };
 
-const TIMEOUT_MS: Record<AiProvider, number> = { gemini: 30_000, groq: 30_000, anthropic: 90_000 };
+/** Used for NVIDIA when the prompt carries photos and the configured model is text-only. */
+export const NVIDIA_VISION_MODEL = "nvidia/llama-3.1-nemotron-nano-vl-8b-v1";
+export const NVIDIA_CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
+
+const TIMEOUT_MS: Record<AiProvider, number> = { nvidia: 60_000, gemini: 30_000, groq: 30_000, anthropic: 90_000 };
 
 export type ProviderConfig = { id: AiProvider; apiKey: string; model: string };
 export type LlmCall = { text: string; tokens: number | null };
@@ -114,6 +122,54 @@ async function callGroq(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt): Pr
   return { text, tokens: num(json.usage?.total_tokens) };
 }
 
+/** True for NVIDIA model ids that accept images (…-vl-…, vision). */
+export function isNvidiaVisionModel(model: string): boolean {
+  return /(^|[-/_.])vl([-/_.]|$)|vision/i.test(model);
+}
+
+/** Request body for NVIDIA's OpenAI-compatible chat endpoint (pure, unit tested). */
+export function nvidiaRequestBody(model: string, prompt: Prompt): { model: string; body: Record<string, unknown> } {
+  const images = prompt.images ?? [];
+  const useModel = images.length && !isNvidiaVisionModel(model) ? NVIDIA_VISION_MODEL : model;
+  const vision = isNvidiaVisionModel(useModel);
+  // Nemotron reasoning models think by default; JSON copywriting doesn't need it.
+  const system = /nemotron/i.test(useModel) && !vision ? `/no_think\n${prompt.system}` : prompt.system;
+  const user =
+    images.length && vision
+      ? [...images.map((i) => ({ type: "image_url", image_url: { url: `data:${i.mediaType};base64,${i.data}` } })), { type: "text", text: prompt.user }]
+      : prompt.user;
+  return {
+    model: useModel,
+    body: {
+      model: useModel,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      temperature: 0.6,
+      top_p: 0.95,
+      max_tokens: vision ? 4096 : 8192,
+      stream: false,
+    },
+  };
+}
+
+/** Removes a leading <think>…</think> block some Nemotron models still emit. */
+export function stripThinking(text: string): string {
+  return text.replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, "").trim();
+}
+
+async function callNvidia(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt): Promise<LlmCall> {
+  const { body } = nvidiaRequestBody(p.model, prompt);
+  const json = (await postJson(fetchImpl, NVIDIA_CHAT_URL, { authorization: `Bearer ${p.apiKey}`, accept: "application/json" }, body, TIMEOUT_MS.nvidia)) as {
+    choices?: { message?: { content?: string | null }; finish_reason?: string }[];
+    usage?: { total_tokens?: number };
+  };
+  const text = stripThinking(json.choices?.[0]?.message?.content ?? "");
+  if (!text) throw new OutputError(`empty response (${json.choices?.[0]?.finish_reason ?? "no choice"})`);
+  return { text, tokens: num(json.usage?.total_tokens) };
+}
+
 async function callAnthropic(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt): Promise<LlmCall> {
   const json = (await postJson(
     fetchImpl,
@@ -137,7 +193,7 @@ async function callAnthropic(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt
   return { text, tokens: tokens || null };
 }
 
-const ADAPTERS: Record<AiProvider, (f: Fetch, p: ProviderConfig, prompt: Prompt) => Promise<LlmCall>> = { gemini: callGemini, groq: callGroq, anthropic: callAnthropic };
+const ADAPTERS: Record<AiProvider, (f: Fetch, p: ProviderConfig, prompt: Prompt) => Promise<LlmCall>> = { nvidia: callNvidia, gemini: callGemini, groq: callGroq, anthropic: callAnthropic };
 
 /** Extracts the JSON object from a model reply (tolerates code fences or stray prose around it). */
 export function extractJson(text: string): unknown {

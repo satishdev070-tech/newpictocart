@@ -15,7 +15,7 @@ import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { logger } from "@/lib/observability/logger";
 import { clientIpKey, rateLimit } from "@/lib/rate-limit";
 import { platformOrigin } from "@/lib/platform/urls";
-import { ADMIN_LOGIN_PATH, SELLER_LOGIN_PATH, landingPathFor } from "@/lib/auth/landing";
+import { LOGIN_PATH, landingPathFor } from "@/lib/auth/landing";
 import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
 import { isStartIntentId } from "@/features/start/intents";
 import { isConfirmationEmailFailure, shouldConfirmWithoutEmail, signupFailureMessage } from "./signup-errors";
@@ -100,8 +100,9 @@ export async function signInAction(_prev: ActionResult | null, fd: FormData): Pr
     const { data, error } = await supabase.auth.signInWithPassword({ email: input.email, password: input.password });
     // Same message for unknown email and wrong password (no account enumeration).
     if (error) throw new AppError("UNAUTHENTICATED", { message: "Email or password is incorrect.", fieldErrors: { _form: ["Email or password is incorrect."] } });
-    // Explicit ?next wins; otherwise land sellers on the dashboard and platform staff on /admin.
-    next = input.next ? safeRedirectPath(input.next, "/dashboard") : await landingPathFor(data.user.id);
+    // One login for everyone: platform staff land on /admin, sellers on /dashboard. A requested
+    // ?next is honoured only when this account can use that panel (role-routing.ts).
+    next = await landingPathFor(data.user.id, safeRedirectPath(input.next, ""));
   });
   if (result.ok) redirect(next);
   return result;
@@ -271,12 +272,13 @@ export async function requestMerchantCodeAction(_prev: ActionResult<{ email: str
     await rateLimit("merchant-otp:email", input.email, 6, 3600);
     const lang = input.lang && isSarvamLocaleCode(input.lang) ? input.lang : null;
     const intent = input.intent && isStartIntentId(input.intent) ? input.intent : null;
-    const next = safeRedirectPath(input.next, input.mode === "signup" ? "/onboarding" : "/dashboard");
+    // No default for sign-in: the callback picks the panel from the account (role-routing.ts).
+    const next = safeRedirectPath(input.next, input.mode === "signup" ? "/onboarding" : "");
     const sent = await sendAuthCode({
       email: input.email,
       kind: "signin",
       createUser: true,
-      redirectTo: `${platformOrigin()}/auth/callback?next=${encodeURIComponent(next)}`,
+      redirectTo: next ? `${platformOrigin()}/auth/callback?next=${encodeURIComponent(next)}` : `${platformOrigin()}/auth/callback`,
       userMetadata: {
         display_name: input.displayName?.trim() || null,
         store_name: input.storeName ?? null,
@@ -299,8 +301,8 @@ export async function verifyMerchantCodeAction(_prev: ActionResult | null, fd: F
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.verifyOtp({ email: input.email, token: input.token, type: "email" });
     if (error || !data.user) throw new AppError("VALIDATION", { fieldErrors: { token: ["That code is invalid or has expired."] } });
-    // Explicit ?next wins; otherwise new sellers go to onboarding, existing ones to their dashboard.
-    next = input.next ? safeRedirectPath(input.next, "/dashboard") : await landingPathFor(data.user.id);
+    // Staff → /admin, sellers → dashboard, new accounts → onboarding; ?next only when usable.
+    next = await landingPathFor(data.user.id, safeRedirectPath(input.next, ""));
   });
   if (result.ok) redirect(next);
   return result;
@@ -313,15 +315,16 @@ export async function resetPasswordAction(_prev: ActionResult | null, fd: FormDa
     const { error } = await supabase.auth.updateUser({ password: input.password });
     if (error) throw new AppError("UNAUTHENTICATED", { fieldErrors: { _form: ["Your reset link has expired. Request a new one."] } });
   });
-  if (result.ok) redirect("/dashboard");
+  // Signed in: the shared login page forwards to this account's panel (admin or dashboard).
+  if (result.ok) redirect(LOGIN_PATH);
   return result;
 }
 
-/** Signs out; the platform console passes `to=admin` so staff return to its own sign-in screen. */
-export async function signOutAction(fd?: FormData): Promise<void> {
+/** Signs out to the shared sign-in page (sellers and platform staff use the same one). */
+export async function signOutAction(): Promise<void> {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
-  redirect(fd?.get("to") === "admin" ? ADMIN_LOGIN_PATH : SELLER_LOGIN_PATH);
+  redirect(LOGIN_PATH);
 }
 
 /**
@@ -329,15 +332,16 @@ export async function signOutAction(fd?: FormData): Promise<void> {
  * to Google. The platform /auth/callback exchanges the code; new accounts continue to onboarding.
  */
 export async function googleSignInAction(fd: FormData): Promise<void> {
-  const next = safeRedirectPath(typeof fd.get("next") === "string" ? (fd.get("next") as string) : "", "/dashboard");
+  // Empty next: the callback picks the panel from the account (staff → /admin, sellers → /dashboard).
+  const next = safeRedirectPath(typeof fd.get("next") === "string" ? (fd.get("next") as string) : "", "");
   await rateLimit("login:ip", await clientIpKey(), 20, 600);
-  if (!(await getPublicPlatformConfig()).googleForSellers) redirect(`${SELLER_LOGIN_PATH}?error=google`);
+  if (!(await getPublicPlatformConfig()).googleForSellers) redirect(`${LOGIN_PATH}?error=google`);
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${platformOrigin()}/auth/callback?next=${encodeURIComponent(next)}`, queryParams: { prompt: "select_account" } },
+    options: { redirectTo: next ? `${platformOrigin()}/auth/callback?next=${encodeURIComponent(next)}` : `${platformOrigin()}/auth/callback`, queryParams: { prompt: "select_account" } },
   });
-  if (error || !data.url) redirect(`${SELLER_LOGIN_PATH}?error=google`);
+  if (error || !data.url) redirect(`${LOGIN_PATH}?error=google`);
   redirect(data.url);
 }
 
@@ -359,7 +363,7 @@ export async function googleIdTokenSignInAction(input: { credential: string; non
       logger.warn("auth.google_id_token_failed", { code: error?.code ?? null, detail: error?.message.slice(0, 160) ?? null });
       throw new AppError("UNAUTHENTICATED", { message: "Google sign-in didn't complete. Please try again or use your email." });
     }
-    const next = input.next ? safeRedirectPath(input.next, "/dashboard") : await landingPathFor(data.user.id);
+    const next = await landingPathFor(data.user.id, safeRedirectPath(input.next, ""));
     return { next };
   });
 }
