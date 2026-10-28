@@ -54,7 +54,7 @@ export const ROUTABLE_FEATURE_KEYS = AI_FEATURES.filter((f) => f.routable).map((
 /**
  * Seller AI features seeded to NVIDIA (Nemotron Omni text default) when no Admin → AI Health
  * route row exists yet. Vision still swaps to NVIDIA_VISION_MODEL inside nvidiaRequestBody.
- * `generate_product` also seeds Gemini (`gemini-3.8-flash`) as fallback (migration 04700 / 04800);
+ * `generate_product` also seeds Gemini (`gemini-3.8-flash`) as fallback (migration 04700 / 04900);
  * Groq remains next in the platform order when the route is off or those keys are missing.
  */
 export const SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS = [

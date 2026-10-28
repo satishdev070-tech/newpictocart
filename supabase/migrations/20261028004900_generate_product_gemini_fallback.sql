@@ -1,5 +1,5 @@
 -- =============================================================================
--- 4800 GENERATE_PRODUCT GEMINI FALLBACK: backfill Admin → AI Health so product
+-- 4900 GENERATE_PRODUCT GEMINI FALLBACK: backfill Admin → AI Health so product
 -- from image prefers NVIDIA with Gemini fallback when the seed from 04700 still
 -- has a null fallback (already-applied hosts). Does not overwrite an admin who
 -- already set a fallback. Groq stays available via the platform order when the
