@@ -124,6 +124,25 @@ describe("public cache", () => {
     expect(fn).toHaveBeenCalledOnce();
   });
 
+  it("treats a hung Redis get as a miss and still resolves from fn", async () => {
+    unstableCache.mockImplementation((fn: () => Promise<unknown>) => fn);
+    // Never resolves — without a timeout this would hang cachedPublic forever.
+    redisGet.mockReturnValueOnce(new Promise(() => undefined));
+    const { cachedPublic, REDIS_OP_TIMEOUT_MS, withTimeout } = await load("production", true);
+
+    await expect(withTimeout(new Promise(() => undefined), 20)).rejects.toThrow("timeout");
+
+    const fn = vi.fn(async () => "from-db-after-timeout");
+    const cached = cachedPublic("hung-get", fn, { tags: ["t"], revalidateSeconds: 60, keyPrefix: "pub:v1" });
+    const started = Date.now();
+    await expect(cached()).resolves.toBe("from-db-after-timeout");
+    const elapsed = Date.now() - started;
+    expect(fn).toHaveBeenCalledOnce();
+    // Must finish shortly after the Redis op timeout (not hang).
+    expect(elapsed).toBeLessThan(REDIS_OP_TIMEOUT_MS + 500);
+    expect(elapsed).toBeGreaterThanOrEqual(REDIS_OP_TIMEOUT_MS - 50);
+  });
+
   it("revalidatePublicTags drops L1 tag and deletes indexed Redis keys", async () => {
     redisSmembers.mockResolvedValue(["pub:v1:e:custom-themes:"]);
     const { cachedPublic, revalidatePublicTags, redisTagIndexKey } = await load("production", true);
