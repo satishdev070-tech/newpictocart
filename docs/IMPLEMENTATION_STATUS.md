@@ -60,6 +60,7 @@ Extends optional Upstash Redis behind Next Data Cache to **public** platform cat
 - **Wired (`pub:v1`):** marketplace custom themes + demo origins, platform `product_types`, public platform config, marketing landing, and `feature_flags` defaults only (used by `getEntitlements`; tenant overrides stay live).
 - **Invalidation tags:** `marketplace-custom-themes`, `marketplace-demo-origins`, `platform-product-types`, `platform-public-config`, `platform-landing`, `platform-feature-flag-defaults` (+ existing storefront tags). Flag create/update/delete actions call `revalidatePublicTags(FEATURE_FLAG_DEFAULTS_TAG)` then `revalidateAllStorefronts()`.
 - **Tests:** `tests/unit/public-cache.test.ts` (L2 hit/miss/tag delete); storefront cache tests updated for shared helper.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **137 files / 1,623 tests**, build).
 - **Branch:** `cursor/seller-admin-redis-public-c73e`.
 
 ## Seller AI suite (2026-10-28)
