@@ -8,6 +8,7 @@ _Last updated: 2026-10-28 (Seller AI usable-answer fix) · 2026-10-28 (Seller AI
 - **Hosted repair:** `generate_product` → NVIDIA primary + Groq fallback; `generate_reviews` → Groq fallback. Migration `20261028005000_seller_ai_route_fallbacks.sql` repairs Gemini-only product routes and null review fallbacks on other hosts.
 - **Code:** `routeProviders` appends the rest of the platform provider order after the Admin route so a dead key cannot hard-fail when another key works. NVIDIA text calls request `response_format: json_object`. Friendlier seller errors for 403/503/404. Coerce `priceMinor` / review `rating` from string JSON.
 - **Ops note:** Gemini credential still returns 403 — rotate/fix in Admin → Social apps. NVIDIA is working for blog/agent.
+- **Verification:** `pnpm check` ✅. Hosted migration `05000` applied on `ugbjlpdhktrlkyuijkfc`.
 
 ## Seller AI admin UX suite (2026-10-28, branch `cursor/seller-ai-admin-ux-c73e`, PR #47)
 
