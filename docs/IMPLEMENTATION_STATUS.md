@@ -8,6 +8,7 @@ _Last updated: 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razor
 - **Retargets:** topbar credit badge, home `AiWalletCard` Recharge / activity, Settings sidebar + Settings centre nav (“AI Wallet”) → `/dashboard/wallet`.
 - **Neural Pulse:** studio tabs kept; bolted `#credits` panel replaced with `AiWalletLinkBanner` link to the wallet.
 - **Code:** `src/app/dashboard/wallet/page.tsx`, `src/features/ai-credits/wallet-ui.tsx`.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **139 files / 1,637 tests**, build). PR #45. Hosted: apply `20261028004500` + `20261028004600`.
 
 ## Platform AI wallet payment gateways (2026-10-28, branch `cursor/ai-wallet-sales-gateways-c73e`)
 
