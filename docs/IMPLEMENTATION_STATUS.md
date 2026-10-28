@@ -5,10 +5,11 @@ _Last updated: 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding U
 ## OTP 6-digit + logout + Done→dashboard + onboarding nav (2026-10-28, branch `cursor/otp-logout-onboarding-c73e`)
 
 - **OTP:** App locks UI boxes + verify schemas to exactly **6** digits (`CODE_LENGTH` / `/^\d{6}$/`). Hosted Supabase Auth → Email → **Email OTP Length** must be **6** or emails still mint longer codes.
+- **Hosted fix (2026-10-28):** project `ugbjlpdhktrlkyuijkfc` (`v2pictocart`) had `mailer_otp_length=8` (root cause of 8-digit Resend emails). Patched via Management API to **`mailer_otp_length=6`**; `admin.generateLink` probe returned a **6-digit** `email_otp`. New Pictocart + store sign-in emails should show 6 digits.
 - **Logout:** `signOutAction` uses `{ scope: "local" }` so seller/admin sign-out no longer waits on global revoke.
 - **Done → Dashboard:** hard `location.assign("/dashboard")` with `leavingDone` gate; clears draft after leave so empty-draft redirect cannot send merchants back to `/start`.
 - **Draft / chrome:** clear `pc_start_draft` cookie on Done; Back/Continue sit under forms (header Back near logo removed).
-- **Verification:** `pnpm check` ✅ (143 files / 1667 tests).
+- **Verification:** `pnpm check` ✅ (143 files / 1667 tests). PR #54 merged.
 
 ## Onboarding UI polish (2026-10-28, branch `cursor/onboarding-ui-polish-c73e`, PR #53)
 
