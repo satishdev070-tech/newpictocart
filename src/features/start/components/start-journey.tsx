@@ -9,7 +9,7 @@ import type { FinalizeStartResult } from "../actions";
 import { useStartDraft } from "../draft/use-start-draft";
 import { clearStartDraftStorage, setStartDraftCookie } from "../draft/storage";
 import type { StartDraft, StartScreen } from "../draft/schema";
-import { draftReadyToFinalize, draftHasProgress, backTarget } from "../flow";
+import { draftReadyToFinalize, draftHasProgress, backTarget, nextScreenAfterPath } from "../flow";
 import { draftStoreName } from "../draft/schema";
 import { suggestSlugFromName } from "@/features/onboarding/voice/facts";
 import { StartShell, type StartLogo } from "./start-shell";
@@ -18,9 +18,6 @@ import { PathScreen } from "../screens/path-screen";
 import { VoiceScreen } from "../screens/voice-screen";
 import { QuizScreen } from "../screens/quiz-screen";
 import { BusinessScreen } from "../screens/business-screen";
-import { ProductsScreen } from "../screens/products-screen";
-import { MoodScreen } from "../screens/mood-screen";
-import { PaymentScreen } from "../screens/payment-screen";
 import { ThemeScreen } from "../screens/theme-screen";
 import { BuildingScreen } from "../screens/building-screen";
 import { AccountScreen } from "../screens/account-screen";
@@ -30,7 +27,15 @@ import type { VoiceFacts } from "@/features/onboarding/voice/facts";
 import type { StartVoiceTurn } from "../draft/schema";
 import { emptyStartDraft } from "../draft/schema";
 import { mergeFacts } from "@/features/onboarding/voice/facts";
-import { nextScreenAfterPath } from "../flow";
+
+/** Legacy screens remapped into the five-screen graph (do not mount the old UIs). */
+const LEGACY_SCREEN_REMAP: Partial<Record<StartScreen, StartScreen>> = {
+  welcome: "lang",
+  intent: "path",
+  products: "business",
+  mood: "theme",
+  payment: "theme",
+};
 
 export function StartJourney({
   plan,
@@ -93,14 +98,8 @@ export function StartJourney({
 
   useEffect(() => {
     if (!hydrated || !draft) return;
-    // Five-screen flow starts at language — skip legacy welcome/intent drafts.
-    if (draft.screen === "welcome") {
-      patchDraft({ screen: "lang" });
-      return;
-    }
-    if (draft.screen === "intent") {
-      patchDraft({ screen: "path" });
-    }
+    const remap = LEGACY_SCREEN_REMAP[draft.screen];
+    if (remap) patchDraft({ screen: remap });
   }, [hydrated, draft, patchDraft]);
 
   useEffect(() => {
@@ -126,8 +125,13 @@ export function StartJourney({
 
   const finishMessage = finalizeState && !finalizeState.ok;
   const screen = draft.screen;
-  const split = ["business", "products", "mood", "account"].includes(screen);
-  const openingStore = signedIn && !draft.result && !finishMessage && draftReadyToFinalize(draft) && (screen === "account" || screen === "building");
+  const split = screen === "business" || screen === "account";
+  const openingStore =
+    signedIn &&
+    !draft.result &&
+    !finishMessage &&
+    draftReadyToFinalize(draft) &&
+    (screen === "account" || screen === "building");
 
   function applyVoiceFacts(prevFacts: StartDraft["voice"]["facts"], patch: VoiceFacts): StartDraft["voice"]["facts"] {
     const merged = mergeFacts(
@@ -177,7 +181,14 @@ export function StartJourney({
       logo={logo}
       voiceEnabled={voiceEnabled}
       onVoiceToggle={() => setVoiceEnabled((v) => !v)}
-      onBack={opts?.back ? () => { const t = backTarget(opts.backTo ?? screen, draft.path, draft.voice.mode); if (t) go(t); } : undefined}
+      onBack={
+        opts?.back
+          ? () => {
+              const t = backTarget(opts.backTo ?? screen, draft.path, draft.voice.mode);
+              if (t) go(t);
+            }
+          : undefined
+      }
       onLangClick={() => go("lang")}
       layout={opts?.layout ?? (split ? "split" : "center")}
     >
@@ -185,7 +196,12 @@ export function StartJourney({
     </StartShell>
   );
 
-  if (screen === "welcome" || screen === "lang") {
+  // Remap in progress — avoid flashing legacy screen ids before patch lands.
+  if (LEGACY_SCREEN_REMAP[screen]) {
+    return shell(null);
+  }
+
+  if (screen === "lang") {
     return shell(
       <LangScreen
         locale={draft.locale as SarvamLocaleCode}
@@ -195,7 +211,7 @@ export function StartJourney({
     );
   }
 
-  if (screen === "path" || screen === "intent") {
+  if (screen === "path") {
     return shell(
       <PathScreen
         locale={draft.locale}
@@ -216,6 +232,7 @@ export function StartJourney({
     );
   }
 
+  // Step 3: voice (ai+talk) | quiz (ai+quiz) | business (manual)
   if (screen === "voice") {
     return shell(
       <VoiceScreen
@@ -259,26 +276,36 @@ export function StartJourney({
       <QuizScreen
         draft={draft}
         onSave={(facts, done) => {
-          setDraft((d) => ({
-            ...d,
-            screen: done ? "theme" : "quiz",
-            voice: {
-              ...d.voice,
-              facts: applyVoiceFacts(d.voice.facts, facts),
-              done: done || d.voice.done,
-              mode: "quiz",
-            },
-            business: {
-              ...d.business,
-              name: facts.name?.trim() || d.business.name,
-              tagline: facts.tagline?.trim() || d.business.tagline,
-              city: facts.city?.trim() || d.business.city,
-              category: facts.category ?? d.business.category,
-              subcategory: facts.subcategory ?? d.business.subcategory,
-              productsServices: facts.productsServices?.trim() || d.business.productsServices,
-              siteMode: facts.siteMode ?? d.business.siteMode,
-            },
-          }));
+          setDraft((d) => {
+            const categoryChanged =
+              facts.category != null && facts.category !== d.voice.facts.category;
+            const nextFacts = applyVoiceFacts(d.voice.facts, facts);
+            if (categoryChanged) {
+              nextFacts.subcategory = facts.subcategory;
+            }
+            return {
+              ...d,
+              screen: done ? "theme" : "quiz",
+              voice: {
+                ...d.voice,
+                facts: nextFacts,
+                done: done || d.voice.done,
+                mode: "quiz",
+              },
+              business: {
+                ...d.business,
+                name: facts.name?.trim() || d.business.name,
+                tagline: facts.tagline?.trim() || d.business.tagline,
+                city: facts.city?.trim() || d.business.city,
+                category: facts.category ?? d.business.category,
+                subcategory: categoryChanged
+                  ? facts.subcategory
+                  : (facts.subcategory ?? d.business.subcategory),
+                productsServices: facts.productsServices?.trim() || d.business.productsServices,
+                siteMode: facts.siteMode ?? d.business.siteMode,
+              },
+            };
+          });
           if (done) setStartDraftCookie();
         }}
       />,
@@ -299,19 +326,7 @@ export function StartJourney({
     );
   }
 
-  if (screen === "products") {
-    return shell(
-      <ProductsScreen
-        draft={draft}
-        rootDomain={rootDomain}
-        onChange={(products) => patchDraft({ products })}
-        onNext={() => go("theme")}
-      />,
-      { back: true, layout: "split" },
-    );
-  }
-
-  if (screen === "mood" || screen === "payment" || screen === "theme") {
+  if (screen === "theme") {
     return shell(
       <ThemeScreen
         draft={draft}

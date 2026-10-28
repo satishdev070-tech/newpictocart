@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { INDUSTRIES, type IndustrySlug } from "@/features/stores/industries";
+import { subcategoriesFor } from "@/features/stores/subcategories";
 import { startSuggestAction } from "../actions";
 import { startCopy } from "../copy";
 import type { StartDraft } from "../draft/schema";
 import { LivePreview } from "../components/live-preview";
-import { progressFor } from "../flow";
+import { businessComplete, progressFor } from "../flow";
 
 const FEATURED: IndustrySlug[] = ["fashion", "jewellery", "home-decor", "grocery", "beauty", "handicrafts"];
 
@@ -28,6 +29,8 @@ export function BusinessScreen({
   const manual = progressFor("business", draft.path, draft.locale).manual;
   const [moreOpen, setMoreOpen] = useState(false);
   const b = draft.business;
+  const subs = b.category ? subcategoriesFor(b.category) : [];
+  const canContinue = businessComplete(draft);
 
   async function writeTagline() {
     const fd = new FormData();
@@ -39,6 +42,13 @@ export function BusinessScreen({
     else if (!voiceReady) {
       onChange({ tagline: b.category === "handicrafts" ? "Handcrafted in India" : "Quality you can trust" });
     }
+  }
+
+  function selectCategory(slug: IndustrySlug) {
+    onChange({
+      category: slug,
+      subcategory: b.category === slug ? b.subcategory : null,
+    });
   }
 
   return (
@@ -81,7 +91,7 @@ export function BusinessScreen({
                   <button
                     key={slug}
                     type="button"
-                    onClick={() => onChange({ category: slug })}
+                    onClick={() => selectCategory(slug)}
                     className={cn(
                       "rounded-full px-3 py-1.5 text-sm",
                       active ? "bg-[#2A2233] text-white" : "bg-white border border-[#2A2233]/10",
@@ -101,7 +111,7 @@ export function BusinessScreen({
                   <button
                     key={ind.slug}
                     type="button"
-                    onClick={() => onChange({ category: ind.slug })}
+                    onClick={() => selectCategory(ind.slug)}
                     className={cn("rounded-full px-2.5 py-1 text-xs", b.category === ind.slug ? "bg-[#F97316] text-white" : "bg-[#F4F0FA]")}
                   >
                     {ind.short}
@@ -110,6 +120,39 @@ export function BusinessScreen({
               </div>
             ) : null}
           </div>
+          {b.category ? (
+            <div>
+              <p className="text-sm font-medium">{c.business.subcategory}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {subs.map((sub) => {
+                  const active = b.subcategory === sub.slug;
+                  return (
+                    <button
+                      key={sub.slug}
+                      type="button"
+                      onClick={() => onChange({ subcategory: sub.slug })}
+                      className={cn(
+                        "rounded-full px-3 py-1.5 text-sm",
+                        active ? "bg-[#F97316] text-white" : "bg-white border border-[#2A2233]/10",
+                      )}
+                    >
+                      {sub.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+          <label className="block text-sm font-medium">
+            {c.business.productsServices}
+            <textarea
+              value={b.productsServices}
+              onChange={(e) => onChange({ productsServices: e.target.value })}
+              rows={3}
+              placeholder={c.business.productsServicesHint}
+              className="mt-1 w-full rounded-xl border border-[#2A2233]/10 px-3 py-2.5"
+            />
+          </label>
           <label className="block text-sm font-medium">
             {c.business.city}
             <input value={b.city} onChange={(e) => onChange({ city: e.target.value })} className="mt-1 w-full rounded-xl border px-3 py-2.5" />
@@ -121,7 +164,7 @@ export function BusinessScreen({
         </div>
         <button
           type="button"
-          disabled={b.name.trim().length < 2 || !b.category}
+          disabled={!canContinue}
           onClick={onNext}
           className="self-start rounded-full bg-[#F97316] px-7 py-3.5 font-semibold text-white disabled:opacity-40"
         >

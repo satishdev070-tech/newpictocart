@@ -56,11 +56,6 @@ export function StartShell({
           </Link>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          {screen === "products" || screen === "mood" || screen === "payment" ? (
-            <button type="button" className="rounded-full border border-white/90 bg-white/60 px-3 py-2 text-[#5E5568]">
-              {c.switchAi}
-            </button>
-          ) : null}
           <button
             type="button"
             onClick={onVoiceToggle}

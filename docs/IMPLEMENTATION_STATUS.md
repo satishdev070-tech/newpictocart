@@ -1,6 +1,6 @@
 # Implementation Status
 
-_Last updated: 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-28 (Five-screen /start journey Phase 2) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
 ## Seller AI reviews insert + product Omni vision (2026-10-28, branch `cursor/seller-ai-reviews-product-fix-c73e`)
 
@@ -307,6 +307,18 @@ Plan, gap analysis and decisions: [SUPER_ADMIN_PORT.md](SUPER_ADMIN_PORT.md). Re
 - **Contact messages:** the form posts through `submitContactFormAction` (verified host, honeypot, rate limit). `submit_contact_message` is the only insert path. Staff with `content.write` read the latest 100 messages at **Content → Messages**. Apply `supabase/migrations/20261020003500_contact_messages.sql` before the form can store rows.
 - **Add with AI:** when Gemini, Groq, and Anthropic are missing or fail, `generateSectionAction` asks Sarvam for one JSON section, sanitizes it, and inserts it like any other section. One AI credit is debited before the model call and refunded only if every model fails. If Sarvam is also unset, the panel shows the existing setup sentence.
 - **Verification:** `pnpm check` ✅ (typecheck, lint, 99 files / 1,277 tests, build). The local dev server returns `EnvValidationError` because Supabase env vars are unset, so the register, `/start`, contact, and site-builder screens were not clicked through in a browser. Apply the contact migration, then finish `/start` again so an existing store receives About and Contact.
+
+## Five-screen `/start` rebuild — Phase 2 (journey wiring)
+
+- **Graph:** lang → path → (voice | quiz | business) → theme → account → building → done.
+  Path choice patches `path` + `voice.mode`; `nextScreenAfterPath` mounts Voice (ai+talk), Quiz
+  (ai+quiz), or Business (manual) as step 3. Voice/quiz/business continue to **ThemeScreen**, then
+  account; account create → building → finalize unchanged.
+- **No legacy mounts:** welcome / intent / products / mood / payment are remapped in-journey and
+  never rendered. Back uses `backTarget`; progress from `progressFor`.
+- **BusinessScreen:** subcategory chips from `subcategoriesFor(category)` + products/services field;
+  Continue requires `businessComplete` (name + category + subcategory).
+- **QuizScreen:** asks subcategory after category (6 questions); finish uses `voiceFactsComplete`.
 
 ## Five-screen `/start` rebuild — Phase 1 (data + flow)
 

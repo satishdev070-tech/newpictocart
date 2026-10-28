@@ -70,6 +70,7 @@ export type StartCopy = {
     nameTitle: string;
     nameHint: string;
     categoryTitle: string;
+    subcategoryTitle: string;
     more: string;
     less: string;
     siteTitle: string;
@@ -92,6 +93,9 @@ export type StartCopy = {
     tagline: string;
     writeAi: string;
     category: string;
+    subcategory: string;
+    productsServices: string;
+    productsServicesHint: string;
     city: string;
     whatsapp: string;
     next: string;
@@ -235,6 +239,7 @@ const EN: StartCopy = {
     nameTitle: "What is your store called?",
     nameHint: "e.g. Kia Garments",
     categoryTitle: "What do you sell?",
+    subcategoryTitle: "Which type fits best?",
     more: "More categories",
     less: "Fewer categories",
     siteTitle: "What should we build?",
@@ -248,7 +253,7 @@ const EN: StartCopy = {
     taglineHint: "e.g. Handloom from the family workshop",
     skip: "Skip",
     next: "Next",
-    finish: "Build my store →",
+    finish: "Continue →",
   },
   business: {
     title: "Tell us about your ",
@@ -257,9 +262,12 @@ const EN: StartCopy = {
     tagline: "Tagline",
     writeAi: "✦ Write with AI",
     category: "Category",
+    subcategory: "Subcategory",
+    productsServices: "What do you sell or offer?",
+    productsServicesHint: "e.g. Bandhani stoles, block-print kurtas, custom sizes",
     city: "City",
     whatsapp: "WhatsApp number",
-    next: "Next: Products →",
+    next: "Continue →",
   },
   products: {
     title: "Add your ",
@@ -420,6 +428,7 @@ const HI: StartCopy = {
     nameTitle: "आपकी दुकान का नाम क्या है?",
     nameHint: "जैसे Kia Garments",
     categoryTitle: "आप क्या बेचते हैं?",
+    subcategoryTitle: "कौन सा प्रकार सबसे ठीक है?",
     more: "और कैटेगरी",
     less: "कम कैटेगरी",
     siteTitle: "हम क्या बनाएँ?",
@@ -433,7 +442,7 @@ const HI: StartCopy = {
     taglineHint: "जैसे घर के करघे का हाथ का कपड़ा",
     skip: "छोड़ें",
     next: "आगे",
-    finish: "दुकान बनाएँ →",
+    finish: "आगे बढ़ें →",
   },
   business: {
     title: "अपने ",
@@ -442,9 +451,12 @@ const HI: StartCopy = {
     tagline: "टैगलाइन",
     writeAi: "✦ AI से लिखें",
     category: "कैटेगरी",
+    subcategory: "उप-कैटेगरी",
+    productsServices: "आप क्या बेचते या देते हैं?",
+    productsServicesHint: "जैसे बाँधी स्टोल, ब्लॉक-प्रिंट कुर्ते, कस्टम साइज़",
     city: "शहर",
     whatsapp: "WhatsApp नंबर",
-    next: "आगे: उत्पाद →",
+    next: "आगे बढ़ें →",
   },
   products: {
     title: "अपने ",
