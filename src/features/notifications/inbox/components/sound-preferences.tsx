@@ -1,26 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NOTIFICATION_TYPES } from "../catalog";
 import { DEFAULT_BEEP_TYPES, DEFAULT_SOUND_PREFS, NOTIFICATION_TONES, type NotificationSoundPrefs, type NotificationToneId } from "../sound-prefs";
-import { playNotificationTone, readSoundPrefs, unlockNotificationAudio, writeSoundPrefs } from "../notification-sound";
+import { playNotificationTone, readSoundPrefs, subscribeSoundPrefs, unlockNotificationAudio, writeSoundPrefs } from "../notification-sound";
 
 const BEEP_LABELS = DEFAULT_BEEP_TYPES.map((t) => NOTIFICATION_TYPES[t].label);
 
-export function SoundPreferences() {
-  const [prefs, setPrefs] = useState<NotificationSoundPrefs>(DEFAULT_SOUND_PREFS);
-  const [hydrated, setHydrated] = useState(false);
+function getServerSoundPrefs(): NotificationSoundPrefs {
+  return { ...DEFAULT_SOUND_PREFS };
+}
 
-  useEffect(() => {
-    unlockNotificationAudio();
-    setPrefs(readSoundPrefs());
-    setHydrated(true);
-  }, []);
+export function SoundPreferences() {
+  const prefs = useSyncExternalStore(subscribeSoundPrefs, readSoundPrefs, getServerSoundPrefs);
 
   const save = (next: NotificationSoundPrefs) => {
-    setPrefs(next);
+    unlockNotificationAudio();
     writeSoundPrefs(next);
   };
 
@@ -44,16 +41,15 @@ export function SoundPreferences() {
           type="button"
           role="switch"
           aria-checked={prefs.enabled}
-          disabled={!hydrated}
           onClick={() => setEnabled(!prefs.enabled)}
-          className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-small font-medium shadow-xs hover:bg-surface-secondary disabled:opacity-60"
+          className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-small font-medium shadow-xs hover:bg-surface-secondary"
         >
           {prefs.enabled ? <Volume2 aria-hidden className="size-4 text-accent" /> : <VolumeX aria-hidden className="size-4 text-muted" />}
           {prefs.enabled ? "Sound on" : "Sound off"}
         </button>
       </div>
 
-      <fieldset disabled={!prefs.enabled || !hydrated} className="disabled:opacity-50">
+      <fieldset disabled={!prefs.enabled} className="disabled:opacity-50">
         <legend className="mb-2 text-overline text-subtle">Tone</legend>
         <div className="flex flex-wrap gap-2">
           {NOTIFICATION_TONES.map((tone) => {
@@ -74,13 +70,7 @@ export function SoundPreferences() {
               </button>
             );
           })}
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            disabled={!prefs.enabled || !hydrated}
-            onClick={() => void playNotificationTone(prefs.toneId)}
-          >
+          <Button type="button" variant="secondary" size="sm" disabled={!prefs.enabled} onClick={() => void playNotificationTone(prefs.toneId)}>
             Preview
           </Button>
         </div>

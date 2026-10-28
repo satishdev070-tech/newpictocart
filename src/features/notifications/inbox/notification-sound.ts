@@ -53,6 +53,16 @@ export function unlockNotificationAudio(): void {
   document.addEventListener("touchstart", unlock, { once: true, capture: true });
 }
 
+const prefsListeners = new Set<() => void>();
+
+/** Subscribe to local sound-pref changes (for `useSyncExternalStore`). */
+export function subscribeSoundPrefs(onStoreChange: () => void): () => void {
+  prefsListeners.add(onStoreChange);
+  return () => {
+    prefsListeners.delete(onStoreChange);
+  };
+}
+
 export function readSoundPrefs(): NotificationSoundPrefs {
   if (typeof window === "undefined") return { ...DEFAULT_SOUND_PREFS };
   try {
@@ -69,6 +79,7 @@ export function writeSoundPrefs(prefs: NotificationSoundPrefs): void {
   } catch {
     // private mode / quota — prefs stay in-memory for this session only via callers
   }
+  for (const listener of prefsListeners) listener();
 }
 
 async function loadBuffer(ctx: AudioContext, url: string): Promise<AudioBuffer | null> {
