@@ -184,3 +184,11 @@ export const GENERATE_REVIEWS_STEPS: readonly AiGenerationStep[] = [
   { id: "write", label: "Write", icon: PenLine },
   { id: "save", label: "Save", icon: Check },
 ];
+
+/** Build-your-store stages. */
+export const STORE_SETUP_STEPS: readonly AiGenerationStep[] = [
+  { id: "categories", label: "Categories", icon: ScanSearch },
+  { id: "products", label: "Products", icon: Upload },
+  { id: "blogs", label: "Blogs", icon: PenLine },
+  { id: "reviews", label: "Reviews", icon: Check },
+];

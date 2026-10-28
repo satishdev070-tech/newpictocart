@@ -143,7 +143,7 @@ export default async function DashboardHome() {
 
       <SetupChecklist steps={home.setup} />
 
-      {can(ctx, "catalog.write") ? <StoreSetupCard text={m.ai.setup} canTheme={can(ctx, "theme.edit")} /> : null}
+      {can(ctx, "catalog.write") ? <StoreSetupCard text={m.ai.setup} /> : null}
 
       <KpiStrip kpis={home.sales?.kpis ?? null} customers={home.counts.customers} products={home.counts.activeProducts} allProducts={home.counts.allProducts} />
 

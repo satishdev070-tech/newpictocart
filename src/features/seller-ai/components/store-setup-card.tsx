@@ -7,6 +7,11 @@ import { Button } from "@/components/ui/button";
 import { inputClassName as input } from "@/components/ui/field";
 import { setupStoreFromPromptAction } from "@/features/seller-ai/actions";
 import { STORE_SETUP_MAX_PRODUCTS, type StoreSetupResult } from "@/features/seller-ai/schemas";
+import {
+  AiGenerationProgress,
+  STORE_SETUP_STEPS,
+  type AiGenerationProgressStatus,
+} from "@/features/seller-ai/components/ai-generation-progress";
 
 export type StoreSetupText = {
   title: string;
@@ -17,13 +22,16 @@ export type StoreSetupText = {
   addPhoto: string;
   removeProduct: string;
   addProduct: string;
-  applyTheme: string;
   submit: string;
   working: string;
   done: string;
-  doneTheme: string;
   review: string;
   cost: string;
+  stepCategories: string;
+  stepProducts: string;
+  stepBlogs: string;
+  stepReviews: string;
+  progressLabel: string;
 };
 
 type Row = { key: number; name: string; file: File | null; preview: string | null };
@@ -31,18 +39,25 @@ type Row = { key: number; name: string; file: File | null; preview: string | nul
 const fill = (s: string, vars: Record<string, string | number>) => s.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? ""));
 
 /**
- * "Set up your store from a prompt": the seller describes the shop and lists a few products
- * (optionally with a photo each). The server writes categories and DRAFT products into this
- * store and can apply the matching marketplace theme to the theme draft.
+ * Build your store from a prompt: the seller describes the shop and lists a few products
+ * (optionally with a photo each). The server writes categories, draft products, draft blogs
+ * and pending sample reviews into this store.
  */
-export function StoreSetupCard({ text, canTheme }: { text: StoreSetupText; canTheme: boolean }) {
+export function StoreSetupCard({ text }: { text: StoreSetupText }) {
   const nextKey = useRef(1);
   const [prompt, setPrompt] = useState("");
   const [rows, setRows] = useState<Row[]>([{ key: 0, name: "", file: null, preview: null }]);
-  const [applyTheme, setApplyTheme] = useState(canTheme);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<StoreSetupResult | null>(null);
+  const [genStatus, setGenStatus] = useState<AiGenerationProgressStatus>("idle");
   const [pending, start] = useTransition();
+
+  const steps = [
+    { ...STORE_SETUP_STEPS[0]!, label: text.stepCategories },
+    { ...STORE_SETUP_STEPS[1]!, label: text.stepProducts },
+    { ...STORE_SETUP_STEPS[2]!, label: text.stepBlogs },
+    { ...STORE_SETUP_STEPS[3]!, label: text.stepReviews },
+  ] as const;
 
   const update = (key: number, patch: Partial<Row>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   const setFile = (key: number, file: File | null) => {
@@ -60,26 +75,28 @@ export function StoreSetupCard({ text, canTheme }: { text: StoreSetupText; canTh
   const submit = () => {
     setError(null);
     setDone(null);
+    setGenStatus("pending");
     const used = rows.filter((r) => r.name.trim());
     const fd = new FormData();
     fd.set("prompt", prompt);
     fd.set("products", JSON.stringify(used.map((r) => r.name.trim())));
-    fd.set("applyTheme", String(canTheme && applyTheme));
     used.forEach((r, i) => {
       if (r.file) fd.set(`image_${i}`, r.file);
     });
     start(async () => {
       const r = await setupStoreFromPromptAction(fd);
       if (!r.ok) {
+        setGenStatus("error");
         setError(r.error.fieldErrors?._form?.[0] ?? r.error.fieldErrors?.prompt?.[0] ?? r.error.message);
         return;
       }
+      setGenStatus("success");
       setDone(r.data);
     });
   };
 
   return (
-    <section data-tour="ai-setup" className="rounded-xl border border-border bg-surface shadow-xs">
+    <section data-tour="ai-setup" className="rounded-xl border border-border bg-surface shadow-xs" aria-label={text.progressLabel}>
       <header className="px-4 pt-4 sm:px-5">
         <h2 className="flex items-center gap-2 text-h3">
           <Sparkles aria-hidden className="size-4 text-accent" />
@@ -91,7 +108,19 @@ export function StoreSetupCard({ text, canTheme }: { text: StoreSetupText; canTh
         <label className="sr-only" htmlFor="ai-setup-prompt">
           {text.promptLabel}
         </label>
-        <textarea id="ai-setup-prompt" className={`${input} min-h-20`} rows={3} maxLength={1000} placeholder={text.placeholder} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+        <textarea
+          id="ai-setup-prompt"
+          className={`${input} min-h-20`}
+          rows={3}
+          maxLength={1000}
+          placeholder={text.placeholder}
+          value={prompt}
+          onChange={(e) => {
+            setPrompt(e.target.value);
+            if (genStatus !== "idle") setGenStatus("idle");
+            if (done) setDone(null);
+          }}
+        />
         <ul className="space-y-2">
           {rows.map((r, i) => (
             <li key={r.key} className="flex items-center gap-2">
@@ -115,12 +144,7 @@ export function StoreSetupCard({ text, canTheme }: { text: StoreSetupText; canTh
             </li>
           ))}
         </ul>
-        {canTheme ? (
-          <label className="flex items-start gap-2 text-small text-muted">
-            <input type="checkbox" className="mt-0.5" checked={applyTheme} onChange={(e) => setApplyTheme(e.target.checked)} />
-            {text.applyTheme}
-          </label>
-        ) : null}
+        <AiGenerationProgress steps={steps} status={genStatus} />
         {error ? (
           <p role="alert" className="rounded-md border border-error/25 bg-error/10 px-3 py-2 text-small text-error">
             {error}
@@ -128,10 +152,7 @@ export function StoreSetupCard({ text, canTheme }: { text: StoreSetupText; canTh
         ) : null}
         {done ? (
           <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-success/25 bg-success/10 px-3 py-2 text-small text-success">
-            <span>
-              {fill(text.done, { categories: done.categories, products: done.products })}
-              {done.themeKey ? ` ${text.doneTheme}` : ""}
-            </span>
+            <span>{fill(text.done, { categories: done.categories, products: done.products, blogs: done.blogs, reviews: done.reviews })}</span>
             <Link href="/dashboard/products?status=draft" className="font-semibold underline underline-offset-2">
               {text.review}
             </Link>
