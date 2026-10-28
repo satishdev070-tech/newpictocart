@@ -94,42 +94,50 @@ export function BuyCreditsDialog({
   const router = useRouter();
   const { show } = useToast();
   const [state, formAction] = useActionState(requestAiCreditPurchaseAction, null as ActionResult<AiCreditPurchaseResult> | null);
-  const [dismissed, setDismissed] = useState<unknown>(null);
+  const handledOk = useRef<unknown>(null);
+  const handledErr = useRef<unknown>(null);
   const [paying, setPaying] = useState(false);
 
   useEffect(() => {
-    if (!state?.ok || state === dismissed) return;
+    if (!state?.ok || state === handledOk.current) return;
+    handledOk.current = state;
     const checkout = state.data.checkout;
     if (!checkout) {
       ref.current?.close();
       formRef.current?.reset();
       show({ tone: "success", message: "Purchase request sent. Credits are added after payment is verified." });
-      setDismissed(state);
       return;
     }
-    setPaying(true);
-    void openCheckout(checkout, { storeName, amountMinor: checkout.kind === "razorpay" ? checkout.amountMinor : amountMinor, description: `AI credits · ${packLabel}` })
-      .then(() => {
+    let cancelled = false;
+    void (async () => {
+      setPaying(true);
+      try {
+        await openCheckout(checkout, {
+          storeName,
+          amountMinor: checkout.kind === "razorpay" ? checkout.amountMinor : amountMinor,
+          description: `AI credits · ${packLabel}`,
+        });
+        if (cancelled) return;
         ref.current?.close();
         formRef.current?.reset();
         show({ tone: "success", message: "Payment submitted. Credits appear once the payment is confirmed." });
         router.refresh();
-      })
-      .catch((err: unknown) => {
-        show({ tone: "error", message: err instanceof Error ? err.message : "Payment couldn't be started." });
-      })
-      .finally(() => {
-        setPaying(false);
-        setDismissed(state);
-      });
-  }, [state, dismissed, show, storeName, amountMinor, packLabel, router]);
+      } catch (err: unknown) {
+        if (!cancelled) show({ tone: "error", message: err instanceof Error ? err.message : "Payment couldn't be started." });
+      } finally {
+        if (!cancelled) setPaying(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [state, show, storeName, amountMinor, packLabel, router]);
 
   useEffect(() => {
-    if (state && !state.ok) {
-      show({ tone: "error", message: state.error.fieldErrors?._form?.[0] ?? state.error.message });
-    }
+    if (!state || state.ok || state === handledErr.current) return;
+    handledErr.current = state;
+    show({ tone: "error", message: state.error.fieldErrors?._form?.[0] ?? state.error.message });
   }, [state, show]);
-
   const errors = fieldErrors(state);
   return (
     <>
@@ -138,7 +146,8 @@ export function BuyCreditsDialog({
         size="sm"
         disabled={disabled}
         onClick={() => {
-          setDismissed(state);
+          handledOk.current = state;
+          handledErr.current = state;
           ref.current?.showModal();
         }}
       >
