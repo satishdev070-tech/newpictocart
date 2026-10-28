@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublicTags } from "@/lib/cache/public-cache";
 import { revalidateAllStorefronts, revalidateStorefront, revalidateTenantDirectory } from "@/lib/cache/storefront";
 import { redirect } from "next/navigation";
 import { runAction, type ActionResult } from "@/lib/actions/result";
@@ -46,6 +47,7 @@ import {
   updatePlatformUser,
 } from "./server/mutations";
 import { clearBrandImage, uploadBrandImage } from "./server/branding-images";
+import { FEATURE_FLAG_DEFAULTS_TAG } from "./server/entitlements";
 import { revalidatePublicConfig } from "./server/public-config";
 import { BRAND_SLOTS } from "./public-config";
 import { resetLandingContent, revalidateLanding, saveLandingContent } from "@/features/marketing-site/server/landing";
@@ -195,6 +197,7 @@ export async function createFeatureFlagAction(_prev: ActionResult | null, fd: Fo
     const input = parseInput(featureFlagSchema, formToObject(fd));
     const ctx = await platformActor("platform.flags.manage");
     await saveFeatureFlag(ctx, input, "create");
+    revalidatePublicTags(FEATURE_FLAG_DEFAULTS_TAG);
     revalidateAllStorefronts();
     revalidatePath("/admin/flags");
   });
@@ -205,6 +208,7 @@ export async function updateFeatureFlagAction(_prev: ActionResult | null, fd: Fo
     const input = parseInput(featureFlagSchema, formToObject(fd));
     const ctx = await platformActor("platform.flags.manage");
     await saveFeatureFlag(ctx, input, "update");
+    revalidatePublicTags(FEATURE_FLAG_DEFAULTS_TAG);
     revalidateAllStorefronts();
     revalidatePath("/admin/flags");
   });
@@ -215,6 +219,7 @@ export async function deleteFeatureFlagAction(_prev: ActionResult | null, fd: Fo
     const { key } = parseInput(flagKeySchema, formToObject(fd));
     const ctx = await platformActor("platform.flags.manage");
     await deleteFeatureFlag(ctx, key);
+    revalidatePublicTags(FEATURE_FLAG_DEFAULTS_TAG);
     revalidateAllStorefronts();
     revalidatePath("/admin/flags");
   });

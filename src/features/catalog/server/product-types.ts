@@ -1,11 +1,11 @@
 import "server-only";
-import { revalidateTag, unstable_cache } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { mapDbError } from "@/lib/supabase/errors";
 import { AppError } from "@/lib/errors";
 import { assertPlatformPermission, type PlatformContext } from "@/lib/platform/access";
 import type { Json } from "@/lib/supabase/database.types";
+import { cachedPublic, revalidatePublicTags } from "@/lib/cache/public-cache";
 import { getStoreIndustry } from "@/features/theme/marketplace/server";
 import type { IndustrySlug } from "@/features/stores/industries";
 import {
@@ -42,10 +42,11 @@ async function loadPlatformRows(): Promise<{ rows: PlatformTypeRow[]; migrated: 
   return { rows: data ?? [], migrated: true };
 }
 
-const cachedPlatformRows =
-  process.env.NODE_ENV === "production"
-    ? unstable_cache(loadPlatformRows, ["platform-product-types"], { tags: [PLATFORM_PRODUCT_TYPES_TAG], revalidate: 600 })
-    : loadPlatformRows;
+const cachedPlatformRows = cachedPublic("platform-product-types", loadPlatformRows, {
+  tags: [PLATFORM_PRODUCT_TYPES_TAG],
+  revalidateSeconds: 600,
+  keyPrefix: "pub:v1",
+});
 
 async function platformRows(): Promise<{ rows: PlatformTypeRow[]; migrated: boolean }> {
   return cachedPlatformRows();
@@ -53,7 +54,7 @@ async function platformRows(): Promise<{ rows: PlatformTypeRow[]; migrated: bool
 
 /** After Super Admin catalogue writes — drop the cached platform type rows. */
 export function revalidatePlatformProductTypes() {
-  revalidateTag(PLATFORM_PRODUCT_TYPES_TAG, { expire: 0 });
+  revalidatePublicTags(PLATFORM_PRODUCT_TYPES_TAG);
 }
 
 async function storeRows(tenantId: string): Promise<StoreTypeRow[]> {

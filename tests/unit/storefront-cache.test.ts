@@ -40,6 +40,8 @@ async function load(env: string, withRedis = false) {
   vi.resetModules();
   vi.stubEnv("NODE_ENV", env);
   mockRedis(withRedis);
+  const pub = await import("@/lib/cache/public-cache");
+  pub.resetPublicCachePrefixesForTests();
   return import("@/lib/cache/storefront");
 }
 
@@ -76,7 +78,7 @@ describe("storefront cache", () => {
     expect(fn).toHaveBeenNthCalledWith(1, "tenant-a");
     expect(fn).toHaveBeenNthCalledWith(2, "tenant-b");
     expect(unstableCache).toHaveBeenCalledTimes(2);
-    expect(unstableCache.mock.calls[0]?.[1]).toEqual(["sf", "store-profile"]);
+    expect(unstableCache.mock.calls[0]?.[1]).toEqual(["sf:v1", "store-profile"]);
     expect(unstableCache.mock.calls[0]?.[2]).toEqual({
       tags: [ALL_STOREFRONTS_TAG, "tenant:tenant-a:storefront"],
       revalidate: STOREFRONT_CACHE_SECONDS,
@@ -116,15 +118,17 @@ describe("storefront cache", () => {
     revalidateStorefront("t1");
     expect(revalidateTag).toHaveBeenCalledWith("tenant:t1:storefront", { expire: 0 });
     expect(revalidateTag).not.toHaveBeenCalledWith("tenant-directory", expect.anything());
-    await vi.waitFor(() => expect(redisSmembers).toHaveBeenCalledWith("sf:v1:idx:t:t1"));
+    await vi.waitFor(() =>
+      expect(redisSmembers).toHaveBeenCalledWith(`sf:v1:idx:${encodeURIComponent("tenant:t1:storefront")}`),
+    );
 
     revalidateTenantDirectory();
     expect(revalidateTag).toHaveBeenCalledWith("tenant-directory", { expire: 0 });
-    await vi.waitFor(() => expect(redisSmembers).toHaveBeenCalledWith("sf:v1:idx:dir"));
+    await vi.waitFor(() => expect(redisSmembers).toHaveBeenCalledWith(`sf:v1:idx:${encodeURIComponent("tenant-directory")}`));
 
     revalidateAllStorefronts();
     expect(revalidateTag).toHaveBeenCalledWith("storefront-all", { expire: 0 });
-    await vi.waitFor(() => expect(redisSmembers).toHaveBeenCalledWith("sf:v1:idx:all"));
+    await vi.waitFor(() => expect(redisSmembers).toHaveBeenCalledWith(`sf:v1:idx:${encodeURIComponent("storefront-all")}`));
   });
 
   it("deletes indexed Redis keys on tenant revalidate", async () => {
@@ -132,7 +136,7 @@ describe("storefront cache", () => {
     const { revalidateStorefront } = await load("production", true);
     revalidateStorefront("t1");
     await vi.waitFor(() =>
-      expect(redisDel).toHaveBeenCalledWith("sf:v1:e:store-profile:t1", "sf:v1:e:site-mode:t1", "sf:v1:idx:t:t1"),
+      expect(redisDel).toHaveBeenCalledWith("sf:v1:e:store-profile:t1", "sf:v1:e:site-mode:t1", `sf:v1:idx:${encodeURIComponent("tenant:t1:storefront")}`),
     );
   });
 });

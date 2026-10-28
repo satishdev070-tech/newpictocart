@@ -1,11 +1,12 @@
 import "server-only";
 import type { Metadata } from "next";
 import { cache } from "react";
-import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { publicEnv } from "@/lib/env/public";
 import { logger } from "@/lib/observability/logger";
 import { PLATFORM_ICON } from "@/config/platform";
+import { cachedPublic, revalidatePublicTags } from "@/lib/cache/public-cache";
 import { LANDING_KEY } from "@/features/marketing-site/landing";
 import { DEFAULT_PUBLIC_CONFIG, brandImageUrl, parsePublicConfig, type BrandImage, type PublicPlatformConfig } from "../public-config";
 
@@ -23,7 +24,11 @@ async function load(): Promise<PublicPlatformConfig> {
   return parsePublicConfig(data ?? []);
 }
 
-const cached = process.env.NODE_ENV === "production" ? unstable_cache(load, ["platform-public-config"], { tags: [PUBLIC_CONFIG_TAG], revalidate: 300 }) : load;
+const cached = cachedPublic("platform-public-config", load, {
+  tags: [PUBLIC_CONFIG_TAG],
+  revalidateSeconds: 300,
+  keyPrefix: "pub:v1",
+});
 
 /** Logos, favicon, GA4 id and switches. Never throws: any failure means today's defaults. */
 export const getPublicPlatformConfig = cache(async (): Promise<PublicPlatformConfig> => {
@@ -47,7 +52,7 @@ export function brandImageView(image: BrandImage | null): BrandImageView | null 
 
 /** After any public.* change: refresh the cached config and every page that renders it. */
 export function revalidatePublicConfig() {
-  revalidateTag(PUBLIC_CONFIG_TAG, { expire: 0 });
+  revalidatePublicTags(PUBLIC_CONFIG_TAG);
   revalidatePath("/", "layout");
 }
 
