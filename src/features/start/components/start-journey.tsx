@@ -378,10 +378,12 @@ export function StartJourney({
   }
 
   const slug = draft.result?.slug ?? (suggestSlugFromName(draftStoreName(draft)) || "store");
+  const storeName = draft.result?.name ?? draftStoreName(draft);
   return shell(
     <DoneScreen
       locale={draft.locale}
       slug={draft.result?.slug ?? slug}
+      storeName={storeName}
       rootDomain={rootDomain}
       onDashboard={() => {
         clearStartDraftStorage();
