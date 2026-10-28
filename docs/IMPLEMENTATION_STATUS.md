@@ -114,6 +114,7 @@ Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coac
   supabase functions deploy generate-product generate-blog generate-contact-reply business-coach merchant-assistant --project-ref ugbjlpdhktrlkyuijkfc
   ```
   Optional: `supabase secrets set AI_EDGE_INVOKE_SECRET=… --project-ref ugbjlpdhktrlkyuijkfc` (same value as app env).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **140 files / 1,648 tests**, build). PR #46. Hosted: apply `04300` then `04700`; redeploy Edge functions above.
 
 ## Seller pages speed / crash fix (2026-10-28, ADR-010-safe)
 
