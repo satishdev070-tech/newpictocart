@@ -392,6 +392,8 @@ verify_jwt = false
 verify_jwt = false
 [functions.business-coach]
 verify_jwt = false
+[functions.merchant-assistant]
+verify_jwt = false
 
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"

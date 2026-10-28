@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, CheckCheck } from "lucide-react";
@@ -8,6 +8,8 @@ import { Popover } from "@/components/app-shell/popover";
 import { cn } from "@/lib/cn";
 import { relativeTime, safeLink, type NotificationItem, type NotificationScope } from "../catalog";
 import { markAllReadAction, markReadAction, refreshBellAction } from "../actions";
+import { playNotificationTone, readSoundPrefs, unlockNotificationAudio } from "../notification-sound";
+import { shouldPlayNotificationSound } from "../sound-prefs";
 import { NotificationIcon } from "./notification-icon";
 import { useLiveNotifications } from "./use-live-notifications";
 
@@ -34,13 +36,38 @@ function useMinuteTick() {
 
 export function NotificationBell({ scope, userId, initial, attention = [], viewAllHref }: Props) {
   const [data, setData] = useState(initial);
+  const dataRef = useRef(initial);
   const [, startTransition] = useTransition();
   const router = useRouter();
   const now = useMinuteTick();
 
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
+  useEffect(() => {
+    unlockNotificationAudio();
+  }, []);
+
   const refresh = useCallback(() => {
     void refreshBellAction(scope).then((r) => {
-      if (r.ok) setData(r.data);
+      if (!r.ok) return;
+      const prev = dataRef.current;
+      const next = r.data;
+      const tabVisible = typeof document === "undefined" || document.visibilityState === "visible";
+      if (
+        shouldPlayNotificationSound({
+          prefs: readSoundPrefs(),
+          prevUnread: prev.unread,
+          nextUnread: next.unread,
+          prevItemIds: new Set(prev.items.map((i) => i.id)),
+          nextItems: next.items,
+          tabVisible,
+        })
+      ) {
+        void playNotificationTone();
+      }
+      setData(next);
     });
   }, [scope]);
   useLiveNotifications(userId, refresh);

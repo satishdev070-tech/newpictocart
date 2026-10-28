@@ -6,7 +6,12 @@ import { logger } from "@/lib/observability/logger";
 import { SETUP_MESSAGE, FAILED_MESSAGE } from "@/features/neural-pulse/server/generate";
 import type { ProviderConfig } from "@/features/neural-pulse/server/llm";
 
-export type SellerAiFunction = "generate-product" | "generate-blog" | "generate-contact-reply" | "business-coach";
+export type SellerAiFunction =
+  | "generate-product"
+  | "generate-blog"
+  | "generate-contact-reply"
+  | "business-coach"
+  | "merchant-assistant";
 
 export const SELLER_AI_SETUP = SETUP_MESSAGE;
 export const SELLER_AI_FAILED = FAILED_MESSAGE;

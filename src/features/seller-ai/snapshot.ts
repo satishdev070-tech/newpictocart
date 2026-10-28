@@ -4,8 +4,17 @@
  * links, and money stays in integer paise.
  */
 import type { DashboardHome } from "@/features/analytics/home";
+import { STORE_SNAPSHOT_MAX_CHARS } from "./schemas";
+
+export { STORE_SNAPSHOT_MAX_CHARS };
 
 export type SnapshotProduct = { title: string; status: string; minPrice: number | null; stockTotal: number | null; categoryName: string | null };
+
+export type StoreSnapshotPlan = {
+  planName: string | null;
+  status: string | null;
+  trialEndsAt: string | null;
+};
 
 export type StoreSnapshotInput = {
   storeName: string;
@@ -14,6 +23,10 @@ export type StoreSnapshotInput = {
   home: Pick<DashboardHome, "sales" | "counts" | "recentOrders" | "lowStock" | "setup">;
   products: SnapshotProduct[];
   creditBalance: number | null;
+  /** Category names (leaf or flat list) for catalogue context. */
+  categories?: string[];
+  /** Current plan / trial brief when the seller may see billing. */
+  plan?: StoreSnapshotPlan | null;
 };
 
 const line = (label: string, value: string | number | null | undefined) => (value === null || value === undefined || value === "" ? null : `${label}: ${value}`);
@@ -42,6 +55,21 @@ export function lowStockLines(home: StoreSnapshotInput["home"], max = 5): string
   return (home.lowStock?.items ?? []).slice(0, max).map((v) => `${v.title}${v.variant ? ` (${v.variant})` : ""}: ${v.outOfStock ? "out of stock" : `${v.available} left`}`);
 }
 
+function planLine(plan: StoreSnapshotPlan | null | undefined): string | null {
+  if (!plan) return null;
+  const bits: string[] = [];
+  if (plan.planName) bits.push(plan.planName);
+  if (plan.status) bits.push(`status ${plan.status}`);
+  if (plan.trialEndsAt) bits.push(`trial ends ${plan.trialEndsAt.slice(0, 10)}`);
+  return bits.length ? `Plan: ${bits.join(", ")}` : null;
+}
+
+function recentOrdersSummary(orders: NonNullable<DashboardHome["recentOrders"]>): string {
+  const paid = orders.filter((o) => o.paymentStatus === "paid").length;
+  const unfulfilled = orders.filter((o) => o.fulfillmentStatus === "unfulfilled" || o.fulfillmentStatus === "partial").length;
+  return `Recent orders summary (last ${orders.length} shown): ${paid} paid, ${unfulfilled} still to fulfil`;
+}
+
 /** Plain-text store facts for the agent prompt, capped so a large catalogue can't blow the context. */
 export function buildStoreSnapshot(s: StoreSnapshotInput): string {
   const { home } = s;
@@ -50,6 +78,7 @@ export function buildStoreSnapshot(s: StoreSnapshotInput): string {
     line("Store", s.storeName),
     line("Status", s.storeStatus),
     line("Storefront", s.storeUrl),
+    planLine(s.plan),
     line("AI credits left", s.creditBalance),
     k
       ? `Last 30 days: revenue ${k.revenueMinor} paise (${k.revenueChange === null ? "no prior data" : `${k.revenueChange}% vs previous 30 days`}), ${k.orders} orders (${k.ordersChange === null ? "no prior data" : `${k.ordersChange}%`}), average order ${k.aovMinor} paise`
@@ -58,17 +87,24 @@ export function buildStoreSnapshot(s: StoreSnapshotInput): string {
     line("Customers", home.counts.customers),
     line("Orders waiting to be fulfilled", home.counts.toFulfil),
   ];
-  const top = topProductLines(home);
+  if (s.categories?.length) {
+    out.push(`Categories (${s.categories.length}): ${s.categories.slice(0, 40).join("; ")}`);
+  }
+  const top = topProductLines(home, 8);
   if (top.length) out.push(`Top sellers (30 days):\n- ${top.join("\n- ")}`);
-  const low = lowStockLines(home, 8);
+  const low = lowStockLines(home, 12);
   if (low.length) out.push(`Low or out of stock (${home.lowStock?.total ?? low.length}):\n- ${low.join("\n- ")}`);
   if (home.recentOrders?.length) {
+    out.push(recentOrdersSummary(home.recentOrders));
     out.push(
       `Recent orders:\n- ${home.recentOrders
-        .slice(0, 8)
+        .slice(0, 12)
         .map((o) => `#${o.number} ${o.placedAt.slice(0, 10)} ${o.totalMinor} paise, payment ${o.paymentStatus}, fulfilment ${o.fulfillmentStatus}`)
         .join("\n- ")}`,
     );
+  }
+  if (home.counts.toFulfil != null && home.counts.toFulfil > 0) {
+    out.push(`Fulfilment queue: ${home.counts.toFulfil} order(s) still pending fulfilment — clear these before pushing new traffic.`);
   }
   if (s.products.length) {
     out.push(
@@ -79,5 +115,5 @@ export function buildStoreSnapshot(s: StoreSnapshotInput): string {
   }
   const pending = home.setup.filter((x) => !x.done).map((x) => x.label);
   out.push(`Setup steps still to do: ${pending.length ? pending.join("; ") : "none"}`);
-  return out.filter(Boolean).join("\n").slice(0, 6000);
+  return out.filter(Boolean).join("\n").slice(0, STORE_SNAPSHOT_MAX_CHARS);
 }

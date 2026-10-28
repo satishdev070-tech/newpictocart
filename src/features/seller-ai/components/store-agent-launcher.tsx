@@ -8,7 +8,7 @@ import type { StoreAgentText } from "./store-agent-panel";
 // The chat (and its server action reference) loads only when the seller opens it.
 const StoreAgentPanel = dynamic(() => import("./store-agent-panel").then((m) => m.StoreAgentPanel), { ssr: false });
 
-/** Floating "Ask AI about your store" button for the seller dashboard. */
+/** Floating Pica2 AI Assistant button for the seller dashboard. */
 export function StoreAgentLauncher({ text }: { text: StoreAgentText }) {
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);

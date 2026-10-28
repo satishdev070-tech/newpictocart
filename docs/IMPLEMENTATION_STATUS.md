@@ -24,16 +24,23 @@ _Last updated: 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razor
 - **Seller:** `redeemAiCreditCodeAction` + schemas in `features/ai-credits`; wallet `/dashboard/wallet` redeems via the same action.
 - **Tests:** `tests/unit/ai-credits/otc.test.ts`.
 
+## NVIDIA Nemotron Omni defaults (2026-10-28, branch `cursor/nvidia-pica2-notif-sounds-c73e`)
+
+- **In-process defaults** (`neural-pulse/server/llm.ts`): text `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`; vision (when photos + text-only route) `meta/llama-3.2-11b-vision-instruct`. Keeps `/no_think`, `<think>` strip, 60 s timeout. `extractJson` hardened (think/fence/array, reply preview); NVIDIA parse failures tagged `NVIDIA parse failure: …` in `LlmError.failures`.
+- **AI Health seeds** (migration `20261028004700_nvidia_seller_ai_default_routes.sql`): inserts NVIDIA primary routes for `generate_product`, `generate_blog`, `store_agent`, `contact_reply`, `business_coach` when unset (`on conflict do nothing`). Registry: `SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS`.
+- **Hosted still needs** migration `20261028004300_nvidia_provider_store_agent.sql` (NVIDIA in provider CHECKs + store_agent/store_setup costs) before 04700 can apply; then apply 04700 for the route seeds.
+- Product Generate with AI + Blog AI Write stay on `runSellerAiGeneration` → `orderForImages` + credits.
+
 ## Seller AI on NVIDIA NIM + store assistant (2026-10-28, branch `claude/dreamy-raman-b1149f`)
 
-- **NVIDIA NIM (Nemotron) provider** in the LLM layer (`neural-pulse/server/llm.ts`): OpenAI-compatible `integrate.api.nvidia.com/v1/chat/completions`, Bearer key, `/no_think` for Nemotron reasoning models, `<think>` blocks stripped, 60 s timeout, photos sent as `image_url` data URIs to `nvidia/llama-3.1-nemotron-nano-vl-8b-v1` when the routed model is text-only. Default text model `nvidia/llama-3.3-nemotron-super-49b-v1.5`. Key in **Admin → Social apps → NVIDIA NIM** (encrypted, like the other AI keys) or the `NVIDIA_API_KEY` env var. NVIDIA is first in the platform order and selectable per feature in **Admin → AI Health** (routes, prices, Test). New routes default to NVIDIA.
+- **NVIDIA NIM (Nemotron) provider** in the LLM layer (`neural-pulse/server/llm.ts`): OpenAI-compatible `integrate.api.nvidia.com/v1/chat/completions`, Bearer key, `/no_think` for Nemotron reasoning models, `<think>` blocks stripped, 60 s timeout, photos sent as `image_url` data URIs to `meta/llama-3.2-11b-vision-instruct` when the routed model is text-only. Default text model `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`. Key in **Admin → Social apps → NVIDIA NIM** (encrypted, like the other AI keys) or the `NVIDIA_API_KEY` env var. NVIDIA is first in the platform order and selectable per feature in **Admin → AI Health** (routes, prices, Test). New routes default to NVIDIA.
 - **Generate with AI** (product form): photo + hint → title, short + long description, suggested price (paise), tags, category/type (picked from the store's own categories and product types), SEO title/description. Preview shows every field; Apply fills the form and everything stays editable.
 - **Blog AI Write**: unchanged flow, verified end to end (topic → title, excerpt, tags, SEO, content blocks).
 - **Dashboard home**: AI credits wallet card (balance, credits used and time saved over 30 days from the store's ledger and `ai_credit_action_costs.minutes_saved`, Recharge / View activity → `/dashboard/wallet`); **Set up your store from a prompt** (description + up to 8 product names with optional photos → 2–5 categories and draft products in THIS store, optional best-fit marketplace theme applied to the theme DRAFT; respects the plan's product limit before spending credits; refunds on failure); **AI Business Coach** checklist from real metrics, top sellers, low stock and pending setup, written in the panel language (`pc_lang`, English / Hindi).
 - **AI Credits Wallet** (`/dashboard/wallet`): see dedicated section above (nav retargets + Neural Pulse banner).
-- **Store assistant chat**: floating "Ask AI about your store" button (seller dashboard, `analytics.read`); the panel is a `next/dynamic` chunk loaded on first click. Each question re-reads the store's data with the seller's RLS session (dashboard home + latest 25 products), answers in the panel language, and returns up to 4 links chosen by key from a `/dashboard` whitelist (`AGENT_LINKS`). 1 credit per question, 60 questions/store/day.
+- **Pica2 AI Assistant** (store agent chat): floating “Pica2 AI Assistant” button (seller dashboard, `analytics.read`); taller/wider panel (`min(85dvh)` / `sm:w min(32rem)`). Each question re-reads the store's data with the seller's RLS session (dashboard home + up to 40 products, categories, plan/trial, low stock, recent-order + fulfilment summary), answers in the panel language with growth-oriented tips, and returns up to 3 links chosen by key from a `/dashboard` whitelist (`AGENT_LINKS`). Snapshot soft-capped at 8k chars. 1 credit per question, 60 questions/store/day.
 - All seller AI calls are server actions (`runAction` + `parseInput` + membership permission); keys never reach the client; failures/timeouts refund credits and show a friendly message.
-- **Migration `20261028004300_nvidia_provider_store_agent.sql` (needs applying to the hosted DB):** widens the `platform_app_credentials`, `ai_feature_routes` (primary/fallback) and `ai_model_prices` provider checks to include `nvidia`, adds `store_agent` / `store_setup` to `ai_generations_kind_check`, seeds their credit costs (1 and 10). Before it is applied: `NVIDIA_API_KEY` still works, saving an NVIDIA key/route/price shows a clear "database update" message, the new actions cost 1 credit and skip the `ai_generations` log row. It also re-states the 4200 kinds, so it is safe even where 4200 is missing.
+- **Migration `20261028004300_nvidia_provider_store_agent.sql` (still needs applying to the hosted DB):** widens the `platform_app_credentials`, `ai_feature_routes` (primary/fallback) and `ai_model_prices` provider checks to include `nvidia`, adds `store_agent` / `store_setup` to `ai_generations_kind_check`, seeds their credit costs (1 and 10). Before it is applied: `NVIDIA_API_KEY` still works, saving an NVIDIA key/route/price shows a clear "database update" message, the new actions cost 1 credit and skip the `ai_generations` log row. It also re-states the 4200 kinds, so it is safe even where 4200 is missing. Apply before `20261028004700` (seller AI NVIDIA default routes).
 - Tests: `tests/unit/seller-ai/seller-ai-suite.test.ts` (NVIDIA request/response, fallback, vision ordering, prompts + language, agent link whitelist, coach/setup parsing, slugs, snapshot, wallet).
 
 ## My Profile pages + Admin ⇄ Seller panel switch (2026-10-28, branch `claude/dreamy-raman-b1149f`)
@@ -90,12 +97,24 @@ Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coac
 
 - **Happy path:** `runSellerAiGeneration` → `loadProviders` (SETUP only when empty) → debit → `generateJson` (+ `orderForImages` when vision) → refund on fail → `ai_generations`. Prompts in `src/features/seller-ai/prompts.ts`.
 - **False SETUP fix:** `invoke.ts` no longer maps every HTTP 503 to SETUP; only `error === "not_configured"` (or Next with zero providers). Other 502/503 → distinct edge-unavailable message. Invoke sends `apikey` + `Authorization`.
-- **Edge functions (optional):** `supabase/functions/generate-product`, `generate-blog`, `generate-contact-reply`, `business-coach` (+ `_shared` auth/LLM).
+- **Edge functions (optional):** `supabase/functions/generate-product`, `generate-blog`, `generate-contact-reply`, `business-coach`, `merchant-assistant` (+ `_shared` auth/LLM with NVIDIA NIM).
 - **UI:** Products editor “Generate with AI”; Blog “AI Write”; Messages “Draft AI reply”; Dashboard Business Coach card.
 - **Credits / registry:** Migration `20261028004200_seller_ai_suite.sql`; features in `ai-health/registry.ts`.
 - **Hosted:** Edge + migration applied on `ugbjlpdhktrlkyuijkfc` (2026-10-28).
 - **Verification:** `pnpm check` ✅ (typecheck, lint, **130 files / 1,546 tests**, build). Seller-ai unit tests under `tests/unit/seller-ai/`.
 - **Branch (backend fix):** `cursor/seller-ai-false-setup-ui-c73e`.
+
+## NVIDIA Edge LLM + merchant-assistant (2026-10-28, branch `cursor/nvidia-pica2-notif-sounds-c73e`)
+
+- **Edge `_shared/llm.ts`:** NVIDIA NIM provider (parity with Next `neural-pulse/server/llm.ts`): `integrate.api.nvidia.com/v1/chat/completions`, Bearer key, `/no_think` for Nemotron, `<think>` stripped, vision as `image_url` data URIs, `extractJson`. `normalizeProviders` accepts `nvidia`.
+- **`merchant-assistant` Edge Function:** store-agent parity — JSON `{ answer, links }` from snapshot + messages; link keys whitelisted like Next `AGENT_LINK_KEYS`.
+- **Fallback:** `askStoreAgentAction` keeps in-process `generateJson` primary; on provider exhaustion, `runSellerAiGeneration` may invoke `merchant-assistant` via `invokeSellerAi` before refunding.
+- **Redeploy (hosted project `ugbjlpdhktrlkyuijkfc`):**
+  ```bash
+  supabase functions deploy generate-product generate-blog generate-contact-reply business-coach merchant-assistant --project-ref ugbjlpdhktrlkyuijkfc
+  ```
+  Optional: `supabase secrets set AI_EDGE_INVOKE_SECRET=… --project-ref ugbjlpdhktrlkyuijkfc` (same value as app env).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **140 files / 1,648 tests**, build). PR #46. Hosted: apply `04300` then `04700`; redeploy Edge functions above.
 
 ## Seller pages speed / crash fix (2026-10-28, ADR-010-safe)
 
@@ -901,9 +920,16 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   mark read on click, mark all as read, keeps the "needs attention" counters, link to the page), `/dashboard/notifications`
   and `/admin/notifications` (all/unread + group filters, pagination, mark unread, per-type in-app preferences at
   `?tab=preferences`), "Recent activity" card on the dashboard home. Live via Supabase Realtime + 60 s polling fallback.
+  `stock.low` / `stock.out` are in the catalog and mute UI; rows are produced by the `inventory_levels` DB trigger
+  (`app.notify_on_stock`) when available stock crosses the low threshold or hits zero — no app-level emit required.
+- **Sounds** — when the tab is visible and unread rises for `order.new`, `payment.received`, `stock.low`, or
+  `stock.out`, the seller bell plays a short tone (`public/sounds/*.wav`). Sound on/off + tone (chime / ping / soft /
+  bright / alert) live in `localStorage` (`pc_notification_sound`); type mutes stay in `notification_preferences`.
+  `AudioContext` unlocks on the first dashboard pointer/key/touch. Prefs UI: `?tab=preferences` → Notification sounds.
 - **Tests** — `tests/rls/notifications.test.ts` (RLS, producers, recipients by permission, mutes, dedupe, cart recovery,
   reminders, function grants), `tests/unit/notifications/inbox.test.ts` (catalog ↔ SQL producers, AI limit sync, link
-  safety, relative time, server-resolved audience in actions, preferences).
+  safety, relative time, server-resolved audience in actions, preferences),
+  `tests/unit/notifications/sound-prefs.test.ts` (tone ids, parse/serialize, beep gating).
 - **Not done** — migration not applied to the remote Supabase project; e-mail/WhatsApp copies of these alerts.
 
 ## Demo stores: 2 live stores per category (2026-10-17)

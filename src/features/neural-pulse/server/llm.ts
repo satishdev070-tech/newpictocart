@@ -16,20 +16,20 @@ import type { Prompt } from "../prompts";
  *   response_format {type: "json_object"} (the prompt must mention JSON).
  * - NVIDIA NIM: POST https://integrate.api.nvidia.com/v1/chat/completions (OpenAI-compatible), Bearer key.
  *   Nemotron reasoning is switched off with the `/no_think` system flag and any <think> block is
- *   stripped; photos go to a Nemotron vision (VL) model as image_url data URIs.
+ *   stripped; photos go to a Llama vision model as image_url data URIs when the routed model is text-only.
  * - Anthropic: POST https://api.anthropic.com/v1/messages, x-api-key + anthropic-version, with
  *   server-side refusal fallback (`fallbacks: "default"`, beta server-side-fallback-2026-07-01).
  */
 
 export const DEFAULT_MODELS: Record<AiProvider, string> = {
-  nvidia: "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+  nvidia: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
   gemini: "gemini-3.8-flash",
   groq: "llama-3.3-70b-versatile",
   anthropic: "claude-opus-5-5",
 };
 
 /** Used for NVIDIA when the prompt carries photos and the configured model is text-only. */
-export const NVIDIA_VISION_MODEL = "nvidia/llama-3.1-nemotron-nano-vl-8b-v1";
+export const NVIDIA_VISION_MODEL = "meta/llama-3.2-11b-vision-instruct";
 export const NVIDIA_CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 
 const TIMEOUT_MS: Record<AiProvider, number> = { nvidia: 60_000, gemini: 30_000, groq: 30_000, anthropic: 90_000 };
@@ -154,9 +154,14 @@ export function nvidiaRequestBody(model: string, prompt: Prompt): { model: strin
   };
 }
 
-/** Removes a leading <think>…</think> block some Nemotron models still emit. */
+/** Removes a leading <think>…</think> block some Nemotron models still emit (and unclosed ones before JSON). */
 export function stripThinking(text: string): string {
-  return text.replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, "").trim();
+  let t = text.replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, "").trim();
+  if (/^\s*<think>/i.test(t)) {
+    const jsonStart = t.search(/[{[]/);
+    t = jsonStart > 0 ? t.slice(jsonStart) : "";
+  }
+  return t.trim();
 }
 
 async function callNvidia(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt): Promise<LlmCall> {
@@ -195,23 +200,41 @@ async function callAnthropic(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt
 
 const ADAPTERS: Record<AiProvider, (f: Fetch, p: ProviderConfig, prompt: Prompt) => Promise<LlmCall>> = { nvidia: callNvidia, gemini: callGemini, groq: callGroq, anthropic: callAnthropic };
 
-/** Extracts the JSON object from a model reply (tolerates code fences or stray prose around it). */
+/** Short, key-free preview of a bad reply for logs / retry hints (never includes API keys). */
+function replyPreview(text: string): string {
+  const flat = text.replace(/\s+/g, " ").trim().slice(0, 120);
+  if (!flat) return "";
+  return ` (got: ${JSON.stringify(flat)}${text.trim().length > 120 ? "…" : ""})`;
+}
+
+/** Extracts the JSON object/array from a model reply (tolerates think tags, fences, or stray prose). */
 export function extractJson(text: string): unknown {
-  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const cleaned = stripThinking(text)
+    .replace(/^\uFEFF/, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
   try {
-    return JSON.parse(trimmed);
+    return JSON.parse(cleaned);
   } catch {
-    const start = trimmed.indexOf("{");
-    const end = trimmed.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(trimmed.slice(start, end + 1));
-      } catch {
-        /* fall through */
-      }
-    }
-    throw new OutputError("reply was not valid JSON");
+    /* try the first balanced object or array below */
   }
+  for (const [open, close] of [
+    ["{", "}"],
+    ["[", "]"],
+  ] as const) {
+    const start = cleaned.indexOf(open);
+    const end = cleaned.lastIndexOf(close);
+    if (start < 0 || end <= start) continue;
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    } catch {
+      /* try next shape */
+    }
+  }
+  throw new OutputError(`reply was not valid JSON${replyPreview(cleaned)}`);
 }
 
 /**
@@ -234,7 +257,9 @@ export async function generateJson<S extends z.ZodType>(providers: ProviderConfi
         return { data: parsed.data, provider: p.id, model: p.model, tokens, attempts: attempt };
       } catch (err) {
         if (err instanceof OutputError) {
-          lastError = err.message.slice(0, 200);
+          // NVIDIA reasoning models often wrap or truncate JSON; tag failures so Admin / logs are clear.
+          const detail = err.message.slice(0, 180);
+          lastError = (p.id === "nvidia" ? `NVIDIA parse failure: ${detail}` : detail).slice(0, 200);
           continue;
         }
         lastError = err instanceof ProviderHttpError ? err.message : "unexpected error";

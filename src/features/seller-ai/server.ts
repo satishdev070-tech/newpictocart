@@ -1,5 +1,5 @@
 import "server-only";
-import type { z } from "zod";
+import { z } from "zod";
 import { AppError } from "@/lib/errors";
 import { rateLimit } from "@/lib/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -14,6 +14,7 @@ import type { Prompt, PromptImage } from "@/features/neural-pulse/prompts";
 import { orderForImages } from "@/features/theme/builder/server/generate";
 import type { SellerAiCreditKind } from "./schemas";
 import type { AiProvider } from "@/features/neural-pulse/schemas";
+import { invokeSellerAi, type SellerAiFunction } from "./invoke";
 
 const DAILY_LIMIT = 40;
 const LIMIT_MESSAGE = `You've used today's ${DAILY_LIMIT} seller AI generations for this store. Try again tomorrow.`;
@@ -24,6 +25,9 @@ export type SellerAiOutcome<T> = { data: T; charge: AiCreditCharge; provider: st
  * Shared debit → in-process generateJson → refund-on-failure → ai_generations log path for seller AI.
  * Happy path does not call Edge Functions (invokeSellerAi remains optional). Callers must already
  * have checked the matching tenant permission via runAction + membership.
+ *
+ * Optional `edgeFallback`: when in-process generateJson fails (providers configured but all
+ * exhausted), try the named Edge Function once before refunding. In-process stays primary.
  */
 export async function runSellerAiGeneration<S extends z.ZodType>(args: {
   tenantId: string;
@@ -36,6 +40,8 @@ export async function runSellerAiGeneration<S extends z.ZodType>(args: {
   schema: S;
   /** Separate daily bucket (e.g. chat), instead of the shared seller AI limit. */
   limit?: { key: string; perDay: number; message: string };
+  /** Optional Edge Function fallback after in-process failure (e.g. merchant-assistant). */
+  edgeFallback?: { name: SellerAiFunction; body: Record<string, unknown> };
 }): Promise<SellerAiOutcome<z.output<S> & { provider: AiProvider; model: string; tokens: number | null }>> {
   const providers = await loadProviders(args.feature);
   if (!providers.length) {
@@ -51,7 +57,29 @@ export async function runSellerAiGeneration<S extends z.ZodType>(args: {
   let generated: { data: z.output<S>; provider: AiProvider; model: string; tokens: number | null };
   try {
     const ordered = orderForImages(providers, !!args.prompt.images?.length);
-    generated = await generateJson(ordered, args.prompt, args.schema);
+    try {
+      generated = await generateJson(ordered, args.prompt, args.schema);
+    } catch (err) {
+      if (!(err instanceof LlmError) || err.reason !== "failed" || !args.edgeFallback) throw err;
+      // Optional Edge fallback (in-process remains primary).
+      const edgeMeta = z
+        .object({
+          provider: z.enum(["nvidia", "gemini", "groq", "anthropic"]),
+          model: z.string().max(100),
+          tokens: z.number().nullable().optional(),
+        })
+        .passthrough();
+      const edge = await invokeSellerAi(args.edgeFallback.name, providers, args.edgeFallback.body, edgeMeta);
+      const parsed = args.schema.safeParse(edge);
+      if (!parsed.success) throw err;
+      generated = { data: parsed.data, provider: edge.provider, model: edge.model, tokens: edge.tokens ?? null };
+      logger.info("seller_ai.edge_fallback_ok", {
+        tenantId: args.tenantId,
+        kind: args.creditKind,
+        name: args.edgeFallback.name,
+        provider: edge.provider,
+      });
+    }
   } catch (err) {
     await refundAiCredit(charge, err instanceof Error ? err.message : "seller AI failed");
     if (err instanceof LlmError) {

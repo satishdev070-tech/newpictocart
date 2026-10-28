@@ -35,6 +35,7 @@ vi.mock("@/features/neural-pulse/server/llm", () => ({
   },
 }));
 vi.mock("@/features/theme/builder/server/generate", () => ({ orderForImages }));
+vi.mock("@/features/seller-ai/invoke", () => ({ invokeSellerAi: vi.fn(async () => { throw new Error("edge not mocked"); }) }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit }));
 vi.mock("@/features/ai-credits/server", () => ({ debitAiCredit: credits.debit, refundAiCredit: credits.refund }));
 vi.mock("@/lib/supabase/admin", () => ({
