@@ -1,9 +1,12 @@
 /**
  * Minimal vision/text LLM helpers for seller-ai Edge Functions.
  * Keys arrive from the Next server (platform credentials / env) and are never logged.
+ *
+ * NVIDIA NIM: POST https://integrate.api.nvidia.com/v1/chat/completions (OpenAI-compatible),
+ * Bearer key, `/no_think` for Nemotron reasoning, `<think>` stripped, vision via image_url data URIs.
  */
 
-export type AiProvider = "gemini" | "groq" | "anthropic";
+export type AiProvider = "nvidia" | "gemini" | "groq" | "anthropic";
 export type ProviderConfig = { id: AiProvider; apiKey: string; model: string };
 export type PromptImage = { mediaType: "image/png" | "image/jpeg" | "image/webp"; data: string };
 export type Prompt = { system: string; user: string; images?: PromptImage[] };
@@ -15,13 +18,17 @@ export type LlmResult = {
   tokens: number | null;
 };
 
+export const NVIDIA_VISION_MODEL = "meta/llama-3.2-11b-vision-instruct";
+export const NVIDIA_CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
+
 const DEFAULT_MODELS: Record<AiProvider, string> = {
+  nvidia: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
   gemini: "gemini-2.0-flash",
   groq: "llama-3.3-70b-versatile",
   anthropic: "claude-sonnet-4-20250514",
 };
 
-const TIMEOUT_MS: Record<AiProvider, number> = { gemini: 45_000, groq: 30_000, anthropic: 90_000 };
+const TIMEOUT_MS: Record<AiProvider, number> = { nvidia: 60_000, gemini: 45_000, groq: 30_000, anthropic: 90_000 };
 
 class ProviderHttpError extends Error {}
 class OutputError extends Error {}
@@ -38,7 +45,7 @@ export function normalizeProviders(raw: unknown): ProviderConfig[] {
     const r = row as Record<string, unknown>;
     const id = r.id;
     const apiKey = typeof r.apiKey === "string" ? r.apiKey.trim() : "";
-    if ((id !== "gemini" && id !== "groq" && id !== "anthropic") || apiKey.length < 10) continue;
+    if ((id !== "nvidia" && id !== "gemini" && id !== "groq" && id !== "anthropic") || apiKey.length < 10) continue;
     out.push({ id, apiKey, model: resolveModel(id, typeof r.model === "string" ? r.model : null) });
   }
   return out;
@@ -47,7 +54,7 @@ export function normalizeProviders(raw: unknown): ProviderConfig[] {
 /** Prefer vision-capable providers when images are present. */
 export function orderForImages(providers: ProviderConfig[], hasImages: boolean): ProviderConfig[] {
   if (!hasImages) return providers;
-  const vision = providers.filter((p) => p.id === "gemini" || p.id === "anthropic");
+  const vision = providers.filter((p) => p.id === "gemini" || p.id === "anthropic" || p.id === "nvidia");
   const rest = providers.filter((p) => p.id === "groq");
   return [...vision, ...rest];
 }
@@ -93,6 +100,58 @@ export function extractJson(text: string): unknown {
   }
 }
 
+/** True for NVIDIA model ids that accept images (…-vl-…, vision). */
+export function isNvidiaVisionModel(model: string): boolean {
+  return /(^|[-/_.])vl([-/_.]|$)|vision/i.test(model);
+}
+
+/** Removes a leading <think>…</think> block some Nemotron models still emit. */
+export function stripThinking(text: string): string {
+  let t = text.replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, "").trim();
+  if (/^\s*<think>/i.test(t)) {
+    const jsonStart = t.search(/[{[]/);
+    t = jsonStart > 0 ? t.slice(jsonStart) : "";
+  }
+  return t.trim();
+}
+
+/** Request body for NVIDIA's OpenAI-compatible chat endpoint. */
+export function nvidiaRequestBody(model: string, prompt: Prompt): { model: string; body: Record<string, unknown> } {
+  const images = prompt.images ?? [];
+  const useModel = images.length && !isNvidiaVisionModel(model) ? NVIDIA_VISION_MODEL : model;
+  const vision = isNvidiaVisionModel(useModel);
+  const system = /nemotron/i.test(useModel) && !vision ? `/no_think\n${prompt.system}` : prompt.system;
+  const user =
+    images.length && vision
+      ? [...images.map((i) => ({ type: "image_url", image_url: { url: `data:${i.mediaType};base64,${i.data}` } })), { type: "text", text: prompt.user }]
+      : prompt.user;
+  return {
+    model: useModel,
+    body: {
+      model: useModel,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      temperature: 0.6,
+      top_p: 0.95,
+      max_tokens: vision ? 4096 : 8192,
+      stream: false,
+    },
+  };
+}
+
+async function callNvidia(p: ProviderConfig, prompt: Prompt): Promise<{ text: string; tokens: number | null }> {
+  const { body } = nvidiaRequestBody(p.model, prompt);
+  const json = (await postJson(NVIDIA_CHAT_URL, { authorization: `Bearer ${p.apiKey}`, accept: "application/json" }, body, TIMEOUT_MS.nvidia)) as {
+    choices?: { message?: { content?: string | null }; finish_reason?: string }[];
+    usage?: { total_tokens?: number };
+  };
+  const text = stripThinking(json.choices?.[0]?.message?.content ?? "");
+  if (!text) throw new OutputError(`empty response (${json.choices?.[0]?.finish_reason ?? "no choice"})`);
+  return { text, tokens: num(json.usage?.total_tokens) };
+}
+
 async function callGemini(p: ProviderConfig, prompt: Prompt): Promise<{ text: string; tokens: number | null }> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(p.model)}:generateContent`;
   const parts: Record<string, unknown>[] = [
@@ -133,12 +192,10 @@ async function callGroq(p: ProviderConfig, prompt: Prompt): Promise<{ text: stri
       max_completion_tokens: 8192,
     },
     TIMEOUT_MS.groq,
-  )) as { choices?: { message?: { content?: string | null }[] }; usage?: { total_tokens?: number } };
-  // fix typing - choices[0].message.content
-  const choice = (json as { choices?: { message?: { content?: string | null } }[] }).choices?.[0];
-  const text = choice?.message?.content ?? "";
+  )) as { choices?: { message?: { content?: string | null } }[]; usage?: { total_tokens?: number } };
+  const text = json.choices?.[0]?.message?.content ?? "";
   if (!text) throw new OutputError("empty response");
-  return { text, tokens: num((json as { usage?: { total_tokens?: number } }).usage?.total_tokens) };
+  return { text, tokens: num(json.usage?.total_tokens) };
 }
 
 async function callAnthropic(p: ProviderConfig, prompt: Prompt): Promise<{ text: string; tokens: number | null }> {
@@ -162,6 +219,7 @@ async function callAnthropic(p: ProviderConfig, prompt: Prompt): Promise<{ text:
 }
 
 const ADAPTERS: Record<AiProvider, (p: ProviderConfig, prompt: Prompt) => Promise<{ text: string; tokens: number | null }>> = {
+  nvidia: callNvidia,
   gemini: callGemini,
   groq: callGroq,
   anthropic: callAnthropic,
