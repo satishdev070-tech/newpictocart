@@ -1,6 +1,13 @@
 import { formatMoney } from "@/lib/money";
 import type { StartDraft } from "./draft/schema";
-import { draftCategory, draftSiteMode, draftStoreName } from "./draft/schema";
+import {
+  draftCategory,
+  draftProductsServices,
+  draftSiteMode,
+  draftStoreName,
+  draftSubcategory,
+} from "./draft/schema";
+import { subcategoryLabel } from "@/features/stores/subcategories";
 import { START_INTENTS } from "./intents";
 
 /** Rich text brief for seedReadyStore curation. */
@@ -12,6 +19,13 @@ export function buildSeedBrief(draft: StartDraft): string {
   if (tagline) lines.push(`Tagline: ${tagline}`);
   const cat = draftCategory(draft);
   if (cat) lines.push(`Industry/category: ${cat}`);
+  const sub = draftSubcategory(draft);
+  if (sub) {
+    const label = cat ? subcategoryLabel(cat, sub) : null;
+    lines.push(`Subcategory: ${label ?? sub}`);
+  }
+  const productsServices = draftProductsServices(draft);
+  if (productsServices) lines.push(`Products / services: ${productsServices}`);
   const city = draft.business.city.trim() || draft.voice.facts.city?.trim();
   if (city) lines.push(`City: ${city}`);
   if (draft.business.whatsapp.trim()) lines.push(`WhatsApp: ${draft.business.whatsapp.trim()}`);
@@ -34,10 +48,12 @@ export function buildSeedBrief(draft: StartDraft): string {
   lines.push(`Cash on delivery: ${pay.cod ? "yes" : "no"}`);
   lines.push(`Shipping preference: ${pay.shipping}`);
   const vf = draft.voice.facts;
-  if (vf.name || vf.category) {
+  if (vf.name || vf.category || vf.subcategory || vf.productsServices) {
     lines.push("Voice session facts:");
     if (vf.name) lines.push(`- name: ${vf.name}`);
     if (vf.category) lines.push(`- category: ${vf.category}`);
+    if (vf.subcategory) lines.push(`- subcategory: ${vf.subcategory}`);
+    if (vf.productsServices) lines.push(`- products/services: ${vf.productsServices}`);
     if (vf.siteMode) lines.push(`- site mode: ${vf.siteMode}`);
     if (vf.tagline) lines.push(`- tagline: ${vf.tagline}`);
     if (vf.city) lines.push(`- city: ${vf.city}`);

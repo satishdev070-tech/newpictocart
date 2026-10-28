@@ -3,13 +3,16 @@
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { INDUSTRIES, isIndustry, type IndustrySlug } from "@/features/stores/industries";
+import { subcategoriesFor } from "@/features/stores/subcategories";
 import type { SiteMode } from "@/features/stores/site-mode";
-import { factsComplete, type VoiceFacts } from "@/features/onboarding/voice/facts";
+import { type VoiceFacts } from "@/features/onboarding/voice/facts";
 import { startCopy } from "../copy";
 import type { StartDraft } from "../draft/schema";
+import { voiceFactsComplete } from "../flow";
 
 const FEATURED: IndustrySlug[] = ["fashion", "jewellery", "home-decor", "grocery", "beauty", "handicrafts"];
-const STEPS = 5;
+/** name → category → subcategory → siteMode → city → tagline */
+const STEPS = 6;
 
 export function QuizScreen({
   draft,
@@ -19,17 +22,29 @@ export function QuizScreen({
   onSave: (facts: VoiceFacts, done: boolean) => void;
 }) {
   const c = startCopy(draft.locale);
-  const [step, setStep] = useState(() => firstOpenStep(draft.voice.facts.name, draft.voice.facts.category, draft.voice.facts.siteMode));
+  const [step, setStep] = useState(() =>
+    firstOpenStep(
+      draft.voice.facts.name,
+      draft.voice.facts.category,
+      draft.voice.facts.subcategory,
+      draft.voice.facts.siteMode,
+    ),
+  );
   const [more, setMore] = useState(false);
   const [name, setName] = useState(draft.voice.facts.name ?? draft.business.name);
   const [city, setCity] = useState(draft.voice.facts.city ?? draft.business.city);
   const [tagline, setTagline] = useState(draft.voice.facts.tagline ?? draft.business.tagline);
   const facts = draft.voice.facts;
+  const category = facts.category && isIndustry(facts.category) ? facts.category : null;
+  const subs = category ? subcategoriesFor(category) : [];
 
   function current(patch: Partial<VoiceFacts> = {}): VoiceFacts {
     return {
       name: (patch.name ?? name).trim() || null,
-      category: patch.category !== undefined ? patch.category : facts.category && isIndustry(facts.category) ? facts.category : null,
+      category: patch.category !== undefined ? patch.category : category,
+      subcategory: patch.subcategory !== undefined ? patch.subcategory : facts.subcategory,
+      productsServices:
+        patch.productsServices !== undefined ? patch.productsServices : facts.productsServices,
       siteMode: patch.siteMode !== undefined ? patch.siteMode : facts.siteMode,
       city: (patch.city ?? city).trim() || null,
       tagline: (patch.tagline ?? tagline).trim() || null,
@@ -37,7 +52,15 @@ export function QuizScreen({
   }
 
   function chooseCategory(slug: IndustrySlug) {
-    onSave(current({ category: slug }), false);
+    const nextFacts = current({
+      category: slug,
+      subcategory: category === slug ? facts.subcategory : null,
+    });
+    onSave(nextFacts, false);
+  }
+
+  function chooseSubcategory(slug: string) {
+    onSave(current({ subcategory: slug }), false);
   }
 
   function chooseSite(mode: SiteMode) {
@@ -51,16 +74,28 @@ export function QuizScreen({
       setStep((s) => s + 1);
       return;
     }
-    onSave(nextFacts, factsComplete(nextFacts));
+    // Done when name + category + subcategory are set (siteMode defaults at finalize).
+    const draftLike = {
+      ...draft,
+      voice: { ...draft.voice, facts: nextFacts },
+      business: {
+        ...draft.business,
+        name: nextFacts.name?.trim() || draft.business.name,
+        category: nextFacts.category ?? draft.business.category,
+        subcategory: nextFacts.subcategory ?? draft.business.subcategory,
+      },
+    };
+    onSave(nextFacts, voiceFactsComplete(draftLike));
   }
 
   const canNext =
     (step === 0 && name.trim().length >= 2) ||
-    (step === 1 && Boolean(facts.category)) ||
-    (step === 2 && Boolean(facts.siteMode)) ||
-    step >= 3;
+    (step === 1 && Boolean(category)) ||
+    (step === 2 && Boolean(facts.subcategory?.trim())) ||
+    (step === 3 && Boolean(facts.siteMode)) ||
+    step >= 4;
 
-  const categories = more ? INDUSTRIES : INDUSTRIES.filter((ind) => FEATURED.includes(ind.slug) || ind.slug === facts.category);
+  const categories = more ? INDUSTRIES : INDUSTRIES.filter((ind) => FEATURED.includes(ind.slug) || ind.slug === category);
 
   return (
     <section className="mx-auto flex w-full max-w-xl flex-col gap-6">
@@ -86,7 +121,7 @@ export function QuizScreen({
                 onClick={() => chooseCategory(ind.slug)}
                 className={cn(
                   "rounded-full border px-4 py-2 text-sm",
-                  facts.category === ind.slug ? "border-[#F97316] bg-[#FFF7ED] font-semibold text-[#C2410C]" : "border-[#2A2233]/10 bg-white",
+                  category === ind.slug ? "border-[#F97316] bg-[#FFF7ED] font-semibold text-[#C2410C]" : "border-[#2A2233]/10 bg-white",
                 )}
               >
                 {ind.short}
@@ -99,6 +134,27 @@ export function QuizScreen({
         </Question>
       ) : null}
       {step === 2 ? (
+        <Question title={c.quiz.subcategoryTitle}>
+          <div className="flex flex-wrap gap-2">
+            {subs.map((sub) => (
+              <button
+                key={sub.slug}
+                type="button"
+                onClick={() => chooseSubcategory(sub.slug)}
+                className={cn(
+                  "rounded-full border px-4 py-2 text-sm",
+                  facts.subcategory === sub.slug
+                    ? "border-[#F97316] bg-[#FFF7ED] font-semibold text-[#C2410C]"
+                    : "border-[#2A2233]/10 bg-white",
+                )}
+              >
+                {sub.label}
+              </button>
+            ))}
+          </div>
+        </Question>
+      ) : null}
+      {step === 3 ? (
         <Question title={c.quiz.siteTitle}>
           <div className="grid gap-3 sm:grid-cols-2">
             <Choice
@@ -116,7 +172,7 @@ export function QuizScreen({
           </div>
         </Question>
       ) : null}
-      {step === 3 ? (
+      {step === 4 ? (
         <Question title={c.quiz.cityTitle}>
           <input
             value={city}
@@ -126,7 +182,7 @@ export function QuizScreen({
           />
         </Question>
       ) : null}
-      {step === 4 ? (
+      {step === 5 ? (
         <Question title={c.quiz.taglineTitle}>
           <input
             value={tagline}
@@ -137,18 +193,28 @@ export function QuizScreen({
         </Question>
       ) : null}
       <div className="flex items-center justify-between gap-3">
-        {step >= 3 ? (
+        {step >= 4 ? (
           <button
             type="button"
             onClick={() => {
-              if (step === 3) setCity("");
-              if (step === 4) setTagline("");
-              const cleared = current(step === 3 ? { city: "" } : { tagline: "" });
+              if (step === 4) setCity("");
+              if (step === 5) setTagline("");
+              const cleared = current(step === 4 ? { city: "" } : { tagline: "" });
               if (step < STEPS - 1) {
                 onSave(cleared, false);
                 setStep((s) => s + 1);
               } else {
-                onSave(cleared, factsComplete(cleared));
+                const draftLike = {
+                  ...draft,
+                  voice: { ...draft.voice, facts: cleared },
+                  business: {
+                    ...draft.business,
+                    name: cleared.name?.trim() || draft.business.name,
+                    category: cleared.category ?? draft.business.category,
+                    subcategory: cleared.subcategory ?? draft.business.subcategory,
+                  },
+                };
+                onSave(cleared, voiceFactsComplete(draftLike));
               }
             }}
             className="text-sm text-[#6B6275] underline"
@@ -171,11 +237,17 @@ export function QuizScreen({
   );
 }
 
-function firstOpenStep(name: string | null, category: string | null, siteMode: string | null): number {
+function firstOpenStep(
+  name: string | null,
+  category: string | null,
+  subcategory: string | null,
+  siteMode: string | null,
+): number {
   if (!name?.trim()) return 0;
   if (!category) return 1;
-  if (!siteMode) return 2;
-  return 3;
+  if (!subcategory?.trim()) return 2;
+  if (!siteMode) return 3;
+  return 4;
 }
 
 function Question({ title, children }: { title: string; children: React.ReactNode }) {

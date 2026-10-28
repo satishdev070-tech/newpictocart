@@ -1,6 +1,6 @@
 # Implementation Status
 
-_Last updated: 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-28 (Five-screen /start journey Phase 2) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
 ## Seller AI reviews insert + product Omni vision (2026-10-28, branch `cursor/seller-ai-reviews-product-fix-c73e`)
 
@@ -308,12 +308,46 @@ Plan, gap analysis and decisions: [SUPER_ADMIN_PORT.md](SUPER_ADMIN_PORT.md). Re
 - **Add with AI:** when Gemini, Groq, and Anthropic are missing or fail, `generateSectionAction` asks Sarvam for one JSON section, sanitizes it, and inserts it like any other section. One AI credit is debited before the model call and refunded only if every model fails. If Sarvam is also unset, the panel shows the existing setup sentence.
 - **Verification:** `pnpm check` ✅ (typecheck, lint, 99 files / 1,277 tests, build). The local dev server returns `EnvValidationError` because Supabase env vars are unset, so the register, `/start`, contact, and site-builder screens were not clicked through in a browser. Apply the contact migration, then finish `/start` again so an existing store receives About and Contact.
 
+## Five-screen `/start` rebuild — Phase 2 (journey wiring)
+
+- **Graph:** lang → path → (voice | quiz | business) → theme → account → building → done.
+  Path choice patches `path` + `voice.mode`; `nextScreenAfterPath` mounts Voice (ai+talk), Quiz
+  (ai+quiz), or Business (manual) as step 3. Voice/quiz/business continue to **ThemeScreen**, then
+  account; account create → building → finalize unchanged.
+- **No legacy mounts:** welcome / intent / products / mood / payment are remapped in-journey and
+  never rendered. Back uses `backTarget`; progress from `progressFor`.
+- **BusinessScreen:** subcategory chips from `subcategoriesFor(category)` + products/services field;
+  Continue requires `businessComplete` (name + category + subcategory).
+- **QuizScreen:** asks subcategory after category (6 questions); finish uses `voiceFactsComplete`.
+- **AccountScreen:** compact summary (store, category · subcategory, theme, language) above signup/signin.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, tests, build).
+
+## Five-screen `/start` rebuild — Phase 1 (data + flow)
+
+- **Draft v2:** `emptyStartDraft` starts at `lang`; `parseStartDraft` migrates v1 (screen remap +
+  `business.subcategory` / `productsServices` + voice fact mirrors). Helper `draftSubcategory` /
+  `draftProductsServices`.
+- **Subcategories:** `src/features/stores/subcategories.ts` — 4–8 `{slug,label}` per `IndustrySlug`;
+  `subcategoriesFor` / `isSubcategory` / `subcategoryLabel`.
+- **Flow (Step N of 5):** lang=1, path=2, business|voice|quiz=3, theme=4, account=5.
+  `businessComplete` / `voiceFactsComplete` require name+category+subcategory; theme optional at finalize.
+  `nextScreenAfterPath(path, mode)` → voice | quiz | business.
+- **Brief:** seed brief includes subcategory + products/services.
+- **Voice facts:** Tara prompt/schemas collect `subcategory` + `productsServices`;
+  `mapCategoryInput` / `suggestSubcategory` map free-text to industry + subcategory;
+  `factsComplete` requires name+category+subcategory.
+- **`/onboarding` thin:** email-verify + existing-owner chooser kept; `pc_start_draft` or no-store
+  sellers redirect to `/start` (`?resume=1`); store-scoped ready/building/theme/plan unchanged;
+  `seedReadyStore` retained.
+- **Tests:** `tests/unit/stores/subcategories.test.ts`, updated `tests/unit/start/{draft,flow,brief}.test.ts`,
+  `tests/unit/onboarding/voice-facts.test.ts`.
+
 ## Cache-first `/start` journey (2026-10-19)
 
 - **`/start`** is a full prototype-order onboarding flow with **no database writes until the seller
   has a verified account**. Progress lives in **`localStorage`** (`pictocart.start.draft.v1`) and a
   **`pc_start_draft=1`** cookie (set after welcome) so signed-in users can return to finalize.
-- **Screens:** Welcome → Language → Intent → Path (AI vs Manual) → **AI:** Tara voice → Building →
+- **Screens (legacy, being replaced by five-screen rebuild):** Welcome → Language → Intent → Path (AI vs Manual) → **AI:** Tara voice → Building →
   Account (if needed) → persist → Done · **Manual:** Business → Products → Mood → Payment → Building →
   Account → persist → Done.
 - **`finalizeStartDraftAction`** creates or reuses the owned store, applies payment/WhatsApp/city prefs,

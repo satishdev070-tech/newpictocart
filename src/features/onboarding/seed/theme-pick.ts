@@ -20,6 +20,14 @@ function themePool(industry: string): MarketplaceTheme[] {
 }
 
 /**
+ * Ranked ecommerce themes for an industry (own → layout family → rest).
+ * Same order as `pickBestMarketplaceTheme` / demo `pickThemes`.
+ */
+export function listRankedMarketplaceThemes(industry: string): MarketplaceTheme[] {
+  return themePool(industry);
+}
+
+/**
  * Theme best-fit for voice onboarding. Mirrors `pickThemes` in scripts/demo/generate.ts:
  * prefer themes for the store's industry, then same layout family, then the rest of the catalogue.
  * Returns the primary (first) marketplace theme — the demo script's "store A" choice.
