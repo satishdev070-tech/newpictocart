@@ -48,6 +48,11 @@ const docSchema = z.object({
   authorName: optText(80),
   tags: optText(400),
   removeCover: bool.optional(),
+  /** Media library path from Unsplash import (tenant/…); ignored when a file upload is present. */
+  coverPath: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().trim().max(400).regex(/^tenant\/[0-9a-f-]{36}\//, "Invalid cover path").optional(),
+  ),
 });
 
 export async function saveDocumentAction(_prev: ActionResult<{ id: string }> | null, fd: FormData): Promise<ActionResult<{ id: string }>> {
@@ -81,7 +86,14 @@ export async function saveDocumentAction(_prev: ActionResult<{ id: string }> | n
       }
     } else {
       const cover = fd.get("cover");
-      const coverPath = cover instanceof File && cover.size ? (await uploadTenantImage(ctx.tenantId, "blog", cover)).path : v.removeCover ? null : undefined;
+      const unsplashCover =
+        v.coverPath && v.coverPath.startsWith(`tenant/${ctx.tenantId}/`) ? v.coverPath : undefined;
+      const coverPath =
+        cover instanceof File && cover.size
+          ? (await uploadTenantImage(ctx.tenantId, "blog", cover)).path
+          : v.removeCover
+            ? null
+            : unsplashCover;
       const row = {
         ...base,
         excerpt: v.excerpt ?? null,

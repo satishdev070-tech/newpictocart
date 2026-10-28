@@ -6,6 +6,7 @@ import { Hint, Label, inputClassName as input } from "@/components/ui/field";
 import { Badge, Card } from "@/components/ui/layout";
 import { generateBlogAction } from "@/features/seller-ai/actions";
 import type { ContentBlock } from "@/features/content/blocks";
+import { AiGenerationProgress, BLOG_WRITE_STEPS, type AiGenerationProgressStatus } from "./ai-generation-progress";
 
 const SETUP_SNIPPET = "Admin → Social apps";
 
@@ -23,6 +24,7 @@ export function BlogAiWrite({
   const [topic, setTopic] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [applied, setApplied] = useState(false);
+  const [genStatus, setGenStatus] = useState<AiGenerationProgressStatus>("idle");
   const [pending, start] = useTransition();
 
   const topicReady = topic.trim().length >= 3;
@@ -31,9 +33,11 @@ export function BlogAiWrite({
     if (!topicReady) return;
     setError(null);
     setApplied(false);
+    setGenStatus("pending");
     start(async () => {
       const r = await generateBlogAction({ topic });
       if (!r.ok) {
+        setGenStatus("error");
         setError(formatAiError(r.error.fieldErrors?._form?.[0] ?? r.error.fieldErrors?.topic?.[0] ?? r.error.message));
         return;
       }
@@ -45,6 +49,7 @@ export function BlogAiWrite({
         seoDescription: r.data.seoDescription,
         blocks: r.data.contentBlocks,
       });
+      setGenStatus("success");
       setApplied(true);
     });
   };
@@ -67,10 +72,13 @@ export function BlogAiWrite({
             onChange={(e) => {
               setTopic(e.target.value);
               setApplied(false);
+              if (genStatus !== "idle") setGenStatus("idle");
             }}
           />
           {!topicReady ? <Hint>Enter at least 3 characters to enable AI Write.</Hint> : null}
         </div>
+
+        <AiGenerationProgress steps={BLOG_WRITE_STEPS} status={genStatus} />
 
         {error ? (
           <p role="alert" className="rounded-md border border-error/25 bg-error/10 px-3 py-2 text-small text-error">

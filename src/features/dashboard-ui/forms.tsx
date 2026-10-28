@@ -26,6 +26,7 @@ import {
 import type { ContentBlock } from "@/features/content/blocks";
 import { assetUrl } from "@/lib/storage/assets";
 import { BlogAiWrite } from "@/features/seller-ai/components/blog-ai-write";
+import { BlogCoverAi } from "@/features/seller-ai/components/blog-cover-ai";
 
 type Opt = { id: string; label: string };
 
@@ -276,6 +277,8 @@ export function DocumentEditor({ table, value }: { table: "pages" | "blog_posts"
   const [tags, setTags] = useState(value.tags ?? "");
   const [seoTitle, setSeoTitle] = useState(value.seoTitle);
   const [seoDescription, setSeoDescription] = useState(value.seoDescription);
+  const [coverPath, setCoverPath] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(value.coverUrl ?? null);
 
   const applyBlogAi = (data: { title: string; excerpt: string; tags: string; seoTitle: string; seoDescription: string; blocks: ContentBlock[] }) => {
     setTitle(data.title);
@@ -331,11 +334,16 @@ export function DocumentEditor({ table, value }: { table: "pages" | "blog_posts"
                 <TextAreaField label="Excerpt" name="excerpt" value={excerpt} onChange={(ev) => setExcerpt(ev.target.value)} rows={3} />
                 <TextField label="Author" name="authorName" defaultValue={value.authorName ?? ""} optional />
                 <TextField label="Tags" name="tags" value={tags} onChange={(ev) => setTags(ev.target.value)} optional />
-                <div>
-                  <label htmlFor="cover" className="mb-1.5 block text-sm font-medium">Cover image</label>
-                  <input id="cover" name="cover" type="file" accept="image/*" className="text-sm" />
-                  {value.coverUrl ? <CheckboxField label="Remove cover" name="removeCover" value="true" className="mt-2" /> : null}
-                </div>
+                <BlogCoverAi
+                  topic={title || excerpt}
+                  coverUrl={coverPreview}
+                  coverPath={coverPath}
+                  onCoverPath={(path, preview) => {
+                    setCoverPath(path);
+                    setCoverPreview(preview ?? (path ? assetUrl(path) : value.coverUrl ?? null));
+                  }}
+                />
+                {value.coverUrl || coverPreview ? <CheckboxField label="Remove cover" name="removeCover" value="true" className="mt-2" /> : null}
               </>
             )}
             <TextField label="SEO title" name="seoTitle" value={seoTitle} onChange={(ev) => setSeoTitle(ev.target.value)} optional />
