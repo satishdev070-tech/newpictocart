@@ -17,6 +17,7 @@ import {
 const MIGRATION = [
   readFileSync(new URL("../../../supabase/migrations/20261028004200_seller_ai_suite.sql", import.meta.url), "utf8"),
   readFileSync(new URL("../../../supabase/migrations/20261028004300_nvidia_provider_store_agent.sql", import.meta.url), "utf8"),
+  readFileSync(new URL("../../../supabase/migrations/20261028004800_generate_reviews.sql", import.meta.url), "utf8"),
 ].join("\n");
 
 describe("seller AI schemas", () => {

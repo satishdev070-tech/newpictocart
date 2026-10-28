@@ -40,6 +40,7 @@ export const AI_FEATURES: readonly AiFeature[] = [
   ...NEURAL_PULSE,
   { key: "generate_product", label: "Product from image", description: "Vision model fills title, description, tags and suggested price from a product photo (or hint).", usedIn: "Dashboard → Products → Add / edit (Generate with AI)", source: "features/seller-ai/actions.ts (generateProductFromImageAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "generate_product" },
   { key: "generate_blog", label: "Blog AI Write", description: "Drafts a blog title, excerpt, tags, SEO and content blocks from a short topic.", usedIn: "Dashboard → Content → Blog", source: "features/seller-ai/actions.ts (generateBlogAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "generate_blog" },
+  { key: "generate_reviews", label: "Generate AI product reviews", description: "Drafts 3 or 5 positive product reviews and inserts them as pending for moderation.", usedIn: "Dashboard → Reviews", source: "features/seller-ai/actions.ts (generateReviewsAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "generate_reviews" },
   { key: "contact_reply", label: "Contact reply draft", description: "Drafts a polite email reply to a store contact-form message (not sent).", usedIn: "Dashboard → Content → Messages", source: "features/seller-ai/actions.ts (generateContactReplyAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "contact_reply" },
   { key: "business_coach", label: "Business coach", description: "Checklist of next steps from the store's real metrics, top sellers, low stock and pending setup, in the seller's panel language (English or Hindi).", usedIn: "Dashboard home", source: "features/seller-ai/actions.ts (refreshBusinessCoachAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "business_coach" },
   { key: "store_agent", label: "Pica2 AI Assistant", description: "Answers the seller's questions from their own orders, products, stock and sales, with growth tips and links to dashboard pages. Replies in the panel language.", usedIn: "Dashboard (floating “Pica2 AI Assistant” button)", source: "features/seller-ai/actions.ts (askStoreAgentAction)", engine: "llm", routable: true, creditKind: "store_agent" },
@@ -63,6 +64,7 @@ export const SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS = [
   "store_agent",
   "contact_reply",
   "business_coach",
+  "generate_reviews",
 ] as const;
 
 export function findFeature(key: string): AiFeature | undefined {
