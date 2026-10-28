@@ -1,6 +1,13 @@
 # Implementation Status
 
-_Last updated: 2026-10-28 (Seller AI usable-answer fix) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Seller AI reviews insert + product Omni vision (2026-10-28, branch `cursor/seller-ai-reviews-product-fix-c73e`)
+
+- **AI Reviews:** LLM succeeded but insert hit RLS — `reviews` had no INSERT policy. Migration `20261028005100_reviews_insert_groq_model.sql` adds `reviews_staff_insert` (`reviews.moderate`). Insert failure after generate now refunds credits.
+- **Product Generate:** Photos forced a swap from working Nemotron Omni to `meta/llama-3.2-11b-vision-instruct` (HTTP 400) because `isNvidiaVisionModel` missed `omni`. Omni is treated as vision-capable; photos stay on the same model as Blog AI. True text-only NVIDIA models still swap to Llama vision.
+- **Groq:** Default + route backfill `llama-3.3-70b-versatile` → `openai/gpt-oss-120b` (retired id was HTTP 404).
+- **Verification:** `pnpm check` ✅. Hosted migration `05100` applied on `ugbjlpdhktrlkyuijkfc`.
 
 ## Seller AI usable-answer fix (2026-10-28, branch `cursor/seller-ai-usable-answer-fix-c73e`)
 

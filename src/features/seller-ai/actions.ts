@@ -199,7 +199,11 @@ export async function generateReviewsAction(input: {
       source: "import" as const,
     }));
     const { data: inserted, error } = await supabase.from("reviews").insert(rows).select("id");
-    if (error) throw mapDbError(error);
+    if (error) {
+      // LLM already debited; refund so a post-generate RLS/DB failure does not keep credits.
+      await refundAiCredit(r.charge, error.message || "reviews insert failed");
+      throw mapDbError(error);
+    }
     const count = inserted?.length ?? 0;
     await audit({
       tenantId: ctx.tenantId,

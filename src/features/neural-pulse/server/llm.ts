@@ -24,7 +24,7 @@ import type { Prompt } from "../prompts";
 export const DEFAULT_MODELS: Record<AiProvider, string> = {
   nvidia: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
   gemini: "gemini-3.8-flash",
-  groq: "llama-3.3-70b-versatile",
+  groq: "openai/gpt-oss-120b",
   anthropic: "claude-opus-5-5",
 };
 
@@ -122,22 +122,22 @@ async function callGroq(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt): Pr
   return { text, tokens: num(json.usage?.total_tokens) };
 }
 
-/** True for NVIDIA model ids that accept images (…-vl-…, vision). */
+/** True for NVIDIA model ids that accept images (…-vl-…, vision, …-omni-…). */
 export function isNvidiaVisionModel(model: string): boolean {
-  return /(^|[-/_.])vl([-/_.]|$)|vision/i.test(model);
+  return /(^|[-/_.])(vl|omni)([-/_.]|$)|vision/i.test(model);
 }
 
 /** Request body for NVIDIA's OpenAI-compatible chat endpoint (pure, unit tested). */
 export function nvidiaRequestBody(model: string, prompt: Prompt): { model: string; body: Record<string, unknown> } {
   const images = prompt.images ?? [];
+  // Omni/vl/vision keep their own id; true text-only models swap to NVIDIA_VISION_MODEL when photos exist.
   const useModel = images.length && !isNvidiaVisionModel(model) ? NVIDIA_VISION_MODEL : model;
-  const vision = isNvidiaVisionModel(useModel);
-  // Nemotron reasoning models think by default; JSON copywriting doesn't need it.
-  const system = /nemotron/i.test(useModel) && !vision ? `/no_think\n${prompt.system}` : prompt.system;
-  const user =
-    images.length && vision
-      ? [...images.map((i) => ({ type: "image_url", image_url: { url: `data:${i.mediaType};base64,${i.data}` } })), { type: "text", text: prompt.user }]
-      : prompt.user;
+  const attachingImages = images.length > 0 && isNvidiaVisionModel(useModel);
+  // Nemotron reasoning models think by default; JSON copywriting doesn't need it (text or photo).
+  const system = /nemotron/i.test(useModel) ? `/no_think\n${prompt.system}` : prompt.system;
+  const user = attachingImages
+    ? [...images.map((i) => ({ type: "image_url", image_url: { url: `data:${i.mediaType};base64,${i.data}` } })), { type: "text", text: prompt.user }]
+    : prompt.user;
   return {
     model: useModel,
     body: {
@@ -148,11 +148,11 @@ export function nvidiaRequestBody(model: string, prompt: Prompt): { model: strin
       ],
       temperature: 0.6,
       top_p: 0.95,
-      max_tokens: vision ? 4096 : 8192,
+      max_tokens: attachingImages ? 4096 : 8192,
       stream: false,
-      // Text JSON features (reviews, blog, coach): ask NIM for a JSON object. Vision models vary;
-      // keep them free-form and rely on extractJson.
-      ...(vision ? {} : { response_format: { type: "json_object" } }),
+      // Text JSON features: ask NIM for a JSON object. When photos are attached, keep free-form
+      // and rely on extractJson (some vision endpoints reject response_format).
+      ...(attachingImages ? {} : { response_format: { type: "json_object" } }),
     },
   };
 }
