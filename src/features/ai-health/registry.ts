@@ -63,7 +63,6 @@ export const SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS = [
   "store_agent",
   "contact_reply",
   "business_coach",
-  "generate_reviews",
 ] as const;
 
 export function findFeature(key: string): AiFeature | undefined {
