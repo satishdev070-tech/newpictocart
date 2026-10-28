@@ -76,6 +76,17 @@ Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coac
 - **Verification:** `pnpm check` ✅ (typecheck, lint, **130 files / 1,546 tests**, build). Seller-ai unit tests under `tests/unit/seller-ai/`.
 - **Branch (backend fix):** `cursor/seller-ai-false-setup-ui-c73e`.
 
+## Seller pages speed / crash fix (2026-10-28, ADR-010-safe)
+
+Fixes slow skeletons and pink **"This page couldn't load"** on Products, product detail, Theme marketplace, and Theme editor. Private lists stay live (no Redis). Store assistant AI quality is out of scope.
+
+- **Redis L2 timeout (~300ms):** `withTimeout` in `src/lib/cache/public-cache.ts` wraps get / pipeline exec / smembers / del; hang → miss / fail-open so `/dashboard/themes` cannot stick forever. Tests: timeout-as-miss in `tests/unit/public-cache.test.ts`.
+- **Theme marketplace:** module-scoped `demo-origins:showcase` loader; catalogue cards ship slim `mockup` (full `preset` on apply/detail); demos stream under Suspense.
+- **Theme editor:** `getBuilderData` soft-fails to null → inline retry UI (no `dashboard/error.tsx`); lean pickers; menus/pickers/AI gate degrade; no Redis on drafts.
+- **Products:** see section below (lean list/detail + `updated_at` index).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **137 files / 1,625 tests**, build).
+- **Branch:** `cursor/seller-pages-speed-crash-c73e` (PR #44). Hosted: apply migration `20261028004400_products_list_updated_at_idx.sql`.
+
 ## Products list/detail speed (2026-10-28, ADR-010 — no Redis on private products)
 
 Lean live queries for Seller **Products** (no Data Cache / Redis on private tenant lists).
