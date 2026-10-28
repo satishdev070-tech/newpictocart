@@ -6,9 +6,12 @@ import type { NavIconName } from "@/components/app-shell/icons";
  * Items are hidden when the member's role lacks the permission; the page itself also
  * checks with requireTenantPermission(), and RLS enforces it in the database.
  */
-export type NavItem = { href: string; label: string; permission: string; icon: NavIconName };
-/** A sidebar section. Groups with more than one item render as a collapsible submenu headed by `icon`. */
-export type NavGroup = { label: string; icon?: NavIconName; items: NavItem[] };
+export type NavItem = { href: string; label: string; permission: string; icon: NavIconName; /** English label when `label` is translated (search matches both). */ alt?: string };
+/**
+ * A sidebar section. Groups with more than one item render as a collapsible submenu headed by `icon`.
+ * `id` is a stable, language-independent key (defaults to `label`).
+ */
+export type NavGroup = { id?: string; label: string; icon?: NavIconName; items: NavItem[] };
 
 type TenantNavItem = NavItem & { permission: TenantPermission };
 

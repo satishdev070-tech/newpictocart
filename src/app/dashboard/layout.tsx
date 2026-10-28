@@ -20,6 +20,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { navForSiteMode } from "@/features/stores/site-mode";
 import { getStoreSiteMode } from "@/features/stores/site-mode-server";
 import { getAiCreditBalance } from "@/features/ai-credits/server";
+import { getI18n } from "@/lib/i18n/server";
+import type { T } from "@/lib/i18n/translate";
+import { localizeNav } from "@/components/dashboard/nav-i18n";
+import { LanguageSwitcher } from "@/components/dashboard/language-switcher";
+import { TourLauncher } from "@/features/dashboard-ui/tours/tour-launcher";
 
 /** Plan name and trial end of the active store (RLS: members read their tenant). Null on error. */
 async function trialInfo(tenantId: string): Promise<{ plan: string | null; endsAt: string | null } | null> {
@@ -30,14 +35,15 @@ async function trialInfo(tenantId: string): Promise<{ plan: string | null; endsA
 }
 
 /** "Free trial of the Scale plan · 9 days left (ends 20 Oct 2026)." Status stays "trial" until the platform activates the plan. */
-function trialMessage(t: { plan: string | null; endsAt: string | null } | null): string {
-  const of = t?.plan ? ` of the ${t.plan} plan` : "";
-  if (!t?.endsAt) return `You're on a free trial${of}.`;
-  const end = new Date(t.endsAt);
+function trialMessage(trial: { plan: string | null; endsAt: string | null } | null, t: T, locale: string): string {
+  const plan = trial?.plan;
+  if (!trial?.endsAt) return plan ? t("banners.trialOnPlan", { plan }) : t("banners.trial");
+  const end = new Date(trial.endsAt);
   const days = Math.ceil((end.getTime() - Date.now()) / 86_400_000);
-  const date = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeZone: "Asia/Kolkata" }).format(end);
-  if (days < 0) return `Your free trial${of} ended on ${date}. Choose a plan to activate your store.`;
-  return `You're on a free trial${of} · ${days === 0 ? "ends today" : `${days} day${days === 1 ? "" : "s"} left`} (ends ${date}).`;
+  const date = new Intl.DateTimeFormat(`${locale}-IN`, { dateStyle: "medium", timeZone: "Asia/Kolkata" }).format(end);
+  if (days < 0) return plan ? t("banners.trialEndedOnPlan", { plan, date }) : t("banners.trialEnded", { date });
+  const left = days === 0 ? t("banners.endsToday") : days === 1 ? t("banners.oneDayLeft") : t("banners.daysLeft", { days });
+  return plan ? t("banners.trialLeftOnPlan", { plan, left, date }) : t("banners.trialLeft", { left, date });
 }
 import { SUPPORT_LOGIN_COOKIE, readSupportLogin } from "@/features/platform/server/store-admin";
 import { endSupportLoginAction } from "@/features/platform/store-admin-actions";
@@ -84,36 +90,46 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         <Monogram name={ctx.tenantName} className="size-8" />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-small font-semibold">{ctx.tenantName}</span>
-          <span className="block truncate text-caption text-muted">View storefront</span>
+          <span className="block truncate text-caption text-muted">{t("account.viewStorefront")}</span>
         </span>
         <ExternalLink aria-hidden className="size-4 shrink-0 text-subtle group-hover:text-accent" strokeWidth={1.75} />
       </a>
       <form action={signOutAction}>
         <button type="submit" className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-small text-error transition-colors hover:bg-error/10">
           <LogOut aria-hidden className="size-[18px]" strokeWidth={1.75} />
-          Sign out
+          {t("account.signOut")}
         </button>
       </form>
     </>
   );
 
+  const support = readSupportLogin(cookieStore.get(SUPPORT_LOGIN_COOKIE)?.value);
+  const supporting = Boolean(support && support.userId === ctx.user.id);
+
   const topbarEnd = (
     <>
+      <TourLauncher
+        locale={locale}
+        takeLabel={t("tour.take")}
+        labels={{ next: t("tour.next"), back: t("tour.back"), done: t("tour.done"), close: t("tour.close"), stepOf: m.tour.stepOf }}
+        autoStart={!supporting}
+      />
       <AppearanceQuickToggle />
       {aiCreditBalance !== null ? (
         <Link
           href="/dashboard/marketing/neural-pulse"
           className="inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/20 bg-accent-soft px-2.5 text-caption font-semibold text-accent transition-colors hover:bg-accent/15"
-          title="AI credits"
+          title={t("account.aiCredits")}
         >
           <Sparkles aria-hidden className="size-3.5" />
           <span>{aiCreditBalance}</span>
-          <span className="hidden sm:inline">credits</span>
+          <span className="hidden sm:inline">{t("account.credits")}</span>
         </Link>
       ) : null}
       <NotificationBell scope="tenant" userId={ctx.user.id} initial={bell} attention={alerts} viewAllHref="/dashboard/notifications" />
+      <div data-tour="account">
       <Popover
-        label="Account and store"
+        label={t("account.menu")}
         trigger={
           <>
             <span aria-hidden className="grid size-8 place-items-center rounded-full bg-accent-soft text-caption font-bold text-accent ring-1 ring-inset ring-accent/20">
@@ -132,41 +148,45 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         </div>
         {ctx.memberships.length > 1 ? (
           <div className="border-t border-border pt-1.5">
-            <p className="px-2.5 pb-1 text-overline text-subtle">Switch store</p>
+            <p className="px-2.5 pb-1 text-overline text-subtle">{t("account.switchStore")}</p>
             {ctx.memberships.map((m) => (
               <form key={m.tenantId} action={switchTenantAction}>
                 <input type="hidden" name="tenantId" value={m.tenantId} />
                 <PopoverItem>
                   <Monogram name={m.tenantName} className="size-5 text-[10px]" />
                   <span className="flex-1 truncate">{m.tenantName}</span>
-                  {m.tenantId === ctx.tenantId ? <span className="text-caption text-accent">Current</span> : null}
+                  {m.tenantId === ctx.tenantId ? <span className="text-caption text-accent">{t("account.current")}</span> : null}
                 </PopoverItem>
               </form>
             ))}
           </div>
         ) : null}
         <div className="border-t border-border px-2.5 py-2">
-          <p className="mb-1.5 text-overline text-subtle">Appearance</p>
+          <p className="mb-1.5 text-overline text-subtle">{t("account.appearance")}</p>
           <AppearanceToggle className="w-full justify-between" />
+        </div>
+        <div className="border-t border-border px-2.5 py-2">
+          <p className="mb-1.5 text-overline text-subtle">{t("account.language")}</p>
+          <LanguageSwitcher current={locale} label={t("account.language")} className="w-full" />
         </div>
         <div className="border-t border-border pt-1.5">
           <PopoverItem href={storeUrl} external>
-            <ExternalLink aria-hidden /> View storefront
+            <ExternalLink aria-hidden /> {t("account.viewStorefront")}
           </PopoverItem>
           <form action={signOutAction}>
             <PopoverItem>
-              <LogOut aria-hidden /> Sign out
+              <LogOut aria-hidden /> {t("account.signOut")}
             </PopoverItem>
           </form>
         </div>
       </Popover>
+      </div>
     </>
   );
 
   // Platform super admin signed in as this member (Admin → Store → Log in as store).
-  const support = readSupportLogin(cookieStore.get(SUPPORT_LOGIN_COOKIE)?.value);
   const supportBanner =
-    support && support.userId === ctx.user.id ? (
+    support && supporting ? (
       <div role="status" className="flex flex-wrap items-center justify-between gap-2 border-b border-warning/40 bg-warning/15 px-5 py-2 text-small text-foreground">
         <span>
           <span className="font-semibold">Support sign-in:</span> you&apos;re acting as {ctx.user.email} in {ctx.tenantName} (started by {support.adminEmail || "a super admin"}). Every action is recorded.
@@ -182,17 +202,17 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   const statusBanner =
     ctx.tenantStatus === "suspended" ? (
       <div role="alert" className="border-b border-error/30 bg-error/10 px-5 py-2 text-small text-error">
-        This store is suspended and hidden from shoppers.{" "}
+        {t("banners.suspended")}{" "}
         <Link href="/dashboard/settings/plan" className="font-medium underline underline-offset-2">
-          Activate a plan
+          {t("banners.activatePlan")}
         </Link>{" "}
-        or contact support to restore it.
+        {t("banners.suspendedTail")}
       </div>
     ) : showTrialBanner ? (
       <div className="border-b border-border bg-accent-soft px-5 py-2 text-small text-foreground">
-        {trialMessage(trial)}{" "}
+        {trialMessage(trial, t, locale)}{" "}
         <Link href="/dashboard/settings/plan" className="font-medium underline underline-offset-2">
-          Choose a plan
+          {t("banners.choosePlan")}
         </Link>
       </div>
     ) : null;
@@ -203,8 +223,23 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     </>
   ) : null;
 
+  const shellText = {
+    mainNav: t("shell.mainNav"),
+    navigation: t("shell.navigation"),
+    openNav: t("shell.openNav"),
+    closeNav: t("shell.closeNav"),
+    expandSidebar: t("shell.expandSidebar"),
+    collapseSidebar: t("shell.collapseSidebar"),
+    searchPlaceholder: t("shell.searchPlaceholder"),
+    search: t("shell.search"),
+    searchPages: t("shell.searchPages"),
+    jumpTo: t("shell.jumpTo"),
+    breadcrumb: t("shell.breadcrumb"),
+    segments: { new: t("shell.crumbNew"), edit: t("shell.crumbEdit"), import: t("shell.crumbImport"), export: t("shell.crumbExport"), support: t("shell.crumbSupport"), details: t("shell.crumbDetails") },
+  };
+
   return (
-    <AppShell groups={groups} homeHref="/dashboard" brand={brand} brandMark={brandMark} sidebarFooter={sidebarFooter} topbarEnd={topbarEnd} banner={banner} storageKey="paliya-seller-sidebar">
+    <AppShell groups={groups} homeHref="/dashboard" brand={brand} brandMark={brandMark} sidebarFooter={sidebarFooter} topbarEnd={topbarEnd} banner={banner} storageKey="paliya-seller-sidebar" lang={locale} text={shellText}>
       {children}
     </AppShell>
   );

@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
 import { can, requireTenantPermission } from "@/lib/tenant/membership";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { PageHeader } from "@/components/ui/layout";
+import { Card, PageHeader } from "@/components/ui/layout";
+import { LanguageSwitcher } from "@/components/dashboard/language-switcher";
 import { assetUrl } from "@/lib/storage/assets";
 import { StoreDetailsForm } from "@/features/dashboard-ui/forms";
 import { CloseStoreButton } from "@/features/stores/components/close-store";
 import { SiteModeForm } from "@/features/settings/ui/site-mode-form";
 import { parseSiteMode } from "@/features/stores/site-mode";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Store details" };
 
 export default async function StoreSettingsPage() {
   const ctx = await requireTenantPermission("store.read");
+  const { locale, t } = await getI18n();
   const { data: s } = await (await createSupabaseServerClient()).from("stores").select("*").eq("tenant_id", ctx.tenantId).single();
   if (!s) throw new Error("Store profile missing");
   const a = (s.address ?? {}) as Record<string, string>;
@@ -25,7 +28,10 @@ export default async function StoreSettingsPage() {
   };
   return (
     <div>
-      <PageHeader title="Store details" description="Your brand, contact information and invoice details." />
+      <PageHeader title={t("pages.settings.general.title")} description={t("pages.settings.general.description")} />
+      <Card tour="language" className="mb-6" title={t("language.title")} description={t("language.description")}>
+        <LanguageSwitcher current={locale} label={t("language.title")} />
+      </Card>
       <section className="mb-6 rounded-lg border border-border p-5" aria-labelledby="website-type">
         <h2 id="website-type" className="text-h3 font-semibold">Website type</h2>
         <p className="mt-1 text-small text-muted">Choose whether visitors browse your business information or buy products online.</p>

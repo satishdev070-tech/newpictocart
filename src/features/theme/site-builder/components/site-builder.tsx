@@ -74,7 +74,7 @@ function Shell() {
             <PanelHost />
           </aside>
         ) : null}
-        <main className="min-w-0 flex-1">
+        <main data-tour="builder-canvas" className="min-w-0 flex-1">
           <CanvasFrame />
         </main>
       </div>

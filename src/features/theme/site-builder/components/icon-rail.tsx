@@ -57,7 +57,7 @@ export function IconRail() {
   };
 
   return (
-    <nav aria-label="Builder tools" className="flex w-[68px] shrink-0 flex-col justify-between border-r border-border bg-surface px-1.5 py-2">
+    <nav aria-label="Builder tools" data-tour="builder-tools" className="flex w-[68px] shrink-0 flex-col justify-between border-r border-border bg-surface px-1.5 py-2">
       <ul className="space-y-1">{TOP.map(item)}</ul>
       <ul className="space-y-1 border-t border-border pt-2">{BOTTOM.map(item)}</ul>
     </nav>

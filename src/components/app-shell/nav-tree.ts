@@ -41,7 +41,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type Crumb = { label: string; href?: string };
 
 /** Group › Item › sub-page crumbs for a path (empty when no item matches). */
-export function breadcrumbsFor(pathname: string, groups: readonly NavGroup[], homeHref: string): Crumb[] {
+export function breadcrumbsFor(pathname: string, groups: readonly NavGroup[], homeHref: string, segments: Record<string, string> = SEGMENT_LABELS): Crumb[] {
   const href = activeHrefFor(pathname, groups, homeHref);
   const group = groups.find((g) => g.items.some((i) => i.href === href));
   const match = group?.items.find((i) => i.href === href);
@@ -51,7 +51,7 @@ export function breadcrumbsFor(pathname: string, groups: readonly NavGroup[], ho
   crumbs.push({ label: match.label, href: pathname === match.href ? undefined : match.href });
   const rest = pathname.slice(match.href.length).split("/").filter(Boolean);
   rest.forEach((seg, i) => {
-    const label = SEGMENT_LABELS[seg] ?? (UUID.test(seg) ? "Details" : seg.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase()));
+    const label = segments[seg] ?? (UUID.test(seg) ? (segments.details ?? "Details") : seg.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase()));
     crumbs.push({ label, href: i === rest.length - 1 ? undefined : `${match.href}/${rest.slice(0, i + 1).join("/")}` });
   });
   return crumbs;

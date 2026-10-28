@@ -17,11 +17,13 @@ import { groupTypesForPicker, typeLabel } from "@/features/catalog/product-types
 import { getTenantTypeCatalogue } from "@/features/catalog/server/product-types";
 import { categoryLabel } from "@/features/catalog/category-tree";
 import { ProductBulkBar } from "@/features/catalog/components/catalog-forms";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Products" };
 
 export default async function ProductsPage({ searchParams }: PageProps<"/dashboard/products">) {
   const ctx = await requireTenantPermission("catalog.read");
+  const { t } = await getI18n();
   const sp = await searchParams;
   const f = productListQuerySchema.parse(sp);
   const [{ rows, total }, categories, collections, catalogue] = await Promise.all([listProducts(ctx.tenantId, f), listCategoryFilterOptions(ctx.tenantId), listCollectionOptions(ctx.tenantId), getTenantTypeCatalogue(ctx.tenantId)]);
@@ -33,8 +35,8 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
   return (
     <div>
       <PageHeader
-        title="Products"
-        description={`${total} ${total === 1 ? "product" : "products"}`}
+        title={t("pages.products.title")}
+        description={total === 1 ? t("pages.products.countOne") : t("pages.products.count", { count: total })}
         actions={
           <>
             <a href={`/dashboard/products/export${queryString(params)}`} className="inline-flex h-10 items-center rounded-md border border-border bg-surface px-4 text-sm font-medium" download>

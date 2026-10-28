@@ -5,19 +5,21 @@ import { can, requireTenantPermission } from "@/lib/tenant/membership";
 import { Badge, PageHeader, Table, td, th } from "@/components/ui/layout";
 import { EmptyState } from "@/components/ui/states";
 import { listCollections } from "@/features/catalog/server/collections";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Collections" };
 
 export default async function CollectionsPage({ searchParams }: PageProps<"/dashboard/collections">) {
   const ctx = await requireTenantPermission("catalog.read");
+  const { t } = await getI18n();
   const sp = await searchParams;
   const rows = await listCollections(ctx.tenantId);
   const writable = can(ctx, "catalog.write");
   return (
     <div>
       <PageHeader
-        title="Collections"
-        description="Group products for merchandising: New Arrivals, Festive Edit, Sale…"
+        title={t("pages.collections.title")}
+        description={t("pages.collections.description")}
         actions={writable ? <Link href="/dashboard/collections/new" className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Create collection</Link> : null}
       />
       {sp.deleted ? <p role="status" className="mb-4 text-sm text-success">Collection deleted.</p> : null}

@@ -14,15 +14,16 @@ import { getLaunchStatusForMember } from "@/features/stores/launch";
 import { PreviewStoreButton, PublishStoreButton } from "@/features/stores/components/launch-controls";
 import { RecentActivityCard } from "@/features/notifications/inbox/components/recent-activity-card";
 import { CopyButton } from "@/features/domains/components/domain-controls";
+import { getI18n } from "@/lib/i18n/server";
 import { BusinessCoachCard } from "@/features/seller-ai/components/business-coach-card";
 
 export const metadata: Metadata = { title: "Home" };
 
 const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
-function greeting(now = new Date()): string {
+function greeting(now = new Date()): "pages.home.morning" | "pages.home.afternoon" | "pages.home.evening" {
   const h = Number(new Intl.DateTimeFormat("en-IN", { hour: "numeric", hourCycle: "h23", timeZone: "Asia/Kolkata" }).format(now));
-  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  return h < 12 ? "pages.home.morning" : h < 17 ? "pages.home.afternoon" : "pages.home.evening";
 }
 
 function Change({ value }: { value: number | null }) {
@@ -59,7 +60,7 @@ function KpiStrip({ kpis, customers, products, allProducts }: { kpis: HomeKpis |
     ),
   });
   return (
-    <section aria-label="Key numbers" className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    <section aria-label="Key numbers" data-tour="kpis" className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {items.map((i) => (
         <StatCard key={i.label} tone={i.tone} icon={i.icon} label={i.label} value={i.value} hint={i.hint} trend={i.trend} />
       ))}
@@ -71,7 +72,7 @@ function SetupChecklist({ steps }: { steps: SetupStep[] }) {
   const done = steps.filter((s) => s.done).length;
   if (done === steps.length) return null;
   return (
-    <Card title="Get your store ready" description={`${done} of ${steps.length} done`}>
+    <Card tour="setup" title="Get your store ready" description={`${done} of ${steps.length} done`}>
       <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-border/60" aria-hidden>
         <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${(done / steps.length) * 100}%` }} />
       </div>
@@ -99,15 +100,15 @@ function SetupChecklist({ steps }: { steps: SetupStep[] }) {
 
 export default async function DashboardHome() {
   const ctx = await requireTenant();
-  const [home, launch] = await Promise.all([getDashboardHome(ctx), getLaunchStatusForMember(ctx.tenantId)]);
+  const [home, launch, { t }] = await Promise.all([getDashboardHome(ctx), getLaunchStatusForMember(ctx.tenantId), getI18n()]);
   const storeUrl = storeOrigin(storeSubdomain(ctx.tenantSlug));
   const firstName = ctx.user.displayName?.split(" ")[0];
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`${greeting()}${firstName ? `, ${firstName}` : ""}`}
-        description={`${ctx.tenantName} · last 30 days`}
+        title={`${t(greeting())}${firstName ? `, ${firstName}` : ""}`}
+        description={t("pages.home.last30", { store: ctx.tenantName })}
         actions={
           <div className="flex max-w-full flex-wrap items-center gap-2">
             <span className="max-w-[12rem] truncate text-sm text-muted sm:max-w-[18rem]" title={storeUrl}>
