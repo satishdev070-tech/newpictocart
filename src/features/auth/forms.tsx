@@ -130,7 +130,7 @@ export function SignUpForm({
       </p>
       <p className="border-t border-border pt-5 text-center text-small text-muted">
         Already selling with us?{" "}
-        <Link href="/seller/login" className="font-medium text-foreground underline-offset-2 hover:underline">
+        <Link href="/login" className="font-medium text-foreground underline-offset-2 hover:underline">
           Sign in
         </Link>
       </p>
@@ -144,7 +144,7 @@ export function ForgotPasswordForm() {
     <div className="space-y-4">
       <EmailCodeFlow requestAction={forgotPasswordAction} verifyAction={verifyResetCodeAction} emailLabel="Email" submitLabel="Send reset code" verifyLabel="Verify and set a new password" />
       <p className="text-center text-small">
-        <Link href="/seller/login" className="font-medium text-accent hover:underline">
+        <Link href="/login" className="font-medium text-accent hover:underline">
           Back to sign in
         </Link>
       </p>

@@ -6,7 +6,8 @@ import { aiHealthTab, featureRouteSchema, modelPriceSchema, testModelSchema, tok
 const SCHEMAS = readFileSync(new URL("../../../src/features/neural-pulse/schemas.ts", import.meta.url), "utf8");
 const MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261025003900_ai_economy.sql", import.meta.url), "utf8");
 const SELLER_AI_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261028004200_seller_ai_suite.sql", import.meta.url), "utf8");
-const COST_SEEDS = `${MIGRATION}\n${SELLER_AI_MIGRATION}`;
+const NVIDIA_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261028004300_nvidia_provider_store_agent.sql", import.meta.url), "utf8");
+const COST_SEEDS = `${MIGRATION}\n${SELLER_AI_MIGRATION}\n${NVIDIA_MIGRATION}`;
 
 describe("AI feature registry", () => {
   it("lists every Neural Pulse GenerationKind plus the section, seed and voice features", () => {
@@ -56,7 +57,8 @@ describe("AI health schemas", () => {
   it("converts ₹ per 1M tokens to paise and computes cost", () => {
     expect(modelPriceSchema.parse({ provider: "gemini", model: "gemini-3.8-flash", pricePerMillionMinor: "12.50" }).pricePerMillionMinor).toBe(1250);
     expect(modelPriceSchema.safeParse({ provider: "gemini", model: "m1", pricePerMillionMinor: "-1" }).success).toBe(false);
-    expect(modelPriceSchema.safeParse({ provider: "nvidia", model: "m1", pricePerMillionMinor: "1" }).success).toBe(false);
+    expect(modelPriceSchema.safeParse({ provider: "nvidia", model: "nvidia/llama-3.3-nemotron-super-49b-v1.5", pricePerMillionMinor: "1" }).success).toBe(true);
+    expect(modelPriceSchema.safeParse({ provider: "openai", model: "m1", pricePerMillionMinor: "1" }).success).toBe(false);
     expect(tokenCostMinor(2_000_000, 1250)).toBe(2500);
     expect(tokenCostMinor(321, 1250)).toBe(0);
     expect(tokenCostMinor(500_000, 101)).toBe(51);

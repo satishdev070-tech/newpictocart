@@ -6,6 +6,7 @@ import { mapDbError } from "@/lib/supabase/errors";
 import { AppError } from "@/lib/errors";
 import { audit } from "@/lib/audit";
 import { toMinor } from "@/lib/money";
+import { randomBytes } from "node:crypto";
 import { randomToken } from "@/lib/crypto";
 import { platformOrigin } from "@/lib/platform/urls";
 import { assertPlatformPermission, type PlatformContext } from "@/lib/platform/access";
@@ -13,6 +14,7 @@ import { sendEmail, type EmailSendResult } from "@/lib/email/send";
 import { PLATFORM_NAME } from "@/config/platform";
 import { renderAdminPasswordResetEmail } from "@/features/notifications/email/account-templates";
 import { isMissingSchemaError } from "@/features/platform/schemas";
+import { accountActionDenial, isDeleteConfirmed, storesToDelete, temporaryPassword, type AccountAction } from "./rules";
 import { USER_PAGE_SIZE, userTypes, type DirectoryStore, type DirectoryUser, type UserDetail, type UserDirectoryFilter, type UserStats } from "./schemas";
 
 /**
@@ -197,4 +199,126 @@ export async function setAccountStatus(ctx: PlatformContext, input: { userId: st
   const { error: pErr } = await admin.from("profiles").upsert({ id: input.userId, status: input.status }, { onConflict: "id" });
   if (pErr) throw mapDbError(pErr);
   await audit({ tenantId: null, actorUserId: ctx.user.id, actorType: "platform", action: input.status === "disabled" ? "account.disabled" : "account.enabled", entityType: "user", entityId: input.userId, metadata: { reason: input.reason } });
+}
+
+// ---- Super admin role, customer role, temporary password, delete ------------------------------
+
+/** Re-reads the target (exists, email, platform role) and applies rules.ts. Never trusts the client. */
+async function checkedTarget(admin: Admin, ctx: PlatformContext, userId: string, action: AccountAction): Promise<{ email: string | null; platformRole: string | null; displayName: string | null }> {
+  assertPlatformPermission(ctx, "platform.users.manage");
+  const [{ data: staff }, { data: user }] = await Promise.all([admin.from("platform_memberships").select("role").eq("user_id", userId).maybeSingle(), admin.auth.admin.getUserById(userId)]);
+  if (!user?.user) throw new AppError("NOT_FOUND", { message: "That account no longer exists." });
+  const denial = accountActionDenial({ actorId: ctx.user.id, actorRole: ctx.role, targetId: userId, targetPlatformRole: staff?.role ?? null }, action);
+  if (denial) throw new AppError("FORBIDDEN", { message: denial, fieldErrors: { _form: [denial] } });
+  const meta = user.user.user_metadata as { display_name?: unknown } | undefined;
+  return { email: user.user.email ?? null, platformRole: staff?.role ?? null, displayName: typeof meta?.display_name === "string" ? meta.display_name : null };
+}
+
+/** Grants the super_admin platform role (user's own RLS session: platform_memberships policy). */
+export async function grantSuperAdmin(ctx: PlatformContext, input: { userId: string; reason: string }): Promise<void> {
+  await checkedTarget(createSupabaseAdminClient(), ctx, input.userId, "grant_super_admin");
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("platform_memberships").insert({ user_id: input.userId, role: "super_admin", created_by: ctx.user.id });
+  if (error) {
+    if (error.code === "23505") throw formError("This account already has platform access.");
+    throw mapDbError(error);
+  }
+  await audit({ tenantId: null, actorUserId: ctx.user.id, actorType: "platform", action: "platform_user.granted", entityType: "platform_user", entityId: input.userId, metadata: { role: "super_admin", reason: input.reason, source: "users" } });
+}
+
+/** Removes super admin access. The DB trigger keeps at least one active super admin. */
+export async function revokeSuperAdmin(ctx: PlatformContext, input: { userId: string; reason: string }): Promise<void> {
+  await checkedTarget(createSupabaseAdminClient(), ctx, input.userId, "revoke_super_admin");
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from("platform_memberships").delete().eq("user_id", input.userId).eq("role", "super_admin").select("user_id").maybeSingle();
+  if (error) {
+    if (error.hint === "LAST_SUPER_ADMIN") throw formError("The platform must keep at least one active super admin. Add another super admin first.");
+    throw mapDbError(error);
+  }
+  if (!data) throw new AppError("NOT_FOUND");
+  await audit({ tenantId: null, actorUserId: ctx.user.id, actorType: "platform", action: "platform_user.removed", entityType: "platform_user", entityId: input.userId, metadata: { role: "super_admin", reason: input.reason, source: "users" } });
+}
+
+/**
+ * Adds the Customer role: a shopper record in one store, linked to this account. The store id
+ * comes from the form, so it is re-read here (must exist) before the write.
+ */
+export async function addCustomerRole(ctx: PlatformContext, input: { userId: string; tenantId: string; reason: string }): Promise<{ storeName: string }> {
+  assertPlatformPermission(ctx, "platform.tenants.manage");
+  const admin = createSupabaseAdminClient();
+  const t = await checkedTarget(admin, ctx, input.userId, "add_customer");
+  if (!t.email) throw formError("This account has no email address.");
+  const { data: tenant } = await admin.from("tenants").select("id, name").eq("id", input.tenantId).maybeSingle();
+  if (!tenant) throw formError("Choose a store that exists.", "tenantId");
+  const { data: existing } = await admin.from("customers").select("id, auth_user_id").eq("tenant_id", tenant.id).eq("email", t.email.toLowerCase()).maybeSingle();
+  if (existing?.auth_user_id === input.userId) throw formError(`Already a customer of ${tenant.name}.`, "tenantId");
+  if (existing && existing.auth_user_id) throw formError(`That email is linked to another account in ${tenant.name}.`, "tenantId");
+  const [first, ...rest] = (t.displayName ?? "").trim().split(/\s+/);
+  const { error } = existing
+    ? await admin.from("customers").update({ auth_user_id: input.userId }).eq("id", existing.id).eq("tenant_id", tenant.id)
+    : await admin.from("customers").insert({ tenant_id: tenant.id, auth_user_id: input.userId, email: t.email.toLowerCase(), first_name: first || null, last_name: rest.join(" ") || null });
+  if (error) {
+    if (error.code === "23505") throw formError(`Already a customer of ${tenant.name}.`, "tenantId");
+    throw mapDbError(error);
+  }
+  await audit({ tenantId: tenant.id, actorUserId: ctx.user.id, actorType: "platform", action: "customer.linked_by_platform", entityType: "user", entityId: input.userId, metadata: { reason: input.reason, linked_existing: Boolean(existing) } });
+  return { storeName: tenant.name };
+}
+
+/** Sets a generated temporary password (super admin only). Returned once; never logged or emailed. */
+export async function setTemporaryPassword(ctx: PlatformContext, input: { userId: string; reason: string }): Promise<{ email: string | null; password: string }> {
+  const admin = createSupabaseAdminClient();
+  const t = await checkedTarget(admin, ctx, input.userId, "temp_password");
+  const password = temporaryPassword((n) => randomBytes(n));
+  const { error } = await admin.auth.admin.updateUserById(input.userId, { password });
+  if (error) throw new AppError("INTERNAL", { message: "Couldn't set the password.", context: { error: error.message } });
+  await audit({ tenantId: null, actorUserId: ctx.user.id, actorType: "platform", action: "account.temporary_password_set", entityType: "user", entityId: input.userId, metadata: { reason: input.reason } });
+  return { email: t.email, password };
+}
+
+export type DeletedAccount = { email: string | null; deletedStores: string[]; keptStores: string[] };
+
+/**
+ * Deletes an account and the stores it owns alone (rules.ts#storesToDelete), after the admin typed
+ * DELETE. Memberships of a deleted store go first because tenant_memberships → custom roles is
+ * ON DELETE RESTRICT. Audited at platform level (tenant_id null) so the entry survives the cascade.
+ */
+export async function deleteAccount(ctx: PlatformContext, input: { userId: string; reason: string; confirm: string }): Promise<DeletedAccount> {
+  if (!isDeleteConfirmed(input.confirm)) throw formError("Type DELETE to confirm.", "confirm");
+  const admin = createSupabaseAdminClient();
+  const t = await checkedTarget(admin, ctx, input.userId, "delete");
+  const { data: memberships, error: mErr } = await admin.from("tenant_memberships").select("tenant_id, role, tenants(name)").eq("user_id", input.userId);
+  if (mErr) throw mapDbError(mErr);
+  const owned = (memberships ?? []).filter((m) => m.role === "owner").map((m) => m.tenant_id);
+  const { data: coOwners, error: cErr } = owned.length
+    ? await admin.from("tenant_memberships").select("tenant_id").in("tenant_id", owned).eq("role", "owner").eq("status", "active").neq("user_id", input.userId)
+    : { data: [] as { tenant_id: string }[], error: null };
+  if (cErr) throw mapDbError(cErr);
+  const others = new Map<string, number>();
+  for (const c of coOwners ?? []) others.set(c.tenant_id, (others.get(c.tenant_id) ?? 0) + 1);
+  const doomed = storesToDelete((memberships ?? []).map((m) => ({ tenantId: m.tenant_id, role: m.role, otherOwners: others.get(m.tenant_id) ?? 0 })));
+  const nameOf = (id: string) => {
+    const m = (memberships ?? []).find((x) => x.tenant_id === id);
+    const tn = m?.tenants as { name: string } | { name: string }[] | null | undefined;
+    return (Array.isArray(tn) ? tn[0]?.name : tn?.name) ?? id;
+  };
+  for (const tenantId of doomed) {
+    const { error: dm } = await admin.from("tenant_memberships").delete().eq("tenant_id", tenantId);
+    if (dm) throw mapDbError(dm);
+    const { error: dt } = await admin.from("tenants").delete().eq("id", tenantId);
+    if (dt) throw new AppError("INTERNAL", { message: `Couldn't delete the store ${nameOf(tenantId)}. Nothing else was deleted after it.`, context: { tenantId, error: dt.message } });
+  }
+  const { error } = await admin.auth.admin.deleteUser(input.userId);
+  if (error) throw new AppError("INTERNAL", { message: "Stores were deleted, but the account couldn't be. Try again.", context: { error: error.message } });
+  const kept = (memberships ?? []).map((m) => m.tenant_id).filter((id) => !doomed.includes(id));
+  await audit({
+    tenantId: null,
+    actorUserId: ctx.user.id,
+    actorType: "platform",
+    action: "account.deleted_by_platform",
+    entityType: "user",
+    entityId: input.userId,
+    metadata: { email: t.email, reason: input.reason, deleted_stores: doomed.map((id) => ({ id, name: nameOf(id) })), kept_stores: kept },
+  });
+  return { email: t.email, deletedStores: doomed.map(nameOf), keptStores: kept.map(nameOf) };
 }

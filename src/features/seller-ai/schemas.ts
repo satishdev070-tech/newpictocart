@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { contentBlockSchema } from "@/features/content/blocks";
+import { AI_PROVIDERS } from "@/features/neural-pulse/schemas";
+import { slugify } from "@/features/catalog/variants";
 
 const httpsUrl = z.string().url().refine((u) => u.startsWith("https://"), "Image URLs must be https");
 
@@ -23,7 +25,7 @@ export const generateProductContentSchema = z.object({
 });
 
 const generationMetaSchema = z.object({
-  provider: z.enum(["gemini", "groq", "anthropic"]),
+  provider: z.enum(AI_PROVIDERS),
   model: z.string().max(100),
   tokens: z.number().nullable().optional(),
 });
@@ -96,7 +98,7 @@ export const businessCoachContentSchema = z.object({
 export const businessCoachResultSchema = businessCoachContentSchema.merge(generationMetaSchema);
 export type BusinessCoachResult = z.infer<typeof businessCoachResultSchema>;
 
-export const SELLER_AI_CREDIT_KINDS = ["generate_product", "generate_blog", "contact_reply", "business_coach"] as const;
+export const SELLER_AI_CREDIT_KINDS = ["generate_product", "generate_blog", "contact_reply", "business_coach", "store_agent", "store_setup"] as const;
 export type SellerAiCreditKind = (typeof SELLER_AI_CREDIT_KINDS)[number];
 
 export const SELLER_AI_KIND_LABELS: Record<SellerAiCreditKind, string> = {
@@ -104,4 +106,124 @@ export const SELLER_AI_KIND_LABELS: Record<SellerAiCreditKind, string> = {
   generate_blog: "Blog AI Write",
   contact_reply: "Contact reply draft",
   business_coach: "Business coach",
+  store_agent: "Store assistant chat",
+  store_setup: "Store setup from a prompt",
 };
+
+// ---- Store agent chat ------------------------------------------------------------------------
+
+/**
+ * Dashboard pages the store agent may link to. The model only returns a key; the href comes from
+ * this table, so a reply can never point outside the seller dashboard.
+ */
+export const AGENT_LINKS = {
+  home: "/dashboard",
+  products: "/dashboard/products",
+  new_product: "/dashboard/products/new",
+  categories: "/dashboard/categories",
+  collections: "/dashboard/collections",
+  inventory: "/dashboard/inventory",
+  low_stock: "/dashboard/inventory?stock=low",
+  orders: "/dashboard/orders",
+  unfulfilled_orders: "/dashboard/orders?fulfillment=unfulfilled",
+  customers: "/dashboard/customers",
+  discounts: "/dashboard/discounts",
+  analytics: "/dashboard/analytics",
+  reviews: "/dashboard/reviews",
+  blog: "/dashboard/content/blog",
+  theme: "/dashboard/theme",
+  themes: "/dashboard/themes",
+  ai_marketing: "/dashboard/marketing/neural-pulse",
+  payments: "/dashboard/settings/payments",
+  shipping: "/dashboard/settings/shipping",
+  domains: "/dashboard/settings/domains",
+  seo: "/dashboard/settings/seo",
+  plan: "/dashboard/settings/plan",
+  store_settings: "/dashboard/settings",
+} as const;
+export type AgentLinkKey = keyof typeof AGENT_LINKS;
+export const AGENT_LINK_KEYS = Object.keys(AGENT_LINKS) as AgentLinkKey[];
+
+export const AGENT_MAX_TURNS = 8;
+
+export const agentChatInputSchema = z.object({
+  messages: z
+    .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(2000) }))
+    .min(1)
+    .max(AGENT_MAX_TURNS * 2)
+    .refine((m) => m[m.length - 1]?.role === "user", "The last message must be the seller's question"),
+});
+export type AgentChatInput = z.infer<typeof agentChatInputSchema>;
+
+/** Model reply: unknown link keys are dropped (never fail the whole answer for a bad link). */
+export const agentReplyContentSchema = z.object({
+  answer: z.string().trim().min(1).max(3000),
+  links: z
+    .array(z.object({ key: z.string(), label: z.string().trim().min(1).max(60) }))
+    .max(6)
+    .catch([])
+    .default([])
+    .transform((links) => {
+      const seen = new Set<string>();
+      const out: { key: AgentLinkKey; label: string; href: string }[] = [];
+      for (const l of links) {
+        if (!(l.key in AGENT_LINKS) || seen.has(l.key)) continue;
+        seen.add(l.key);
+        out.push({ key: l.key as AgentLinkKey, label: l.label, href: AGENT_LINKS[l.key as AgentLinkKey] });
+      }
+      return out.slice(0, 4);
+    }),
+});
+export const agentReplyResultSchema = agentReplyContentSchema.merge(generationMetaSchema);
+export type AgentReplyResult = z.infer<typeof agentReplyResultSchema>;
+
+// ---- Store setup from a prompt ---------------------------------------------------------------
+
+export const STORE_SETUP_MAX_PRODUCTS = 8;
+
+export const storeSetupInputSchema = z.object({
+  prompt: z.string().trim().min(10, "Describe your shop in a sentence or two").max(1000),
+  products: z.array(z.string().trim().max(120)).max(STORE_SETUP_MAX_PRODUCTS).default([]),
+  applyTheme: z.boolean().default(false),
+});
+
+const setupSlug = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .transform((v) => v.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80))
+  .pipe(z.string().min(1));
+
+export const storeSetupContentSchema = z.object({
+  industry: z.string().trim().max(40).nullable().catch(null).default(null),
+  categories: z
+    .array(z.object({ name: z.string().trim().min(1).max(80), slug: setupSlug, description: z.string().trim().max(500).catch("").default("") }))
+    .min(1)
+    .max(6),
+  products: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(200),
+        categorySlug: setupSlug,
+        shortDescription: z.string().trim().max(280).catch("").default(""),
+        description: z.string().trim().max(4000).catch("").default(""),
+        priceMinor: z.number().int().min(100).max(100_000_000),
+        tags: z.array(z.string().trim().toLowerCase().min(1).max(40)).max(8).catch([]).default([]),
+        seoTitle: z.string().trim().max(70).catch("").default(""),
+        seoDescription: z.string().trim().max(160).catch("").default(""),
+      }),
+    )
+    .min(1)
+    .max(STORE_SETUP_MAX_PRODUCTS),
+});
+export type StoreSetupContent = z.infer<typeof storeSetupContentSchema>;
+export type StoreSetupResult = { categories: number; products: number; themeKey: string | null; skipped: number };
+
+/** Next free slug: `kurta`, `kurta-2`, `kurta-3`… (adds the result to `taken`). */
+export function uniqueSlug(base: string, taken: Set<string>): string {
+  const root = slugify(base, 100) || "item";
+  let candidate = root;
+  for (let n = 2; taken.has(candidate); n++) candidate = `${root}-${n}`;
+  taken.add(candidate);
+  return candidate;
+}

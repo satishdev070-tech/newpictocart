@@ -7,7 +7,7 @@ import { Badge, Card, PageHeader, Table, td, th } from "@/components/ui/layout";
 import { formatDate, formatDateTime } from "@/features/analytics/dates";
 import { formatMoney } from "@/lib/money";
 import { USER_TYPE_LABEL, userTypes } from "@/features/platform-users/schemas";
-import { getUserDetail } from "@/features/platform-users/server";
+import { getUserDetail, listStoreOptions } from "@/features/platform-users/server";
 import { AccountActions } from "@/features/platform-users/components";
 
 export const metadata: Metadata = { title: "User details" };
@@ -25,7 +25,7 @@ export default async function UserDetailPage({ params }: PageProps<"/admin/users
   const ctx = await requirePlatform("platform.users.manage");
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
-  const u = await getUserDetail(id);
+  const [u, storeOptions] = await Promise.all([getUserDetail(id), listStoreOptions().catch(() => [])]);
   if (!u) notFound();
   const types = userTypes({ platformRole: u.platform?.role ?? null, stores: u.stores, customerStores: u.customerOf.length });
   const disabled = u.profileStatus === "disabled" || u.banned;
@@ -61,7 +61,17 @@ export default async function UserDetailPage({ params }: PageProps<"/admin/users
             ) : null}
           </dl>
           <div className="mt-4 border-t border-border pt-4">
-            <AccountActions userId={u.userId} email={u.email} disabled={disabled} manageable={!u.platform && u.userId !== ctx.user.id} />
+            <AccountActions
+              userId={u.userId}
+              email={u.email}
+              disabled={disabled}
+              manageable={!u.platform && u.userId !== ctx.user.id}
+              self={u.userId === ctx.user.id}
+              platformRole={u.platform?.role ?? null}
+              actorIsSuperAdmin={ctx.role === "super_admin"}
+              stores={storeOptions}
+              ownedStores={u.stores.filter((s) => s.role === "owner").map((s) => s.name)}
+            />
           </div>
         </Card>
         <Card title="Sign-ins" description="From Supabase Auth's audit log when available.">

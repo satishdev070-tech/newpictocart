@@ -79,7 +79,7 @@ export default async function SellerRegisterPage({ searchParams }: PageProps<"/s
       <MerchantSignUp next={next || undefined} plan={plan} theme={theme} lang={lang} intent={intent} />
       <p className="mt-6 text-center text-small text-muted">
         Already have a store?{" "}
-        <a href="/seller/login" className="font-semibold text-accent underline-offset-2 hover:underline">
+        <a href="/login" className="font-semibold text-accent underline-offset-2 hover:underline">
           Sign in
         </a>
       </p>

@@ -106,6 +106,7 @@ export const serverEnvSchema = publicEnvSchema.extend({
   META_WEBHOOK_VERIFY_TOKEN: z.string().min(16).max(200).optional(),
   GEMINI_API_KEY: z.string().min(10).optional(),
   GROQ_API_KEY: z.string().min(10).optional(),
+  NVIDIA_API_KEY: z.string().min(10).optional(),
   ANTHROPIC_API_KEY: z.string().min(10).optional(),
   /** Unsplash Access Key fallback; Admin → Media library stores one in the console (wins over env). */
   UNSPLASH_ACCESS_KEY: z.string().trim().optional(),

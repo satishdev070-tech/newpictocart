@@ -6,9 +6,31 @@ import { parseInput } from "@/lib/validation/common";
 import { assertPermission, requireTenant } from "@/lib/tenant/membership";
 import { AppError } from "@/lib/errors";
 import { getDashboardHome } from "@/features/analytics/home";
+import { can } from "@/lib/tenant/membership";
+import { getLocale } from "@/lib/i18n/server";
+import { logger } from "@/lib/observability/logger";
+import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { listCategoryFilterOptions } from "@/features/catalog/server/categories";
+import { getTenantTypeCatalogue } from "@/features/catalog/server/product-types";
+import { productListQuerySchema } from "@/features/catalog/schemas";
+import { getAiCreditBalance, refundAiCredit } from "@/features/ai-credits/server";
+import { assertProductCapacity, listProducts } from "@/features/catalog/server/products";
+import { INDUSTRY_SLUGS, isIndustry } from "@/features/stores/industries";
 import { fetchHttpsImages, fileToImagePayload, runSellerAiGeneration } from "./server";
-import { blogWritePrompt, businessCoachPrompt, contactReplyPrompt, productGeneratePrompt } from "./prompts";
+import { blogWritePrompt, businessCoachPrompt, contactReplyPrompt, productGeneratePrompt, storeAgentPrompt, storeSetupPrompt } from "./prompts";
+import { buildStoreSnapshot, coachMetrics, lowStockLines, topProductLines } from "./snapshot";
+import { persistStoreSetup } from "./store-setup";
 import {
+  agentChatInputSchema,
+  agentReplyContentSchema,
+  agentReplyResultSchema,
+  storeSetupContentSchema,
+  storeSetupInputSchema,
+  STORE_SETUP_MAX_PRODUCTS,
+  type AgentChatInput,
+  type AgentReplyResult,
+  type StoreSetupResult,
   businessCoachContentSchema,
   businessCoachResultSchema,
   contactReplyContentSchema,
@@ -54,7 +76,19 @@ export async function generateProductFromImageAction(input: {
     if (!images.length && !(parsed.hint && parsed.hint.length >= 3)) {
       throw new AppError("VALIDATION", { fieldErrors: { _form: ["Add a product photo or a short hint describing what to generate"] } });
     }
-    const prompt = productGeneratePrompt({ hint: parsed.hint, locale: parsed.locale ?? "en-IN", images });
+    // The store's own categories and product types, so the AI's hints map onto real options.
+    const [categories, types] = await Promise.all([
+      listCategoryFilterOptions(ctx.tenantId).catch(() => []),
+      getTenantTypeCatalogue(ctx.tenantId).catch(() => null),
+    ]);
+    const prompt = productGeneratePrompt({
+      hint: parsed.hint,
+      locale: parsed.locale ?? "en-IN",
+      images,
+      storeName: ctx.tenantName,
+      categories: categories.map((c) => c.name),
+      productTypes: types?.types.map((t) => t.key) ?? [],
+    });
     const r = await runSellerAiGeneration({
       tenantId: ctx.tenantId,
       userId: ctx.user.id,
@@ -136,34 +170,143 @@ export async function refreshBusinessCoachAction(): Promise<ActionResult<Busines
   return runAction("sellerAi.businessCoach", async () => {
     const ctx = await requireTenant();
     assertPermission(ctx, "analytics.read");
-    const home = await getDashboardHome(ctx);
-    const metrics = {
-      revenueMinor30d: home.sales?.kpis.revenueMinor ?? null,
-      orders30d: home.sales?.kpis.orders ?? null,
-      aovMinor30d: home.sales?.kpis.aovMinor ?? null,
-      activeProducts: home.counts.activeProducts,
-      allProducts: home.counts.allProducts,
-      customers: home.counts.customers,
-      toFulfil: home.counts.toFulfil,
-      lowStock: home.lowStock?.total ?? null,
-      revenueChangePct: home.sales?.kpis.revenueChange ?? null,
-    };
+    const [home, language] = await Promise.all([getDashboardHome(ctx), getLocale()]);
+    const metrics = coachMetrics(home);
     const setupPending = home.setup.filter((s) => !s.done).map((s) => s.label);
     const prompt = businessCoachPrompt({
       storeName: ctx.tenantName,
-      locale: "en-IN",
+      language,
       metrics,
       setupPending,
+      topProducts: topProductLines(home),
+      lowStock: lowStockLines(home),
     });
     const r = await runSellerAiGeneration({
       tenantId: ctx.tenantId,
       userId: ctx.user.id,
       feature: "business_coach",
       creditKind: "business_coach",
-      input: { metrics, setupPending },
+      input: { metrics, setupPending, language },
       prompt,
       schema: businessCoachContentSchema,
     });
     return businessCoachResultSchema.parse(r.data);
+  });
+}
+
+const AGENT_DAILY_LIMIT = 60;
+
+/**
+ * Store assistant chat. The store is the caller's active membership (never a client id); facts
+ * are read with the seller's own session, so RLS limits them to this store and to what the
+ * member's role may see. One credit-debited generation per question.
+ */
+export async function askStoreAgentAction(input: AgentChatInput): Promise<ActionResult<AgentReplyResult>> {
+  return runAction("sellerAi.storeAgent", async () => {
+    const v = parseInput(agentChatInputSchema, input);
+    const ctx = await requireTenant();
+    assertPermission(ctx, "analytics.read");
+    const [home, language, balance, products] = await Promise.all([
+      getDashboardHome(ctx),
+      getLocale(),
+      getAiCreditBalance(ctx.tenantId),
+      can(ctx, "catalog.read")
+        ? listProducts(ctx.tenantId, productListQuerySchema.parse({}), 25)
+            .then((r) => r.rows)
+            .catch((err: unknown) => {
+              logger.warn("seller_ai.agent_products_unavailable", { message: err instanceof Error ? err.message.slice(0, 120) : "unknown" });
+              return [];
+            })
+        : Promise.resolve([]),
+    ]);
+    const snapshot = buildStoreSnapshot({
+      storeName: ctx.tenantName,
+      storeStatus: ctx.tenantStatus,
+      storeUrl: storeOrigin(storeSubdomain(ctx.tenantSlug)),
+      home,
+      products: products.map((p) => ({ title: p.title, status: p.status, minPrice: p.minPrice, stockTotal: p.stockTotal, categoryName: p.categoryName })),
+      creditBalance: balance,
+    });
+    const prompt = storeAgentPrompt({ storeName: ctx.tenantName, language, snapshot, messages: v.messages });
+    const r = await runSellerAiGeneration({
+      tenantId: ctx.tenantId,
+      userId: ctx.user.id,
+      feature: "store_agent",
+      creditKind: "store_agent",
+      input: { question: v.messages[v.messages.length - 1]!.content.slice(0, 500), turns: v.messages.length, language },
+      prompt,
+      schema: agentReplyContentSchema,
+      limit: { key: "seller-agent", perDay: AGENT_DAILY_LIMIT, message: `You've asked the store assistant ${AGENT_DAILY_LIMIT} questions today. Try again tomorrow.` },
+    });
+    return agentReplyResultSchema.parse(r.data);
+  });
+}
+
+/**
+ * "Set up your store from a prompt": description + product names (+ optional photos, matched by
+ * position) → categories and draft products in THIS store, optionally the matching theme as a draft.
+ */
+export async function setupStoreFromPromptAction(fd: FormData): Promise<ActionResult<StoreSetupResult>> {
+  return runAction("sellerAi.storeSetup", async () => {
+    let names: unknown = [];
+    try {
+      names = JSON.parse(typeof fd.get("products") === "string" ? String(fd.get("products")) : "[]");
+    } catch {
+      names = [];
+    }
+    const v = parseInput(storeSetupInputSchema, {
+      prompt: fd.get("prompt"),
+      products: Array.isArray(names) ? names.filter((n) => typeof n === "string" && n.trim()) : [],
+      applyTheme: fd.get("applyTheme") === "true",
+    });
+    const ctx = await requireTenant();
+    assertPermission(ctx, "catalog.write");
+    if (v.applyTheme) assertPermission(ctx, "theme.edit");
+    // Fail on the plan's product limit before any credits are spent.
+    await assertProductCapacity(ctx.tenantId, v.products.length || 4);
+
+    const files: (File | null)[] = Array.from({ length: STORE_SETUP_MAX_PRODUCTS }, (_, i) => {
+      const f = fd.get(`image_${i}`);
+      return f instanceof File && f.size > 0 ? f : null;
+    }).slice(0, Math.max(v.products.length, 0));
+    const images = (await Promise.all(files.filter((f): f is File => Boolean(f)).slice(0, 4).map(fileToImagePayload))).filter((x): x is NonNullable<typeof x> => Boolean(x));
+
+    const supabase = await createSupabaseServerClient();
+    const [{ data: store }, categories] = await Promise.all([
+      supabase.from("stores").select("store_categories(slug)").eq("tenant_id", ctx.tenantId).maybeSingle(),
+      listCategoryFilterOptions(ctx.tenantId).catch(() => []),
+    ]);
+    const cat = store?.store_categories as { slug: string } | { slug: string }[] | null | undefined;
+    const currentSlug = (Array.isArray(cat) ? cat[0]?.slug : cat?.slug) ?? null;
+    const currentIndustry = currentSlug && isIndustry(currentSlug) ? currentSlug : null;
+
+    const prompt = storeSetupPrompt({
+      storeName: ctx.tenantName,
+      prompt: v.prompt,
+      products: v.products,
+      industries: INDUSTRY_SLUGS,
+      currentIndustry,
+      existingCategories: categories.map((c) => c.name),
+      // Catalogue copy is shopper-facing: written in English whatever the panel language.
+      language: "en",
+      images,
+    });
+    const r = await runSellerAiGeneration({
+      tenantId: ctx.tenantId,
+      userId: ctx.user.id,
+      feature: "store_setup",
+      creditKind: "store_setup",
+      input: { prompt: v.prompt.slice(0, 500), products: v.products, images: images.length },
+      prompt,
+      schema: storeSetupContentSchema,
+    });
+    const plan = storeSetupContentSchema.parse(r.data);
+    const industry = currentIndustry ?? (plan.industry && isIndustry(plan.industry) ? plan.industry : null);
+    try {
+      return await persistStoreSetup(ctx, plan, { industry, applyTheme: v.applyTheme, images: files });
+    } catch (err) {
+      await refundAiCredit(r.charge, err instanceof Error ? err.message : "store setup failed");
+      throw err;
+    }
   });
 }

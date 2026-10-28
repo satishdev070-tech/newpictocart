@@ -27,6 +27,9 @@ export const createAccountSchema = z.object({
 const reason = z.string().trim().min(10, "Give a reason of at least 10 characters").max(500);
 
 export const accountTargetSchema = z.object({ userId: z.uuid(), reason });
+export const addCustomerRoleSchema = z.object({ userId: z.uuid(), tenantId: z.uuid("Choose a store"), reason });
+/** `confirm` is checked against the exact phrase in rules.ts (server side too). */
+export const deleteAccountSchema = z.object({ userId: z.uuid(), reason, confirm: z.string().max(20) });
 export const accountStatusSchema = z.object({ userId: z.uuid(), status: z.enum(["active", "disabled"]), reason });
 
 export type DirectoryStore = { tenantId: string; name: string; slug: string; role: string; status: string; theme: string | null };
