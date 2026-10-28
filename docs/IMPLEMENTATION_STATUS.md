@@ -13,7 +13,7 @@ _Last updated: 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-
 
 - **Migration `20261028004500_ai_credit_one_time_codes.sql`:** table `ai_credit_one_time_codes` (SHA-256 hash + last4 only; statuses unused/redeemed/revoked); platform RPCs create/list/revoke; seller `redeem_ai_credit_code` under `billing.manage` → ledger kind `otc_redeem` + balance. Widens `ai_credit_ledger_kind_check`.
 - **Admin** `/admin/ai-credits`: Generate code (plaintext once), codes table (code/credits/status/used by/created), revoke unused.
-- **Seller:** `redeemAiCreditCodeAction` + schemas in `features/ai-credits` (wallet page may import).
+- **Seller:** `redeemAiCreditCodeAction` + schemas in `features/ai-credits`; wallet `/dashboard/wallet` redeems via the same action.
 - **Tests:** `tests/unit/ai-credits/otc.test.ts`.
 
 ## Seller AI on NVIDIA NIM + store assistant (2026-10-28, branch `claude/dreamy-raman-b1149f`)

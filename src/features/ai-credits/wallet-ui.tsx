@@ -16,21 +16,9 @@ import { SELLER_AI_KIND_LABELS } from "@/features/seller-ai/schemas";
 import { AI_FEATURES } from "@/features/ai-health/registry";
 import type { AiCreditCatalog, AiCreditLedgerRow, AiCreditPurchaseRow } from "./schemas";
 import { AiCreditBuyPanel } from "./components";
-import * as aiCreditActions from "./actions";
+import { redeemAiCreditCodeAction } from "./actions";
 
 type FormAction = (prev: ActionResult | null, fd: FormData) => Promise<ActionResult>;
-
-const OTC_ACTION_KEYS = ["redeemAiCreditCodeAction", "redeemAiCreditOtcAction", "redeemAiOtcCodeAction", "redeemOtcAction"] as const;
-
-/** Pick up OTC redeem when a parallel agent lands it on ai-credits/actions. */
-function resolveOtcRedeemAction(): FormAction | null {
-  const bag = aiCreditActions as Record<string, unknown>;
-  for (const key of OTC_ACTION_KEYS) {
-    const fn = bag[key];
-    if (typeof fn === "function") return fn as FormAction;
-  }
-  return null;
-}
 
 const NUMBER = new Intl.NumberFormat("en-IN");
 const statusTone = { pending: "warning", approved: "success", declined: "error", cancelled: "neutral" } as const;
@@ -86,16 +74,10 @@ function SlideOver({ open, onClose, title, description, children }: { open: bool
   );
 }
 
-const OTC_UNAVAILABLE: FormAction = async () => ({
-  ok: false,
-  error: { code: "CONFLICT", message: "One-time codes are not available yet.", fieldErrors: { _form: ["One-time codes are not available yet."] } },
-});
-
 function OtcModal({ open, onClose, canManage }: { open: boolean; onClose: () => void; canManage: boolean }) {
   const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
-  const redeem = resolveOtcRedeemAction();
-  const [state, formAction] = useActionState(redeem ?? OTC_UNAVAILABLE, null);
+  const [state, formAction] = useActionState(redeemAiCreditCodeAction as FormAction, null);
   const { show } = useToast();
   useEffect(() => {
     const d = ref.current;
@@ -115,22 +97,21 @@ function OtcModal({ open, onClose, canManage }: { open: boolean; onClose: () => 
   const errors = fieldErrors(state);
   return (
     <dialog ref={ref} aria-labelledby={titleId} className="m-auto w-[min(92vw,420px)] rounded-xl border border-border bg-surface p-0 text-foreground shadow-lg backdrop:bg-black/40" onClose={onClose}>
-      <form action={redeem ? formAction : undefined} className="space-y-4 p-5" onSubmit={redeem ? undefined : (e) => e.preventDefault()}>
+      <form action={formAction} className="space-y-4 p-5">
         <div>
           <h2 id={titleId} className="text-h3">
             Use one-time code
           </h2>
-          <p className="mt-1 text-small text-muted">Enter a partner or promo one-time code to add AI credits to this store.</p>
+          <p className="mt-1 text-small text-muted">Enter a Pictocart AI credit code (OTC-…) to add credits to this store.</p>
         </div>
         {!canManage ? <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-small text-warning">Only the store owner can redeem codes.</p> : null}
-        {!redeem ? <p className="rounded-md border border-border bg-surface-secondary px-3 py-2 text-small text-muted">Code redemption will activate when the platform finishes rolling out one-time codes.</p> : null}
         {state && !state.ok ? <FormMessage state={state} /> : null}
-        <TextField label="One-time code" name="code" required autoComplete="off" autoCapitalize="characters" placeholder="OTC-XXXXXXXXXXXX" disabled={!canManage || !redeem} errors={errors.code} />
+        <TextField label="One-time code" name="code" required autoComplete="off" autoCapitalize="characters" placeholder="OTC-XXXXXXXXXXXX" disabled={!canManage} errors={errors.code} />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <SubmitButton disabled={!canManage || !redeem}>Redeem</SubmitButton>
+          <SubmitButton disabled={!canManage}>Redeem</SubmitButton>
         </div>
       </form>
     </dialog>
