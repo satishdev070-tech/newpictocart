@@ -83,6 +83,7 @@ Cut skeleton time for Seller dashboard and Admin console **without** caching pri
 - **Dashboard layout:** `requireTenant` + site mode / i18n / cookies / panel-switch stay blocking; bell + alerts + AI credits and the trial banner stream under `<Suspense>` (`SellerTopbarChrome` / `SellerTrialBanner`). Child routes use existing `loading.tsx` skeletons and are no longer blocked on chrome reads.
 - **Admin console layout:** `requirePlatform` + nav + panel-switch stay blocking; `platform_overview` attention chips, inbox bell, and support-session banner stream under Suspense.
 - **Dedupe:** shared request-cached `countOrdersToFulfil` for layout alerts + home; `getBellData` React.cache’d on primitives so home “Recent activity” reuses the layout bell read.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **137 files / 1,623 tests**, build). Commit `f54609c`.
 - **Branch:** `cursor/seller-admin-redis-public-c73e` (Part B; Redis agent owns `src/lib/cache/*`).
 
 ## Seller / admin Phase 1 speed (2026-10-27)

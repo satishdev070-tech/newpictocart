@@ -27,6 +27,7 @@ import { accountAccessFor } from "@/lib/auth/landing";
 import { canSwitchPanels } from "@/lib/auth/role-routing";
 import { SUPPORT_LOGIN_COOKIE, readSupportLogin } from "@/features/platform/server/store-admin";
 import { endSupportLoginAction } from "@/features/platform/store-admin-actions";
+
 export async function generateMetadata(): Promise<Metadata> {
   return { title: { default: "Dashboard", template: "%s · Dashboard" }, robots: { index: false, follow: false }, ...(await platformIconMetadata()) };
 }
