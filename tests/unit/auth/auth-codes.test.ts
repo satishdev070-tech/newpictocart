@@ -54,12 +54,13 @@ describe("sendAuthCode", () => {
     expect(await sendAuthCode({ email: "nobody@example.com", kind: "recovery", redirectTo: "https://pictocartdev.in/auth/callback" })).toEqual({ status: "no-account" });
   });
 
-  it("reports the real code length (8-digit Supabase setting)", async () => {
+  it("always reports codeLength 6 even when Supabase returns a longer OTP", async () => {
     const { sendAuthCode, codeLengthOf, knownCodeLength } = await import("@/features/auth/server/auth-codes");
     linkResults.push({ data: { user: { id: "u1", email_confirmed_at: "2026-10-01T00:00:00Z", user_metadata: {} }, properties: { email_otp: "21914449", hashed_token: "h" } }, error: null });
-    expect(await sendAuthCode({ email: "a@example.com", kind: "signin", redirectTo: "https://pictocartdev.in/auth/callback" })).toEqual({ status: "sent", codeLength: 8 });
-    expect(knownCodeLength()).toBe(8);
+    expect(await sendAuthCode({ email: "a@example.com", kind: "signin", redirectTo: "https://pictocartdev.in/auth/callback" })).toEqual({ status: "sent", codeLength: 6 });
+    expect(knownCodeLength()).toBe(6);
     expect(codeLengthOf(null)).toBe(6);
+    expect(codeLengthOf("21914449")).toBe(6);
   });
 
   it("reports a provider failure when the email could not be delivered", async () => {
