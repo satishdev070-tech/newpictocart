@@ -76,6 +76,16 @@ Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coac
 - **Verification:** `pnpm check` ✅ (typecheck, lint, **130 files / 1,546 tests**, build). Seller-ai unit tests under `tests/unit/seller-ai/`.
 - **Branch (backend fix):** `cursor/seller-ai-false-setup-ui-c73e`.
 
+## Products list/detail speed (2026-10-28, ADR-010 — no Redis on private products)
+
+Lean live queries for Seller **Products** (no Data Cache / Redis on private tenant lists).
+
+- **List (`listProducts`):** drop unused `attributes` JSONB from the select; PostgREST `estimated` count when unfiltered (exact when filters apply); soft-fail `stockTotals` when `inventory.read` / embed fails (stock cell shows "—", list still loads).
+- **Index:** migration `20261028004400_products_list_updated_at_idx.sql` — `(tenant_id, updated_at desc)` for default `updated_desc` sort.
+- **Editor options:** lean category (`id, parent_id, name, position, size_chart_id`) and size-chart (`id, name`) selects; soft-fail non-critical detail embeds (collections, inventory levels); `[id]/loading.tsx` FormSkeleton.
+- **`countProducts`:** request-memoized via `React.cache` (plan limits / import).
+- **Branch:** `cursor/seller-pages-speed-crash-c73e`.
+
 ## Seller / admin Part B — stream shell chrome (2026-10-28)
 
 Cut skeleton time for Seller dashboard and Admin console **without** caching private data (ADR-010). No Redis on private RPCs (`dashboard_home`, `platform_overview`, users directory).
