@@ -175,7 +175,7 @@ export function ProductEditor({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
           <ProductGenerateAi imageUrls={mediaUrls.filter((u) => u.startsWith("https://"))} onApply={applyAi} />
-          <Card title="Basics">
+          <Card tour="product-basics" title="Basics">
             <div className="space-y-4">
               <div>
                 <L htmlFor="p-title">Title</L>

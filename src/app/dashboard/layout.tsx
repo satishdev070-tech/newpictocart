@@ -64,7 +64,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   const ctx = await requireTenant();
   const storeUrl = storeOrigin(storeSubdomain(ctx.tenantSlug));
   // Independent reads in parallel (incl. site_mode — was a solo wave before alerts/bell).
-  const [alerts, trial, cookieStore, bell, aiCreditBalance, siteMode] = await Promise.all([
+  const [alerts, trial, cookieStore, bell, aiCreditBalance, siteMode, { locale, m, t }] = await Promise.all([
     getDashboardAlerts(ctx),
     // Free forever (active, no trial end) must not show a trial banner.
     ctx.tenantStatus === "trial" ? trialInfo(ctx.tenantId) : Promise.resolve(null),
@@ -72,10 +72,14 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     getBellData({ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId }),
     ctx.permissions.has("marketing.read") ? getAiCreditBalance(ctx.tenantId) : Promise.resolve(null),
     getStoreSiteMode(ctx.tenantId),
+    getI18n(),
   ]);
-  const groups = navForSiteMode(
-    DASHBOARD_NAV.map((g) => ({ ...g, items: g.items.filter((i) => ctx.permissions.has(i.permission)) })).filter((g) => g.items.length),
-    siteMode,
+  const groups = localizeNav(
+    navForSiteMode(
+      DASHBOARD_NAV.map((g) => ({ ...g, items: g.items.filter((i) => ctx.permissions.has(i.permission)) })).filter((g) => g.items.length),
+      siteMode,
+    ),
+    m.nav,
   );
   const showTrialBanner = ctx.tenantStatus === "trial" && Boolean(trial?.endsAt);
   const displayName = ctx.user.displayName ?? ctx.user.email ?? "Account";
