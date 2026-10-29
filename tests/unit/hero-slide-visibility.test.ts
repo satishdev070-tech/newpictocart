@@ -2,13 +2,14 @@ import { createElement, type ReactNode } from "react";
 import { prerenderToNodeStream } from "react-dom/static";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { SECTION_DEFINITIONS } from "@/features/theme/sections/definitions";
-import { itemGroups, setGroupVisible } from "@/features/theme/site-builder/field-groups";
+import { isGroupShown, itemGroups, setGroupVisible } from "@/features/theme/site-builder/field-groups";
 import { slideGroups } from "@/features/theme/render/slide-visibility";
 import { curatedStockSet } from "@/lib/unsplash-stock";
 
 /**
  * Phase A1: Hero item-group Off must hide without deleting merchant content; On restores the same
  * strings/media. Renderer paths (slideshow + classic layouts) respect show* flags.
+ * Phase F: shared-helper parity (isGroupShown ↔ slideGroups) + subtitle Off/On.
  */
 
 vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://abc.supabase.co");
@@ -86,6 +87,35 @@ describe("Hero slide group visibility helpers", () => {
       showActions: true,
     });
     expect(slideGroups(item).title).toBe(true);
+  });
+
+  it("Subtitle Off/On keeps eyebrow and stays aligned with isGroupShown / slideGroups", () => {
+    const list = SECTION_DEFINITIONS.Hero.fields.find((f) => f.kind === "list" && f.key === "slides");
+    if (!list || list.kind !== "list") throw new Error("Hero slides list field missing");
+    const subtitle = itemGroups(list.fields).find((g) => g.id === "subtitle");
+    expect(subtitle).toBeTruthy();
+    let item: Record<string, unknown> = { ...baseSlide };
+    item = setGroupVisible(subtitle!, item, false);
+    expect(item.eyebrow).toBe(baseSlide.eyebrow);
+    expect(item.showSubtitle).toBe(false);
+    expect(isGroupShown("subtitle", item)).toBe(false);
+    expect(slideGroups(item).subtitle).toBe(false);
+
+    item = setGroupVisible(subtitle!, item, true);
+    expect(item.eyebrow).toBe(baseSlide.eyebrow);
+    expect(item.showSubtitle).toBe(true);
+    expect(isGroupShown("subtitle", item)).toBe(true);
+    expect(slideGroups(item).subtitle).toBe(true);
+  });
+
+  it("isGroupShown and slideGroups agree for omitted and explicit flags", () => {
+    const omitted = { ...baseSlide };
+    expect(isGroupShown("title", omitted)).toBe(true);
+    expect(slideGroups(omitted).title).toBe(true);
+    const hidden = { ...baseSlide, showTitle: false, showMedia: false };
+    expect(isGroupShown("title", hidden)).toBe(slideGroups(hidden).title);
+    expect(isGroupShown("media", hidden)).toBe(slideGroups(hidden).media);
+    expect(slideGroups(hidden)).toMatchObject({ title: false, media: false, description: true, actions: true, subtitle: true });
   });
 });
 

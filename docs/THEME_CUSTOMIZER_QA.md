@@ -1,0 +1,142 @@
+# Theme customizer QA (Phase F)
+
+Cross-phase acceptance harness for the Pictocart theme customizer master scope.
+Phases **A–B** ship on their feature branches (A1 merged on main as Hero toggle preserve).
+Phases **C–E** land in parallel — use these checklists when verifying each PR and the final merge train.
+
+This is **not** a Playwright suite. Automated coverage today is focused unit tests (especially A1) plus a smoke script that lists checklist IDs.
+
+| Tool | Command |
+|---|---|
+| List checklist IDs | `pnpm exec tsx scripts/dev/theme-customizer-qa/smoke.mts` |
+| Filter by phase | `pnpm exec tsx scripts/dev/theme-customizer-qa/smoke.mts --phase A1` |
+| JSON | `pnpm exec tsx scripts/dev/theme-customizer-qa/smoke.mts --json` |
+| Catalog source | `scripts/dev/theme-customizer-qa/checklist.ts` |
+| Harness unit test | `tests/unit/theme-customizer-qa-checklist.test.ts` |
+
+Mark each item `[ ]` → `[x]` during manual QA. IDs are stable (`A1-01` … `E-06`).
+
+---
+
+## A1 — Hero Off/On preserves content
+
+**Branch / PR:** `cursor/hero-toggle-preserve-c73e` (PR #62, merged)  
+**Surfaces:** Dashboard → Theme editor → Hero / slideshow → edit slide → Title / Description / Media / Actions (and Subtitle) toggles  
+**Code:** `field-groups.setGroupVisible`, `slide-visibility.slideGroups`, Hero renderers in `designs-a` / `variants` / `sections`
+
+| ID | Pass when | Auto |
+|---|---|---|
+| **A1-01** | Turn **Title** Off. Heading / headingAccent remain in the slide JSON / item editor when toggled back On. | unit |
+| **A1-02** | Turn **Description** Off. Subheading (and related description fields) remain. | unit |
+| **A1-03** | Turn **Media** Off. `imagePath` / alt / mobile image remain. | unit |
+| **A1-04** | Turn **Actions** Off. CTA label + href remain. | unit |
+| **A1-05** | Full Off→On round-trip restores the **same** strings and media (no blanking via `clearGroup`). | unit |
+| **A1-06** | With groups Off, canvas / storefront slideshow or split Hero **hides** those groups but schema still holds the content. | unit + manual |
+| **A1-07** | **Subtitle** Off sets `showSubtitle: false` and does not clear eyebrow / subtitle text. | unit |
+| **A1-08** | Themes saved before show* flags still show every group (omitted flag ≡ shown). | unit |
+
+**Manual spot-check (seeded store `aangan.localhost:3000`):** edit Hero slide → Off Title → Save draft → reload editor → On Title → strings still present → Publish → storefront matches.
+
+---
+
+## A2 — Variant generate / save / SKU / stock
+
+**Branch / PR:** `cursor/product-variants-harden-c73e` (PR #63)  
+**Surfaces:** Dashboard → Products → Add/Edit → Options & Variants  
+**Code:** `product-editor`, `variants.ts`, `catalogDbError`, `previewVariantMatrixRegen`
+
+| ID | Pass when | Auto |
+|---|---|---|
+| **A2-01** | Duplicate SKU and MRP &lt; price show **field-level** errors (not a vague form message). | manual* |
+| **A2-02** | Option/value mismatches, empty option names, MAX_VARIANTS, STALE_PRODUCT, NO_ACTIVE_VARIANT map to Options / Variants / `_form` errors sellers can act on. | manual* |
+| **A2-03** | Generate Variants keeps rows that still match by `comboKey` (id, price, SKU preserved). | manual* |
+| **A2-04** | Regen that would drop unmatched / stock-backed rows asks for confirm before proceeding. | manual* |
+| **A2-05** | Opening stock copy applies to **new** variants only; existing variant ids link to Inventory. | manual* |
+| **A2-06** | While save is pending, a second submit is ignored and the button shows Saving…. | manual* |
+
+\*Unit coverage lands with the A2 branch (`tests/unit/catalog/variants.test.ts`); treat as manual until that PR is merged.
+
+---
+
+## B — Gym themes + distinct imagery + onboarding thumbs
+
+**Branch / PR:** `cursor/gym-themes-imagery-c73e` (PR #64)  
+**Surfaces:** `/dashboard/themes`, marketing `/themes`, `/start` Theme step  
+**Code:** industry `gym`, themes `iron-floor` / `class-pulse`, `themeImagerySeed` / `themeStockSet`
+
+| ID | Pass when | Auto |
+|---|---|---|
+| **B-01** | Marketplace filter / onboarding ranking includes **Gym & Fitness Studio**. | manual* |
+| **B-02** | `iron-floor` and `class-pulse` look like distinct gym packs (not a rename of Studio Fit). | manual* |
+| **B-03** | Two themes in the same category show **different** card / stock thumbs. | manual* |
+| **B-04** | Onboarding Theme cards show filled thumbs (not blank placeholders). | manual* |
+| **B-05** | Empty storefront slots / mockups rotate imagery by theme key within the family pool. | manual* |
+
+\*Automated helpers ship on the B branch; re-check after merge.
+
+---
+
+## C — Autosave draft / publish while dirty blocked / canvas local
+
+**Branch:** `cursor/theme-local-first-save-c73e` (Phase C, parallel)  
+**Surfaces:** `/dashboard/theme` top bar + canvas iframe  
+**Baseline on main today:** local `apply()` → canvas postMessage preview; Publish already `disabled` while `dirty` (`top-bar.tsx`). Autosave / local-first persistence is the Phase C increment.
+
+| ID | Pass when | Auto |
+|---|---|---|
+| **C-01** | Typing / toggling in the panel updates the canvas without clicking Save draft. | manual |
+| **C-02** | Unsaved (or autosaved local) edits survive a soft reload of the builder as designed by Phase C. | manual |
+| **C-03** | Publish button stays disabled while dirty; title/tooltip says to save first. | manual |
+| **C-04** | Publish dialog cannot complete while dirty (client disabled + server expects saved draft). | manual |
+| **C-05** | After Save draft, dirty clears and Publish enables for roles with `theme.publish`. | manual |
+
+---
+
+## D — Text style + resize on Hero / RichText
+
+**Branch:** Phase D text controls (parallel)  
+**Surfaces:** Site builder → Hero slide text + RichText section  
+**Baseline on main today:** global token typography (H1–H6 / p / small) in Theme settings — **not** per-string instance styling.
+
+| ID | Pass when | Auto |
+|---|---|---|
+| **D-01** | Hero heading / subheading expose per-text style controls (size / weight / color as shipped). | manual |
+| **D-02** | RichText heading / body expose the same controls. | manual |
+| **D-03** | Resize / style preview on canvas does not wipe neighboring slide or section content. | manual |
+| **D-04** | Styles survive Save draft → reload → Publish → live storefront. | manual |
+
+---
+
+## E — Page templates (4×) + popup newsletter \| form
+
+**Branch:** `cursor/theme-pages-popups-c73e` (Phase E, parallel)  
+**Surfaces:** Theme editor → Pages → Add page; Pages → Popups  
+**Baseline on main today:** starter templates include About / Blogs / Contact / FAQ (and more) in `page-templates.ts`; popups support `newsletter: boolean` only (form mode is Phase E).
+
+| ID | Pass when | Auto |
+|---|---|---|
+| **E-01** | **About** template adds a page with only page-allowed section types; validates through strict parser. | manual† |
+| **E-02** | **Contact** template same. | manual† |
+| **E-03** | **FAQ** template same. | manual† |
+| **E-04** | **Blog(s)** template same. | manual† |
+| **E-05** | Popup with newsletter on shows email sign-up (`NewsletterForm`) on storefront / canvas. | manual |
+| **E-06** | Popup **form** mode (contact / lead) is distinct from newsletter when Phase E ships. | manual |
+
+†Partial unit coverage already exists for all page templates on main (`tests/unit/site-builder-pages.test.ts`); Phase E may extend templates or popup form — re-run those tests after merge.
+
+---
+
+## Suggested merge / verify order
+
+1. **A1** (done on main) — run smoke + A1 unit files.  
+2. **A2** + **B** — feature PRs; run their unit suites, then mark A2 / B rows.  
+3. **C** — local-first / autosave; verify C-01…C-05 against dirty Publish guards.  
+4. **D** — text controls on Hero + RichText.  
+5. **E** — confirm 4× templates + popup newsletter\|form.  
+6. Full `pnpm check` on the integration branch.
+
+## Out of scope for Phase F
+
+- Full Playwright / visual regression suite  
+- Re-implementing C–E features on this branch  
+- Marketplace theme content rewrites unrelated to B imagery
