@@ -52,7 +52,7 @@ function ThemeCardPreview({ theme }: { theme: MarketplaceCard }) {
 
   const preset = mockupAsPreset(theme.mockup);
   if (themeSiteType(theme) === "informative") return <InformativeThemeMockup theme={{ key: theme.key, name: theme.name, tagline: theme.tagline, preset }} />;
-  if (!theme.previewUrl) return <ThemeMockup preset={preset} name={theme.name.split(" ")[0]!} tagline={theme.tagline} />;
+  if (!theme.previewUrl) return <ThemeMockup preset={preset} name={theme.name.split(" ")[0]!} tagline={theme.tagline} themeKey={theme.key} />;
 
   return (
     <div ref={frame} className="relative h-full overflow-hidden bg-white" aria-hidden>

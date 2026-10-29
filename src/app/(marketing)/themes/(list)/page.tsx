@@ -5,10 +5,10 @@ import { cn } from "@/lib/cn";
 import { buildMarketingMetadata } from "@/features/marketing-site/seo";
 import { siteOrigin } from "@/features/marketing-site/site";
 import { filterThemes, parseThemeQuery, themeIndustries, themesHref } from "@/features/marketing-site/themes";
-import { getCategoryImages } from "@/lib/unsplash";
 import { ThemeCard } from "@/features/marketing-site/components/theme-card";
 import { ButtonLink, Container } from "@/features/marketing-site/components/ui";
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { themeCardImage } from "@/features/theme/layouts/imagery";
 import { themeSiteType } from "@/features/theme/marketplace/types";
 import { industryName } from "@/features/stores/industries";
 
@@ -28,8 +28,8 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
   const query = parseThemeQuery(await searchParams);
   const industries = themeIndustries(MARKETPLACE_THEMES, query.siteType);
   const result = filterThemes(query);
-  // Category photo per card, shown when the theme has no captured screenshot.
-  const images = await getCategoryImages(result.items.map((t) => t.industry));
+  // Per-theme hero (rotated stock), shown when the theme has no captured screenshot.
+  const images = new Map(result.items.map((t) => [t.key, themeCardImage(t)] as const));
 
   return (
     <>
@@ -125,7 +125,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
           <ul className="mt-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {result.items.map((t) => (
               <li key={t.key} className="h-full">
-                <ThemeCard theme={t} image={images.get(t.industry) ?? null} headingLevel="h2" location="themes_page" />
+                <ThemeCard theme={t} image={images.get(t.key) ?? null} headingLevel="h2" location="themes_page" />
               </li>
             ))}
           </ul>

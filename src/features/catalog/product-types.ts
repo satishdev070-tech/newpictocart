@@ -136,7 +136,7 @@ const SEEDS: Seed[] = [
   ["lehenga", "Lehenga", "Lehengas", ["fashion"], T.apparel],
   ["top", "Top", "Tops", ["fashion"], T.apparel],
   ["shirt", "Shirt", "Shirts", ["fashion"], T.apparel],
-  ["tshirt", "T-shirt", "T-shirts", ["fashion", "sports"], T.basicApparel],
+  ["tshirt", "T-shirt", "T-shirts", ["fashion", "sports", "gym"], T.basicApparel],
   ["bottom", "Bottom", "Bottoms", ["fashion"], T.apparel],
   ["jacket", "Jacket", "Jackets", ["fashion"], T.apparel],
   ["dupatta", "Dupatta", "Dupattas", ["fashion", "handicrafts"], T.apparel],
@@ -191,7 +191,7 @@ const SEEDS: Seed[] = [
   ["coffee", "Coffee", "Coffees", ["beverages"], T.beverage],
   ["beverage", "Juice & drink", "Juices & drinks", ["beverages", "grocery"], T.beverage],
   // Health & ayurveda
-  ["supplement", "Supplement", "Supplements", ["health", "ayurveda", "sports"], T.health],
+  ["supplement", "Supplement", "Supplements", ["health", "ayurveda", "sports", "gym"], T.health],
   ["medical_device", "Medical device", "Medical devices", ["health"], T.electronics],
   ["personal_care", "Personal care", "Personal care", ["health", "beauty", "general"], T.health],
   ["ayurvedic_medicine", "Ayurvedic medicine", "Ayurvedic medicines", ["ayurveda", "health"], T.health],
@@ -199,11 +199,11 @@ const SEEDS: Seed[] = [
   ["essential_oil", "Essential oil", "Essential oils", ["ayurveda", "organic", "fragrances"], T.beauty],
   // Sports
   ["sports_equipment", "Sports equipment", "Sports equipment", ["sports"], T.sports],
-  ["fitness_equipment", "Fitness equipment", "Fitness equipment", ["sports", "health"], T.sports],
-  ["sportswear", "Sportswear", "Sportswear", ["sports"], T.basicApparel],
+  ["fitness_equipment", "Fitness equipment", "Fitness equipment", ["sports", "health", "gym"], T.sports],
+  ["sportswear", "Sportswear", "Sportswear", ["sports", "gym"], T.basicApparel],
   ["outdoor_gear", "Outdoor & camping gear", "Outdoor & camping gear", ["sports", "bags"], T.sports],
   // Footwear
-  ["shoes", "Shoes", "Shoes", ["footwear", "sports"], T.footwear],
+  ["shoes", "Shoes", "Shoes", ["footwear", "sports", "gym"], T.footwear],
   ["sneakers", "Sneakers", "Sneakers", ["footwear"], T.footwear],
   ["sandals", "Sandals & heels", "Sandals & heels", ["footwear"], T.footwear],
   ["ethnic_footwear", "Juttis & kolhapuris", "Juttis & kolhapuris", ["footwear", "handicrafts"], T.footwear],

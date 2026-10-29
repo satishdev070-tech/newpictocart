@@ -43,6 +43,7 @@ import {
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
 import { themeSiteType } from "@/features/theme/marketplace/types";
 import { themeShot } from "@/features/marketing-site/theme-shots";
+import { themeStockThumbUrl } from "@/features/theme/layouts/imagery";
 import { isStartIntentId } from "./intents";
 import { buildSeedBrief } from "./brief";
 import { parseStartDraft, draftCategory, draftSiteMode, draftStoreName, type StartDraft } from "./draft/schema";
@@ -331,7 +332,12 @@ export async function listStartThemeOptionsAction(input: {
         ? (MARKETPLACE_THEMES.find((t) => t.key === preferredKey && themeSiteType(t) === "ecommerce") ?? null)
         : null;
 
-    return selectStartThemeOptions(ranked, preferred, (key) => themeShot(key, "desktop"));
+    return selectStartThemeOptions(ranked, preferred, (key) => {
+      const shot = themeShot(key, "desktop");
+      if (shot) return shot;
+      const theme = MARKETPLACE_THEMES.find((t) => t.key === key);
+      return theme ? themeStockThumbUrl(theme) : null;
+    });
   });
 }
 

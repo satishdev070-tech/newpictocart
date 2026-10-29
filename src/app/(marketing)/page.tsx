@@ -3,10 +3,10 @@ import type { ReactNode } from "react";
 import { buildMarketingMetadata, faqJsonLd, organizationJsonLd, serializeJsonLd, softwareApplicationJsonLd } from "@/features/marketing-site/seo";
 import { siteOrigin } from "@/features/marketing-site/site";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
-import { getCategoryImages } from "@/lib/unsplash";
 import { getLandingContent } from "@/features/marketing-site/server/landing";
 import { findTheme, SHOWCASE_INDUSTRIES, showcaseThemes } from "@/features/marketing-site/themes";
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { themeCardImage } from "@/features/theme/layouts/imagery";
 import { stripHighlights, themesShown, type SectionKey } from "@/features/marketing-site/landing";
 import {
   Features,
@@ -41,11 +41,12 @@ export default async function HomePage() {
   // One theme per industry; the CMS sets how many (default 8 = two rows of four).
   const themes = showcaseThemes(SHOWCASE_INDUSTRIES).slice(0, themesShown(content.themes));
   const hero = findTheme(HERO_THEME) ?? themes[0];
-  const [plans, themeImages] = await Promise.all([
-    getMarketingPlans(),
-    // Category photo per showcase theme, shown when the theme has no captured screenshot.
-    getCategoryImages(themes.map((t) => t.industry)),
-  ]);
+  const plans = await getMarketingPlans();
+  // Per-theme hero (rotated stock), shown when the theme has no captured screenshot.
+  const themeImages = new Map(themes.flatMap((t) => {
+    const img = themeCardImage(t);
+    return img ? [[t.key, img] as const] : [];
+  }));
   const tokens = { themes: MARKETPLACE_THEMES.length };
   // Hero fallback slideshow (when the CMS has no slides or image): the hero theme, then the showcase.
   const heroThemes = [...(hero ? [hero] : []), ...themes.filter((t) => t.key !== hero?.key)].slice(0, 4);

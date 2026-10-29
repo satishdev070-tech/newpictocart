@@ -10,6 +10,7 @@ import { JEWELLERY_THEMES } from "./themes/jewellery";
 import { FOOTWEAR_THEMES } from "./themes/footwear";
 import { HEALTH_THEMES } from "./themes/health";
 import { SPORTS_THEMES } from "./themes/sports";
+import { GYM_THEMES } from "./themes/gym";
 import { KIDS_THEMES } from "./themes/kids";
 import { BOOKS_THEMES } from "./themes/books";
 import { PETS_THEMES } from "./themes/pets";
@@ -94,7 +95,7 @@ const ORIGINAL_THEMES: MarketplaceTheme[] = [
   },
 ];
 
-const RAW_THEMES: MarketplaceTheme[] = [...INFORMATIVE_THEMES, ...FASHION_THEMES, ...ORIGINAL_THEMES, ...ELECTRONICS_THEMES, ...BEAUTY_THEMES, ...FURNITURE_THEMES, ...GROCERY_THEMES, ...JEWELLERY_THEMES, ...FOOTWEAR_THEMES, ...HEALTH_THEMES, ...SPORTS_THEMES, ...KIDS_THEMES, ...BOOKS_THEMES, ...PETS_THEMES, ...AUTOMOTIVE_THEMES, ...SMART_HOME_THEMES, ...BAGS_THEMES, ...WATCHES_THEMES, ...ORGANIC_THEMES, ...GOURMET_THEMES, ...EXTENDED_THEMES, ...GENERAL_THEMES];
+const RAW_THEMES: MarketplaceTheme[] = [...INFORMATIVE_THEMES, ...FASHION_THEMES, ...ORIGINAL_THEMES, ...ELECTRONICS_THEMES, ...BEAUTY_THEMES, ...FURNITURE_THEMES, ...GROCERY_THEMES, ...JEWELLERY_THEMES, ...FOOTWEAR_THEMES, ...HEALTH_THEMES, ...SPORTS_THEMES, ...GYM_THEMES, ...KIDS_THEMES, ...BOOKS_THEMES, ...PETS_THEMES, ...AUTOMOTIVE_THEMES, ...SMART_HOME_THEMES, ...BAGS_THEMES, ...WATCHES_THEMES, ...ORGANIC_THEMES, ...GOURMET_THEMES, ...EXTENDED_THEMES, ...GENERAL_THEMES];
 
 /**
  * Every theme gets its layout (section variants, header style, footer layout) from its industry's
