@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { MerchantSignUp } from "@/features/auth/merchant-auth";
-import { googleSignInAction } from "@/features/auth/actions";
-import { GoogleButton, OrDivider } from "@/components/auth/google-button";
-import { googleIdentityClientId, googleSignInAvailable } from "@/features/auth/google";
-import { GoogleIdentityButton } from "@/components/auth/google-identity";
 import { getSessionUser } from "@/lib/auth/session";
 import { landingPathFor } from "@/lib/auth/landing";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { AuthHeading, AuthSplit } from "@/components/auth/auth-split";
 import { MerchantAside } from "@/components/auth/auth-asides";
+import { GoogleSignInSlot } from "@/components/auth/google-sign-in-slot";
 import { findTheme, isThemeKey } from "@/features/marketing-site/themes";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { entryPlan, findPlan, isFreeForeverPlan, signupTrialDays } from "@/features/marketing-site/plans";
@@ -40,8 +37,6 @@ export default async function SellerRegisterPage({ searchParams }: PageProps<"/s
     redirect(next || (landing === "/onboarding" ? onboarding : landing));
   }
 
-  const google = await googleSignInAvailable("sellers");
-  const gisClientId = google ? await googleIdentityClientId() : null;
   const trial = signupTrialDays(plans);
   const freeForever = Boolean(entryPlan(plans) && isFreeForeverPlan(entryPlan(plans)!));
   const themeName = theme ? findTheme(theme)?.name : null;
@@ -66,16 +61,7 @@ export default async function SellerRegisterPage({ searchParams }: PageProps<"/s
           {planName ? <span className="rounded-full bg-accent-soft px-2.5 py-1 font-semibold text-accent">Plan: {planName}</span> : null}
         </p>
       ) : null}
-      {google ? (
-        <>
-          {gisClientId ? (
-            <GoogleIdentityButton clientId={gisClientId} next={next || onboarding} text="signup_with" fallback={<GoogleButton action={googleSignInAction} next={next || onboarding} label="Sign up with Google" />} />
-          ) : (
-            <GoogleButton action={googleSignInAction} next={next || onboarding} label="Sign up with Google" />
-          )}
-          <OrDivider />
-        </>
-      ) : null}
+      <GoogleSignInSlot next={next || onboarding} text="signup_with" label="Sign up with Google" />
       <MerchantSignUp next={next || undefined} plan={plan} theme={theme} lang={lang} intent={intent} />
       <p className="mt-6 text-center text-small text-muted">
         Already have a store?{" "}
