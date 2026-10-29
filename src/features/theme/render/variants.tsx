@@ -15,6 +15,7 @@ import { pickStock, type StockImage, type StockSet } from "@/lib/unsplash-stock"
 import type { ProductCardSettings } from "@/features/theme/schema/tokens";
 import type { CardRatio, CategoryVariant, ProductGridVariant } from "@/features/theme/sections/variants";
 import { Cta, Intro, hp, type IntroProps } from "./parts";
+import { slideGroups } from "./slide-visibility";
 import type { RenderContext } from "./context";
 
 /**
@@ -60,22 +61,31 @@ export function cardSettings(base: ProductCardSettings, ratio: CardRatio | undef
 // -----------------------------------------------------------------------------
 type Slide = SectionSettings<"Hero">["slides"][number];
 
+function cardHasCopy(sl: Slide) {
+  const g = slideGroups(sl);
+  return Boolean((g.title && sl.heading) || (g.actions && sl.ctaLabel) || (g.subtitle && sl.eyebrow) || (g.description && sl.subheading));
+}
+
 function HeroText({ sl, first, size = "lg", light = false }: { sl: Slide; first: boolean; size?: "lg" | "xl"; light?: boolean }) {
+  const g = slideGroups(sl);
   const H = first ? "h1" : "h2";
   return (
     <div className="space-y-4">
-      {sl.eyebrow ? <p className="sf-eyebrow !text-current opacity-80">{sl.eyebrow}</p> : null}
-      <H className={`sf-heading ${size === "xl" ? "text-5xl @[48rem]:text-6xl @[64rem]:text-8xl" : "text-4xl @[64rem]:text-6xl"}`}>
-        {sl.heading}
-        {sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}
-      </H>
-      {sl.subheading ? <p className="max-w-xl text-lg opacity-85">{sl.subheading}</p> : null}
-      <Cta label={sl.ctaLabel} href={sl.ctaHref} className={light ? "sf-btn sf-btn-light" : "sf-btn"} />
+      {g.subtitle && sl.eyebrow ? <p className="sf-eyebrow !text-current opacity-80">{sl.eyebrow}</p> : null}
+      {g.title ? (
+        <H className={`sf-heading ${size === "xl" ? "text-5xl @[48rem]:text-6xl @[64rem]:text-8xl" : "text-4xl @[64rem]:text-6xl"}`}>
+          {sl.heading}
+          {sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}
+        </H>
+      ) : null}
+      {g.description && sl.subheading ? <p className="max-w-xl text-lg opacity-85">{sl.subheading}</p> : null}
+      {g.actions ? <Cta label={sl.ctaLabel} href={sl.ctaHref} className={light ? "sf-btn sf-btn-light" : "sf-btn"} /> : null}
     </div>
   );
 }
 
 function SlideImage({ sl, stock, sizes, priority }: { sl: Slide; stock: StockImage | null; sizes: string; priority: boolean }) {
+  if (!slideGroups(sl).media) return null;
   return sl.mobileImagePath ? (
     <StoreArtImage path={sl.imagePath} mobilePath={sl.mobileImagePath} alt={sl.alt} sizes={sizes} priority={priority} stock={stock} />
   ) : (
@@ -153,7 +163,8 @@ export function HeroVariant({ s, ctx }: P<"Hero">) {
           </div>
         </section>
       );
-    case "band":
+    case "band": {
+      const g = slideGroups(first);
       return (
         <section className={panel}>
           <div className="relative aspect-[4/3] w-full @[48rem]:aspect-[21/8]">
@@ -163,19 +174,22 @@ export function HeroVariant({ s, ctx }: P<"Hero">) {
           </div>
           <div className="sf-container grid gap-6 py-10 @[64rem]:grid-cols-[1.4fr_1fr] @[64rem]:items-end @[64rem]:py-14">
             <div className="space-y-3">
-              {first.eyebrow ? <p className="sf-eyebrow !text-current opacity-80">{first.eyebrow}</p> : null}
-              <h1 className="sf-heading text-4xl @[64rem]:text-7xl">
-                {first.heading}
-                {first.headingAccent ? <em className="sf-hero-accent">{first.headingAccent}</em> : null}
-              </h1>
+              {g.subtitle && first.eyebrow ? <p className="sf-eyebrow !text-current opacity-80">{first.eyebrow}</p> : null}
+              {g.title ? (
+                <h1 className="sf-heading text-4xl @[64rem]:text-7xl">
+                  {first.heading}
+                  {first.headingAccent ? <em className="sf-hero-accent">{first.headingAccent}</em> : null}
+                </h1>
+              ) : null}
             </div>
             <div className="space-y-5">
-              {first.subheading ? <p className="text-lg opacity-85">{first.subheading}</p> : null}
-              <Cta label={first.ctaLabel} href={first.ctaHref} />
+              {g.description && first.subheading ? <p className="text-lg opacity-85">{first.subheading}</p> : null}
+              {g.actions ? <Cta label={first.ctaLabel} href={first.ctaHref} /> : null}
             </div>
           </div>
         </section>
       );
+    }
     case "cards": {
       // At least three cards: extra stock photos fill the row when the seller has one or two slides.
       const cards: { sl: Slide | null; stock: StockImage | null }[] = slides.map((sl, i) => ({ sl, stock: stock(i) }));
@@ -187,7 +201,7 @@ export function HeroVariant({ s, ctx }: P<"Hero">) {
               <li key={i} className="sf-hero-card relative shrink-0 overflow-hidden rounded-[calc(var(--sf-radius-card)+8px)]">
                 {c.sl ? <SlideImage sl={c.sl} stock={c.stock} sizes="(min-width: 768px) 70vw, 88vw" priority={i === 0} /> : <StoreImage path="" alt="" sizes="(min-width: 768px) 70vw, 88vw" stock={c.stock} />}
                 <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                {c.sl && (c.sl.heading || c.sl.ctaLabel) ? (
+                {c.sl && cardHasCopy(c.sl) ? (
                   <div className="absolute inset-x-0 bottom-0 p-6 text-white @[48rem]:p-10">
                     <HeroText sl={c.sl} first={i === 0} light />
                   </div>

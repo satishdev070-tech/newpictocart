@@ -26,6 +26,7 @@ import { DECOR_ARTWORKS } from "@/features/theme/sections/definitions";
 import { assetUrl } from "@/lib/storage/assets";
 import { AnnouncementBar, Footer, Header, MegaMenu } from "./chrome";
 import { Cta, HeadingText, Intro, ViewAll, headingClass, hp, sourceArgs } from "./parts";
+import { slideGroups } from "./slide-visibility";
 import { HeroVariant, NewsletterVariant, PhotoCredit, ProductGridVariant, StoryVariant, TestimonialsVariant, TileLayout, cardSettings, stockFor } from "./variants";
 import { productPlaceholder } from "@/features/storefront/components/product-card";
 import type { CardRatio } from "@/features/theme/sections/variants";
@@ -70,32 +71,42 @@ async function Hero({ s, ctx }: P<"Hero">) {
     ) : (
       <StoreImage path={sl.imagePath} alt={sl.alt} sizes="100vw" priority={i === 0} natural stock={stock(sl, i)} />
     );
-  const media = (sl: (typeof s.slides)[number], i: number) =>
-    banner ? (
+  const media = (sl: (typeof s.slides)[number], i: number) => {
+    if (!slideGroups(sl).media) return null;
+    return banner ? (
       bannerMedia(sl, i)
     ) : sl.mobileImagePath ? (
       <StoreArtImage path={sl.imagePath} mobilePath={sl.mobileImagePath} alt={sl.alt} sizes="100vw" priority={i === 0} stock={stock(sl, i)} />
     ) : (
       <StoreImage path={sl.imagePath} alt={sl.alt} sizes="100vw" priority={i === 0} stock={stock(sl, i)} />
     );
+  };
+  const visibleCopy = (sl: (typeof s.slides)[number]) => {
+    const g = slideGroups(sl);
+    return Boolean((g.subtitle && sl.eyebrow) || (g.title && (sl.heading || sl.headingAccent)) || (g.description && sl.subheading) || (g.actions && sl.ctaLabel));
+  };
   return (
     <section className={s.counter ? "sf-hero-counter relative" : undefined}>
       <Carousel label="Featured" variant="hero" autoplayMs={s.autoplay * 1000} className={s.counter ? "sf-hero-counter-carousel" : ""}>
-        {s.slides.map((sl, i) =>
+        {s.slides.map((sl, i) => {
+          const g = slideGroups(sl);
           // Image-only slide (text designed into the banner): the whole image is the link, no overlay.
-          !sl.heading && !sl.eyebrow && !sl.subheading && !sl.ctaLabel ? (
-            <div key={i} className={`relative w-full ${h}`}>
-              {sl.ctaHref ? (
-                <Link href={sl.ctaHref} aria-label={sl.alt || "Open"} className={banner ? "block" : "absolute inset-0"}>
-                  {media(sl, i)}
-                </Link>
-              ) : (
-                media(sl, i)
-              )}
-            </div>
-          ) : (
-            // Banner mode keeps the image at its natural height: text overlays it from tablet width up and
-            // sits below it (in the page's text colour) on phones, where a short banner can't hold it.
+          if (!visibleCopy(sl)) {
+            return (
+              <div key={i} className={`relative w-full ${h}`}>
+                {sl.ctaHref ? (
+                  <Link href={sl.ctaHref} aria-label={sl.alt || "Open"} className={banner ? "block" : "absolute inset-0"}>
+                    {media(sl, i)}
+                  </Link>
+                ) : (
+                  media(sl, i)
+                )}
+              </div>
+            );
+          }
+          // Banner mode keeps the image at its natural height: text overlays it from tablet width up and
+          // sits below it (in the page's text colour) on phones, where a short banner can't hold it.
+          return (
             <div key={i} className={banner ? "relative w-full" : `relative flex w-full items-end ${h}`}>
               {banner ? (
                 <div className="relative">
@@ -110,16 +121,16 @@ async function Hero({ s, ctx }: P<"Hero">) {
               )}
               <div className={`sf-container ${banner ? "relative py-6 @[48rem]:absolute @[48rem]:inset-x-0 @[48rem]:bottom-0 @[48rem]:py-12" : "relative py-16"} ${sl.align === "center" ? "text-center" : ""} ${sl.textTone === "light" ? (banner ? "@[48rem]:text-white" : "text-white") : ""}`}>
                 <div className={`max-w-xl space-y-4 ${sl.align === "center" ? "mx-auto" : ""}`}>
-                  {sl.eyebrow ? <p className="sf-eyebrow !text-current opacity-85">{sl.eyebrow}</p> : null}
-                  {i === 0 ? <h1 className="sf-heading text-4xl @[64rem]:text-6xl">{sl.heading}{sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}</h1> : <h2 className="sf-heading text-4xl @[64rem]:text-6xl">{sl.heading}{sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}</h2>}
-                  {sl.subheading ? <p className="text-lg opacity-90">{sl.subheading}</p> : null}
-                  <Cta label={sl.ctaLabel} href={sl.ctaHref} className={sl.textTone === "light" && !banner ? "sf-btn sf-btn-light" : "sf-btn"} />
+                  {g.subtitle && sl.eyebrow ? <p className="sf-eyebrow !text-current opacity-85">{sl.eyebrow}</p> : null}
+                  {g.title ? i === 0 ? <h1 className="sf-heading text-4xl @[64rem]:text-6xl">{sl.heading}{sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}</h1> : <h2 className="sf-heading text-4xl @[64rem]:text-6xl">{sl.heading}{sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}</h2> : null}
+                  {g.description && sl.subheading ? <p className="text-lg opacity-90">{sl.subheading}</p> : null}
+                  {g.actions ? <Cta label={sl.ctaLabel} href={sl.ctaHref} className={sl.textTone === "light" && !banner ? "sf-btn sf-btn-light" : "sf-btn"} /> : null}
                 </div>
               </div>
               <PhotoCredit img={stock(sl, i)} className="sf-photo-credit-on" />
             </div>
-          ),
-        )}
+          );
+        })}
       </Carousel>
       {s.counter && (s.footnote || s.scrollLabel) ? (
         <div aria-hidden className="sf-hero-captions">
