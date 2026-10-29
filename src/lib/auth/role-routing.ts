@@ -25,6 +25,18 @@ export function isSellerPath(path: string): boolean {
   return path === SELLER_HOME || path.startsWith(`${SELLER_HOME}/`) || path.startsWith(`${SELLER_HOME}?`);
 }
 
+/** Store-setup journey paths (`/start`, legacy `/onboarding`). */
+export function isOnboardingPath(path: string): boolean {
+  return (
+    path === ONBOARDING_HOME ||
+    path.startsWith(`${ONBOARDING_HOME}/`) ||
+    path.startsWith(`${ONBOARDING_HOME}?`) ||
+    path === "/onboarding" ||
+    path.startsWith("/onboarding/") ||
+    path.startsWith("/onboarding?")
+  );
+}
+
 /** Default panel for an account with no requested destination. */
 export function defaultLanding(access: AccountAccess): string {
   if (access.platformStaff) return ADMIN_HOME;
@@ -34,14 +46,19 @@ export function defaultLanding(access: AccountAccess): string {
 
 /**
  * A requested `next` (already passed through safeRedirectPath) wins only when the account can use
- * it: the console only for platform staff, the dashboard only for store members. Anything else
- * (marketing pages, /start, /onboarding, invites) is kept as is.
+ * it: the console only for platform staff, the dashboard only for store members. Onboarding
+ * destinations (`/start`, `/onboarding`) are ignored for accounts that already have a home panel
+ * (staff → admin, store owners → seller). Other same-origin paths (marketing, invites) are kept.
  */
 export function landingFor(access: AccountAccess, requested?: string | null): string {
   const next = requested?.trim() ?? "";
   if (!next || next === "/") return defaultLanding(access);
   if (isAdminPath(next)) return access.platformStaff ? next : defaultLanding(access);
   if (isSellerPath(next)) return access.storeCount > 0 ? next : defaultLanding(access);
+  if (isOnboardingPath(next)) {
+    if (access.platformStaff) return ADMIN_HOME;
+    if (access.storeCount > 0) return SELLER_HOME;
+  }
   return next;
 }
 

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { MerchantSignIn } from "@/features/auth/merchant-auth";
+import { ClearStartDraftOnLogin } from "@/features/auth/clear-start-draft-on-login";
 import { googleSignInAction } from "@/features/auth/actions";
 import { GoogleButton, OrDivider } from "@/components/auth/google-button";
 import { googleIdentityClientId, googleSignInAvailable } from "@/features/auth/google";
@@ -28,6 +29,7 @@ export async function SharedSignInPage({ searchParams }: { searchParams: SearchP
   const error = searchParams.error;
   return (
     <AuthSplit variant={toConsole ? "console" : "merchant"} aside={toConsole ? <ConsoleAside /> : <MerchantAside mode="login" />}>
+      <ClearStartDraftOnLogin />
       <AuthHeading
         eyebrow={toConsole ? "Platform console" : "Sign in"}
         title={toConsole ? "Sign in to continue" : "Sign in to Pictocart"}

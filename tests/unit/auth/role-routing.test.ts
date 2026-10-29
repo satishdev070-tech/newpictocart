@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { canSwitchPanels, defaultLanding, isAdminPath, landingFor } from "@/lib/auth/role-routing";
+import {
+  canSwitchPanels,
+  defaultLanding,
+  isAdminPath,
+  isOnboardingPath,
+  landingFor,
+} from "@/lib/auth/role-routing";
 
 const staff = { platformStaff: true, storeCount: 0 };
 const seller = { platformStaff: false, storeCount: 2 };
@@ -23,8 +29,25 @@ describe("role routing after sign-in", () => {
     expect(landingFor(seller, "/dashboard/products/new")).toBe("/dashboard/products/new");
   });
 
-  it("keeps other same-origin destinations and ignores empty ones", () => {
+  it("sends store owners and staff away from /start and /onboarding next", () => {
+    expect(isOnboardingPath("/start")).toBe(true);
+    expect(isOnboardingPath("/start?plan=pro")).toBe(true);
+    expect(isOnboardingPath("/start/welcome")).toBe(true);
+    expect(isOnboardingPath("/onboarding")).toBe(true);
+    expect(isOnboardingPath("/onboarding/profile")).toBe(true);
+    expect(isOnboardingPath("/starting")).toBe(false);
+
+    expect(landingFor(seller, "/start")).toBe("/dashboard");
+    expect(landingFor(seller, "/start?plan=pro")).toBe("/dashboard");
+    expect(landingFor(seller, "/onboarding")).toBe("/dashboard");
+    expect(landingFor(staff, "/start")).toBe("/admin");
+    expect(landingFor(staff, "/onboarding/x")).toBe("/admin");
+    expect(landingFor(both, "/start")).toBe("/admin");
     expect(landingFor(nobody, "/start?plan=pro")).toBe("/start?plan=pro");
+    expect(landingFor(nobody, "/onboarding")).toBe("/onboarding");
+  });
+
+  it("keeps other same-origin destinations and ignores empty ones", () => {
     expect(landingFor(seller, "/invite/abc")).toBe("/invite/abc");
     expect(landingFor(seller, "")).toBe("/dashboard");
     expect(landingFor(staff, "/")).toBe("/admin");
