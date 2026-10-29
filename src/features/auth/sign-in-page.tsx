@@ -1,18 +1,42 @@
 import Link from "next/link";
 import { MerchantSignIn } from "@/features/auth/merchant-auth";
 import { ClearStartDraftOnLogin } from "@/features/auth/clear-start-draft-on-login";
-import { googleSignInAction, signOutAction } from "@/features/auth/actions";
-import { GoogleButton, OrDivider } from "@/components/auth/google-button";
-import { GoogleIdentityButton } from "@/components/auth/google-identity";
-import { googleIdentityClientId, googleSignInAvailable } from "@/features/auth/google";
+import { signOutAction } from "@/features/auth/actions";
+import { GoogleSignInSlot } from "@/components/auth/google-sign-in-slot";
 import { getSessionUser } from "@/lib/auth/session";
 import { landingPathFor } from "@/lib/auth/landing";
 import { isAdminPath, isOnboardingPath, isSellerPath } from "@/lib/auth/role-routing";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { AuthHeading, AuthSplit } from "@/components/auth/auth-split";
 import { ConsoleAside, MerchantAside } from "@/components/auth/auth-asides";
+import { logger } from "@/lib/observability/logger";
+import { isNextControlFlowError } from "@/lib/next/control-flow";
 
 type SearchParams = Record<string, string | string[] | undefined>;
+
+type SignInSession = {
+  panelLanding: string | null;
+  signedInNoStore: boolean;
+};
+
+/**
+ * Session + landing for the shared Login page. Fail-soft: never throw into (auth)/error.tsx for
+ * transient Supabase/config blips — the form still renders.
+ */
+async function loadSignInSession(requested: string): Promise<SignInSession> {
+  try {
+    const user = await getSessionUser();
+    const signedInLanding = user ? await landingPathFor(user.id, requested) : null;
+    const panelLanding =
+      signedInLanding && (isAdminPath(signedInLanding) || isSellerPath(signedInLanding)) ? signedInLanding : null;
+    const signedInNoStore = Boolean(user && signedInLanding && isOnboardingPath(signedInLanding));
+    return { panelLanding, signedInNoStore };
+  } catch (err) {
+    if (isNextControlFlowError(err)) throw err;
+    logger.error("auth.sign_in_page_failed", { error: err });
+    return { panelLanding: null, signedInNoStore: false };
+  }
+}
 
 /**
  * The one sign-in page for sellers and platform staff (served at /login and /seller/login;
@@ -22,27 +46,19 @@ type SearchParams = Record<string, string | string[] | undefined>;
  * Already signed-in store owners / staff bounce to their panel (after clearing any /start draft).
  * Signed-in no-store accounts stay on this form — auto-sending them to /start/lang made Login look
  * broken when merchants clicked the marketing Login button with an abandoned session.
+ *
+ * Google is streamed so it cannot block first paint; auth asides no longer import the theme catalogue.
  */
 export async function SharedSignInPage({ searchParams }: { searchParams: SearchParams }) {
   const requested = typeof searchParams.next === "string" ? safeRedirectPath(searchParams.next, "") : "";
-  const user = await getSessionUser();
-  const signedInLanding = user ? await landingPathFor(user.id, requested) : null;
-
-  // Only auto-leave Login for a real panel (dashboard / admin). Never bounce Login → /start.
-  const panelLanding =
-    signedInLanding && (isAdminPath(signedInLanding) || isSellerPath(signedInLanding))
-      ? signedInLanding
-      : null;
+  const error = searchParams.error;
+  const toConsole = isAdminPath(requested);
+  const { panelLanding, signedInNoStore } = await loadSignInSession(requested);
 
   if (panelLanding) {
     return <ClearStartDraftOnLogin signedInLanding={panelLanding} />;
   }
 
-  const signedInNoStore = Boolean(user && signedInLanding && isOnboardingPath(signedInLanding));
-  const toConsole = isAdminPath(requested);
-  const google = await googleSignInAvailable("sellers");
-  const gisClientId = google ? await googleIdentityClientId() : null;
-  const error = searchParams.error;
   return (
     <AuthSplit variant={toConsole ? "console" : "merchant"} aside={toConsole ? <ConsoleAside /> : <MerchantAside mode="login" />}>
       <ClearStartDraftOnLogin />
@@ -73,16 +89,7 @@ export async function SharedSignInPage({ searchParams }: { searchParams: SearchP
           {error === "google" ? "Google sign-in didn't complete. Please try again or use your email." : "That sign-in link is invalid or has expired. Please sign in again."}
         </p>
       ) : null}
-      {google ? (
-        <>
-          {gisClientId ? (
-            <GoogleIdentityButton clientId={gisClientId} next={requested || undefined} fallback={<GoogleButton action={googleSignInAction} next={requested} />} />
-          ) : (
-            <GoogleButton action={googleSignInAction} next={requested} />
-          )}
-          <OrDivider />
-        </>
-      ) : null}
+      <GoogleSignInSlot next={requested || undefined} />
       <MerchantSignIn next={requested || undefined} />
       <p className="mt-6 text-center text-small text-muted">
         New to Pictocart?{" "}
