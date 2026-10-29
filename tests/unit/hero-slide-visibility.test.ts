@@ -56,8 +56,8 @@ const baseSlide = {
 describe("Hero slide group visibility helpers", () => {
   it("Off→On round-trips strings and media on the slide", () => {
     const list = SECTION_DEFINITIONS.Hero.fields.find((f) => f.kind === "list" && f.key === "slides");
-    expect(list?.kind).toBe("list");
-    const groups = itemGroups(list!.kind === "list" ? list.fields : []);
+    if (!list || list.kind !== "list") throw new Error("Hero slides list field missing");
+    const groups = itemGroups(list.fields);
     let item: Record<string, unknown> = { ...baseSlide };
 
     for (const id of ["title", "description", "media", "actions"] as const) {
