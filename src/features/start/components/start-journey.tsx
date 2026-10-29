@@ -208,12 +208,10 @@ export function StartJourney({
     </StartShell>
   );
 
-  // Remap in progress — avoid flashing legacy screen ids before patch lands.
-  if (LEGACY_SCREEN_REMAP[screen]) {
-    return shell(null);
-  }
+  // Sync remap: never render an empty shell (white flash) while waiting on the effect.
+  const renderScreen = LEGACY_SCREEN_REMAP[screen] ?? screen;
 
-  if (screen === "lang") {
+  if (renderScreen === "lang") {
     return shell(
       <LangScreen
         locale={draft.locale as SarvamLocaleCode}
@@ -223,7 +221,7 @@ export function StartJourney({
     );
   }
 
-  if (screen === "path") {
+  if (renderScreen === "path") {
     const voiceOnboardingEnabled = process.env.NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED === "true";
     const pathMode =
       !voiceOnboardingEnabled && (draft.voice.mode ?? "talk") === "talk"
@@ -261,7 +259,7 @@ export function StartJourney({
   }
 
   // Step 3: voice (ai+talk) | quiz (ai+quiz) | business (manual)
-  if (screen === "voice") {
+  if (renderScreen === "voice") {
     return shell(
       <VoiceScreen
         draft={draft}
@@ -302,7 +300,7 @@ export function StartJourney({
     );
   }
 
-  if (screen === "quiz") {
+  if (renderScreen === "quiz") {
     return shell(
       <QuizScreen
         draft={draft}
@@ -347,7 +345,7 @@ export function StartJourney({
     );
   }
 
-  if (screen === "business") {
+  if (renderScreen === "business") {
     return shell(
       <BusinessScreen
         draft={draft}
@@ -364,7 +362,7 @@ export function StartJourney({
     );
   }
 
-  if (screen === "theme") {
+  if (renderScreen === "theme") {
     return shell(
       <ThemeScreen
         draft={draft}
@@ -378,7 +376,7 @@ export function StartJourney({
     );
   }
 
-  if (!finishMessage && (screen === "building" || openingStore)) {
+  if (!finishMessage && (renderScreen === "building" || openingStore)) {
     const waitForFinalize = Boolean(signedIn && draftReadyToFinalize(draft) && !draft.result);
     return shell(
       <BuildingScreen
@@ -394,7 +392,7 @@ export function StartJourney({
     );
   }
 
-  if (screen === "account" || (screen === "building" && finishMessage)) {
+  if (renderScreen === "account" || (renderScreen === "building" && finishMessage)) {
     return shell(
       <>
         <AccountScreen
