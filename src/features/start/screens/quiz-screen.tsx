@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Globe2, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { INDUSTRIES, isIndustry, type IndustrySlug } from "@/features/stores/industries";
 import { isSubcategory, subcategoriesFor } from "@/features/stores/subcategories";
+import { informativeSitesEnabled } from "@/features/stores/informative-flag";
 import type { SiteMode } from "@/features/stores/site-mode";
 import { type VoiceFacts } from "@/features/onboarding/voice/facts";
 import { startCopy } from "../copy";
@@ -12,8 +13,7 @@ import type { StartDraft } from "../draft/schema";
 import { voiceFactsComplete } from "../flow";
 
 const FEATURED: IndustrySlug[] = ["fashion", "jewellery", "home-decor", "grocery", "beauty", "handicrafts"];
-/** name → category → subcategory → siteMode → city (tagline auto/null) */
-const STEPS = 5;
+/** name → category → subcategory → [siteMode?] → city (tagline auto/null) */
 const SUB_EXTRAS_PREFIX = "sub:";
 
 export function QuizScreen({
@@ -26,12 +26,16 @@ export function QuizScreen({
   onSave: (facts: VoiceFacts, done: boolean) => void;
 }) {
   const c = startCopy(draft.locale);
+  const includeSiteMode = informativeSitesEnabled();
+  const steps = includeSiteMode ? 5 : 4;
+  const cityStep = includeSiteMode ? 4 : 3;
   const [step, setStep] = useState(() =>
     firstOpenStep(
       draft.voice.facts.name,
       draft.voice.facts.category,
       draft.voice.facts.subcategory,
       draft.voice.facts.siteMode,
+      includeSiteMode,
     ),
   );
   const [more, setMore] = useState(false);
@@ -55,12 +59,25 @@ export function QuizScreen({
       subcategory: patch.subcategory !== undefined ? patch.subcategory : facts.subcategory,
       productsServices:
         patch.productsServices !== undefined ? patch.productsServices : facts.productsServices,
-      siteMode: patch.siteMode !== undefined ? patch.siteMode : facts.siteMode,
+      siteMode: includeSiteMode
+        ? patch.siteMode !== undefined
+          ? patch.siteMode
+          : facts.siteMode
+        : "ecommerce",
       city: (patch.city ?? city).trim() || null,
       // Tagline is auto/null — quiz no longer asks for it.
       tagline: patch.tagline !== undefined ? patch.tagline : null,
     };
   }
+
+  // Flag off: never keep a stale informative choice from a prior draft hydrate.
+  useEffect(() => {
+    if (includeSiteMode) return;
+    if (draft.voice.facts.siteMode !== "informative") return;
+    onSave(current({ siteMode: "ecommerce" }), false);
+    // Mount/hydrate only — parent draft updates after coerce.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot coerce
+  }, []);
 
   function persistSubs(nextSelected: string[], nextCustoms: string[]) {
     // Schema expects a single primary subcategory string; extras/customs ride in productsServices.
@@ -121,7 +138,7 @@ export function QuizScreen({
 
   function next() {
     const nextFacts = current();
-    if (step < STEPS - 1) {
+    if (step < steps - 1) {
       onSave(nextFacts, false);
       setStep((s) => s + 1);
       return;
@@ -144,8 +161,8 @@ export function QuizScreen({
     (step === 0 && name.trim().length >= 2) ||
     (step === 1 && Boolean(category)) ||
     (step === 2 && (selectedSubs.length > 0 || customSubs.length > 0)) ||
-    (step === 3 && Boolean(facts.siteMode)) ||
-    step >= 4;
+    (includeSiteMode && step === 3 && Boolean(facts.siteMode)) ||
+    step >= cityStep;
 
   const q = categoryQuery.trim().toLowerCase();
   const pool = more
@@ -163,7 +180,7 @@ export function QuizScreen({
   return (
     <section className="mx-auto flex min-h-[min(70vh,36rem)] w-full max-w-2xl flex-col justify-center gap-8 px-1">
       <div className="mx-auto w-full max-w-xl space-y-5">
-        <p className="text-xs font-semibold tracking-wide text-[#6B6275]">{c.quiz.step(step + 1, STEPS)}</p>
+        <p className="text-xs font-semibold tracking-wide text-[#6B6275]">{c.quiz.step(step + 1, steps)}</p>
         {step === 0 ? (
           <Question title={c.quiz.nameTitle}>
             <input
@@ -269,7 +286,7 @@ export function QuizScreen({
             </div>
           </Question>
         ) : null}
-        {step === 3 ? (
+        {includeSiteMode && step === 3 ? (
           <Question title={c.quiz.siteTitle}>
             <div className="grid gap-3">
               <Choice
@@ -289,7 +306,7 @@ export function QuizScreen({
             </div>
           </Question>
         ) : null}
-        {step === 4 ? (
+        {step === cityStep ? (
           <Question title={c.quiz.cityTitle}>
             <input
               value={city}
@@ -315,7 +332,7 @@ export function QuizScreen({
           >
             ← {c.back}
           </button>
-          {step === 4 ? (
+          {step === cityStep ? (
             <button
               type="button"
               onClick={() => {
@@ -345,7 +362,7 @@ export function QuizScreen({
           onClick={next}
           className="rounded-full bg-linear-to-br from-[#FB923C] to-[#F97316] px-6 py-3 font-semibold text-white disabled:opacity-40"
         >
-          {step === STEPS - 1 ? c.quiz.finish : c.quiz.next}
+          {step === steps - 1 ? c.quiz.finish : c.quiz.next}
         </button>
       </div>
     </section>
@@ -357,12 +374,16 @@ function firstOpenStep(
   category: string | null,
   subcategory: string | null,
   siteMode: string | null,
+  includeSiteMode: boolean,
 ): number {
   if (!name?.trim()) return 0;
   if (!category) return 1;
   if (!subcategory?.trim()) return 2;
-  if (!siteMode) return 3;
-  return 4;
+  if (includeSiteMode) {
+    if (!siteMode) return 3;
+    return 4;
+  }
+  return 3;
 }
 
 /** Primary slug in subcategory; extras/custom in productsServices as `sub:slug2,Custom`. */

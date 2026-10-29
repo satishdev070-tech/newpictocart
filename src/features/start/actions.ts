@@ -14,6 +14,7 @@ import { setActiveTenant } from "@/lib/tenant/active";
 import { clientIpKey, rateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/observability/logger";
 import { isIndustry, type IndustrySlug } from "@/features/stores/industries";
+import { informativeSitesEnabled } from "@/features/stores/informative-flag";
 import { DEFAULT_SITE_MODE } from "@/features/stores/site-mode";
 import { isThemeKey } from "@/features/marketing-site/themes";
 import { isSarvamConfigured, chatTurn } from "@/lib/sarvam/client";
@@ -361,7 +362,10 @@ export async function finalizeStartDraftAction(
     if (!isIndustry(industry)) {
       throw new AppError("VALIDATION", { fieldErrors: { _form: ["Choose a business category."] } });
     }
-    const siteMode = draftSiteMode(draft) ?? DEFAULT_SITE_MODE;
+    // New flows: Informational Website is gated; always persist ecommerce when the flag is off.
+    const siteMode = informativeSitesEnabled()
+      ? (draftSiteMode(draft) ?? DEFAULT_SITE_MODE)
+      : DEFAULT_SITE_MODE;
     const slugWanted = resolveSlug(storeName);
 
     let tenantId: string;
