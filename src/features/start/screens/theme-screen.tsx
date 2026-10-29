@@ -89,54 +89,54 @@ export function ThemeScreen({
         </p>
       ) : null}
 
-      {/* Large live preview — dominates the viewport */}
-      <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/90 bg-white/70 shadow-[0_24px_60px_-28px_rgba(249,115,22,0.4)]">
-        <div className="flex items-center justify-between gap-3 border-b border-[#2A2233]/8 px-4 py-3.5 sm:px-6">
-          <div className="min-w-0">
-            <p className="truncate text-base font-semibold text-[#2A2233] sm:text-lg">
-              {selectedMeta?.name ?? (loading ? "Loading…" : "Pick a theme")}
-            </p>
-            {selectedKey && options?.recommended.key === selectedKey ? (
-              <p className="text-xs font-medium text-[#C2410C] sm:text-sm">AI recommended</p>
-            ) : selectedMeta?.industry ? (
-              <p className="text-xs capitalize text-[#6B6275] sm:text-sm">
-                {selectedMeta.industry.replace(/-/g, " ")}
+      {/* Large live preview + theme cards — centered column */}
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 sm:gap-7">
+        <div className="overflow-hidden rounded-[28px] border border-white/90 bg-white/70 shadow-[0_24px_60px_-28px_rgba(249,115,22,0.4)]">
+          <div className="flex items-center justify-between gap-3 border-b border-[#2A2233]/8 px-4 py-3.5 sm:px-6">
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-[#2A2233] sm:text-lg">
+                {selectedMeta?.name ?? (loading ? "Loading…" : "Pick a theme")}
               </p>
-            ) : null}
+              {selectedKey && options?.recommended.key === selectedKey ? (
+                <p className="text-xs font-medium text-[#C2410C] sm:text-sm">AI recommended</p>
+              ) : selectedMeta?.industry ? (
+                <p className="text-xs capitalize text-[#6B6275] sm:text-sm">
+                  {selectedMeta.industry.replace(/-/g, " ")}
+                </p>
+              ) : null}
+            </div>
+            <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2.5 py-1 text-xs font-semibold text-[#C2410C]">
+              Live preview
+            </span>
           </div>
-          <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2.5 py-1 text-xs font-semibold text-[#C2410C]">
-            Live preview
-          </span>
-        </div>
-        <div className="relative min-h-[360px] bg-[#FFF7ED]/50 sm:min-h-[480px] lg:min-h-[560px]">
-          {selectedFull ? (
-            <div className="max-h-[520px] overflow-hidden sm:max-h-[640px] lg:max-h-[720px]">
-              <ThemeMockup
-                preset={selectedFull.preset}
-                name={selectedFull.name.split(" ")[0]!}
-                tagline={selectedFull.tagline}
-                size="large"
+          <div className="relative min-h-[360px] overflow-hidden bg-[#FFF7ED]/50 sm:min-h-[480px] lg:min-h-[560px]">
+            {selectedFull ? (
+              <div className="max-h-[520px] overflow-hidden sm:max-h-[640px] lg:max-h-[720px]">
+                <ThemeMockup
+                  preset={selectedFull.preset}
+                  name={selectedFull.name.split(" ")[0]!}
+                  tagline={selectedFull.tagline}
+                  size="large"
+                />
+              </div>
+            ) : selectedMeta?.thumbnail ? (
+              // eslint-disable-next-line @next/next/no-img-element -- static theme preview webp
+              <img
+                src={selectedMeta.thumbnail}
+                alt=""
+                className="max-h-[520px] w-full object-cover object-top sm:max-h-[640px] lg:max-h-[720px]"
               />
-            </div>
-          ) : selectedMeta?.thumbnail ? (
-            // eslint-disable-next-line @next/next/no-img-element -- static theme preview webp
-            <img
-              src={selectedMeta.thumbnail}
-              alt=""
-              className="max-h-[520px] w-full object-cover object-top sm:max-h-[640px] lg:max-h-[720px]"
-            />
-          ) : (
-            <div className="grid min-h-[360px] place-items-center text-sm text-[#6B6275] sm:min-h-[480px] lg:min-h-[560px]">
-              {loading ? "Loading themes…" : "Select a theme to preview"}
-            </div>
-          )}
+            ) : (
+              <div className="grid min-h-[360px] place-items-center text-sm text-[#6B6275] sm:min-h-[480px] lg:min-h-[560px]">
+                {loading ? "Loading themes…" : "Select a theme to preview"}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Theme options — horizontal scroll under the preview */}
-      <div className="-mx-1">
+        {/* Theme options — horizontal scroll under the preview */}
         <div
-          className="flex gap-3 overflow-x-auto px-1 pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           role="listbox"
           aria-label="Theme options"
         >
@@ -159,7 +159,7 @@ export function ThemeScreen({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
           onClick={onBack}

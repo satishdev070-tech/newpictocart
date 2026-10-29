@@ -105,6 +105,21 @@ export function StartJourney({
     if (remap) patchDraft({ screen: remap });
   }, [hydrated, draft, patchDraft]);
 
+
+  // Voice path is gated by NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED (default off).
+  // Prefer quiz whenever the draft still holds talk mode on the path screen.
+  useEffect(() => {
+    if (!hydrated || !draft) return;
+    if (draft.screen !== "path") return;
+    if (process.env.NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED === "true") return;
+    if ((draft.voice.mode ?? "talk") !== "talk") return;
+    setDraft((d) => {
+      if (!d || d.screen !== "path") return d;
+      if ((d.voice.mode ?? "talk") !== "talk") return d;
+      return { ...d, voice: { ...d.voice, mode: "quiz" } };
+    });
+  }, [hydrated, draft, setDraft]);
+
   useEffect(() => {
     if (!hydrated || !draft || routedEmpty.current || leavingDone.current) return;
     if (signedIn && draft.result) {
@@ -193,12 +208,10 @@ export function StartJourney({
     </StartShell>
   );
 
-  // Remap in progress — avoid flashing legacy screen ids before patch lands.
-  if (LEGACY_SCREEN_REMAP[screen]) {
-    return shell(null);
-  }
+  // Sync remap: never render an empty shell (white flash) while waiting on the effect.
+  const renderScreen = LEGACY_SCREEN_REMAP[screen] ?? screen;
 
-  if (screen === "lang") {
+  if (renderScreen === "lang") {
     return shell(
       <LangScreen
         locale={draft.locale as SarvamLocaleCode}
@@ -208,32 +221,45 @@ export function StartJourney({
     );
   }
 
-  if (screen === "path") {
+  if (renderScreen === "path") {
+    const voiceOnboardingEnabled = process.env.NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED === "true";
+    const pathMode =
+      !voiceOnboardingEnabled && (draft.voice.mode ?? "talk") === "talk"
+        ? "quiz"
+        : (draft.voice.mode ?? "talk");
     return shell(
       <PathScreen
         locale={draft.locale}
         path={draft.path}
-        mode={draft.voice.mode ?? "talk"}
-        onSelect={(choice) =>
+        mode={pathMode}
+        onSelect={(choice) => {
+          if (!voiceOnboardingEnabled && choice.mode === "talk") return;
           patchDraft({
             path: choice.path,
             voice: { ...draft.voice, mode: choice.mode },
-          })
-        }
+          });
+        }}
         onBack={() => {
           const t = backTarget("path", draft.path, draft.voice.mode);
           if (t) go(t);
         }}
         onContinue={() => {
           if (!draft.path) return;
-          go(nextScreenAfterPath(draft.path, draft.voice.mode ?? "talk"));
+          const mode =
+            !voiceOnboardingEnabled
+              ? "quiz"
+              : (draft.voice.mode ?? "talk");
+          if (!voiceOnboardingEnabled && (draft.voice.mode ?? "talk") === "talk") {
+            patchDraft({ voice: { ...draft.voice, mode: "quiz" } });
+          }
+          go(nextScreenAfterPath(draft.path, mode));
         }}
       />,
     );
   }
 
   // Step 3: voice (ai+talk) | quiz (ai+quiz) | business (manual)
-  if (screen === "voice") {
+  if (renderScreen === "voice") {
     return shell(
       <VoiceScreen
         draft={draft}
@@ -274,7 +300,7 @@ export function StartJourney({
     );
   }
 
-  if (screen === "quiz") {
+  if (renderScreen === "quiz") {
     return shell(
       <QuizScreen
         draft={draft}
@@ -319,7 +345,7 @@ export function StartJourney({
     );
   }
 
-  if (screen === "business") {
+  if (renderScreen === "business") {
     return shell(
       <BusinessScreen
         draft={draft}
@@ -336,7 +362,7 @@ export function StartJourney({
     );
   }
 
-  if (screen === "theme") {
+  if (renderScreen === "theme") {
     return shell(
       <ThemeScreen
         draft={draft}
@@ -350,7 +376,7 @@ export function StartJourney({
     );
   }
 
-  if (!finishMessage && (screen === "building" || openingStore)) {
+  if (!finishMessage && (renderScreen === "building" || openingStore)) {
     const waitForFinalize = Boolean(signedIn && draftReadyToFinalize(draft) && !draft.result);
     return shell(
       <BuildingScreen
@@ -366,7 +392,7 @@ export function StartJourney({
     );
   }
 
-  if (screen === "account" || (screen === "building" && finishMessage)) {
+  if (renderScreen === "account" || (renderScreen === "building" && finishMessage)) {
     return shell(
       <>
         <AccountScreen

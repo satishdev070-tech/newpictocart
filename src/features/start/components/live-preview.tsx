@@ -51,7 +51,7 @@ export function LivePreview({
     <div
       className={
         hero
-          ? "flex h-full min-h-[380px] flex-col gap-2 lg:min-h-[560px]"
+          ? "flex h-full max-h-[640px] min-h-[380px] flex-col gap-2 overflow-hidden lg:max-h-[720px] lg:min-h-[520px]"
           : "flex h-full min-h-[320px] flex-col gap-2 lg:min-h-[480px]"
       }
     >
@@ -72,7 +72,7 @@ export function LivePreview({
             src={storefrontPreviewUrl(`${slug}.${rootDomain}`, publicEnv().NEXT_PUBLIC_PLATFORM_URL)}
             className={
               hero
-                ? "min-h-[320px] w-full flex-1 bg-white lg:min-h-[520px]"
+                ? "max-h-[520px] min-h-[320px] w-full flex-1 bg-white lg:max-h-[640px] lg:min-h-[480px]"
                 : "min-h-[280px] w-full flex-1 bg-white lg:min-h-[420px]"
             }
           />

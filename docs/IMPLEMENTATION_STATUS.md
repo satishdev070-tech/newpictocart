@@ -1,6 +1,16 @@
 # Implementation Status
 
-_Last updated: 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Onboarding QA master (2026-10-29, branch `cursor/onboarding-qa-master-c73e`)
+
+- **Header:** logo left · progress center (step + %) · voice + language right; Done shows 100% Complete.
+- **Languages:** only `en-IN` / `hi-IN` selectable (`START_UI_LOCALES`).
+- **Path:** Voice gated by `NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED` (default off) → Coming Soon; quiz `ListChecks` icon.
+- **Quiz:** tagline step removed (5 questions); category search; multi-sub + custom keyword; Informational Website rename + icons.
+- **Done:** removed Try another look + journey timeline; capped LivePreview.
+- **Stability:** sync legacy screen remap (no empty white shell); `modeAfterThemeApply` preserves informative.
+- **Verification:** `pnpm check` ✅ prior to polish commit; typecheck after stability fixes.
 
 ## OTP 6-digit + logout + Done→dashboard + onboarding nav (2026-10-28, branch `cursor/otp-logout-onboarding-c73e`)
 
