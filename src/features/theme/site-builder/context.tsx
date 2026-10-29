@@ -15,6 +15,9 @@ import type { ListKey } from "./slots";
  *  - the current page (canvas path), the open left panel, the selected section, the device.
  * Panels never talk to the canvas directly: they `apply()` a new document and the canvas host
  * (components/canvas-frame.tsx) posts it to the iframe.
+ *
+ * Local-first: `apply()` updates history + canvas only. Persistence is Save draft
+ * (manual or debounced autosave) then explicit Publish — never awaited before paint.
  */
 
 export type SectionRef = { list: ListKey; sectionId: string };
