@@ -71,7 +71,11 @@ export type StartCopy = {
     nameTitle: string;
     nameHint: string;
     categoryTitle: string;
+    categorySearch: string;
     subcategoryTitle: string;
+    customSubHint: string;
+    customSubAdd: string;
+    customSubRemove: string;
     more: string;
     less: string;
     siteTitle: string;
@@ -279,13 +283,17 @@ const EN: StartCopy = {
     nameTitle: "What is your store called?",
     nameHint: "e.g. Kia Garments",
     categoryTitle: "What do you sell?",
+    categorySearch: "Search categories…",
     subcategoryTitle: "Which type fits best?",
+    customSubHint: "Enter keyword / custom",
+    customSubAdd: "Add",
+    customSubRemove: "Remove",
     more: "More categories",
     less: "Fewer categories",
     siteTitle: "What should we build?",
     storeTitle: "Online store",
     storeDesc: "A shop with a cart, checkout and orders.",
-    siteInfoTitle: "Business website",
+    siteInfoTitle: "Informational Website",
     siteInfoDesc: "A site where people learn about you and get in touch.",
     cityTitle: "Which city are you in?",
     cityHint: "e.g. Jaipur",
@@ -505,13 +513,17 @@ const HI: StartCopy = {
     nameTitle: "आपकी दुकान का नाम क्या है?",
     nameHint: "जैसे Kia Garments",
     categoryTitle: "आप क्या बेचते हैं?",
+    categorySearch: "कैटेगरी खोजें…",
     subcategoryTitle: "कौन सा प्रकार सबसे ठीक है?",
+    customSubHint: "कीवर्ड / कस्टम लिखें",
+    customSubAdd: "जोड़ें",
+    customSubRemove: "हटाएँ",
     more: "और कैटेगरी",
     less: "कम कैटेगरी",
     siteTitle: "हम क्या बनाएँ?",
     storeTitle: "ऑनलाइन दुकान",
     storeDesc: "कार्ट, चेकआउट और ऑर्डर वाली दुकान।",
-    siteInfoTitle: "बिज़नेस वेबसाइट",
+    siteInfoTitle: "जानकारी वाली वेबसाइट",
     siteInfoDesc: "जहाँ लोग आपके बारे में जानें और संपर्क करें।",
     cityTitle: "आप किस शहर में हैं?",
     cityHint: "जैसे जयपुर",
