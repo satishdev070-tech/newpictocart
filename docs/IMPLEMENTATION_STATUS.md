@@ -1,14 +1,12 @@
 # Implementation Status
 
-_Last updated: 2026-10-29 (Gym themes + per-theme imagery) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
-## Gym themes + per-theme imagery (2026-10-29, branch `cursor/gym-themes-imagery-c73e`)
+## Hero / slideshow group toggle preserves content (2026-10-29, branch `cursor/hero-toggle-preserve-c73e`)
 
-- **Per-theme stock:** `themeUnsplashImages` / `themeStockSet` rotate the layout-family Unsplash pool by `theme.key` (plus a per-slot step) so marketplace cards, empty slots and onboarding thumbs are no longer identical within an industry. Fitness pool + queries lean gym-floor / class / equipment.
-- **Industry:** top-level `gym` (“Gym & Fitness Studio”) in `industries.ts`, subcategories, product-type industries, voice aliases, migration `20261029005300_gym_store_category.sql`, demo catalogue data.
-- **Themes:** `iron-floor` (bold strength shop) and `class-pulse` (group-class studio) in `marketplace/themes/gym.ts`, registered in the catalogue; filters + `listRankedMarketplaceThemes` pick them up automatically.
-- **Onboarding:** Theme screen mockups pass `themeKey`; when `theme-previews.json` is empty, `listStartThemeOptionsAction` fills thumbs from `themeStockThumbUrl`.
-- **Verification:** `pnpm check` ✅ (typecheck, lint, **145 files / 1678 tests**, build).
+- **Bug (Phase A1):** Item editor Off for Title / Description / Media / Actions called `clearGroup`, wiping merchant strings and media. Turning On could not restore them.
+- **Fix:** Off sets per-slide `showTitle` / `showDescription` / `showMedia` / `showActions` / `showSubtitle` (defaults true). Content stays on the slide; Hero renderers (`designs-a`, `variants`, overlay in `sections`) hide groups when the flag is false.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **146 files / 1677 tests**, build).
 
 ## Quiz Continue URL sync (2026-10-29, branch `cursor/quiz-continue-url-sync-c73e`)
 

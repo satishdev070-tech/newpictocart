@@ -6,8 +6,8 @@ import { createProductTypeAction, saveProductAction } from "@/features/catalog/a
 import type { ProductDraft } from "@/features/catalog/types";
 import type { OptionDraft, VariantDraft } from "@/features/catalog/variants";
 import { discountPercent, priceFromDiscount } from "@/features/catalog/discount";
-import { cleanOptions, emptyVariant, generateVariantMatrix, slugify, suggestSku, variantTitle } from "@/features/catalog/variants";
-import { OCCASIONS, OPTION_NAME_SUGGESTIONS, PRODUCT_STATUS_LABELS, PRODUCT_STATUSES, SIZE_PRESETS } from "@/features/catalog/constants";
+import { cleanOptions, emptyVariant, previewVariantMatrixRegen, slugify, suggestSku, variantTitle } from "@/features/catalog/variants";
+import { MAX_VARIANTS, OCCASIONS, OPTION_NAME_SUGGESTIONS, PRODUCT_STATUS_LABELS, PRODUCT_STATUSES, SIZE_PRESETS } from "@/features/catalog/constants";
 import { extraSpecs, groupTypesForPicker, setSpecValue, specValue, templateFor, type ProductTypeDef } from "@/features/catalog/product-types";
 import { Card } from "@/components/ui/layout";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,7 @@ export function ProductEditor({
   const [newType, setNewType] = useState<string | null>(null);
   const [typeError, setTypeError] = useState<string | null>(null);
   const [optionsError, setOptionsError] = useState<string | null>(null);
+  const [regenWarning, setRegenWarning] = useState<string | null>(null);
   const [creatingType, startCreateType] = useTransition();
   const tpl = templateFor(d.productType, types);
   const groups = groupTypesForPicker(types, industry, d.productType);
@@ -95,7 +96,33 @@ export function ProductEditor({
     });
   };
   const errors = state && !state.ok ? (state.error.fieldErrors ?? {}) : {};
-  const errorList = Object.entries(errors).flatMap(([k, v]) => v.map((m) => (k === "_form" ? m : `${k}: ${m}`)));
+  const fieldMsgs = (key: string) => errors[key] ?? [];
+  /** Card-level + nested paths under a section (e.g. variants.0.sku). */
+  const sectionMsgs = (prefix: string) =>
+    Object.entries(errors).flatMap(([k, v]) => {
+      if (k === prefix) return v;
+      if (!k.startsWith(`${prefix}.`)) return [];
+      // Row-level fields are also shown inline; keep card summary for option/SKU mismatches etc.
+      return v.map((m) => `${k.slice(prefix.length + 1)}: ${m}`);
+    });
+  const optionsCardErrors = sectionMsgs("options");
+  // Prefer card-level variants messages; skip per-cell paths already rendered inline on the table.
+  const variantsCardErrors = Object.entries(errors).flatMap(([k, v]) => {
+    if (k === "variants") return v;
+    if (!k.startsWith("variants.")) return [];
+    const rest = k.slice("variants.".length);
+    // variants.0.sku / variants.0.compareAtPrice / variants.0 → inline on the row
+    if (/^\d+(\.|$)/.test(rest)) return [];
+    return v.map((m) => `${rest}: ${m}`);
+  });
+  const formErrors = fieldMsgs("_form");
+  const otherErrorList = Object.entries(errors).flatMap(([k, v]) => {
+    if (k === "_form" || k === "options" || k === "variants" || k.startsWith("options.") || k.startsWith("variants.")) return [];
+    return v.map((m) => (k === "status" ? m : `${k}: ${m}`));
+  });
+  const hasNewVariants = d.variants.some((v) => !v.id);
+  const hasSavedVariants = d.variants.some((v) => !!v.id);
+  const stockColumnLabel = hasSavedVariants && hasNewVariants ? "Stock / opening" : hasSavedVariants ? "Stock" : canWriteInventory ? "Opening stock" : "Stock";
 
   useEffect(() => {
     if (!dirty) return;
@@ -132,42 +159,79 @@ export function ProductEditor({
     const incomplete = d.options.some((o) => o.name.trim() || o.values.some((v) => v.value.trim()));
     if (options.length === 0 && incomplete) {
       setOptionsError("Give each option a name and at least one value before generating variants.");
+      setRegenWarning(null);
       return;
     }
     setOptionsError(null);
     const base = d.variants[0] ?? emptyVariant();
+    const defaults = { price: base.price, compareAtPrice: base.compareAtPrice, weightGrams: base.weightGrams };
     if (options.length === 0) {
-      // Truly empty options → keep the draft options untouched; refresh the default variant only.
-      set({ variants: [d.variants[0] ?? emptyVariant()] });
+      const preview = previewVariantMatrixRegen([], d.variants, defaults);
+      if (preview.dropped.length) {
+        const saved = preview.dropped.filter((v) => v.id).length;
+        const ok = window.confirm(
+          saved
+            ? `Clearing options keeps one Default variant and drops ${preview.dropped.length} other row(s) (${saved} already saved — re-add the same combination later to reuse stock). Continue?`
+            : `Clearing options keeps one Default variant and drops ${preview.dropped.length} draft row(s). Continue?`,
+        );
+        if (!ok) return;
+      }
+      setRegenWarning(null);
+      set({ variants: preview.next });
       return;
     }
-    const next = generateVariantMatrix(options, d.variants, { price: base.price, compareAtPrice: base.compareAtPrice, weightGrams: base.weightGrams });
-    set({ options, variants: next });
+    const preview = previewVariantMatrixRegen(options, d.variants, defaults);
+    if (preview.next.length > MAX_VARIANTS) {
+      setOptionsError(`That would create ${preview.next.length} variants. Use at most ${MAX_VARIANTS} (fewer option values).`);
+      setRegenWarning(null);
+      return;
+    }
+    if (preview.dropped.length) {
+      const savedDropped = preview.dropped.filter((v) => v.id);
+      const labels = preview.dropped.slice(0, 4).map((v) => variantTitle(v)).join(", ");
+      const more = preview.dropped.length > 4 ? ` and ${preview.dropped.length - 4} more` : "";
+      const ok = window.confirm(
+        savedDropped.length
+          ? `Generate will drop ${preview.dropped.length} unmatched variant(s) (${labels}${more}). ${savedDropped.length} already saved — matching combinations keep price, SKU, and stock; dropped ones leave the form (sold rows stay archived in the database). Continue?`
+          : `Generate will drop ${preview.dropped.length} unmatched draft variant(s) (${labels}${more}). Matching combinations keep their price and SKU. Continue?`,
+      );
+      if (!ok) return;
+      setRegenWarning(
+        savedDropped.length
+          ? `Dropped ${preview.dropped.length} unmatched variant(s); kept ${preview.kept.length} by combination. Edit stock for saved variants in Inventory.`
+          : `Dropped ${preview.dropped.length} unmatched draft variant(s); kept ${preview.kept.length} by combination.`,
+      );
+    } else {
+      setRegenWarning(preview.created.length ? `Added ${preview.created.length} new combination(s); existing matches kept their price and SKU.` : null);
+    }
+    set({ options, variants: preview.next });
   };
 
   return (
     <form
       action={(fd) => {
+        if (pending) return;
         setDirty(false);
         action(fd);
       }}
+      aria-busy={pending || undefined}
       className="space-y-6"
     >
       <input type="hidden" name="payload" value={JSON.stringify(d)} />
       {collectionIds.map((id) => (
         <input key={id} type="hidden" name="collectionIds[]" value={id} />
       ))}
-      {errorList.length ? (
+      {formErrors.length || otherErrorList.length || (state && !state.ok && !variantsCardErrors.length && !optionsCardErrors.length && !formErrors.length && !otherErrorList.length) ? (
         <div role="alert" className="rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
           <p className="font-medium">{state && !state.ok ? state.error.message : ""}</p>
-          <ul className="mt-1 list-disc pl-5">
-            {errorList.slice(0, 12).map((m, i) => (
-              <li key={i}>{m}</li>
-            ))}
-          </ul>
+          {formErrors.length || otherErrorList.length ? (
+            <ul className="mt-1 list-disc pl-5">
+              {[...formErrors, ...otherErrorList].slice(0, 12).map((m, i) => (
+                <li key={i}>{m}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
-      ) : state && !state.ok ? (
-        <p role="alert" className="rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">{state.error.message}</p>
       ) : state?.ok ? (
         <p role="status" className="rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success">Saved.</p>
       ) : null}
@@ -270,7 +334,7 @@ export function ProductEditor({
                     Configure Variant
                   </Button>
                 ) : null}
-                <Button variant="secondary" onClick={regenerate}>
+                <Button variant="secondary" onClick={regenerate} disabled={pending}>
                   Generate variants
                 </Button>
               </div>
@@ -279,10 +343,25 @@ export function ProductEditor({
                   {optionsError}
                 </p>
               ) : null}
+              {optionsCardErrors.length ? (
+                <ul role="alert" className="list-disc space-y-1 pl-5 text-sm text-error">
+                  {optionsCardErrors.slice(0, 6).map((m, i) => (
+                    <li key={i}>{m}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {regenWarning ? <p className="text-sm text-muted">{regenWarning}</p> : null}
             </div>
           </Card>
 
           <Card tour="product-variants" title={`Variants (${d.variants.length})`} description="Prices in ₹. MRP must be at least the price. Enter a % off to set the price from the MRP; shoppers see the MRP struck through with the saving.">
+            {variantsCardErrors.length ? (
+              <ul role="alert" className="mb-3 list-disc space-y-1 rounded-md border border-error/30 bg-error/10 p-3 pl-8 text-sm text-error">
+                {variantsCardErrors.slice(0, 8).map((m, i) => (
+                  <li key={i}>{m}</li>
+                ))}
+              </ul>
+            ) : null}
             <div className="overflow-x-auto">
               <table className="w-full min-w-[840px] text-sm">
                 <thead>
@@ -293,23 +372,34 @@ export function ProductEditor({
                     <th className="py-2 pr-2">MRP</th>
                     <th className="py-2 pr-2" title="Discount off MRP. Typing a % sets the price from the MRP.">% off</th>
                     <th className="py-2 pr-2">Weight (g)</th>
-                    <th className="py-2 pr-2">{d.id ? "Stock" : canWriteInventory ? "Opening stock" : "Stock"}</th>
+                    <th className="py-2 pr-2">{stockColumnLabel}</th>
                     <th className="py-2 pr-2">Track</th>
                     <th className="py-2">Active</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {d.variants.map((v, i) => (
+                  {d.variants.map((v, i) => {
+                    const skuErr = fieldMsgs(`variants.${i}.sku`)[0];
+                    const priceErr = fieldMsgs(`variants.${i}.price`)[0];
+                    const mrpErr = fieldMsgs(`variants.${i}.compareAtPrice`)[0];
+                    const rowErr = fieldMsgs(`variants.${i}`)[0] ?? fieldMsgs(`variants.${i}.option1`)[0] ?? fieldMsgs(`variants.${i}.option2`)[0] ?? fieldMsgs(`variants.${i}.option3`)[0];
+                    return (
                     <tr key={v.id ?? `new-${i}`} className="border-t border-border">
-                      <td className="py-2 pr-2 font-medium">{variantTitle(v) || "Default"}</td>
-                      <td className="py-2 pr-2">
-                        <input aria-label="SKU" className={input} value={v.sku} onChange={(e) => setVariant(i, { sku: e.target.value })} onFocus={() => !v.sku && d.slug && setVariant(i, { sku: suggestSku(d.slug, v) })} />
+                      <td className="py-2 pr-2 font-medium">
+                        {variantTitle(v) || "Default"}
+                        {rowErr ? <p className="mt-0.5 text-xs font-normal text-error">{rowErr}</p> : null}
                       </td>
                       <td className="py-2 pr-2">
-                        <input aria-label="Price" inputMode="decimal" className={input} value={v.price} onChange={(e) => setVariant(i, { price: e.target.value })} />
+                        <input aria-label="SKU" aria-invalid={skuErr ? true : undefined} className={input} value={v.sku} onChange={(e) => setVariant(i, { sku: e.target.value })} onFocus={() => !v.sku && d.slug && setVariant(i, { sku: suggestSku(d.slug, v) })} />
+                        {skuErr ? <p className="mt-0.5 text-xs text-error">{skuErr}</p> : null}
                       </td>
                       <td className="py-2 pr-2">
-                        <input aria-label="MRP" inputMode="decimal" className={input} value={v.compareAtPrice} onChange={(e) => setVariant(i, { compareAtPrice: e.target.value })} />
+                        <input aria-label="Price" aria-invalid={priceErr ? true : undefined} inputMode="decimal" className={input} value={v.price} onChange={(e) => setVariant(i, { price: e.target.value })} />
+                        {priceErr ? <p className="mt-0.5 text-xs text-error">{priceErr}</p> : null}
+                      </td>
+                      <td className="py-2 pr-2">
+                        <input aria-label="MRP" aria-invalid={mrpErr ? true : undefined} inputMode="decimal" className={input} value={v.compareAtPrice} onChange={(e) => setVariant(i, { compareAtPrice: e.target.value })} />
+                        {mrpErr ? <p className="mt-0.5 text-xs text-error">{mrpErr}</p> : null}
                       </td>
                       <td className="w-20 py-2 pr-2">
                         <input
@@ -317,7 +407,7 @@ export function ProductEditor({
                           inputMode="decimal"
                           className={input}
                           placeholder={v.compareAtPrice ? "0" : "MRP?"}
-                          disabled={!v.compareAtPrice}
+                          disabled={!v.compareAtPrice || pending}
                           key={`${v.price}|${v.compareAtPrice}`}
                           defaultValue={discountPercent(v.price, v.compareAtPrice)}
                           onBlur={(e) => {
@@ -341,14 +431,14 @@ export function ProductEditor({
                             <span className="inline-flex flex-col gap-0.5">
                               <span className="tabular-nums">{stock[v.id] ?? 0}</span>
                               <Link href={`/dashboard/inventory/${v.id}`} className="text-xs text-accent underline underline-offset-2">
-                                Edit stock
+                                Inventory
                               </Link>
                             </span>
                           ) : (
                             <span className="tabular-nums">{stock[v.id] ?? 0}</span>
                           )
                         ) : canWriteInventory ? (
-                          <input aria-label="Opening stock" inputMode="numeric" className={input} value={v.initialStock} onChange={(e) => setVariant(i, { initialStock: e.target.value })} />
+                          <input aria-label="Opening stock (new variants only)" placeholder="Opening" inputMode="numeric" className={input} value={v.initialStock} onChange={(e) => setVariant(i, { initialStock: e.target.value })} />
                         ) : (
                           "—"
                         )}
@@ -360,18 +450,25 @@ export function ProductEditor({
                         <input type="checkbox" aria-label="Active" checked={v.status === "active"} onChange={(e) => setVariant(i, { status: e.target.checked ? "active" : "archived" })} />
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+            <p className="mt-2 text-xs text-muted">
+              {canWriteInventory
+                ? "Opening stock is for new variants only (saved once). Change quantity for saved variants via Inventory — product save ignores opening stock on existing ids."
+                : "Stock for saved variants is managed in Inventory. You don't have permission to set opening stock on new variants."}
+            </p>
             {d.variants.length > 1 ? (
               <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                <button type="button" className="text-accent underline" onClick={() => set({ variants: d.variants.map((v) => ({ ...v, price: d.variants[0]!.price, compareAtPrice: d.variants[0]!.compareAtPrice })) })}>
+                <button type="button" className="text-accent underline" disabled={pending} onClick={() => set({ variants: d.variants.map((v) => ({ ...v, price: d.variants[0]!.price, compareAtPrice: d.variants[0]!.compareAtPrice })) })}>
                   Copy first price & MRP to all
                 </button>
                 <button
                   type="button"
                   className="text-accent underline"
+                  disabled={pending}
                   onClick={() => {
                     const pct = window.prompt("Discount for every size, as % off MRP (e.g. 20):");
                     if (pct === null) return;
@@ -497,10 +594,10 @@ export function ProductEditor({
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={d.featured} onChange={(e) => set({ featured: e.target.checked })} /> Featured product
               </label>
-              <Button type="submit" pending={pending} className="w-full">
-                {d.id ? "Save product" : "Create product"}
+              <Button type="submit" pending={pending} disabled={pending} className="w-full">
+                {pending ? "Saving…" : d.id ? "Save product" : "Create product"}
               </Button>
-              {dirty ? <p className="text-xs text-warning">Unsaved changes</p> : null}
+              {pending ? <p className="text-xs text-muted">Please wait — saving product…</p> : dirty ? <p className="text-xs text-warning">Unsaved changes</p> : null}
             </div>
           </Card>
           <Card tour="product-organisation" title="Organisation">

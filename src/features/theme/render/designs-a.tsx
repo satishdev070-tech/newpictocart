@@ -15,6 +15,7 @@ import { getInstagramFeed } from "@/features/social/server/instagram-feed";
 import { assetUrl } from "@/lib/storage/assets";
 import type { StockImage } from "@/lib/unsplash-stock";
 import { Cta, HeadingText, Intro, headingClass, hp, type IntroProps } from "./parts";
+import { slideGroups } from "./slide-visibility";
 import { PhotoCredit, stockFor, type Tile } from "./variants";
 import type { RenderContext } from "./context";
 
@@ -43,6 +44,7 @@ type Slide = SectionSettings<"Hero">["slides"][number];
 const HERO_HEIGHT = { full: "min-h-[88svh]", large: "min-h-[78svh]", medium: "min-h-[60svh]", banner: "aspect-[4/5] @[48rem]:aspect-[2/1]" } as const;
 
 function SlideMedia({ sl, stock, sizes, priority }: { sl: Slide; stock: StockImage | null; sizes: string; priority: boolean }) {
+  if (!slideGroups(sl).media) return null;
   return sl.mobileImagePath ? (
     <StoreArtImage path={sl.imagePath} mobilePath={sl.mobileImagePath} alt={sl.alt} sizes={sizes} priority={priority} stock={stock} />
   ) : (
@@ -51,21 +53,27 @@ function SlideMedia({ sl, stock, sizes, priority }: { sl: Slide; stock: StockIma
 }
 
 function SlideText({ sl, first, light }: { sl: Slide; first: boolean; light: boolean }) {
+  const g = slideGroups(sl);
   const H = first ? "h1" : "h2";
   return (
     <div className="space-y-4">
-      {sl.eyebrow ? <p className="sf-eyebrow !text-current opacity-85">{sl.eyebrow}</p> : null}
-      <H className="sf-heading text-4xl @[64rem]:text-6xl">
-        {sl.heading}
-        {sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}
-      </H>
-      {sl.subheading ? <p className="max-w-xl text-lg opacity-90">{sl.subheading}</p> : null}
-      <Cta label={sl.ctaLabel} href={sl.ctaHref} className={light ? "sf-btn sf-btn-light" : "sf-btn"} />
+      {g.subtitle && sl.eyebrow ? <p className="sf-eyebrow !text-current opacity-85">{sl.eyebrow}</p> : null}
+      {g.title ? (
+        <H className="sf-heading text-4xl @[64rem]:text-6xl">
+          {sl.heading}
+          {sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}
+        </H>
+      ) : null}
+      {g.description && sl.subheading ? <p className="max-w-xl text-lg opacity-90">{sl.subheading}</p> : null}
+      {g.actions ? <Cta label={sl.ctaLabel} href={sl.ctaHref} className={light ? "sf-btn sf-btn-light" : "sf-btn"} /> : null}
     </div>
   );
 }
 
-const hasText = (sl: Slide) => Boolean(sl.heading || sl.eyebrow || sl.subheading || sl.ctaLabel);
+const hasText = (sl: Slide) => {
+  const g = slideGroups(sl);
+  return Boolean((g.subtitle && sl.eyebrow) || (g.title && (sl.heading || sl.headingAccent)) || (g.description && sl.subheading) || (g.actions && sl.ctaLabel));
+};
 
 export function HeroDesign({ s, ctx, variant }: P<"Hero"> & { variant: HeroDesignVariant }) {
   const slides = s.slides;
