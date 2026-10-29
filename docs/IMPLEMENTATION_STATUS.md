@@ -6,7 +6,7 @@ _Last updated: 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue UR
 
 - **Bug (Phase A1):** Item editor Off for Title / Description / Media / Actions called `clearGroup`, wiping merchant strings and media. Turning On could not restore them.
 - **Fix:** Off sets per-slide `showTitle` / `showDescription` / `showMedia` / `showActions` / `showSubtitle` (defaults true). Content stays on the slide; Hero renderers (`designs-a`, `variants`, overlay in `sections`) hide groups when the flag is false.
-- **Verification:** unit tests Off→On round-trip + hidden-group render; `pnpm check` (see latest commit).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **146 files / 1677 tests**, build).
 
 ## Quiz Continue URL sync (2026-10-29, branch `cursor/quiz-continue-url-sync-c73e`)
 
