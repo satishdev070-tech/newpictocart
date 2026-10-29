@@ -11,7 +11,8 @@ import { ThemePreviewStage } from "@/features/marketing-site/components/theme-pr
 import { ThemeSampleStore, type SamplePhoto } from "@/features/marketing-site/components/theme-sample-store";
 import { industryUnsplashPhotos } from "@/features/media/unsplash/server";
 import { sizedUnsplashUrl } from "@/features/media/unsplash/photos";
-import { getCategoryImage } from "@/lib/unsplash";
+import { sizedStockUrl } from "@/lib/unsplash-stock";
+import { themeCardImage, themeUnsplashImages } from "@/features/theme/layouts/imagery";
 import { industryShort } from "@/features/stores/industries";
 
 export const revalidate = 3600;
@@ -32,13 +33,23 @@ export async function generateMetadata({ params }: PageProps<"/themes/[key]/prev
 export default async function ThemePreviewPage({ params }: PageProps<"/themes/[key]/preview">) {
   const t = findTheme((await params).key);
   if (!t) notFound();
-  const [live, category, extra] = await Promise.all([livePreviewUrls([t]), getCategoryImage(t.industry), industryUnsplashPhotos(t.industry, 7)]);
+  const [live, extra] = await Promise.all([livePreviewUrls([t]), industryUnsplashPhotos(t.industry, 7)]);
+  const category = themeCardImage(t, 1600);
   const liveUrl = live.get(t.key) ?? null;
+  const themeStock = themeUnsplashImages(t);
   const photos: SamplePhoto[] = [
-    { url: category.url.replace(/w=800&h=500/, "w=1600&h=900"), alt: category.alt },
-    ...extra.filter((p) => !category.url.startsWith(p.base.split("?")[0]!)).map((p) => ({ url: sizedUnsplashUrl(p.base, 640), alt: p.alt })),
+    ...(category ? [{ url: category.url, alt: category.alt }] : []),
+    ...themeStock
+      .filter((p) => p.slot !== "hero")
+      .slice(0, 4)
+      .map((p) => ({ url: sizedStockUrl(p.url, 640), alt: p.alt })),
+    ...extra
+      .filter((p) => !category?.url.includes(p.base.split("?")[0] ?? "\0"))
+      .map((p) => ({ url: sizedUnsplashUrl(p.base, 640), alt: p.alt })),
   ];
-  const credits = [category.photographer?.name, ...extra.map((p) => p.photographer?.name)].filter((n): n is string => !!n);
+  const credits = [category?.photographer?.name, ...themeStock.map((p) => p.photographer?.name), ...extra.map((p) => p.photographer?.name)].filter(
+    (n): n is string => !!n,
+  );
 
   return (
     <section className="bg-gradient-to-b from-brand-soft/60 to-white pt-6 pb-14" aria-labelledby="preview-title">
@@ -65,7 +76,7 @@ export default async function ThemePreviewPage({ params }: PageProps<"/themes/[k
             <>
               {" "}
               Sample photos from{" "}
-              <a href={category.unsplashUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+              <a href={category?.unsplashUrl ?? "https://unsplash.com/?utm_source=pictocart&utm_medium=referral"} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
                 Unsplash
               </a>
               {credits.length ? ` by ${[...new Set(credits)].slice(0, 6).join(", ")}` : ""}.

@@ -116,6 +116,7 @@ export function ThemeScreen({
                   preset={selectedFull.preset}
                   name={selectedFull.name.split(" ")[0]!}
                   tagline={selectedFull.tagline}
+                  themeKey={selectedFull.key}
                   size="large"
                 />
               </div>
@@ -208,7 +209,7 @@ function ThemeCard({
       <div className="h-28 overflow-hidden border-b border-[#2A2233]/8 bg-[#FFF7ED]/50" aria-hidden>
         {full ? (
           <div className="origin-top scale-[0.48]" style={{ width: "208%", height: "208%" }}>
-            <ThemeMockup preset={full.preset} name={full.name.split(" ")[0]!} tagline={full.tagline} size="card" />
+            <ThemeMockup preset={full.preset} name={full.name.split(" ")[0]!} tagline={full.tagline} themeKey={full.key} size="card" />
           </div>
         ) : theme.thumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element -- static theme preview webp

@@ -539,7 +539,7 @@ export function LandingThemes({ content, themes, images }: { content: LandingCon
         <ul className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {themes.map((t) => (
             <li key={t.key} className="h-full">
-              <ThemeCard theme={t} image={images?.get(t.industry) ?? null} location="home_themes" />
+              <ThemeCard theme={t} image={images?.get(t.key) ?? null} location="home_themes" />
             </li>
           ))}
         </ul>

@@ -38,7 +38,8 @@ describe("theme marketplace", () => {
   });
 
   it("has at least five structurally different themes per priority industry", () => {
-    for (const industry of INDUSTRY_SLUGS.filter((i) => i !== "handicrafts")) {
+    // Packs that intentionally ship fewer than five: handicrafts (heritage originals), gym (Phase B starter pair).
+    for (const industry of INDUSTRY_SLUGS.filter((i) => i !== "handicrafts" && i !== "gym")) {
       const list = MARKETPLACE_THEMES.filter((t) => t.industry === industry);
       expect(list.length, industry).toBeGreaterThanOrEqual(5);
       // Different home compositions (section order), not just colours.
@@ -47,6 +48,13 @@ describe("theme marketplace", () => {
       const headers = new Set(list.map((t) => `${t.preset.headerLayout}/${t.preset.inlineMenu}/${t.preset.menuStyle ?? "bar"}/${t.preset.tokens.headingFont}`));
       expect(headers.size, industry).toBeGreaterThanOrEqual(4);
     }
+  });
+
+  it("ships two distinct gym marketplace themes", () => {
+    const gym = MARKETPLACE_THEMES.filter((t) => t.industry === "gym");
+    expect(gym.map((t) => t.key).sort()).toEqual(["class-pulse", "iron-floor"]);
+    expect(new Set(gym.map((t) => t.preset.home.map(([type]) => type).join(">"))).size).toBe(2);
+    expect(gym[0]!.preset.tokens.colors.primary).not.toBe(gym[1]!.preset.tokens.colors.primary);
   });
 
   it("uses each named slot with one section family per industry", () => {
