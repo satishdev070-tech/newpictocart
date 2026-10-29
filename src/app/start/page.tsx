@@ -1,19 +1,6 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { getSessionUser } from "@/lib/auth/session";
-import { landingPathFor } from "@/lib/auth/landing";
-import { isThemeKey } from "@/features/marketing-site/themes";
-import { getMarketingPlans } from "@/features/marketing-site/server/plans";
-import { findPlan } from "@/features/marketing-site/plans";
-import { cleanPlanCode } from "@/features/onboarding/steps";
-import { StartJourney } from "@/features/start/components/start-journey";
-import { START_DRAFT_COOKIE } from "@/features/start/draft/schema";
-import { brandImageView, getPublicPlatformConfig } from "@/features/platform/server/public-config";
-import { PLATFORM_LOGO, PLATFORM_NAME } from "@/config/platform";
-import { publicEnv } from "@/lib/env/public";
-import { googleSignInAvailable } from "@/features/auth/google";
-import { isSarvamConfigured } from "@/lib/sarvam/client";
+import { startSearchQuery } from "@/features/start/steps";
 
 export const metadata: Metadata = {
   title: "Let's begin",
@@ -21,65 +8,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** Cache-first journey: language → path (voice|quiz) → build → account → ready store. */
+/**
+ * Bare `/start` always enters the journey at `/start/lang`.
+ * Client `StartJourney` resumes from localStorage and replaces the URL to the saved screen.
+ */
 export default async function StartPage({ searchParams }: PageProps<"/start">) {
   const sp = await searchParams;
-  const plans = await getMarketingPlans();
-  const plan = findPlan(plans, cleanPlanCode(sp.plan))?.code ?? null;
-  const theme = typeof sp.theme === "string" && isThemeKey(sp.theme) ? sp.theme : null;
-
-  const user = await getSessionUser();
-  const jar = await cookies();
-  const draftCookie = jar.get(START_DRAFT_COOKIE)?.value === "1";
-  const resume = sp.resume === "1";
-  const signedIn = Boolean(user);
-  let landingPath: string | null = null;
-
-  // Signed-in no-store users land on /start; keep them here for the five-screen flow
-  // (resume=1 or no draft cookie yet). Do not redirect to /start or legacy /onboarding.
-  if (user && !draftCookie && !resume) {
-    const landing = await landingPathFor(user.id);
-    const stayOnStart =
-      landing === "/start" ||
-      landing === "/onboarding" ||
-      landing.startsWith("/start?") ||
-      landing.startsWith("/start/") ||
-      landing.startsWith("/onboarding?") ||
-      landing.startsWith("/onboarding/");
-    if (!stayOnStart) {
-      redirect(landing);
-    }
-  }
-
-  if (user) {
-    landingPath = await landingPathFor(user.id);
-  }
-
-  const config = await getPublicPlatformConfig();
-  const uploaded = brandImageView(config.headerLogo);
-  const fallback = PLATFORM_LOGO;
-  const logoSrc = uploaded?.src ?? fallback?.src ?? "";
-  const logo = {
-    src: logoSrc,
-    width: uploaded?.width ?? fallback?.width ?? null,
-    height: uploaded?.height ?? fallback?.height ?? null,
-    name: PLATFORM_NAME,
-  };
-
-  const rootDomain = publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN;
-  const googleAvailable = await googleSignInAvailable("sellers");
-  const voiceReady = isSarvamConfigured();
-
-  return (
-    <StartJourney
-      plan={plan}
-      theme={theme}
-      signedIn={signedIn}
-      landingPath={landingPath}
-      logo={logo}
-      rootDomain={rootDomain}
-      googleAvailable={googleAvailable}
-      voiceReady={voiceReady}
-    />
-  );
+  const q = startSearchQuery(sp as Record<string, string | string[] | undefined>);
+  redirect(q ? `/start/lang?${q}` : "/start/lang");
 }

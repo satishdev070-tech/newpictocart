@@ -1,6 +1,15 @@
 # Implementation Status
 
-_Last updated: 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Login vs start resume (2026-10-29, branch `cursor/login-vs-start-resume-c73e`)
+
+- **Login clears draft:** `/login` and `/seller/login` mount `ClearStartDraftOnLogin` → `clearStartDraftStorage()` (LS + `pc_start_draft` cookie). Login intent abandons the wizard; Start Free / `/start` still resumes if a draft exists.
+- **Landing:** `landingFor` ignores `/start`, `/start/*`, and `/onboarding` for store owners → `/dashboard` (staff → `/admin`). Unit coverage in `tests/unit/auth/role-routing.test.ts`.
+- **Step URLs:** `lang | path | quiz | voice | business | theme | account | building | done` (`src/features/start/steps.ts`). Bare `/start` → `/start/lang` (query preserved); invalid legacy ids → `/start/lang`. `[step]` shares `StartPageContent`.
+- **Client:** `StartJourney` `initialStep` + `go()`/`draft.screen` → `router.replace(/start/${screen})`; LS progress resumes over URL; empty draft adopts URL step.
+- **Shell:** “Already have an account? Sign in” → `/login` (triggers clear).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **144 files / 1671 tests**, build).
 
 ## Onboarding logout / online-only (2026-10-29, branch `cursor/onboarding-logout-online-only-c73e`)
 

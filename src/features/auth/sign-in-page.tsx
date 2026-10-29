@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MerchantSignIn } from "@/features/auth/merchant-auth";
+import { ClearStartDraftOnLogin } from "@/features/auth/clear-start-draft-on-login";
 import { googleSignInAction } from "@/features/auth/actions";
 import { GoogleButton, OrDivider } from "@/components/auth/google-button";
 import { googleIdentityClientId, googleSignInAvailable } from "@/features/auth/google";
@@ -28,6 +30,7 @@ export async function SharedSignInPage({ searchParams }: { searchParams: SearchP
   const error = searchParams.error;
   return (
     <AuthSplit variant={toConsole ? "console" : "merchant"} aside={toConsole ? <ConsoleAside /> : <MerchantAside mode="login" />}>
+      <ClearStartDraftOnLogin />
       <AuthHeading
         eyebrow={toConsole ? "Platform console" : "Sign in"}
         title={toConsole ? "Sign in to continue" : "Sign in to Pictocart"}
@@ -51,9 +54,9 @@ export async function SharedSignInPage({ searchParams }: { searchParams: SearchP
       <MerchantSignIn next={requested || undefined} />
       <p className="mt-6 text-center text-small text-muted">
         New to Pictocart?{" "}
-        <a href="/start" className="font-semibold text-accent underline-offset-2 hover:underline">
+        <Link href="/start" className="font-semibold text-accent underline-offset-2 hover:underline">
           Create your store
-        </a>
+        </Link>
       </p>
       <p className="mt-8 text-caption text-subtle">Shopping at a store? Sign in on that store&apos;s website instead.</p>
     </AuthSplit>
