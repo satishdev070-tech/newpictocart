@@ -6,7 +6,7 @@ _Last updated: 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start 
 
 - **Bug:** Signed-in no-store sessions hitting `/seller/login` cleared the draft then `router.replace("/start")` → `/start/lang`, so marketing Login never showed the form.
 - **Fix:** Auto-redirect from Login only to `/dashboard` or `/admin`. No-store stays on the sign-in UI (banner: continue `/start` or sign out). Marketing + mobile Login use hard `<a href>`.
-- **Verification:** `pnpm check` on this branch.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **145 files / 1673 tests**, build).
 
 ## Stuck Login / Start same-tab (2026-10-29, branch `cursor/fix-stuck-login-start-c73e`)
 
