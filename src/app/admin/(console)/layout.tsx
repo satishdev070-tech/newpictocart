@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { ChevronsUpDown, LogOut, Shield, Store, UserCircle } from "lucide-react";
+import { ChevronsUpDown, Shield, Store, UserCircle } from "lucide-react";
 import { requirePlatform } from "@/lib/platform/access";
 import { adminNavFor } from "@/features/platform/nav";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Popover, PopoverItem } from "@/components/app-shell/popover";
+import { SignOutButton } from "@/components/app-shell/sign-out-button";
 import { AppearanceQuickToggle, AppearanceToggle } from "@/components/ui/appearance-toggle";
 import { PanelLogo, PanelMark } from "@/components/app-shell/panel-logo";
-import { signOutAction } from "@/features/auth/actions";
 import { PLATFORM_NAME } from "@/config/platform";
 import { platformIconMetadata } from "@/features/platform/server/public-config";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
@@ -57,12 +57,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
           </span>
         </span>
       </div>
-      <form action={signOutAction}>
-        <button type="submit" className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-small text-error transition-colors hover:bg-error/10">
-          <LogOut aria-hidden className="size-[18px]" strokeWidth={1.75} />
-          Sign out
-        </button>
-      </form>
+      <SignOutButton />
     </>
   );
 
@@ -109,11 +104,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
               <Store aria-hidden /> Seller Dashboard
             </PopoverItem>
           ) : null}
-          <form action={signOutAction}>
-            <PopoverItem>
-              <LogOut aria-hidden /> Sign out
-            </PopoverItem>
-          </form>
+          <SignOutButton variant="menu" />
         </div>
       </Popover>
     </>

@@ -46,10 +46,10 @@ describe("getSessionUser resilience", () => {
 });
 
 describe("landingPathFor resilience", () => {
-  it("falls back to /onboarding when membership lookups throw", async () => {
+  it("falls back to /start when membership lookups throw", async () => {
     serverClient = new Error("db unavailable");
     const { landingPathFor } = await import("@/lib/auth/landing");
-    expect(await landingPathFor("u1")).toBe("/onboarding");
+    expect(await landingPathFor("u1")).toBe("/start");
   });
 
   it("routes sellers to the dashboard when they have an active membership", async () => {

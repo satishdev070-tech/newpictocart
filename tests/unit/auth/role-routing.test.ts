@@ -7,16 +7,16 @@ const both = { platformStaff: true, storeCount: 1 };
 const nobody = { platformStaff: false, storeCount: 0 };
 
 describe("role routing after sign-in", () => {
-  it("sends super admins to the console, sellers to the dashboard, new accounts to onboarding", () => {
+  it("sends super admins to the console, sellers to the dashboard, new accounts to /start", () => {
     expect(defaultLanding(staff)).toBe("/admin");
     expect(defaultLanding(both)).toBe("/admin");
     expect(defaultLanding(seller)).toBe("/dashboard");
-    expect(defaultLanding(nobody)).toBe("/onboarding");
+    expect(defaultLanding(nobody)).toBe("/start");
   });
 
   it("honours a requested panel only when the account can use it", () => {
     expect(landingFor(seller, "/admin/users")).toBe("/dashboard");
-    expect(landingFor(nobody, "/admin")).toBe("/onboarding");
+    expect(landingFor(nobody, "/admin")).toBe("/start");
     expect(landingFor(staff, "/admin/users?q=a")).toBe("/admin/users?q=a");
     expect(landingFor(staff, "/dashboard/orders")).toBe("/admin");
     expect(landingFor(both, "/dashboard/orders")).toBe("/dashboard/orders");

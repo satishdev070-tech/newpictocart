@@ -48,7 +48,11 @@ export function Popover({ trigger, label, children, align = "end", className }: 
         <div
           id={id}
           onClick={(e) => {
+            // Keep the panel mounted while a form submits (e.g. Sign out) — closing would
+            // unmount the form mid-request. Still close for links and plain type=button.
             const el = e.target as HTMLElement;
+            const btn = el.closest("button");
+            if (btn && (btn as HTMLButtonElement).type === "submit") return;
             if (el.closest("a, button")) setOpen(false);
           }}
           className={cn(
