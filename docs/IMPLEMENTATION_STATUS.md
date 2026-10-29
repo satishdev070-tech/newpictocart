@@ -6,7 +6,7 @@ _Last updated: 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on 
 
 - **Bug:** Finishing the quiz (`setDraft(screen: "theme")`) without `replaceStepUrl` left pathname at `/start/quiz`. URL sync then **re-adopted** `quiz` into the draft — Continue looked stuck on city (Q4). CSP `eval` in DevTools is unrelated (app CSP is frame-ancestors only).
 - **Fix:** Adopt URL → draft only on `popstate` (Back/Forward); otherwise always push URL from draft. Quiz finish also calls `replaceStepUrl("theme")`.
-- **Verification:** `pnpm check` on this branch.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **145 files / 1673 tests**, build).
 
 ## Login stay on form (2026-10-29, branch `cursor/login-stay-on-form-c73e`)
 
