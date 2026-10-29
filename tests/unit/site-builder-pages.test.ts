@@ -16,9 +16,10 @@ describe("page templates", () => {
   it("has the expected starter set with unique keys", () => {
     const keys = PAGE_TEMPLATES.map((t) => t.key);
     expect(new Set(keys).size).toBe(keys.length);
-    expect(PAGE_TEMPLATES.map((t) => t.label)).toEqual(["About", "Blogs", "Collection", "Contact", "FAQ", "Gallery", "Privacy Policy", "Shop", "Team", "Why Us"]);
+    expect(keys).toEqual(expect.arrayContaining(["about", "about-mission", "contact", "contact-split", "faq", "faq-shipping", "blogs", "blogs-magazine", "blog-detail", "blog-detail-feature", "collection", "gallery"]));
     expect(pageTemplate("blank")).toBe(BLANK_TEMPLATE);
-    expect(pageTemplate("about")?.label).toBe("About");
+    expect(pageTemplate("about")?.label).toMatch(/^About/);
+    expect(pageTemplate("about")?.family).toBe("about");
     expect(pageTemplate("nope")).toBeNull();
   });
 
@@ -40,9 +41,11 @@ describe("page templates", () => {
   it("all templates together still validate (unique handles and ids)", () => {
     let config: ThemeConfig = DEFAULT_THEME_CONFIG;
     for (const t of PAGE_TEMPLATES) config = addPage(config, t.label, t.sections).config;
-    config = addPage(config, "About", PAGE_TEMPLATES[0]!.sections).config;
+    // Slugify of the first About layout label is already taken → uniqueHandle suffixes.
+    const dupTitle = PAGE_TEMPLATES[0]!.label;
+    config = addPage(config, dupTitle, PAGE_TEMPLATES[0]!.sections).config;
     expect(config.pages).toHaveLength(PAGE_TEMPLATES.length + 1);
-    expect(config.pages.at(-1)!.handle).toBe("about-2");
+    expect(config.pages.at(-1)!.handle).toMatch(/-2$/);
     const r = parseThemeConfigStrict(config);
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     expect(r.config.pages).toHaveLength(PAGE_TEMPLATES.length + 1);

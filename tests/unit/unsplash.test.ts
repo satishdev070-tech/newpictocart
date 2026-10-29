@@ -14,6 +14,7 @@ describe("toUnsplashCategory", () => {
     expect(toUnsplashCategory("home-decor")).toBe("furniture");
     expect(toUnsplashCategory("Home Decor")).toBe("furniture");
     expect(toUnsplashCategory("Jewelry")).toBe("jewellery");
+    expect(toUnsplashCategory("gym")).toBe("fitness");
     expect(toUnsplashCategory("something-new")).toBe("general");
   });
 

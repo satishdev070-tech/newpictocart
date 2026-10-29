@@ -133,10 +133,10 @@ describe("field groups", () => {
     const keys = Object.fromEntries(groups.map((g) => [g.id, g.fields.map((f) => f.key)]));
     expect(groups.map((g) => g.id)).toEqual(["subtitle", "title", "description", "media", "actions", "other"]);
     expect(keys.subtitle).toEqual(["eyebrow"]);
-    expect(keys.title).toEqual(["heading", "headingAccent"]);
-    expect(keys.description).toEqual(["subheading"]);
+    expect(keys.title).toEqual(["heading", "headingAccent", "headingLook"]);
+    expect(keys.description).toEqual(["subheading", "subheadingLook"]);
     expect(keys.media).toEqual(["imagePath", "mobileImagePath", "alt"]);
-    expect(keys.actions).toEqual(["ctaLabel", "ctaHref"]);
+    expect(keys.actions).toEqual(["ctaLabel", "ctaHref", "ctaLook"]);
     expect(keys.other).toEqual(["align", "textTone"]);
     expect(groups.find((g) => g.id === "other")!.toggle).toBe(false);
     // Every item field lands in exactly one group, for every list in every definition.

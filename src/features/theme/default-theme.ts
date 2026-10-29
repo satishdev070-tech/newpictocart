@@ -54,8 +54,16 @@ const RAW_DEFAULT = {
       s("social", "SocialProof"),
       s("newsletter", "Newsletter"),
     ],
-    collection: [],
-    product: [s("product-trust", "TrustBadges", { tone: "muted" })],
+    collection: [s("collection-pc", "PageContent")],
+    product: [s("product-pc", "PageContent"), s("product-trust", "TrustBadges", { tone: "muted" })],
+    // Site-builder templates: PageContent marker so eCommerce / Members / Blog chrome expose the
+    // same Edit · Design · Settings · Colours panel as Home (marker is invisible on the storefront).
+    collectionList: [s("collections-pc", "PageContent")],
+    page: [s("page-pc", "PageContent")],
+    blog: [s("blog-pc", "PageContent")],
+    search: [s("search-pc", "PageContent")],
+    cart: [s("cart-pc", "PageContent")],
+    account: [s("account-pc", "PageContent")],
   },
 };
 

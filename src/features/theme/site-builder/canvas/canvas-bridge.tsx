@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import { renderCanvasAction } from "../canvas-actions";
-import { CANVAS_TAG, parseHostMessage, type CanvasMessage, type SectionAction } from "../protocol";
+import { CANVAS_TAG, parseHostMessage, TEXT_ROLES, type CanvasMessage, type ProtocolTextRole, type SectionAction } from "../protocol";
 import { listKeyOf, slotListOf } from "../slots";
 import { setSlotOverrides } from "./store";
 import { EMPTY_SLOT_INSERT_EVENT } from "./empty-slot";
@@ -28,15 +28,42 @@ import { themeCss } from "../../tokens-style";
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 type Box = Rect;
 type Target = { id: string; slot: string; pageContent: boolean; type: string };
-type Boxes = { hover: Box | null; selected: Box | null; header: Box | null; busy: Box[]; toolbar: { w: number; h: number } };
+type TextTarget = { sectionId: string; slot: string; role: ProtocolTextRole; itemIndex?: number };
+type Boxes = { hover: Box | null; selected: Box | null; header: Box | null; busy: Box[]; toolbar: { w: number; h: number }; text: Box | null };
 
 const Z = 2147483000;
-const NO_BOXES: Boxes = { hover: null, selected: null, header: null, busy: [], toolbar: { w: 0, h: 32 } };
+const NO_BOXES: Boxes = { hover: null, selected: null, header: null, busy: [], toolbar: { w: 0, h: 32 }, text: null };
 /** At most this many sections shimmer while a slot re-renders. */
 const MAX_SHIMMER = 12;
 
 function sectionEl(id: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-section-id="${CSS.escape(id)}"]`);
+}
+
+function textRoleOf(v: string | undefined): ProtocolTextRole | null {
+  return v && (TEXT_ROLES as readonly string[]).includes(v) ? (v as ProtocolTextRole) : null;
+}
+
+/** Find a `data-pc-text` node for a section + role (+ optional slide index). */
+function textEl(sectionId: string, role: ProtocolTextRole, itemIndex?: number): HTMLElement | null {
+  const root = sectionEl(sectionId);
+  if (!root) return null;
+  const nodes = Array.from(root.querySelectorAll<HTMLElement>(`[data-pc-text="${CSS.escape(role)}"]`));
+  if (typeof itemIndex === "number") {
+    return nodes.find((n) => n.dataset.pcTextItem === String(itemIndex)) ?? nodes[itemIndex] ?? null;
+  }
+  return nodes[0] ?? null;
+}
+
+function textTargetOf(el: Element | null): (TextTarget & { section: Target }) | null {
+  const node = el?.closest<HTMLElement>("[data-pc-text]");
+  if (!node) return null;
+  const section = targetOf(node);
+  const role = textRoleOf(node.dataset.pcText);
+  if (!section || !role) return null;
+  const raw = node.dataset.pcTextItem;
+  const itemIndex = raw !== undefined && /^\d+$/.test(raw) ? Number(raw) : undefined;
+  return { section, sectionId: section.id, slot: section.slot, role, ...(itemIndex !== undefined ? { itemIndex } : {}) };
 }
 
 /** Bounding box of a section wrapper; wrappers are often display:contents, so union the children. */
@@ -169,8 +196,10 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
   const previewToken = useRef<string | undefined>(undefined);
   const [hover, setHover] = useState<Target | null>(null);
   const [selected, setSelected] = useState<Target | null>(null);
+  const [textSel, setTextSel] = useState<TextTarget | null>(null);
   const [boxes, setBoxes] = useState<Boxes>(NO_BOXES);
   const [menuOpen, setMenuOpen] = useState(false);
+  const dragRef = useRef<{ startX: number; startW: number; parentW: number; role: ProtocolTextRole; sectionId: string; slot: string; itemIndex?: number } | null>(null);
   /** Slots re-rendering right now ("all" = a theme-wide change), or null. */
   const [busy, setBusy] = useState<string[] | "all" | null>(null);
   const [labels, setLabels] = useState<Record<string, string>>({});
@@ -290,6 +319,7 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
       hoverId.current = null;
       setHover(null);
       setSelected(null);
+      setTextSel(null);
       post({ type: "ready", path: location.pathname + location.search, slots: pageSlots() });
     }, 30);
     return () => clearTimeout(t);
@@ -316,10 +346,30 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
         return;
       }
       if (msg.type === "select") {
-        if (!msg.sectionId) return setSelected(null);
+        if (!msg.sectionId) {
+          setSelected(null);
+          setTextSel(null);
+          return;
+        }
         const el = sectionEl(msg.sectionId);
         const t = targetOf(el);
         setSelected(t);
+        return;
+      }
+      if (msg.type === "textSelect") {
+        if (!msg.sectionId || !msg.role) {
+          setTextSel(null);
+          return;
+        }
+        const el = sectionEl(msg.sectionId);
+        const t = targetOf(el);
+        if (t) setSelected(t);
+        setTextSel({
+          sectionId: msg.sectionId,
+          slot: t?.slot ?? "",
+          role: msg.role,
+          ...(msg.itemIndex !== undefined ? { itemIndex: msg.itemIndex } : {}),
+        });
         return;
       }
       if (msg.type === "scrollTo") {
@@ -405,11 +455,29 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
     const onClick = (e: MouseEvent) => {
       const el = e.target as Element;
       if (el.closest("[data-builder-chrome]")) return;
+      const text = textTargetOf(el);
+      if (text) {
+        e.preventDefault();
+        e.stopPropagation();
+        setSelected(text.section);
+        setTextSel({ sectionId: text.sectionId, slot: text.slot, role: text.role, ...(text.itemIndex !== undefined ? { itemIndex: text.itemIndex } : {}) });
+        setMenuOpen(false);
+        post({ type: "select", slot: text.slot, sectionId: text.sectionId });
+        post({
+          type: "textSelect",
+          slot: text.slot,
+          sectionId: text.sectionId,
+          role: text.role,
+          ...(text.itemIndex !== undefined ? { itemIndex: text.itemIndex } : {}),
+        });
+        return;
+      }
       const t = targetOf(el);
       if (!t) return;
       e.preventDefault();
       e.stopPropagation();
       setSelected(t);
+      setTextSel(null);
       setMenuOpen(false);
       post({ type: "select", slot: t.slot, sectionId: t.id });
     };
@@ -440,6 +508,8 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
       const h = hover ? sectionEl(hover.id) : null;
       const s = selected ? sectionEl(selected.id) : null;
       const selectedBox = s ? boxOf(s) : null;
+      const textNode = textSel ? textEl(textSel.sectionId, textSel.role, textSel.itemIndex) : null;
+      const textBox = textNode ? boxOf(textNode) : null;
       // Shimmer: the selected section when its slot is re-rendering, else every section of the busy slots.
       let busyBoxes: Box[] = [];
       if (Array.isArray(busy) && busy.length) {
@@ -459,13 +529,14 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
         header: headerBox(),
         busy: busyBoxes,
         toolbar: tb ? { w: tb.offsetWidth, h: tb.offsetHeight || 32 } : NO_BOXES.toolbar,
+        text: textBox,
       };
       setBoxes((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [framed, hover, selected, busy]);
+  }, [framed, hover, selected, textSel, busy]);
 
   if (!framed) return null;
 
@@ -522,7 +593,89 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
         <div key={i} className="pcb-shimmer" style={{ position: "fixed", top: b.top, left: b.left, width: b.width, height: b.height, pointerEvents: "none", zIndex: Z }} />
       ))}
       {boxes.hover && hover && hover.id !== selected?.id ? <div className="pcb-fade" style={overlay(boxes.hover, false)} /> : null}
-      {boxes.selected && selected ? <div style={overlay(boxes.selected, true)} /> : null}
+      {boxes.selected && selected && !textSel ? <div style={overlay(boxes.selected, true)} /> : null}
+      {boxes.text && textSel ? (
+        <>
+          <div
+            style={{
+              ...overlay(boxes.text, true),
+              border: "2px solid #ea580c",
+              background: "rgba(249,115,22,.06)",
+              boxShadow: "0 0 0 1px rgba(255,255,255,.7)",
+            }}
+          />
+          {/* Right-edge drag handle for text-box width */}
+          <button
+            type="button"
+            aria-label="Resize text box"
+            title="Drag to resize text width"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const parent = textEl(textSel.sectionId, textSel.role, textSel.itemIndex)?.parentElement;
+              const parentW = parent?.getBoundingClientRect().width || boxes.text!.width;
+              dragRef.current = {
+                startX: e.clientX,
+                startW: boxes.text!.width,
+                parentW: Math.max(1, parentW),
+                role: textSel.role,
+                sectionId: textSel.sectionId,
+                slot: textSel.slot,
+                ...(textSel.itemIndex !== undefined ? { itemIndex: textSel.itemIndex } : {}),
+              };
+              const onMove = (ev: PointerEvent) => {
+                const d = dragRef.current;
+                if (!d) return;
+                const nextW = Math.round(((d.startW + (ev.clientX - d.startX)) / d.parentW) * 100);
+                const widthPct = Math.min(100, Math.max(10, nextW));
+                post({
+                  type: "textResize",
+                  slot: d.slot,
+                  sectionId: d.sectionId,
+                  role: d.role,
+                  widthPct,
+                  ...(d.itemIndex !== undefined ? { itemIndex: d.itemIndex } : {}),
+                });
+              };
+              const onUp = () => {
+                dragRef.current = null;
+                window.removeEventListener("pointermove", onMove);
+                window.removeEventListener("pointerup", onUp);
+              };
+              window.addEventListener("pointermove", onMove);
+              window.addEventListener("pointerup", onUp);
+            }}
+            style={{
+              position: "fixed",
+              top: boxes.text.top + boxes.text.height / 2 - 12,
+              left: boxes.text.left + boxes.text.width - 6,
+              width: 12,
+              height: 24,
+              borderRadius: 6,
+              border: "2px solid #ea580c",
+              background: "#fff",
+              cursor: "ew-resize",
+              pointerEvents: "auto",
+              zIndex: Z + 4,
+              padding: 0,
+            }}
+          />
+          <span
+            className="pcb-chip"
+            data-on=""
+            style={{
+              position: "fixed",
+              top: Math.max(4, boxes.text.top - 28),
+              left: boxes.text.left,
+              zIndex: Z + 4,
+              pointerEvents: "none",
+            }}
+          >
+            <i aria-hidden />
+            {textSel.role} text
+          </span>
+        </>
+      ) : null}
       {active && activeBox ? (
         <>
           {/* Label chip (bottom-right) */}

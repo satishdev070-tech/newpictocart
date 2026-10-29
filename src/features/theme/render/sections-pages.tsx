@@ -8,6 +8,7 @@ import { StoreImage } from "@/features/storefront/components/store-image";
 import { formatAddress, telHref, whatsappUrl } from "@/features/storefront/store-profile";
 import { paths } from "@/features/storefront/urls";
 import { Cta, Intro } from "./parts";
+import { TextBox, lookOf, textBoxProps } from "./text-look";
 import { stockFor } from "./variants";
 import type { RenderContext } from "./context";
 
@@ -243,16 +244,29 @@ function ContactInfo({ s, ctx }: P<"ContactInfo">) {
 
 function RichText({ s }: P<"RichText">) {
   if (!s.heading && !s.body) return null;
-  const heading = s.heading ? <h2 className="sf-heading text-3xl @[64rem]:text-4xl">{s.heading}</h2> : null;
+  const heading = s.heading ? (
+    <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className="sf-heading text-3xl @[64rem]:text-4xl">
+      {s.heading}
+    </TextBox>
+  ) : null;
   const head = (
     <div className="space-y-2">
       {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
       {heading}
-      {s.subheading ? <p className="sf-muted text-lg">{s.subheading}</p> : null}
+      {s.subheading ? (
+        <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className="sf-muted text-lg">
+          {s.subheading}
+        </TextBox>
+      ) : null}
     </div>
   );
-  const body = s.body ? <Paragraphs text={s.body} /> : null;
-  const cta = <Cta label={s.ctaLabel} href={s.ctaHref} />;
+  const body = s.body ? (
+    <TextBox role="body" look={lookOf(s.bodyLook)} as="div">
+      <Paragraphs text={s.body} />
+    </TextBox>
+  ) : null;
+  const ctaLook = textBoxProps("cta", lookOf(s.ctaLook));
+  const cta = <Cta label={s.ctaLabel} href={s.ctaHref} style={ctaLook.style} dataAttrs={ctaLook.attrs} />;
 
   if (s.variant === "richtext-columns") {
     return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, ChevronDown, ExternalLink, FileText, History, Monitor, Redo2, Smartphone, Undo2 } from "lucide-react";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import type { PublicError } from "@/lib/errors";
 import { publishThemeAction, refreshPreviewUrlAction, rollbackThemeAction, saveThemeDraftAction } from "@/features/theme/actions";
+import { AUTOSAVE_IDLE_MS, draftStatusLabel, isStaleDraftConflict, shouldScheduleAutosave } from "../autosave";
 import { useBuilder } from "../context";
 import { PAGE_GROUP_LABELS, type PageGroup } from "../pages";
 import { Dialog, IconButton, input } from "./ui";
@@ -18,7 +19,10 @@ export const leaveGuard = { bypass: false };
 
 const GROUP_ORDER: PageGroup[] = ["pages", "ecommerce", "members", "popups"];
 
-type Notice = { tone: "ok" | "error"; text: string } | null;
+type Notice =
+  | { tone: "ok" | "pending"; text: string }
+  | { tone: "error"; text: string; conflict?: boolean }
+  | null;
 
 function errorText(e: PublicError): string {
   return e.fieldErrors?._form?.[0] ?? Object.values(e.fieldErrors ?? {})[0]?.[0] ?? e.message;
@@ -64,46 +68,89 @@ export function TopBar() {
   const [previewing, startPreview] = useTransition();
   const [publishOpen, setPublishOpen] = useState(false);
   const [note, setNote] = useState("");
+  const savingRef = useRef(false);
+  const conflict = isStaleDraftConflict(saveErr?.code);
 
-  // Auto-hide success notices.
+  // Auto-hide success notices (pending / conflict stay until resolved).
   useEffect(() => {
     if (notice?.tone !== "ok") return;
     const t = setTimeout(() => setNotice(null), 3000);
     return () => clearTimeout(t);
   }, [notice]);
 
-  const conflict = saveErr?.code === "CONFLICT";
-
-  const save = (force: boolean) =>
+  /** Persist the current local document as the server draft (manual Save or autosave). */
+  const persistDraft = (force: boolean, source: "manual" | "auto") => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    // Capture at fire time — edits during the round-trip stay dirty for the next pass.
+    const sent = b.config;
+    const baseUpdatedAt = b.baseUpdatedAt;
     startSave(async () => {
-      const sent = b.config;
-      const fd = new FormData();
-      fd.set("config", JSON.stringify(sent));
-      fd.set("baseUpdatedAt", b.baseUpdatedAt);
-      if (force) fd.set("force", "1");
-      const r = await saveThemeDraftAction(null, fd);
-      if (r.ok) {
-        b.markSaved(r.data.updatedAt, sent);
-        setSaveErr(null);
-        setNotice({ tone: "ok", text: "Draft saved." });
-      } else {
-        setSaveErr(r.error);
-        setNotice({ tone: "error", text: errorText(r.error) });
+      try {
+        const fd = new FormData();
+        fd.set("config", JSON.stringify(sent));
+        fd.set("baseUpdatedAt", baseUpdatedAt);
+        if (force) fd.set("force", "1");
+        const r = await saveThemeDraftAction(null, fd);
+        if (r.ok) {
+          b.markSaved(r.data.updatedAt, sent);
+          setSaveErr(null);
+          setNotice({ tone: "ok", text: source === "auto" ? "Draft autosaved." : "Draft saved." });
+        } else {
+          setSaveErr(r.error);
+          const stale = isStaleDraftConflict(r.error.code);
+          setNotice({
+            tone: "error",
+            conflict: stale,
+            text: stale
+              ? "Someone else saved this theme after you opened it. Reload to see their draft, or save anyway to keep yours."
+              : errorText(r.error),
+          });
+        }
+      } finally {
+        savingRef.current = false;
       }
     });
+  };
 
-  const publish = () =>
+  const saveManual = (force: boolean) => persistDraft(force, "manual");
+
+  // Latest dirty/conflict for the idle timer (effect-event may only run from effects).
+  const autosaveNow = useEffectEvent(() => {
+    if (!shouldScheduleAutosave({ dirty: b.dirty, conflict: isStaleDraftConflict(saveErr?.code), saving: savingRef.current })) {
+      return;
+    }
+    persistDraft(false, "auto");
+  });
+
+  // Debounced autosave: idle after local edits → Save draft. Canvas never waits on this.
+  useEffect(() => {
+    if (!shouldScheduleAutosave({ dirty: b.dirty, conflict, saving })) return;
+    const t = window.setTimeout(() => autosaveNow(), AUTOSAVE_IDLE_MS);
+    return () => window.clearTimeout(t);
+  }, [b.dirty, b.config, conflict, saving]);
+
+  const reloadAfterConflict = () => {
+    leaveGuard.bypass = true;
+    window.location.reload();
+  };
+
+  const publish = () => {
+    // Close the dialog immediately so the canvas stays usable; show a pending toast.
+    const label = note.trim();
+    setPublishOpen(false);
+    setNote("");
+    setNotice({ tone: "pending", text: "Publishing…" });
     startPublish(async () => {
       const fd = new FormData();
-      if (note.trim()) fd.set("label", note.trim());
+      if (label) fd.set("label", label);
       const r = await publishThemeAction(null, fd);
       if (r.ok) {
-        setPublishOpen(false);
-        setNote("");
         setNotice({ tone: "ok", text: "Published. Your store is updated." });
         router.refresh();
       } else setNotice({ tone: "error", text: errorText(r.error) });
     });
+  };
 
   const restore = (id: string, version: number) => {
     const lose = b.dirty ? " Your unsaved changes will be lost." : "";
@@ -137,6 +184,7 @@ export function TopBar() {
   };
 
   const versions = b.history.filter((h) => h.status !== "draft");
+  const status = draftStatusLabel({ dirty: b.dirty, saving, publishing, conflict });
 
   return (
     // No overflow clipping on the bar: the history popover and notices hang below it.
@@ -152,15 +200,23 @@ export function TopBar() {
       >
         <ArrowLeft aria-hidden />
       </Link>
-      <div className="hidden min-w-0 max-w-44 lg:block">
+      <div className="hidden min-w-0 max-w-52 lg:block">
         <p className="truncate text-small font-semibold">{b.store.name}</p>
-        <p className="flex items-center gap-1 text-xs text-muted">
-          {b.dirty ? (
+        <p className="flex items-center gap-1 text-xs text-muted" aria-live="polite">
+          {conflict ? (
             <>
-              <span className="size-1.5 rounded-full bg-accent" aria-hidden /> Unsaved changes
+              <span className="size-1.5 rounded-full bg-error" aria-hidden /> {status}
+            </>
+          ) : b.dirty || saving ? (
+            <>
+              <span className={cn("size-1.5 rounded-full", saving ? "animate-pulse bg-muted" : "bg-accent")} aria-hidden /> {status}
+            </>
+          ) : publishing ? (
+            <>
+              <span className="size-1.5 animate-pulse rounded-full bg-accent" aria-hidden /> {status}
             </>
           ) : (
-            "All changes saved"
+            status
           )}
         </p>
       </div>
@@ -275,9 +331,18 @@ export function TopBar() {
         <Button variant="secondary" size="sm" onClick={openPreview} pending={previewing} title={b.dirty ? "Preview shows your saved draft. Save to preview your latest changes." : "Open the saved draft in a new tab"}>
           <ExternalLink aria-hidden /> <span className="hidden md:inline">Preview</span>
         </Button>
-        <Button variant={conflict ? "danger" : "secondary"} size="sm" onClick={() => save(conflict)} pending={saving} disabled={!b.dirty && !saveErr} title={b.dirty ? "Save your changes as a draft" : "All changes saved"}>
+        <Button
+          variant={conflict ? "danger" : "secondary"}
+          size="sm"
+          onClick={() => saveManual(conflict)}
+          pending={saving}
+          disabled={!b.dirty && !saveErr}
+          title={conflict ? "Overwrite the server draft with your local changes" : b.dirty ? "Save your changes as a draft (also autosaves after a short pause)" : "All changes saved"}
+        >
           {b.dirty && !saving && !conflict ? <span aria-hidden className="size-1.5 rounded-full bg-accent-strong lg:hidden" /> : null}
-          {conflict ? "Save anyway" : (
+          {conflict ? (
+            "Save anyway"
+          ) : (
             <>
               Save<span className="hidden xl:inline">&nbsp;draft</span>
             </>
@@ -295,13 +360,24 @@ export function TopBar() {
           role={notice.tone === "error" ? "alert" : "status"}
           className={cn(
             "absolute right-3 top-full z-40 mt-2 flex max-w-md items-start gap-2 rounded-lg border px-3 py-2 text-small shadow-lg",
-            notice.tone === "error" ? "border-error/40 bg-surface text-error" : "border-border bg-surface text-success",
+            notice.tone === "error" ? "border-error/40 bg-surface text-error" : notice.tone === "pending" ? "border-border bg-surface text-foreground" : "border-border bg-surface text-success",
           )}
         >
           <span className="flex-1">{notice.text}</span>
-          <button type="button" onClick={() => setNotice(null)} className="text-xs text-muted hover:text-foreground" aria-label="Dismiss">
-            ✕
-          </button>
+          {notice.tone === "error" && notice.conflict ? (
+            <span className="flex shrink-0 items-center gap-2">
+              <button type="button" onClick={reloadAfterConflict} className="text-xs font-medium text-foreground underline-offset-2 hover:underline">
+                Reload
+              </button>
+              <button type="button" onClick={() => saveManual(true)} className="text-xs font-medium text-error underline-offset-2 hover:underline">
+                Save anyway
+              </button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setNotice(null)} className="text-xs text-muted hover:text-foreground" aria-label="Dismiss">
+              ✕
+            </button>
+          )}
         </div>
       ) : null}
 

@@ -76,7 +76,20 @@ function Photo({ src, style, radius = "0" }: { src: string; style?: CSSPropertie
   return <img src={src} alt="" loading="lazy" decoding="async" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", borderRadius: radius, ...style }} />;
 }
 
-export function ThemeMockup({ preset, name, tagline, size = "card" }: { preset: ThemePreset; name: string; tagline?: string; size?: "card" | "large" | "phone" }) {
+export function ThemeMockup({
+  preset,
+  name,
+  tagline,
+  size = "card",
+  themeKey,
+}: {
+  preset: ThemePreset;
+  name: string;
+  tagline?: string;
+  size?: "card" | "large" | "phone";
+  /** Stable marketplace theme key — preferred over `name` for per-theme photo rotation. */
+  themeKey?: string;
+}) {
   const t = preset.tokens as Record<string, unknown> & { colors: Record<string, string> };
   const c = t.colors;
   const heading = FONT_STACKS[(t.headingFont as FontKey) ?? "editorial-serif"]?.stack;
@@ -91,8 +104,8 @@ export function ThemeMockup({ preset, name, tagline, size = "card" }: { preset: 
   const center = phone || preset.headerLayout === "logo-center" || layout.headerStyle === "editorial";
   const cat = toUnsplashCategory(preset.family ?? "general");
   const w = large ? 640 : 360;
-  // Rotate the category's photos by theme name, so cards of one category don't all share a photo.
-  const shift = stockIndex(name);
+  // Rotate the category's photos by theme key (fallback: name) so same-industry cards differ.
+  const shift = stockIndex(themeKey ?? name);
   const rotate = <T,>(list: T[]) => list.map((_, i) => list[(i + shift) % list.length]!);
   const hero = rotate(curatedStock(cat, "hero").map((i) => sizedStockUrl(i.url, w)));
   const prod = rotate(curatedStock(cat, "products").map((i) => sizedStockUrl(i.url, large ? 320 : 200)));

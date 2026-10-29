@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { imagePath, plainText, safeHref } from "../schema/primitives";
+import { textLookField } from "../schema/text-style";
 import type { EditorField, SectionDefinition } from "./types";
 import { SECTION_SPACINGS, values, type VariantOption } from "./variants";
 
@@ -207,14 +208,22 @@ const richText = {
     body: txt(6000, "Write a few paragraphs here.\n\nLeave an empty line to start a new paragraph."),
     ctaLabel: txt(40),
     ctaHref: safeHref.default(""),
+    headingLook: textLookField,
+    subheadingLook: textLookField,
+    bodyLook: textLookField,
+    ctaLook: textLookField,
     ...commonFields,
   }),
   fields: editorFields([
     variantEditor("Layout", RICH_TEXT_VARIANTS),
     ...headingEditor,
+    { kind: "textStyle", key: "headingLook", label: "Heading style", role: "heading" },
+    { kind: "textStyle", key: "subheadingLook", label: "Subheading style", role: "subheading" },
     { kind: "text", key: "body", label: "Text", maxLength: 6000, multiline: true, help: "Leave an empty line between paragraphs." },
+    { kind: "textStyle", key: "bodyLook", label: "Body style", role: "body" },
     { kind: "text", key: "ctaLabel", label: "Button text (optional)", maxLength: 40 },
     { kind: "link", key: "ctaHref", label: "Button link" },
+    { kind: "textStyle", key: "ctaLook", label: "Button style", role: "cta" },
     toneEditor,
     spacingEditor,
   ]),

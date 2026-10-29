@@ -42,7 +42,7 @@ const QUERIES: Record<UnsplashCategory, string> = {
   electronics: "electronics gadgets",
   handicrafts: "handmade pottery crafts",
   books: "books bookshop",
-  fitness: "fitness gym equipment",
+  fitness: "gym floor equipment workout",
   toys: "toys kids",
   stationery: "stationery notebooks",
   pets: "pet dog",

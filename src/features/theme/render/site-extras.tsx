@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { assetUrl } from "@/lib/storage/assets";
 import { NewsletterForm } from "@/features/storefront/components/islands";
-import type { Embeds, Popup } from "@/features/theme/schema/site";
+import { submitPopupFormAction } from "@/features/storefront/actions";
+import type { Embeds, Popup, PopupFormField } from "@/features/theme/schema/site";
+import { FormMessage } from "@/components/ui/form";
 
 /**
  * Site-builder extras on every store page: popups (timed, exit-intent, or opened from a
@@ -28,6 +30,133 @@ function markSeen(id: string) {
   }
 }
 
+function composePopupMessage(fields: PopupFormField[], values: Record<string, string | string[]>): string {
+  return fields
+    .map((f) => {
+      const raw = values[f.id];
+      const v = Array.isArray(raw) ? raw.filter(Boolean).join(", ") : (raw ?? "").trim();
+      return v ? `${f.label}: ${v}` : null;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function PopupCustomForm({ popup }: { popup: Popup }) {
+  const fields = popup.form.fields;
+  const [state, action, pending] = useActionState(submitPopupFormAction, null);
+  const [values, setValues] = useState<Record<string, string | string[]>>({});
+
+  if (state?.ok) {
+    return <p role="status" className="text-sm">{popup.form.successMessage || "Thanks — we got your message."}</p>;
+  }
+
+  const emailField = fields.find((f) => f.type === "email");
+  const nameField = fields.find((f) => f.type === "text");
+  const phoneField = fields.find((f) => f.type === "phone");
+  const email = String((emailField && values[emailField.id]) || "").trim();
+  const name = String((nameField && values[nameField.id]) || "").trim();
+  const phone = String((phoneField && values[phoneField.id]) || "").trim();
+  const message = composePopupMessage(fields, values) || "Popup form submission";
+
+  return (
+    <form action={action} className="mx-auto max-w-md space-y-3 text-left" noValidate>
+      <input type="hidden" name="popupName" value={popup.name} />
+      <input type="hidden" name="name" value={name} />
+      <input type="hidden" name="email" value={email} />
+      <input type="hidden" name="phone" value={phone} />
+      <input type="hidden" name="message" value={message} />
+      {/* Honeypot */}
+      <input type="text" name="website" tabIndex={-1} autoComplete="off" className="absolute left-[-9999px] h-0 w-0 opacity-0" aria-hidden defaultValue="" />
+      {fields.map((f) => (
+        <PopupFieldInput key={f.id} field={f} value={values[f.id]} onChange={(v) => setValues((cur) => ({ ...cur, [f.id]: v }))} />
+      ))}
+      <FormMessage state={state} />
+      <button type="submit" disabled={pending || !email} className="sf-btn w-full">
+        {pending ? "Sending…" : popup.form.submitLabel || "Send"}
+      </button>
+      {!emailField ? <p className="text-xs opacity-70">Add an email field in the theme editor so visitors can be reached.</p> : null}
+    </form>
+  );
+}
+
+function PopupFieldInput({ field, value, onChange }: { field: PopupFormField; value: string | string[] | undefined; onChange: (v: string | string[]) => void }) {
+  const id = `popup-f-${field.id}`;
+  const label = (
+    <label htmlFor={field.type === "checkbox" || field.type === "radio" ? undefined : id} className="mb-1 block text-sm font-medium">
+      {field.label}
+      {field.required ? <span className="text-[var(--sf-sale)]"> *</span> : null}
+    </label>
+  );
+  if (field.type === "textarea") {
+    return (
+      <div>
+        {label}
+        <textarea id={id} rows={3} required={field.required} className="sf-input w-full" value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />
+      </div>
+    );
+  }
+  if (field.type === "select") {
+    return (
+      <div>
+        {label}
+        <select id={id} required={field.required} className="sf-input w-full" value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)}>
+          <option value="">Choose…</option>
+          {field.options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+  if (field.type === "radio") {
+    return (
+      <fieldset className="space-y-1.5">
+        <legend className="mb-1 text-sm font-medium">
+          {field.label}
+          {field.required ? <span className="text-[var(--sf-sale)]"> *</span> : null}
+        </legend>
+        {field.options.map((o) => (
+          <label key={o} className="flex items-center gap-2 text-sm">
+            <input type="radio" name={id} value={o} required={field.required} checked={value === o} onChange={() => onChange(o)} />
+            {o}
+          </label>
+        ))}
+      </fieldset>
+    );
+  }
+  if (field.type === "checkbox") {
+    const selected = Array.isArray(value) ? value : [];
+    return (
+      <fieldset className="space-y-1.5">
+        <legend className="mb-1 text-sm font-medium">
+          {field.label}
+          {field.required ? <span className="text-[var(--sf-sale)]"> *</span> : null}
+        </legend>
+        {field.options.map((o) => (
+          <label key={o} className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              value={o}
+              checked={selected.includes(o)}
+              onChange={(e) => onChange(e.target.checked ? [...selected, o] : selected.filter((x) => x !== o))}
+            />
+            {o}
+          </label>
+        ))}
+      </fieldset>
+    );
+  }
+  const inputType = field.type === "email" ? "email" : field.type === "phone" ? "tel" : "text";
+  return (
+    <div>
+      {label}
+      <input id={id} type={inputType} required={field.required} autoComplete={field.type === "email" ? "email" : field.type === "phone" ? "tel" : "on"} className="sf-input w-full" value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
 function PopupView({ popup, onClose }: { popup: Popup; onClose: () => void }) {
   const img = assetUrl(popup.imagePath);
   useEffect(() => {
@@ -35,16 +164,23 @@ function PopupView({ popup, onClose }: { popup: Popup; onClose: () => void }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+  const isForm = popup.contentType === "form";
   const body = (
     <div className="space-y-3">
       {popup.eyebrow ? <p className="sf-eyebrow">{popup.eyebrow}</p> : null}
       {popup.heading ? <h2 className="sf-heading text-2xl">{popup.heading}</h2> : null}
       {popup.text ? <p className="sf-muted whitespace-pre-line text-sm">{popup.text}</p> : null}
-      {popup.newsletter ? <NewsletterForm buttonLabel={popup.ctaLabel || "Subscribe"} /> : null}
-      {!popup.newsletter && popup.ctaLabel && popup.ctaHref ? (
+      {isForm ? <PopupCustomForm popup={popup} /> : null}
+      {!isForm && popup.newsletter ? <NewsletterForm buttonLabel={popup.ctaLabel || "Subscribe"} /> : null}
+      {!isForm && !popup.newsletter && popup.ctaLabel && popup.ctaHref ? (
         <a href={popup.ctaHref} className="sf-btn" onClick={onClose}>
           {popup.ctaLabel}
         </a>
+      ) : null}
+      {!isForm && !popup.newsletter && popup.ctaLabel && !popup.ctaHref ? (
+        <button type="button" className="sf-btn" onClick={onClose}>
+          {popup.ctaLabel}
+        </button>
       ) : null}
     </div>
   );

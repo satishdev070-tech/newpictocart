@@ -154,6 +154,43 @@ export function updateItems(config: ThemeConfig, key: ListKey, id: string, field
   return updateSection(config, key, id, (s) => ({ ...s, settings: { ...(s.settings as Record<string, unknown>), [field]: fn(listOf(s, field)) } }));
 }
 
+const LOOK_KEY: Record<"heading" | "subheading" | "body" | "cta", string> = {
+  heading: "headingLook",
+  subheading: "subheadingLook",
+  body: "bodyLook",
+  cta: "ctaLook",
+};
+
+/**
+ * Canvas text-box resize: write `widthPct` onto the matching TextLook (section-level for RichText,
+ * or a Hero slide when `itemIndex` is set). Invalid roles / indexes are no-ops.
+ */
+export function setTextLookWidth(
+  config: ThemeConfig,
+  key: ListKey,
+  id: string,
+  role: keyof typeof LOOK_KEY,
+  widthPct: number,
+  itemIndex?: number,
+): ThemeConfig {
+  if (!Number.isInteger(widthPct) || widthPct < 0 || widthPct > 100) return config;
+  const lookKey = LOOK_KEY[role];
+  return updateSection(config, key, id, (s) => {
+    const settings = { ...(s.settings as Record<string, unknown>) };
+    const patchLook = (raw: unknown) => {
+      const cur = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+      return { ...cur, widthPct };
+    };
+    if (typeof itemIndex === "number") {
+      const slides = listOf(s, "slides");
+      if (!slides[itemIndex]) return s;
+      const next = slides.map((it, i) => (i === itemIndex ? { ...it, [lookKey]: patchLook(it[lookKey]) } : it));
+      return { ...s, settings: { ...settings, slides: next } };
+    }
+    return { ...s, settings: { ...settings, [lookKey]: patchLook(settings[lookKey]) } };
+  });
+}
+
 export const moveItem = (items: Item[], from: number, to: number): Item[] => {
   if (from === to || from < 0 || from >= items.length || to < 0 || to >= items.length) return items;
   const next = [...items];
@@ -241,6 +278,8 @@ export function newPopup(name = "New popup"): Popup {
     ctaLabel: "Subscribe",
     ctaHref: "",
     newsletter: true,
+    contentType: "newsletter",
+    form: { fields: [], submitLabel: "Send", successMessage: "Thanks — we got your message." },
   };
 }
 
