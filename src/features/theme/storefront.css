@@ -2604,3 +2604,15 @@ html[data-builder-canvas] [data-preview-banner] {
   .contents[data-sf-mb] > :last-child,
   [data-sf-mb]:not(.contents) { margin-bottom: var(--sf-mb-m); }
 }
+
+/* Phase D: per-text box width. Desktop uses the inline width; phones clamp to the column and a
+   readable floor (40%) so a narrow desktop box does not become unreadably thin on mobile. */
+[data-pc-text][data-pc-text-width] {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 767px) {
+  [data-pc-text][data-pc-text-width] {
+    width: clamp(40%, var(--pc-text-w, 100%), 100%) !important;
+  }
+}

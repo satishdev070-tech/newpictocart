@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DEFAULT_PRODUCT_TYPES, productTypeKeySchema } from "@/features/catalog/product-types";
 import { hexColor, imagePath, menuHandle, plainText, safeHref, socialUrl, uuidOrEmpty, videoUrl } from "../schema/primitives";
+import { textLookField } from "../schema/text-style";
 import type { EditorField, SectionDefinition, SectionType } from "./types";
 import { FAQ_VARIANTS, PROMO_VARIANTS, SOCIAL_VARIANTS } from "./variants";
 import { PAGE_SECTION_DEFINITIONS } from "./definitions-pages";
@@ -239,6 +240,10 @@ const heroSlide = z.object({
   align: z.enum(["left", "center", "right"]).default("left"),
   textTone: z.enum(["light", "dark"]).default("light"),
   ...itemGroupVisibility,
+  /** Per-text look overrides (font / size / colour / align / emphasis + text-box width). */
+  headingLook: textLookField,
+  subheadingLook: textLookField,
+  ctaLook: textLookField,
 });
 const hero = {
   type: "Hero",
@@ -290,8 +295,11 @@ const hero = {
         { kind: "text", key: "eyebrow", label: "Eyebrow", maxLength: 60 },
         { kind: "text", key: "heading", label: "Heading", maxLength: 120 },
         { kind: "text", key: "headingAccent", label: "Second line (italic, optional)", maxLength: 80 },
+        { kind: "textStyle", key: "headingLook", label: "Heading style", role: "heading" },
         { kind: "text", key: "subheading", label: "Subheading", maxLength: 240, multiline: true },
+        { kind: "textStyle", key: "subheadingLook", label: "Subheading style", role: "subheading" },
         ...ctaEditor,
+        { kind: "textStyle", key: "ctaLook", label: "Button style", role: "cta" },
         { kind: "select", key: "align", label: "Text position", options: opts(["left", "center", "right"] as const) },
         { kind: "select", key: "textTone", label: "Text colour", options: opts(["light", "dark"] as const) },
       ],

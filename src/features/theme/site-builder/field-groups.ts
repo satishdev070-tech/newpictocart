@@ -101,7 +101,29 @@ export function blankItem(fields: readonly EditorField[]): Record<string, unknow
   return Object.fromEntries(
     fields.map((f) => [
       f.key,
-      f.kind === "toggle" ? false : f.kind === "number" ? f.min : f.kind === "multiPicker" || f.kind === "tags" ? [] : f.kind === "select" ? (f.options[0]?.value ?? "") : f.kind === "list" ? [] : "",
+      f.kind === "toggle"
+        ? false
+        : f.kind === "number"
+          ? f.min
+          : f.kind === "multiPicker" || f.kind === "tags"
+            ? []
+            : f.kind === "select"
+              ? (f.options[0]?.value ?? "")
+              : f.kind === "list"
+                ? []
+                : f.kind === "textStyle"
+                  ? {
+                      font: "default",
+                      weight: "default",
+                      size: 0,
+                      color: "",
+                      align: "default",
+                      bold: false,
+                      italic: false,
+                      underline: false,
+                      widthPct: 0,
+                    }
+                  : "",
     ]),
   );
 }
@@ -140,10 +162,15 @@ function itemGroupOf(f: EditorField, all: readonly EditorField[]): ItemGroupId {
   const k = f.key;
   if (f.kind === "image" || f.kind === "video") return "media";
   if (/^(alt|imageAlt|mediaAlt)$/i.test(k) || /Alt$/.test(k)) return all.some((x) => x.kind === "image" || x.kind === "video") ? "media" : "other";
+  if (f.kind === "textStyle") {
+    if (f.role === "heading") return "title";
+    if (f.role === "subheading" || f.role === "body") return "description";
+    if (f.role === "cta") return "actions";
+  }
   if (/^(eyebrow|subtitle|kicker|tagline)$/i.test(k)) return "subtitle";
-  if (/^(heading|title|headingAccent|name)$/i.test(k)) return "title";
-  if (/^(subheading|text|description|body|quote|answer|caption)$/i.test(k)) return "description";
-  if (/^cta(Label|Href)$/i.test(k) || /^button(Label|Href)$/i.test(k)) return "actions";
+  if (/^(heading|title|headingAccent|name|headingLook)$/i.test(k)) return "title";
+  if (/^(subheading|text|description|body|quote|answer|caption|subheadingLook|bodyLook)$/i.test(k)) return "description";
+  if (/^cta(Label|Href|Look)$/i.test(k) || /^button(Label|Href)$/i.test(k)) return "actions";
   // label + href pairs ("label"/"href" alongside an action label).
   if (k === "href" && all.some((x) => x.key === "ctaLabel" || x.key === "buttonLabel")) return "actions";
   return "other";
