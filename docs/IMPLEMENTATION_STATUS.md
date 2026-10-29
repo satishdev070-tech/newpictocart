@@ -9,7 +9,7 @@ _Last updated: 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logo
 - **Step URLs:** `lang | path | quiz | voice | business | theme | account | building | done` (`src/features/start/steps.ts`). Bare `/start` → `/start/lang` (query preserved); invalid legacy ids → `/start/lang`. `[step]` shares `StartPageContent`.
 - **Client:** `StartJourney` `initialStep` + `go()`/`draft.screen` → `router.replace(/start/${screen})`; LS progress resumes over URL; empty draft adopts URL step.
 - **Shell:** “Already have an account? Sign in” → `/login` (triggers clear).
-- **Verification:** `pnpm check` (typecheck, lint, test, build) on this branch.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **144 files / 1671 tests**, build).
 
 ## Onboarding logout / online-only (2026-10-29, branch `cursor/onboarding-logout-online-only-c73e`)
 
