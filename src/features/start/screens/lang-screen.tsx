@@ -2,8 +2,9 @@
 
 import { useMemo } from "react";
 import { cn } from "@/lib/cn";
-import { SARVAM_CHAT_TTS_CODES, SARVAM_LOCALES, type SarvamLocaleCode } from "@/lib/sarvam/locales";
+import { SARVAM_LOCALES, type SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { startCopy } from "../copy";
+import { START_UI_LOCALES } from "../supported-locales";
 
 export function LangScreen({
   locale,
@@ -16,14 +17,10 @@ export function LangScreen({
 }) {
   const c = startCopy(locale);
   const primaryLocales = useMemo(
-    () => SARVAM_LOCALES.filter((l) => (SARVAM_CHAT_TTS_CODES as readonly string[]).includes(l.code)),
+    () => SARVAM_LOCALES.filter((l) => (START_UI_LOCALES as readonly string[]).includes(l.code)),
     [],
   );
-  const moreLocales = useMemo(
-    () => SARVAM_LOCALES.filter((l) => !(SARVAM_CHAT_TTS_CODES as readonly string[]).includes(l.code)),
-    [],
-  );
-  const selected = SARVAM_LOCALES.find((l) => l.code === locale);
+  const selected = SARVAM_LOCALES.find((l) => l.code === locale) ?? primaryLocales[0];
 
   return (
     <section className="flex w-full max-w-5xl flex-col gap-8">
@@ -33,7 +30,11 @@ export function LangScreen({
         </h1>
         <p className="mt-3 text-lg text-[#5E5568] sm:text-xl">{c.lang.sub}</p>
       </div>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 md:gap-4" role="listbox" aria-label={c.lang.sub}>
+      <ul
+        className="mx-auto grid w-full max-w-xl grid-cols-2 gap-3 md:gap-4"
+        role="listbox"
+        aria-label={c.lang.sub}
+      >
         {primaryLocales.map((l) => {
           const active = locale === l.code;
           return (
@@ -65,31 +66,6 @@ export function LangScreen({
           );
         })}
       </ul>
-      <details className="rounded-2xl border border-white/90 bg-white/40 px-4 py-3 text-sm text-[#5E5568]">
-        <summary className="cursor-pointer font-medium">{c.lang.more}</summary>
-        <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-          {moreLocales.map((l) => {
-            const active = locale === l.code;
-            return (
-              <li key={l.code}>
-                <button
-                  type="button"
-                  aria-pressed={active}
-                  aria-label={`${l.englishName} (${l.nativeLabel})`}
-                  onClick={() => onSelect(l.code)}
-                  className={cn(
-                    "flex min-h-16 w-full flex-col justify-center rounded-2xl border px-3 py-3 text-left",
-                    active ? "border-[#F97316] bg-white" : "border-transparent bg-white/70 hover:bg-white",
-                  )}
-                >
-                  <span className="text-lg font-medium">{l.nativeLabel}</span>
-                  <span className="text-xs text-[#6B6275]">{l.englishName}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </details>
       <div className="flex justify-end">
         <button
           type="button"
