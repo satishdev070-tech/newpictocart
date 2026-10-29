@@ -15,6 +15,7 @@ import { getInstagramFeed } from "@/features/social/server/instagram-feed";
 import { assetUrl } from "@/lib/storage/assets";
 import type { StockImage } from "@/lib/unsplash-stock";
 import { Cta, HeadingText, Intro, headingClass, hp, type IntroProps } from "./parts";
+import { TextBox, lookOf, textBoxProps } from "./text-look";
 import { slideGroups } from "./slide-visibility";
 import { PhotoCredit, stockFor, type Tile } from "./variants";
 import type { RenderContext } from "./context";
@@ -52,20 +53,25 @@ function SlideMedia({ sl, stock, sizes, priority }: { sl: Slide; stock: StockIma
   );
 }
 
-function SlideText({ sl, first, light }: { sl: Slide; first: boolean; light: boolean }) {
+function SlideText({ sl, first, light, itemIndex = 0 }: { sl: Slide; first: boolean; light: boolean; itemIndex?: number }) {
   const g = slideGroups(sl);
   const H = first ? "h1" : "h2";
+  const cta = textBoxProps("cta", lookOf(sl.ctaLook), itemIndex);
   return (
     <div className="space-y-4">
       {g.subtitle && sl.eyebrow ? <p className="sf-eyebrow !text-current opacity-85">{sl.eyebrow}</p> : null}
       {g.title ? (
-        <H className="sf-heading text-4xl @[64rem]:text-6xl">
+        <TextBox role="heading" look={lookOf(sl.headingLook)} itemIndex={itemIndex} as={H} className="sf-heading text-4xl @[64rem]:text-6xl">
           {sl.heading}
           {sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}
-        </H>
+        </TextBox>
       ) : null}
-      {g.description && sl.subheading ? <p className="max-w-xl text-lg opacity-90">{sl.subheading}</p> : null}
-      {g.actions ? <Cta label={sl.ctaLabel} href={sl.ctaHref} className={light ? "sf-btn sf-btn-light" : "sf-btn"} /> : null}
+      {g.description && sl.subheading ? (
+        <TextBox role="subheading" look={lookOf(sl.subheadingLook)} itemIndex={itemIndex} as="p" className="max-w-xl text-lg opacity-90">
+          {sl.subheading}
+        </TextBox>
+      ) : null}
+      {g.actions ? <Cta label={sl.ctaLabel} href={sl.ctaHref} className={light ? "sf-btn sf-btn-light" : "sf-btn"} style={cta.style} dataAttrs={cta.attrs} /> : null}
     </div>
   );
 }
@@ -94,7 +100,7 @@ export function HeroDesign({ s, ctx, variant }: P<"Hero"> & { variant: HeroDesig
             {String(i + 1).padStart(2, "0")} <span className="opacity-50">/ {String(slides.length).padStart(2, "0")}</span>
           </p>
           <div className={`max-w-lg ${ALIGN_SELF[sl.align]}`}>
-            <SlideText sl={sl} first={i === 0} light={false} />
+            <SlideText sl={sl} first={i === 0} light={false} itemIndex={i} />
           </div>
         </div>
         <div className={`relative overflow-hidden ${s.mediaRatio === "auto" ? "aspect-[4/5] @[48rem]:aspect-auto @[48rem]:min-h-[72svh]" : s.mediaRatio === "portrait" ? "aspect-[4/5]" : s.mediaRatio === "square" ? "aspect-square" : "aspect-[4/3]"}`}>
@@ -135,11 +141,11 @@ export function HeroDesign({ s, ctx, variant }: P<"Hero"> & { variant: HeroDesig
         <div className={`sf-container relative py-16 ${kenburns ? "" : "pb-24"} ${ALIGN_TEXT[sl.align]}`}>
           {kenburns ? (
             <div className={`sf-stage-card max-w-xl p-6 @[48rem]:p-10 ${ALIGN_SELF[sl.align]} ${light ? "sf-stage-card-dark text-white" : "sf-stage-card-light"}`}>
-              <SlideText sl={sl} first={i === 0} light={light} />
+              <SlideText sl={sl} first={i === 0} light={light} itemIndex={i} />
             </div>
           ) : (
             <div className={`max-w-xl ${ALIGN_SELF[sl.align]} ${light ? "text-white" : ""}`}>
-              <SlideText sl={sl} first={i === 0} light={light} />
+              <SlideText sl={sl} first={i === 0} light={light} itemIndex={i} />
             </div>
           )}
         </div>

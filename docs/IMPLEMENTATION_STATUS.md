@@ -9,6 +9,16 @@ _Last updated: 2026-10-29 (Theme pages + popups Phase E) · 2026-10-29 (Hero tog
 - **Popups:** `contentType: "newsletter" | "form"` on `popupSchema` (legacy `newsletter` boolean kept). Form shape: `form.fields[]` (`text` | `email` | `phone` | `textarea` | `select` | `radio` | `checkbox`, `required`, `options`), `submitLabel`, `successMessage`. Popup panel UI + storefront renderer; submissions via `submitPopupFormAction` → `submit_contact_message` / contact email pipeline.
 - **Out of scope here:** autosave, per-text drag-resize (other agents).
 - **Verification:** `pnpm check` ✅ (typecheck, lint, **147 files / 1747 tests**, build).
+_Last updated: 2026-10-29 (Theme local-first save) · 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Theme site builder: local-first save / publish (2026-10-29, branch `cursor/theme-local-first-save-c73e`)
+
+- **Flow:** edit local (`apply()` → canvas) → Save draft (manual + ~2.5s idle autosave) → Publish live. Publish stays blocked while dirty. Canvas never waits on draft save.
+- **Autosave:** `AUTOSAVE_IDLE_MS` after idle when dirty; skipped while saving or on stale-draft conflict. Manual Save draft unchanged.
+- **Conflict:** `baseUpdatedAt` / `CONFLICT` → toast with Reload or Save anyway (`force`).
+- **Publish UX:** `useTransition` + pending toast; dialog closes immediately; still calls `publish_theme` RPC (no queue).
+- **Tests:** `tests/unit/site-builder-autosave.test.ts` (debounce gate, dirty helpers).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **147 files / 1682 tests**, build).
 
 ## Hero / slideshow group toggle preserves content (2026-10-29, branch `cursor/hero-toggle-preserve-c73e`)
 

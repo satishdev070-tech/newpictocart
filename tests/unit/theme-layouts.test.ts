@@ -15,7 +15,7 @@ import {
 } from "@/features/theme/sections/variants";
 import { LAYOUT_PERSONALITIES, layoutFamily, signatureComposition } from "@/features/theme/layouts/personalities";
 import { layoutSummary, withLayout } from "@/features/theme/layouts/apply-layout";
-import { themeUnsplashImages } from "@/features/theme/layouts/imagery";
+import { themeCardImage, themeUnsplashImages } from "@/features/theme/layouts/imagery";
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
 import { applyThemePreset } from "@/features/theme/marketplace/apply";
 import type { ThemePreset } from "@/features/theme/marketplace/types";
@@ -232,6 +232,24 @@ describe("theme stock imagery", () => {
     expect(imgs.length).toBeGreaterThanOrEqual(12);
     expect(new Set(imgs.map((i) => i.category))).toEqual(new Set(["food"]));
     expect(new Set(imgs.map((i) => i.slot))).toEqual(new Set(STOCK_SLOTS));
+  });
+
+  it("rotates stock per theme key so same-industry themes look different", () => {
+    const sports = MARKETPLACE_THEMES.filter((t) => t.industry === "sports");
+    expect(sports.length).toBeGreaterThanOrEqual(2);
+    const heroes = sports.map((t) => themeUnsplashImages(t).find((i) => i.slot === "hero")!.id);
+    expect(new Set(heroes).size).toBeGreaterThan(1);
+    const a = MARKETPLACE_THEMES.find((t) => t.key === "iron-floor")!;
+    const b = MARKETPLACE_THEMES.find((t) => t.key === "class-pulse")!;
+    expect(themeUnsplashImages(a)[0]!.id).not.toBe(themeUnsplashImages(b)[0]!.id);
+  });
+
+  it("builds a per-theme card image from the rotated hero", () => {
+    const theme = MARKETPLACE_THEMES.find((t) => t.key === "iron-floor")!;
+    const card = themeCardImage(theme);
+    expect(card?.url).toContain("images.unsplash.com");
+    expect(card?.alt).not.toBe("");
+    expect(card?.source).toBe("fallback");
   });
 
   it("resizes Unsplash photos through the image loader", () => {

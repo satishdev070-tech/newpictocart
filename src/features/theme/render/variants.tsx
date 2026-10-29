@@ -16,6 +16,7 @@ import type { ProductCardSettings } from "@/features/theme/schema/tokens";
 import type { CardRatio, CategoryVariant, ProductGridVariant } from "@/features/theme/sections/variants";
 import { Cta, Intro, hp, type IntroProps } from "./parts";
 import { slideGroups } from "./slide-visibility";
+import { TextBox, lookOf, textBoxProps } from "./text-look";
 import type { RenderContext } from "./context";
 
 /**
@@ -66,20 +67,31 @@ function cardHasCopy(sl: Slide) {
   return Boolean((g.title && sl.heading) || (g.actions && sl.ctaLabel) || (g.subtitle && sl.eyebrow) || (g.description && sl.subheading));
 }
 
-function HeroText({ sl, first, size = "lg", light = false }: { sl: Slide; first: boolean; size?: "lg" | "xl"; light?: boolean }) {
+function HeroText({ sl, first, size = "lg", light = false, itemIndex = 0 }: { sl: Slide; first: boolean; size?: "lg" | "xl"; light?: boolean; itemIndex?: number }) {
   const g = slideGroups(sl);
   const H = first ? "h1" : "h2";
+  const cta = textBoxProps("cta", lookOf(sl.ctaLook), itemIndex);
   return (
     <div className="space-y-4">
       {g.subtitle && sl.eyebrow ? <p className="sf-eyebrow !text-current opacity-80">{sl.eyebrow}</p> : null}
       {g.title ? (
-        <H className={`sf-heading ${size === "xl" ? "text-5xl @[48rem]:text-6xl @[64rem]:text-8xl" : "text-4xl @[64rem]:text-6xl"}`}>
+        <TextBox
+          role="heading"
+          look={lookOf(sl.headingLook)}
+          itemIndex={itemIndex}
+          as={H}
+          className={`sf-heading ${size === "xl" ? "text-5xl @[48rem]:text-6xl @[64rem]:text-8xl" : "text-4xl @[64rem]:text-6xl"}`}
+        >
           {sl.heading}
           {sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}
-        </H>
+        </TextBox>
       ) : null}
-      {g.description && sl.subheading ? <p className="max-w-xl text-lg opacity-85">{sl.subheading}</p> : null}
-      {g.actions ? <Cta label={sl.ctaLabel} href={sl.ctaHref} className={light ? "sf-btn sf-btn-light" : "sf-btn"} /> : null}
+      {g.description && sl.subheading ? (
+        <TextBox role="subheading" look={lookOf(sl.subheadingLook)} itemIndex={itemIndex} as="p" className="max-w-xl text-lg opacity-85">
+          {sl.subheading}
+        </TextBox>
+      ) : null}
+      {g.actions ? <Cta label={sl.ctaLabel} href={sl.ctaHref} className={light ? "sf-btn sf-btn-light" : "sf-btn"} style={cta.style} dataAttrs={cta.attrs} /> : null}
     </div>
   );
 }

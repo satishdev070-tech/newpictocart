@@ -45,7 +45,7 @@ export default async function ThemeDetailPage({ params }: PageProps<"/dashboard/
       />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="self-start overflow-hidden rounded-lg border border-border">
-          {themeSiteType(t) === "informative" ? <InformativeThemeMockup theme={t} size="large" /> : <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} size="large" />}
+          {themeSiteType(t) === "informative" ? <InformativeThemeMockup theme={t} size="large" /> : <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} themeKey={t.key} size="large" />}
         </div>
         <div className="space-y-4">
           <Card title="About this theme">

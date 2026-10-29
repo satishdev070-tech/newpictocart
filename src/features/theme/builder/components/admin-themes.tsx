@@ -121,7 +121,7 @@ export function AdminThemesGrid({ themes, industries }: { themes: AdminThemeCard
         {shown.map((t) => (
           <li key={t.key} className="flex flex-col overflow-hidden rounded-lg border border-border bg-surface">
             <Link href={`/admin/themes/${t.key}`} className="block aspect-[4/3] overflow-hidden border-b border-border" aria-label={`Preview ${t.name}`}>
-              <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} />
+              <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} themeKey={t.key} />
             </Link>
             <div className="flex flex-1 flex-col gap-2 p-4">
               <div className="flex items-start justify-between gap-2">

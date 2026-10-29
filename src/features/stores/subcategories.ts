@@ -72,6 +72,14 @@ const SUBCATEGORIES: Record<IndustrySlug, readonly Subcategory[]> = {
     { slug: "cycling", label: "Cycling" },
     { slug: "sportswear", label: "Sportswear" },
   ],
+  gym: [
+    { slug: "strength", label: "Strength & weights" },
+    { slug: "crossfit", label: "CrossFit & HIIT" },
+    { slug: "group-classes", label: "Group classes" },
+    { slug: "personal-training", label: "Personal training" },
+    { slug: "studio-merch", label: "Studio merch & gear" },
+    { slug: "recovery", label: "Recovery & mobility" },
+  ],
   footwear: [
     { slug: "sneakers", label: "Sneakers" },
     { slug: "formal", label: "Formal shoes" },
