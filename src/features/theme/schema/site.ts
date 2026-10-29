@@ -79,7 +79,41 @@ export const RESERVED_PAGE_HANDLES = new Set(["home", "index", "new", "edit", "p
 // -----------------------------------------------------------------------------
 export const POPUP_TRIGGERS = ["delay", "exit", "link"] as const;
 export const POPUP_LAYOUTS = ["center", "image-left", "bottom-bar"] as const;
+export const POPUP_CONTENT_TYPES = ["newsletter", "form"] as const;
+export const POPUP_FIELD_TYPES = ["text", "email", "phone", "textarea", "select", "radio", "checkbox"] as const;
 export const MAX_POPUPS = 10;
+export const MAX_POPUP_FIELDS = 8;
+
+export type PopupContentType = (typeof POPUP_CONTENT_TYPES)[number];
+export type PopupFieldType = (typeof POPUP_FIELD_TYPES)[number];
+
+export const popupFormFieldSchema = z.object({
+  id: z.string().regex(SECTION_ID_RE, "Invalid field id"),
+  type: z.enum(POPUP_FIELD_TYPES).default("text"),
+  label: plainText(80).pipe(z.string().min(1, "Label the field")),
+  required: z.boolean().default(false),
+  /** Choices for select / radio / checkbox groups. */
+  options: z.array(plainText(80)).max(20).default([]),
+});
+export type PopupFormField = z.infer<typeof popupFormFieldSchema>;
+
+export const popupFormSchema = z
+  .object({
+    fields: z.array(popupFormFieldSchema).max(MAX_POPUP_FIELDS).default([]),
+    submitLabel: plainText(40).default("Send"),
+    successMessage: plainText(200).default("Thanks — we got your message."),
+  })
+  .prefault({});
+export type PopupForm = z.infer<typeof popupFormSchema>;
+
+/** Default custom-form fields when a seller switches a popup to “Custom form”. */
+export function defaultPopupFormFields(): PopupFormField[] {
+  return [
+    { id: "fname00001", type: "text", label: "Name", required: true, options: [] },
+    { id: "femail0001", type: "email", label: "Email", required: true, options: [] },
+    { id: "fmsg000001", type: "textarea", label: "Message", required: true, options: [] },
+  ];
+}
 
 export const popupSchema = z.object({
   id: z.string().regex(SECTION_ID_RE, "Invalid popup id"),
@@ -100,8 +134,14 @@ export const popupSchema = z.object({
   imageAlt: plainText(200).default(""),
   ctaLabel: plainText(40).default(""),
   ctaHref: safeHref.default(""),
-  /** Email sign-up field (uses the newsletter form). */
+  /**
+   * Legacy email sign-up flag. Kept so themes saved before contentType still parse.
+   * When contentType is "newsletter", true shows the newsletter form; false keeps a plain CTA.
+   */
   newsletter: z.boolean().default(false),
+  /** Newsletter signup or a custom field form (Phase E). Default newsletter for back-compat. */
+  contentType: z.enum(POPUP_CONTENT_TYPES).default("newsletter"),
+  form: popupFormSchema,
 });
 export type Popup = z.infer<typeof popupSchema>;
 

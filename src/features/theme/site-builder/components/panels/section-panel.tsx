@@ -110,15 +110,8 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
   const close = () => b.setPanel(null);
   const setTab = (t: SectionTab) => b.setPanel({ kind: "section", ref: sectionRef, tab: t });
 
-  if (section.type === "PageContent") {
-    return (
-      <PanelFrame title={def.label} onClose={close}>
-        <EmptyState title="Page content">This is where the page&apos;s own content appears. Move it up or down to place sections around it.</EmptyState>
-      </PanelFrame>
-    );
-  }
-
   const contentFields = tabs.edit.filter((f) => f !== list);
+  const isPageContent = section.type === "PageContent";
 
   return (
     <PanelFrame title={def.label} subtitle={def.description} onClose={close}>
@@ -144,6 +137,11 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
 
       {tab === "edit" ? (
         <div role="tabpanel" className="space-y-5">
+          {isPageContent ? (
+            <EmptyState title="Page content">
+              This is where the page&apos;s own content appears (product details, cart, account forms, blog posts…). Move it up or down in Layers. Use Settings and Colours for spacing and overrides around it — same tabs as on the home page.
+            </EmptyState>
+          ) : null}
           {list ? <ManageList field={list} section={section} sectionRef={sectionRef} def={def} pickers={b.pickers} /> : null}
           {contentFields.length ? (
             <section className="space-y-3">
@@ -157,7 +155,7 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
               <HeaderTab />
             </section>
           ) : null}
-          {!list && !contentFields.length && section.type !== "Header" ? <EmptyState title="Nothing to edit here">This section has no content to edit. Try Change design, Settings or Colours.</EmptyState> : null}
+          {!isPageContent && !list && !contentFields.length && section.type !== "Header" ? <EmptyState title="Nothing to edit here">This section has no content to edit. Try Change design, Settings or Colours.</EmptyState> : null}
         </div>
       ) : null}
 

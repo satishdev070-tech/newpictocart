@@ -1,37 +1,59 @@
 "use client";
 
 import { useId, useMemo, useState, type ReactNode } from "react";
-import { Copy, Trash2 } from "lucide-react";
+import { Copy, GripVertical, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { assetUrl } from "@/lib/storage/assets";
 import { MediaPicker } from "@/features/media/components/media-picker";
 import { IMAGE_STANDARDS } from "@/features/media/image-standards";
-import { POPUP_LAYOUTS, popupSchema, type Popup } from "@/features/theme/schema/site";
+import {
+  MAX_POPUP_FIELDS,
+  POPUP_FIELD_TYPES,
+  POPUP_LAYOUTS,
+  defaultPopupFormFields,
+  popupSchema,
+  type Popup,
+  type PopupContentType,
+  type PopupFormField,
+  type PopupFieldType,
+} from "@/features/theme/schema/site";
 import { useBuilder } from "../../context";
-import { removePopup, upsertPopup } from "../../ops";
-import { Dialog, FieldRow, input, PanelFrame, Toggle } from "../ui";
+import { newId, removePopup, upsertPopup } from "../../ops";
+import { Dialog, FieldRow, input, PanelFrame, Toggle, useReorder } from "../ui";
 
 /**
  * Popup editor (site builder left panel, panel kind "popup"). Edits are applied as typed (so
  * trimming never fights the cursor) and validated with popupSchema; problems show under the
  * field and would block the draft save until fixed.
+ *
+ * Content is either a newsletter sign-up or a custom form (text / email / phone / textarea /
+ * select / radio / checkbox fields with required, submit label and success message).
  */
 
-type Errors = Partial<Record<keyof Popup, string>>;
+type Errors = Partial<Record<string, string>>;
 
 function popupErrors(p: Popup): Errors {
   const r = popupSchema.safeParse(p);
   if (r.success) return {};
   const out: Errors = {};
   for (const issue of r.error.issues) {
-    const k = issue.path[0] as keyof Popup | undefined;
+    const k = issue.path.map(String).join(".") || String(issue.path[0] ?? "");
     if (k && !out[k]) out[k] = issue.message;
   }
   return out;
 }
 
 const LAYOUT_LABELS: Record<(typeof POPUP_LAYOUTS)[number], string> = { center: "Centred box", "image-left": "Image on the left", "bottom-bar": "Bar at the bottom" };
+const FIELD_TYPE_LABELS: Record<PopupFieldType, string> = {
+  text: "Short text",
+  email: "Email",
+  phone: "Phone",
+  textarea: "Long text",
+  select: "Dropdown",
+  radio: "Radio choices",
+  checkbox: "Checkboxes",
+};
 
 export function PopupPanel() {
   const { config, apply, panel, setPanel, page, setPageKey } = useBuilder();
@@ -55,9 +77,27 @@ export function PopupPanel() {
       return cur ? upsertPopup(c, { ...cur, [k]: v }) : c;
     }, `popup.${popup.id}.${String(k)}`);
 
+  const patch = (next: Partial<Popup>) =>
+    apply((c) => {
+      const cur = c.popups.find((p) => p.id === popup.id);
+      return cur ? upsertPopup(c, { ...cur, ...next }) : c;
+    }, `popup.${popup.id}.patch`);
+
+  const setContentType = (contentType: PopupContentType) => {
+    if (contentType === "form") {
+      const fields = popup.form.fields.length ? popup.form.fields : defaultPopupFormFields();
+      patch({ contentType, newsletter: false, form: { ...popup.form, fields }, ctaLabel: popup.form.submitLabel || popup.ctaLabel || "Send" });
+    } else {
+      patch({ contentType, newsletter: true, ctaLabel: popup.ctaLabel || "Subscribe" });
+    }
+  };
+
+  const setForm = (form: Popup["form"]) => patch({ form, ctaLabel: form.submitLabel || popup.ctaLabel });
+
   const anchor = `#popup-${popup.id}`;
   const image = assetUrl(popup.imagePath);
   const errorCount = Object.keys(errors).length;
+  const isForm = popup.contentType === "form";
 
   return (
     <PanelFrame
@@ -142,6 +182,15 @@ export function PopupPanel() {
 
         <Group title="Content">
           <Choice label="Layout" value={popup.layout} options={POPUP_LAYOUTS.map((l) => [l, LAYOUT_LABELS[l]] as const)} onChange={(v) => set("layout", v)} />
+          <Choice
+            label="Content type"
+            value={popup.contentType}
+            options={[
+              ["newsletter", "Newsletter sign-up"],
+              ["form", "Custom form"],
+            ]}
+            onChange={setContentType}
+          />
           <Text label="Small text above the heading" value={popup.eyebrow} max={60} error={errors.eyebrow} onChange={(v) => set("eyebrow", v)} />
           <Text label="Heading" value={popup.heading} max={120} error={errors.heading} onChange={(v) => set("heading", v)} />
           <Text label="Text" value={popup.text} max={400} error={errors.text} multiline onChange={(v) => set("text", v)} />
@@ -167,13 +216,37 @@ export function PopupPanel() {
           {image ? <Text label="Image description (alt text)" value={popup.imageAlt} max={200} error={errors.imageAlt} onChange={(v) => set("imageAlt", v)} /> : null}
         </Group>
 
-        <Group title="Action">
-          <Toggle label="Email sign-up field" checked={popup.newsletter} onChange={(v) => set("newsletter", v)} />
-          <Text label={popup.newsletter ? "Sign-up button label" : "Button label"} value={popup.ctaLabel} max={40} error={errors.ctaLabel} onChange={(v) => set("ctaLabel", v)} />
-          {!popup.newsletter ? (
-            <Text label="Button link" value={popup.ctaHref} max={500} placeholder="/collections/new or https://…" error={errors.ctaHref} onChange={(v) => set("ctaHref", v)} hint="Leave empty for a button that just closes the popup." />
-          ) : null}
-        </Group>
+        {isForm ? (
+          <Group title="Form">
+            <FormFieldsEditor
+              fields={popup.form.fields}
+              onChange={(fields) => setForm({ ...popup.form, fields })}
+            />
+            <Text
+              label="Submit button label"
+              value={popup.form.submitLabel}
+              max={40}
+              error={errors["form.submitLabel"]}
+              onChange={(v) => setForm({ ...popup.form, submitLabel: v })}
+            />
+            <Text
+              label="Success message"
+              value={popup.form.successMessage}
+              max={200}
+              error={errors["form.successMessage"]}
+              multiline
+              onChange={(v) => setForm({ ...popup.form, successMessage: v })}
+            />
+          </Group>
+        ) : (
+          <Group title="Action">
+            <Toggle label="Email sign-up field" checked={popup.newsletter} onChange={(v) => set("newsletter", v)} />
+            <Text label={popup.newsletter ? "Sign-up button label" : "Button label"} value={popup.ctaLabel} max={40} error={errors.ctaLabel} onChange={(v) => set("ctaLabel", v)} />
+            {!popup.newsletter ? (
+              <Text label="Button link" value={popup.ctaHref} max={500} placeholder="/collections/new or https://…" error={errors.ctaHref} onChange={(v) => set("ctaHref", v)} hint="Leave empty for a button that just closes the popup." />
+            ) : null}
+          </Group>
+        )}
       </div>
 
       <Dialog
@@ -205,6 +278,79 @@ export function PopupPanel() {
         </p>
       </Dialog>
     </PanelFrame>
+  );
+}
+
+function FormFieldsEditor({ fields, onChange }: { fields: PopupFormField[]; onChange: (fields: PopupFormField[]) => void }) {
+  const reorder = useReorder((from, to) => {
+    const next = [...fields];
+    const [it] = next.splice(from, 1);
+    next.splice(to, 0, it!);
+    onChange(next);
+  });
+
+  const add = () => {
+    if (fields.length >= MAX_POPUP_FIELDS) return;
+    onChange([...fields, { id: newId("f"), type: "text", label: "New field", required: false, options: [] }]);
+  };
+
+  const update = (id: string, patch: Partial<PopupFormField>) => onChange(fields.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+  const remove = (id: string) => onChange(fields.filter((f) => f.id !== id));
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-muted">Fields ({fields.length}/{MAX_POPUP_FIELDS})</p>
+        <Button type="button" variant="secondary" size="sm" disabled={fields.length >= MAX_POPUP_FIELDS} onClick={add}>
+          <Plus /> Add field
+        </Button>
+      </div>
+      {fields.length === 0 ? <p className="text-xs text-muted">Add at least one field. Include an email field so replies can reach the visitor.</p> : null}
+      <ul className="space-y-2">
+        {fields.map((f, i) => (
+          <li key={f.id} {...reorder.itemProps(i)} className="space-y-2 rounded-lg border border-border bg-surface-secondary/40 p-2">
+            <div className="flex items-center gap-1">
+              <span {...reorder.handleProps(i)} className="cursor-grab text-muted">
+                <GripVertical className="size-4" />
+              </span>
+              <input className={cn(input, "flex-1")} value={f.label} maxLength={80} onChange={(e) => update(f.id, { label: e.target.value })} aria-label="Field label" />
+              <button type="button" className="text-muted hover:text-error" aria-label={`Remove ${f.label}`} onClick={() => remove(f.id)}>
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <select className={input} value={f.type} onChange={(e) => update(f.id, { type: e.target.value as PopupFieldType, options: ["select", "radio", "checkbox"].includes(e.target.value) ? f.options.length ? f.options : ["Option 1", "Option 2"] : [] })}>
+                {POPUP_FIELD_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {FIELD_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+              <label className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={f.required} onChange={(e) => update(f.id, { required: e.target.checked })} />
+                Required
+              </label>
+            </div>
+            {f.type === "select" || f.type === "radio" || f.type === "checkbox" ? (
+              <textarea
+                className={cn(input, "min-h-16 py-2")}
+                value={f.options.join("\n")}
+                placeholder={"One option per line"}
+                onChange={(e) =>
+                  update(f.id, {
+                    options: e.target.value
+                      .split("\n")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                      .slice(0, 20),
+                  })
+                }
+              />
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

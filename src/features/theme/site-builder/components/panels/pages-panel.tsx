@@ -10,7 +10,7 @@ import { renameContentPageAction } from "@/features/content/actions";
 import { useBuilder } from "../../context";
 import { addPage, duplicatePage, newPopup, removePage, slugify, uniqueHandle, updatePageMeta, upsertPopup } from "../../ops";
 import { headerMenu, menuParentIndex, nestPageInMenu, pageLink, setBuiltinTitle, setHomePage } from "../../page-ops";
-import { BLANK_TEMPLATE, PAGE_TEMPLATES, type PageTemplate } from "../../page-templates";
+import { BLANK_TEMPLATE, PAGE_TEMPLATE_FAMILY_LABELS, PAGE_TEMPLATE_FAMILY_ORDER, PAGE_TEMPLATES, type PageTemplate } from "../../page-templates";
 import { PAGE_GROUP_LABELS, type BuilderPage, type PageGroup } from "../../pages";
 import { ImageField } from "../fields";
 import { Dialog, FieldRow, IconButton, MoreMenu, PanelFrame, Row, Toggle, input, useReorder } from "../ui";
@@ -200,6 +200,7 @@ export function PagesPanel() {
 
 function BuiltinInfoDialog({ page, onClose }: { page: BuilderPage; onClose: () => void }) {
   const home = page.key === "home";
+  const templateLike = page.group === "ecommerce" || page.group === "members" || page.key === "contact" || page.key === "faq" || page.key === "blog";
   return (
     <Dialog open onClose={onClose} title={`${page.label} settings`} footer={<Button variant="secondary" onClick={onClose}>Close</Button>}>
       <div className="space-y-3 text-small">
@@ -207,6 +208,11 @@ function BuiltinInfoDialog({ page, onClose }: { page: BuilderPage; onClose: () =
           This is a built-in store page. You can change its sections here in the builder
           {page.settingsHref ? "; its content and details are managed in your dashboard." : "."}
         </p>
+        {templateLike ? (
+          <p className="text-muted">
+            Click a section on the canvas (or open Layers) to use the same Edit · Change design · Settings · Colours panel as on the home page. Add sections above or below the page&apos;s own content marker.
+          </p>
+        ) : null}
         {home ? <p className="text-muted">To use one of your own pages as the homepage, open its ⋮ menu and choose “Set as homepage”. The store’s search title and description are in Settings → SEO.</p> : null}
         {page.settingsHref ? (
           <a href={page.settingsHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-accent hover:underline">
@@ -538,20 +544,39 @@ function AddPageDialog({ open, onClose }: { open: boolean; onClose: () => void }
 }
 
 function TemplateGrid({ onPick }: { onPick: (t: PageTemplate) => void }) {
+  const groups = PAGE_TEMPLATE_FAMILY_ORDER.map((family) => ({
+    family,
+    label: PAGE_TEMPLATE_FAMILY_LABELS[family],
+    templates: family === "other" ? [BLANK_TEMPLATE, ...PAGE_TEMPLATES.filter((t) => t.family === "other")] : PAGE_TEMPLATES.filter((t) => t.family === family),
+  })).filter((g) => g.templates.length > 0);
+
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {[BLANK_TEMPLATE, ...PAGE_TEMPLATES].map((t) => (
-        <button key={t.key} type="button" onClick={() => onPick(t)} className="group flex flex-col overflow-hidden rounded-lg border border-border bg-surface text-left hover:border-accent focus-visible:border-accent">
-          <div className="aspect-[4/5] overflow-hidden border-b border-border bg-surface-secondary p-2">
-            <Wireframe sections={t.sections} />
+    <div className="space-y-5">
+      {groups.map(({ family, label, templates }) => (
+        <section key={family} className="space-y-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">{label}</h3>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {templates.map((t) => (
+              <TemplateCard key={t.key} template={t} onPick={onPick} />
+            ))}
           </div>
-          <div className="space-y-0.5 p-2.5">
-            <p className="text-small font-medium group-hover:text-accent">{t.label}</p>
-            <p className="line-clamp-3 text-xs text-muted">{t.description}</p>
-          </div>
-        </button>
+        </section>
       ))}
     </div>
+  );
+}
+
+function TemplateCard({ template: t, onPick }: { template: PageTemplate; onPick: (t: PageTemplate) => void }) {
+  return (
+    <button type="button" onClick={() => onPick(t)} className="group flex flex-col overflow-hidden rounded-lg border border-border bg-surface text-left hover:border-accent focus-visible:border-accent">
+      <div className="aspect-[4/5] overflow-hidden border-b border-border bg-surface-secondary p-2">
+        <Wireframe sections={t.sections} />
+      </div>
+      <div className="space-y-0.5 p-2.5">
+        <p className="text-small font-medium group-hover:text-accent">{t.label}</p>
+        <p className="line-clamp-3 text-xs text-muted">{t.description}</p>
+      </div>
+    </button>
   );
 }
 

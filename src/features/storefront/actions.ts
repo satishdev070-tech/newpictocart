@@ -1,14 +1,19 @@
 "use server";
 
+import { after } from "next/server";
 import { z } from "zod";
 import { runAction, type ActionResult } from "@/lib/actions/result";
 import { formToObject } from "@/lib/actions/form";
 import { parseInput, email, uuid } from "@/lib/validation/common";
 import { AppError } from "@/lib/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { clientIpKey, rateLimit } from "@/lib/rate-limit";
+import { randomToken } from "@/lib/crypto";
+import { logger } from "@/lib/observability/logger";
 import { requireStoreTenant } from "@/features/cart/context";
 import { getStoreCustomer } from "@/features/customer-account/session";
+import { sendContactFormEmail } from "@/features/notifications/email/direct";
 
 const reviewSchema = z.object({
   productId: uuid,
@@ -74,5 +79,59 @@ export async function subscribeNewsletterAction(_prev: ActionResult | null, fd: 
       ? await admin.from("customers").update({ accepts_marketing: true, marketing_consent_at: now }).eq("id", existing.id)
       : await admin.from("customers").insert({ tenant_id: tenant.tenantId, email: input.email, accepts_marketing: true, marketing_consent_at: now, tags: ["newsletter"] });
     if (error) throw new AppError("INTERNAL", { context: { db: error.message } });
+  });
+}
+
+const popupFormSubmitSchema = z.object({
+  popupName: z.string().trim().max(80).default("Popup"),
+  name: z.string().trim().max(100).default(""),
+  email: email,
+  phone: z.preprocess((v) => (v === "" || v == null ? undefined : v), z.string().trim().max(30).optional()),
+  message: z.string().trim().min(1, "Add a message").max(5000),
+  /** Honeypot: real visitors leave it empty. */
+  website: z.string().max(0).optional().or(z.literal("")),
+});
+
+/**
+ * Custom popup form → same contact-message pipeline as the storefront contact form
+ * (RPC + optional email). Tenant = verified host. Field values are composed into `message`
+ * by the client; email is required so the store can reply.
+ */
+export async function submitPopupFormAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  return runAction("storefront.popup_form", async () => {
+    const tenant = await requireStoreTenant();
+    const input = parseInput(popupFormSubmitSchema, formToObject(fd));
+    await rateLimit("popup-form", `${tenant.tenantId}:${await clientIpKey()}`, 5, 3600);
+    const supabase = await createSupabaseServerClient();
+    const name = input.name.trim() || "Visitor";
+    const subject = `Popup: ${input.popupName}`.slice(0, 150);
+    const { error } = await supabase.rpc("submit_contact_message", {
+      p_tenant: tenant.tenantId,
+      p_name: name,
+      p_email: input.email,
+      p_phone: input.phone ?? "",
+      p_subject: subject,
+      p_message: input.message,
+    });
+    if (error?.code === "PGRST202") {
+      logger.warn("storefront.popup_form_persist_skipped", { tenantId: tenant.tenantId, code: error.code });
+    } else if (error) {
+      if (error.hint === "TENANT_UNAVAILABLE") {
+        throw new AppError("TENANT_UNAVAILABLE", { fieldErrors: { _form: ["This store is temporarily unavailable."] } });
+      }
+      throw new AppError("INTERNAL", { context: { db: error.message } });
+    }
+    const key = `${tenant.tenantId}:popup:${randomToken(12)}`;
+    after(() =>
+      sendContactFormEmail({
+        tenantId: tenant.tenantId,
+        name,
+        email: input.email,
+        phone: input.phone ?? null,
+        subject,
+        message: input.message,
+        idempotencyKey: key,
+      }).then(() => undefined),
+    );
   });
 }
