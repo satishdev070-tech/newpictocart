@@ -1,10 +1,13 @@
 "use client";
 
+import { ListChecks } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { startCopy } from "../copy";
 import { TaraOrb } from "../components/tara-orb";
 
 export type PathChoice = { path: "ai"; mode: "talk" | "quiz" };
+
+const voiceOnboardingEnabled = process.env.NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED === "true";
 
 export function PathScreen({
   locale,
@@ -22,8 +25,10 @@ export function PathScreen({
   onContinue: () => void;
 }) {
   const c = startCopy(locale);
-  const voiceActive = path === "ai" && mode === "talk";
-  const quizActive = path === "ai" && mode === "quiz";
+  // When voice is off, talk-only selections visually prefer quiz and continue only for quiz.
+  const effectiveMode = !voiceOnboardingEnabled && mode === "talk" ? "quiz" : mode;
+  const voiceActive = voiceOnboardingEnabled && path === "ai" && mode === "talk";
+  const quizActive = path === "ai" && effectiveMode === "quiz";
   const canContinue = voiceActive || quizActive;
 
   return (
@@ -37,11 +42,15 @@ export function PathScreen({
       <div className="grid gap-4 sm:gap-5 lg:grid-cols-2" role="listbox" aria-label={c.path.headline}>
         <PathCard
           active={voiceActive}
-          onClick={() => onSelect({ path: "ai", mode: "talk" })}
+          disabled={!voiceOnboardingEnabled}
+          onClick={() => {
+            if (!voiceOnboardingEnabled) return;
+            onSelect({ path: "ai", mode: "talk" });
+          }}
           title={c.path.voiceTitle}
           desc={c.path.voiceDesc}
           visual={<TaraOrb size="sm" className="mx-auto" />}
-          badge={c.path.voiceBadge}
+          badge={voiceOnboardingEnabled ? c.path.voiceBadge : c.path.comingSoon}
         />
         <PathCard
           active={quizActive}
@@ -49,8 +58,11 @@ export function PathScreen({
           title={c.path.quizTitle}
           desc={c.path.quizDesc}
           visual={
-            <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-[#FFF7ED] text-2xl text-[#C2410C]" aria-hidden>
-              ?
+            <div
+              className="mx-auto grid size-16 place-items-center rounded-2xl bg-[#FFF7ED] text-[#C2410C]"
+              aria-hidden
+            >
+              <ListChecks className="size-8" strokeWidth={2} />
             </div>
           }
           badge={c.path.quizBadge}
@@ -79,6 +91,7 @@ export function PathScreen({
 
 function PathCard({
   active,
+  disabled,
   onClick,
   title,
   desc,
@@ -86,6 +99,7 @@ function PathCard({
   badge,
 }: {
   active: boolean;
+  disabled?: boolean;
   onClick: () => void;
   title: string;
   desc: string;
@@ -97,12 +111,20 @@ function PathCard({
       type="button"
       role="option"
       aria-selected={active}
-      onClick={onClick}
+      aria-disabled={disabled || undefined}
+      tabIndex={disabled ? -1 : undefined}
+      onClick={() => {
+        if (disabled) return;
+        onClick();
+      }}
       className={cn(
         "flex min-h-56 flex-col gap-5 rounded-[28px] border p-7 text-left transition sm:min-h-64 sm:p-8",
+        disabled && "cursor-not-allowed opacity-50",
         active
           ? "border-[#F97316] bg-white shadow-[0_24px_50px_-24px_rgba(249,115,22,0.5)] ring-2 ring-[#F97316]/30"
-          : "border-white/90 bg-white/55 hover:bg-white/80",
+          : disabled
+            ? "border-white/90 bg-white/55"
+            : "border-white/90 bg-white/55 hover:bg-white/80",
       )}
     >
       <div className="flex items-start justify-between gap-3">

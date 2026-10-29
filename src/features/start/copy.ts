@@ -36,6 +36,7 @@ export type StartCopy = {
     quizTitle: string;
     quizBadge: string;
     quizDesc: string;
+    comingSoon: string;
     ctaVoice: string;
     ctaQuiz: string;
     /** @deprecated Prefer voice* / quiz* fields for five-screen onboarding. */
@@ -244,6 +245,7 @@ const EN: StartCopy = {
     quizTitle: "Quick Setup Quiz",
     quizBadge: "Tap",
     quizDesc: "Answer a few simple questions. Fast, clear, and no microphone needed.",
+    comingSoon: "Coming Soon",
     ctaVoice: "Talk with Tara →",
     ctaQuiz: "Start the quiz →",
     aiTitle: "AI Voice Assistant",
@@ -469,6 +471,7 @@ const HI: StartCopy = {
     quizTitle: "क्विक सेटअप क्विज़",
     quizBadge: "टैप",
     quizDesc: "कुछ आसान सवालों के जवाब दें। तेज़, साफ़, माइक की ज़रूरत नहीं।",
+    comingSoon: "जल्द आ रहा है",
     ctaVoice: "तारा से बात करें →",
     ctaQuiz: "क्विज़ शुरू करें →",
     aiTitle: "AI वॉइस असिस्टेंट",

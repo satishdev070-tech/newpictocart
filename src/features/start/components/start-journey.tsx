@@ -105,6 +105,21 @@ export function StartJourney({
     if (remap) patchDraft({ screen: remap });
   }, [hydrated, draft, patchDraft]);
 
+
+  // Voice path is gated by NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED (default off).
+  // Prefer quiz whenever the draft still holds talk mode on the path screen.
+  useEffect(() => {
+    if (!hydrated || !draft) return;
+    if (draft.screen !== "path") return;
+    if (process.env.NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED === "true") return;
+    if ((draft.voice.mode ?? "talk") !== "talk") return;
+    setDraft((d) => {
+      if (!d || d.screen !== "path") return d;
+      if ((d.voice.mode ?? "talk") !== "talk") return d;
+      return { ...d, voice: { ...d.voice, mode: "quiz" } };
+    });
+  }, [hydrated, draft, setDraft]);
+
   useEffect(() => {
     if (!hydrated || !draft || routedEmpty.current || leavingDone.current) return;
     if (signedIn && draft.result) {
@@ -209,24 +224,37 @@ export function StartJourney({
   }
 
   if (screen === "path") {
+    const voiceOnboardingEnabled = process.env.NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED === "true";
+    const pathMode =
+      !voiceOnboardingEnabled && (draft.voice.mode ?? "talk") === "talk"
+        ? "quiz"
+        : (draft.voice.mode ?? "talk");
     return shell(
       <PathScreen
         locale={draft.locale}
         path={draft.path}
-        mode={draft.voice.mode ?? "talk"}
-        onSelect={(choice) =>
+        mode={pathMode}
+        onSelect={(choice) => {
+          if (!voiceOnboardingEnabled && choice.mode === "talk") return;
           patchDraft({
             path: choice.path,
             voice: { ...draft.voice, mode: choice.mode },
-          })
-        }
+          });
+        }}
         onBack={() => {
           const t = backTarget("path", draft.path, draft.voice.mode);
           if (t) go(t);
         }}
         onContinue={() => {
           if (!draft.path) return;
-          go(nextScreenAfterPath(draft.path, draft.voice.mode ?? "talk"));
+          const mode =
+            !voiceOnboardingEnabled
+              ? "quiz"
+              : (draft.voice.mode ?? "talk");
+          if (!voiceOnboardingEnabled && (draft.voice.mode ?? "talk") === "talk") {
+            patchDraft({ voice: { ...draft.voice, mode: "quiz" } });
+          }
+          go(nextScreenAfterPath(draft.path, mode));
         }}
       />,
     );
