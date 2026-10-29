@@ -128,9 +128,9 @@ export function MobileNav({
             <Link href={signupHref} onClick={() => setOpen(false)} className={buttonClass("primary", "lg")}>
               {ctaLabel}
             </Link>
-            <Link href={loginHref} onClick={() => setOpen(false)} className={buttonClass("secondary", "lg")}>
+            <a href={loginHref} onClick={() => setOpen(false)} className={buttonClass("secondary", "lg")}>
               {loginLabel}
-            </Link>
+            </a>
           </div>
         </nav>
       </div>
