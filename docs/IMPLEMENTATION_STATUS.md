@@ -7,7 +7,7 @@ _Last updated: 2026-10-29 (Theme customizer QA Phase F) · 2026-10-29 (Hero togg
 - **Docs:** `docs/THEME_CUSTOMIZER_QA.md` — acceptance checklists for A1 (Hero Off/On), A2 (variants), B (gym + imagery), C (autosave / dirty Publish / canvas local), D (text style + resize on Hero/RichText), E (About/Contact/FAQ/Blog templates + popup newsletter|form).
 - **Harness:** `scripts/dev/theme-customizer-qa/checklist.ts` + `smoke.mts` (lists checklist IDs; no flaky e2e). Unit gate `tests/unit/theme-customizer-qa-checklist.test.ts`.
 - **A1 gap-fill on main:** subtitle Off/On + `isGroupShown` ↔ `slideGroups` parity in `tests/unit/hero-slide-visibility.test.ts`. Does not re-implement C–E features.
-- **Verification:** `pnpm check` (see latest commit on this branch).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **147 files / 1684 tests**, build).
 
 ## Hero / slideshow group toggle preserves content (2026-10-29, branch `cursor/hero-toggle-preserve-c73e`)
 
