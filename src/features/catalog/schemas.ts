@@ -142,15 +142,32 @@ export const productInputSchema = z
     seoDescription: optText(320),
     seoCanonical: z.preprocess((v) => (typeof v === "string" && v.trim() ? v.trim() : undefined), z.string().max(300).regex(/^(\/[^\s]*|https:\/\/[^\s]+)$/, "Use a path like /products/kurta or a full https:// URL").optional()),
     seoNoindex: z.boolean().default(false),
-    options: z.array(optionSchema).max(3, "Use at most 3 options").default([]),
+    // Drop unfinished "Configure Variant" stubs (no name and no values) so they don't block save.
+    options: z.preprocess(
+      (v) =>
+        Array.isArray(v)
+          ? v.filter((o) => {
+              if (!o || typeof o !== "object") return false;
+              const row = o as { name?: unknown; values?: unknown };
+              const named = String(row.name ?? "").trim();
+              const vals = Array.isArray(row.values) ? row.values : [];
+              const hasValue = vals.some((x) => x && typeof x === "object" && String((x as { value?: unknown }).value ?? "").trim());
+              return Boolean(named || hasValue);
+            })
+          : v,
+      z.array(optionSchema).max(3, "Use at most 3 options").default([]),
+    ),
     variants: z.array(variantSchema).min(1, "Add at least one variant").max(MAX_VARIANTS, `Use at most ${MAX_VARIANTS} variants`),
   })
   .superRefine((p, ctx) => {
     // option names and values unique
     const names = new Set<string>();
     p.options.forEach((o, i) => {
+      if (!o.name.trim()) {
+        ctx.addIssue({ code: "custom", path: ["options", i, "name"], message: "Name the option" });
+      }
       const k = o.name.toLowerCase();
-      if (names.has(k)) ctx.addIssue({ code: "custom", path: ["options", i, "name"], message: "Option names must be unique" });
+      if (k && names.has(k)) ctx.addIssue({ code: "custom", path: ["options", i, "name"], message: "Option names must be unique" });
       names.add(k);
       const vals = new Set<string>();
       o.values.forEach((v, j) => {
@@ -160,6 +177,9 @@ export const productInputSchema = z
     });
     if (p.options.length === 0 && p.variants.length !== 1) {
       ctx.addIssue({ code: "custom", path: ["variants"], message: "A product without options has exactly one variant" });
+    }
+    if (p.variants.length > MAX_VARIANTS) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: `Use at most ${MAX_VARIANTS} variants` });
     }
     const combos = new Set<string>();
     const skus = new Map<string, number>();
@@ -179,7 +199,7 @@ export const productInputSchema = z
       combos.add(key);
       if (v.sku) {
         const k = v.sku.toUpperCase();
-        if (skus.has(k)) ctx.addIssue({ code: "custom", path: ["variants", i, "sku"], message: "SKU is used by another variant" });
+        if (skus.has(k)) ctx.addIssue({ code: "custom", path: ["variants", i, "sku"], message: "SKU is used by another variant on this product" });
         skus.set(k, i);
       }
       if (v.compareAtPrice !== null && v.compareAtPrice < v.price) {
@@ -188,6 +208,7 @@ export const productInputSchema = z
     });
     if (p.status === "active" && !p.variants.some((v) => v.status === "active")) {
       ctx.addIssue({ code: "custom", path: ["status"], message: "An active product needs at least one active variant" });
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Turn on Active for at least one variant, or save as a draft" });
     }
   });
 
