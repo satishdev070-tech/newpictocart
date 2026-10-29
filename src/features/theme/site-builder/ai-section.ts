@@ -79,7 +79,7 @@ export function parseSectionJson(text: string): { type: string; settings: Record
 }
 
 /** Field kinds the model never fills (ids, uploads, catalog pickers). */
-const SKIP = new Set<EditorField["kind"]>(["image", "video", "picker", "multiPicker", "tags"]);
+const SKIP = new Set<EditorField["kind"]>(["image", "video", "picker", "multiPicker", "tags", "textStyle"]);
 
 function describeField(f: EditorField): string | null {
   if (SKIP.has(f.kind)) return null;

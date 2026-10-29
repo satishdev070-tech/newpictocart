@@ -8,7 +8,7 @@ import type { ThemeConfig } from "@/features/theme/schema/config";
 import { refreshPreviewUrlAction } from "@/features/theme/actions";
 import { previewEntryUrl } from "@/features/theme/preview";
 import { useBuilder, type SectionTab } from "../context";
-import { changePlan, duplicateSection, moveSection, removeSection, toggleHidden } from "../ops";
+import { changePlan, duplicateSection, moveSection, removeSection, setTextLookWidth, toggleHidden } from "../ops";
 import { pageForPath, type BuilderPage } from "../pages";
 import { HOST_TAG, parseCanvasMessage, type CanvasMessage, type HostMessage } from "../protocol";
 import { listKeyOf } from "../slots";
@@ -372,6 +372,24 @@ export function CanvasFrame() {
         selectFromCanvas.current = true;
         b.select(ref);
         b.setPanel({ kind: "section", ref, tab: "edit" });
+        return;
+      }
+      case "textSelect": {
+        const list = listKeyOf(msg.slot);
+        if (!list) return;
+        const ref = { list, sectionId: msg.sectionId };
+        selectFromCanvas.current = true;
+        b.select(ref);
+        b.setPanel({ kind: "section", ref, tab: "edit" });
+        return;
+      }
+      case "textResize": {
+        const list = listKeyOf(msg.slot);
+        if (!list) return;
+        b.apply(
+          (c) => setTextLookWidth(c, list, msg.sectionId, msg.role, msg.widthPct, msg.itemIndex),
+          `sec.${msg.sectionId}.text.${msg.role}.width`,
+        );
         return;
       }
       case "action": {

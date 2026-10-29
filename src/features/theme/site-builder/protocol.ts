@@ -17,12 +17,18 @@ export const CANVAS_TAG = "pc-builder-canvas" as const;
 export const SECTION_ACTIONS = ["edit", "design", "settings", "colors", "up", "down", "duplicate", "hide", "delete"] as const;
 export type SectionAction = (typeof SECTION_ACTIONS)[number];
 
+/** Text roles the canvas can select / resize (must match schema/text-style TEXT_ROLES). */
+export const TEXT_ROLES = ["heading", "subheading", "body", "cta"] as const;
+export type ProtocolTextRole = (typeof TEXT_ROLES)[number];
+
 export type HostMessage =
   /** Theme to render (JSON string, already validated by the builder) and the selected section. */
   | { tag: typeof HOST_TAG; type: "theme"; rev: number; config: string; changedLists: string[] | "all"; token?: string }
   /** "Are you there?": sent until the canvas answers "ready" (covers a ready that was missed). */
   | { tag: typeof HOST_TAG; type: "hello" }
   | { tag: typeof HOST_TAG; type: "select"; sectionId: string | null }
+  /** Highlight a text box on the canvas (null clears text selection). */
+  | { tag: typeof HOST_TAG; type: "textSelect"; sectionId: string | null; role: ProtocolTextRole | null; itemIndex?: number }
   /** Popup to show open on the canvas (null closes it). */
   | { tag: typeof HOST_TAG; type: "popup"; popupId: string | null }
   | { tag: typeof HOST_TAG; type: "scrollTo"; sectionId: string }
@@ -36,6 +42,10 @@ export type CanvasMessage =
   /** `code` "forbidden" = the preview cookie is missing or expired (the builder re-enters the preview). */
   | { tag: typeof CANVAS_TAG; type: "rendered"; rev: number; ok: boolean; error?: string; code?: "forbidden" | "failed" }
   | { tag: typeof CANVAS_TAG; type: "select"; slot: string; sectionId: string }
+  /** Seller clicked a text box (`data-pc-text`) — open the section Edit tab and show resize chrome. */
+  | { tag: typeof CANVAS_TAG; type: "textSelect"; slot: string; sectionId: string; role: ProtocolTextRole; itemIndex?: number }
+  /** Drag-resize result: new text-box width as % of the column (0–100). */
+  | { tag: typeof CANVAS_TAG; type: "textResize"; slot: string; sectionId: string; role: ProtocolTextRole; widthPct: number; itemIndex?: number }
   | { tag: typeof CANVAS_TAG; type: "action"; slot: string; sectionId: string; action: SectionAction }
   /** "+" (or "Add with AI") at a position: insert relative to `sectionId` (null = start of slot). */
   | { tag: typeof CANVAS_TAG; type: "insert"; slot: string; sectionId: string | null; where: "before" | "after"; ai: boolean };
@@ -47,6 +57,18 @@ const SLOT = /^[a-zA-Z0-9.-]{3,60}$/;
 
 function isObj(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+function textRoleOf(v: unknown): ProtocolTextRole | null {
+  return typeof v === "string" && (TEXT_ROLES as readonly string[]).includes(v) ? (v as ProtocolTextRole) : null;
+}
+
+function itemIndexOf(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 20 ? v : undefined;
+}
+
+function widthPctOf(v: unknown): number | null {
+  return typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 100 ? v : null;
 }
 
 /** Validates a message received by the BUILDER from the canvas. */
@@ -74,6 +96,21 @@ export function parseCanvasMessage(data: unknown): CanvasMessage | null {
         : null;
     case "select":
       return slot && sectionId ? { tag: CANVAS_TAG, type: "select", slot, sectionId } : null;
+    case "textSelect": {
+      const role = textRoleOf(data.role);
+      const itemIndex = itemIndexOf(data.itemIndex);
+      return slot && sectionId && role
+        ? { tag: CANVAS_TAG, type: "textSelect", slot, sectionId, role, ...(itemIndex !== undefined ? { itemIndex } : {}) }
+        : null;
+    }
+    case "textResize": {
+      const role = textRoleOf(data.role);
+      const widthPct = widthPctOf(data.widthPct);
+      const itemIndex = itemIndexOf(data.itemIndex);
+      return slot && sectionId && role && widthPct !== null
+        ? { tag: CANVAS_TAG, type: "textResize", slot, sectionId, role, widthPct, ...(itemIndex !== undefined ? { itemIndex } : {}) }
+        : null;
+    }
     case "action":
       return slot && sectionId && (SECTION_ACTIONS as readonly unknown[]).includes(data.action) ? { tag: CANVAS_TAG, type: "action", slot, sectionId, action: data.action as SectionAction } : null;
     case "insert":
@@ -104,6 +141,12 @@ export function parseHostMessage(data: unknown): HostMessage | null {
       return { tag: HOST_TAG, type: "hello" };
     case "select":
       return { tag: HOST_TAG, type: "select", sectionId: typeof data.sectionId === "string" && SECTION_ID.test(data.sectionId) ? data.sectionId : null };
+    case "textSelect": {
+      const sectionId = typeof data.sectionId === "string" && SECTION_ID.test(data.sectionId) ? data.sectionId : null;
+      const role = textRoleOf(data.role);
+      const itemIndex = itemIndexOf(data.itemIndex);
+      return { tag: HOST_TAG, type: "textSelect", sectionId, role, ...(itemIndex !== undefined ? { itemIndex } : {}) };
+    }
     case "popup":
       return { tag: HOST_TAG, type: "popup", popupId: typeof data.popupId === "string" && SECTION_ID.test(data.popupId) ? data.popupId : null };
     case "scrollTo":

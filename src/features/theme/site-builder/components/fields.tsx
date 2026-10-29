@@ -17,6 +17,7 @@ import { iconLabel, parseIconValue } from "@/lib/icons/names";
 import { cn } from "@/lib/cn";
 import { blankItem, itemLabel, visibleFields } from "../field-groups";
 import { ColorInput, IconButton, Toggle, input } from "./ui";
+import { TextStyleField } from "./text-style-field";
 
 /**
  * Field renderer for the site builder panels: one control per EditorField kind (text, number,
@@ -265,6 +266,13 @@ export function Field({ field, value, onChange, pickers, error }: FieldProps) {
         <div>
           <ColorInput value={String(value ?? "")} onChange={onChange} label={field.label} allowEmpty />
           {foot}
+        </div>
+      );
+    case "textStyle":
+      return (
+        <div>
+          <TextStyleField label={field.label} value={value} help={field.help} onChange={onChange} />
+          {error ? <p className="mt-1 text-xs text-error">{error}</p> : null}
         </div>
       );
     case "image":

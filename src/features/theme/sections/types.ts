@@ -76,6 +76,12 @@ export type EditorField =
   | (FieldBase & { kind: "image" })
   | (FieldBase & { kind: "link"; placeholder?: string })
   | (FieldBase & { kind: "video" })
+  | (FieldBase & {
+      /** Per-text look: font, weight, size, colour, align, bold/italic/underline, and text-box width. */
+      kind: "textStyle";
+      /** Which copy field this styles (heading / subheading / body / cta) — used by canvas chrome. */
+      role: "heading" | "subheading" | "body" | "cta";
+    })
   | (FieldBase & { kind: "picker"; picker: PickerKind })
   | (FieldBase & { kind: "multiPicker"; picker: "product" | "collection" | "category"; max: number })
   | (FieldBase & { kind: "tags"; max: number; placeholder?: string })

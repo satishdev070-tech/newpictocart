@@ -27,6 +27,7 @@ import { assetUrl } from "@/lib/storage/assets";
 import { AnnouncementBar, Footer, Header, MegaMenu } from "./chrome";
 import { Cta, HeadingText, Intro, ViewAll, headingClass, hp, sourceArgs } from "./parts";
 import { slideGroups } from "./slide-visibility";
+import { TextBox, lookOf, textBoxProps } from "./text-look";
 import { HeroVariant, NewsletterVariant, PhotoCredit, ProductGridVariant, StoryVariant, TestimonialsVariant, TileLayout, cardSettings, stockFor } from "./variants";
 import { productPlaceholder } from "@/features/storefront/components/product-card";
 import type { CardRatio } from "@/features/theme/sections/variants";
@@ -122,9 +123,26 @@ async function Hero({ s, ctx }: P<"Hero">) {
               <div className={`sf-container ${banner ? "relative py-6 @[48rem]:absolute @[48rem]:inset-x-0 @[48rem]:bottom-0 @[48rem]:py-12" : "relative py-16"} ${sl.align === "center" ? "text-center" : ""} ${sl.textTone === "light" ? (banner ? "@[48rem]:text-white" : "text-white") : ""}`}>
                 <div className={`max-w-xl space-y-4 ${sl.align === "center" ? "mx-auto" : ""}`}>
                   {g.subtitle && sl.eyebrow ? <p className="sf-eyebrow !text-current opacity-85">{sl.eyebrow}</p> : null}
-                  {g.title ? i === 0 ? <h1 className="sf-heading text-4xl @[64rem]:text-6xl">{sl.heading}{sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}</h1> : <h2 className="sf-heading text-4xl @[64rem]:text-6xl">{sl.heading}{sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}</h2> : null}
-                  {g.description && sl.subheading ? <p className="text-lg opacity-90">{sl.subheading}</p> : null}
-                  {g.actions ? <Cta label={sl.ctaLabel} href={sl.ctaHref} className={sl.textTone === "light" && !banner ? "sf-btn sf-btn-light" : "sf-btn"} /> : null}
+                  {g.title ? (
+                    <TextBox role="heading" look={lookOf(sl.headingLook)} itemIndex={i} as={i === 0 ? "h1" : "h2"} className="sf-heading text-4xl @[64rem]:text-6xl">
+                      {sl.heading}
+                      {sl.headingAccent ? <em className="sf-hero-accent">{sl.headingAccent}</em> : null}
+                    </TextBox>
+                  ) : null}
+                  {g.description && sl.subheading ? (
+                    <TextBox role="subheading" look={lookOf(sl.subheadingLook)} itemIndex={i} as="p" className="text-lg opacity-90">
+                      {sl.subheading}
+                    </TextBox>
+                  ) : null}
+                  {g.actions ? (
+                    <Cta
+                      label={sl.ctaLabel}
+                      href={sl.ctaHref}
+                      className={sl.textTone === "light" && !banner ? "sf-btn sf-btn-light" : "sf-btn"}
+                      style={textBoxProps("cta", lookOf(sl.ctaLook), i).style}
+                      dataAttrs={textBoxProps("cta", lookOf(sl.ctaLook), i).attrs}
+                    />
+                  ) : null}
                 </div>
               </div>
               <PhotoCredit img={stock(sl, i)} className="sf-photo-credit-on" />
