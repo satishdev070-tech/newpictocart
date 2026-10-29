@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { finalizeStartDraftAction } from "../actions";
 import type { ActionResult } from "@/lib/actions/result";
@@ -27,6 +27,7 @@ import type { VoiceFacts } from "@/features/onboarding/voice/facts";
 import type { StartVoiceTurn } from "../draft/schema";
 import { emptyStartDraft } from "../draft/schema";
 import { mergeFacts } from "@/features/onboarding/voice/facts";
+import { isStartStepId, startStepPath, type StartStepId } from "../steps";
 
 /** Legacy screens remapped into the five-screen graph (do not mount the old UIs). */
 const LEGACY_SCREEN_REMAP: Partial<Record<StartScreen, StartScreen>> = {
@@ -37,6 +38,11 @@ const LEGACY_SCREEN_REMAP: Partial<Record<StartScreen, StartScreen>> = {
   payment: "theme",
 };
 
+function urlStepFor(screen: StartScreen): StartStepId {
+  const remapped = LEGACY_SCREEN_REMAP[screen] ?? screen;
+  return isStartStepId(remapped) ? remapped : "lang";
+}
+
 export function StartJourney({
   plan,
   theme,
@@ -46,6 +52,7 @@ export function StartJourney({
   rootDomain,
   googleAvailable,
   voiceReady,
+  initialStep,
 }: {
   plan?: string | null;
   theme?: string | null;
@@ -55,8 +62,11 @@ export function StartJourney({
   rootDomain: string;
   googleAvailable: boolean;
   voiceReady: boolean;
+  /** From `/start/[step]` — empty drafts adopt this; drafts with progress resume and replace the URL. */
+  initialStep?: StartScreen;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const toast = useToast();
   const { draft, setDraft, patchDraft, hydrated } = useStartDraft({ plan, theme });
   const [voiceEnabled, setVoiceEnabled] = useState(true);
@@ -64,6 +74,15 @@ export function StartJourney({
   const finalizing = useRef(false);
   const routedEmpty = useRef(false);
   const leavingDone = useRef(false);
+  const bootstrapped = useRef(false);
+
+  const replaceStepUrl = useCallback(
+    (screen: StartScreen) => {
+      const path = startStepPath(urlStepFor(screen));
+      if (pathname !== path) router.replace(path);
+    },
+    [pathname, router],
+  );
 
   const finalize = useCallback(() => {
     if (!draft || finalizing.current || draft.result) return;
@@ -95,15 +114,44 @@ export function StartJourney({
       const next = { ...draft, screen };
       if (screen !== "welcome" && screen !== "done") setStartDraftCookie();
       setDraft(next);
+      replaceStepUrl(screen);
     },
-    [draft, setDraft],
+    [draft, setDraft, replaceStepUrl],
   );
 
+  // Bootstrap once (resume wins vs URL), then keep `/start/[step]` aligned with draft.screen.
   useEffect(() => {
     if (!hydrated || !draft) return;
-    const remap = LEGACY_SCREEN_REMAP[draft.screen];
-    if (remap) patchDraft({ screen: remap });
-  }, [hydrated, draft, patchDraft]);
+
+    if (!bootstrapped.current) {
+      bootstrapped.current = true;
+      const remap = LEGACY_SCREEN_REMAP[draft.screen];
+      const canonical = remap ?? draft.screen;
+      const draftStep = urlStepFor(canonical);
+
+      if (draftHasProgress(draft)) {
+        if (draft.screen !== draftStep) patchDraft({ screen: draftStep });
+        replaceStepUrl(draftStep);
+        return;
+      }
+
+      // Empty draft: URL step wins for deep links; bare `/start` already redirected to lang.
+      if (initialStep && draft.screen !== initialStep) {
+        patchDraft({ screen: initialStep });
+        return;
+      }
+
+      if (remap) {
+        patchDraft({ screen: remap });
+        return;
+      }
+
+      replaceStepUrl(draft.screen);
+      return;
+    }
+
+    replaceStepUrl(draft.screen);
+  }, [hydrated, draft, initialStep, patchDraft, replaceStepUrl]);
 
 
   // Voice path is gated by NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED (default off).

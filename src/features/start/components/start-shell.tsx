@@ -95,6 +95,15 @@ export function StartShell({
         )}
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2 text-sm">
+          {screen !== "account" && screen !== "done" ? (
+            <Link
+              href="/login"
+              className="hidden text-[#5E5568] underline-offset-2 hover:text-[#2A2233] hover:underline sm:inline"
+            >
+              {c.account.haveAccount}{" "}
+              <span className="font-semibold text-[#C2410C]">{c.account.signIn}</span>
+            </Link>
+          ) : null}
           {voiceAvailable ? (
             <button
               type="button"
