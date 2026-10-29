@@ -3,7 +3,7 @@ import { prerenderToNodeStream } from "react-dom/static";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { SECTION_DEFINITIONS } from "@/features/theme/sections/definitions";
 import { isGroupShown, itemGroups, setGroupVisible } from "@/features/theme/site-builder/field-groups";
-import { slideGroups } from "@/features/theme/render/slide-visibility";
+import { slideGroups, type GroupVisibility } from "@/features/theme/render/slide-visibility";
 import { curatedStockSet } from "@/lib/unsplash-stock";
 
 /**
@@ -109,10 +109,10 @@ describe("Hero slide group visibility helpers", () => {
   });
 
   it("isGroupShown and slideGroups agree for omitted and explicit flags", () => {
-    const omitted = { ...baseSlide };
+    const omitted: Record<string, unknown> = { ...baseSlide };
     expect(isGroupShown("title", omitted)).toBe(true);
-    expect(slideGroups(omitted).title).toBe(true);
-    const hidden = { ...baseSlide, showTitle: false, showMedia: false };
+    expect(slideGroups(omitted as GroupVisibility).title).toBe(true);
+    const hidden: Record<string, unknown> & GroupVisibility = { ...baseSlide, showTitle: false, showMedia: false };
     expect(isGroupShown("title", hidden)).toBe(slideGroups(hidden).title);
     expect(isGroupShown("media", hidden)).toBe(slideGroups(hidden).media);
     expect(slideGroups(hidden)).toMatchObject({ title: false, media: false, description: true, actions: true, subtitle: true });

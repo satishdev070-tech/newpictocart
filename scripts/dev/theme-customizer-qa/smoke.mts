@@ -6,17 +6,18 @@
  *   pnpm exec tsx scripts/dev/theme-customizer-qa/smoke.mts --phase A1
  */
 
-import { QA_PHASES, THEME_CUSTOMIZER_QA, checklistByPhase, type QaPhase } from "./checklist.ts";
+import { QA_PHASES, THEME_CUSTOMIZER_QA, checklistByPhase, type QaPhase } from "./checklist";
 
 const args = process.argv.slice(2);
-const phaseArg = args.includes("--phase") ? args[args.indexOf("--phase") + 1] : null;
+const phaseIdx = args.indexOf("--phase");
+const phaseArg = phaseIdx >= 0 ? args[phaseIdx + 1] : undefined;
 const json = args.includes("--json");
 
 function isPhase(v: string | undefined): v is QaPhase {
   return !!v && (QA_PHASES as readonly string[]).includes(v);
 }
 
-const items = isPhase(phaseArg ?? undefined) ? checklistByPhase(phaseArg) : [...THEME_CUSTOMIZER_QA];
+const items = isPhase(phaseArg) ? checklistByPhase(phaseArg) : [...THEME_CUSTOMIZER_QA];
 
 if (json) {
   console.log(JSON.stringify(items.map(({ id, phase, title, coverage }) => ({ id, phase, title, coverage })), null, 2));
