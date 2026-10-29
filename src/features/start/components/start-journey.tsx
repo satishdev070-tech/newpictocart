@@ -77,6 +77,8 @@ export function StartJourney({
   const bootstrapped = useRef(false);
   /** Target path for the in-flight programmatic `router.replace` (ignore until it lands). */
   const pendingPath = useRef<string | null>(null);
+  /** Browser Back/Forward — only then adopt `/start/[step]` into the draft. */
+  const popped = useRef(false);
 
   const replaceStepUrl = useCallback(
     (screen: StartScreen) => {
@@ -88,6 +90,14 @@ export function StartJourney({
     },
     [pathname, router],
   );
+
+  useEffect(() => {
+    const onPopState = () => {
+      popped.current = true;
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const finalize = useCallback(() => {
     if (!draft || finalizing.current || draft.result) return;
@@ -125,7 +135,8 @@ export function StartJourney({
   );
 
   // Bootstrap once (resume wins vs URL), then keep `/start/[step]` aligned with draft.screen.
-  // Browser Back/Forward adopts the URL into the draft; leaving /start never yanks back.
+  // Prefer draft → URL. Adopting URL → draft only on browser Back/Forward (popstate).
+  // Adopting on every mismatch fought Quiz/Voice setDraft(screen: theme) and pinned users on /quiz.
   useEffect(() => {
     if (!hydrated || !draft) return;
 
@@ -172,13 +183,16 @@ export function StartJourney({
       return;
     }
 
-    const seg = pathname.split("/")[2]?.split("?")[0] ?? "";
-    if (isStartStepId(seg)) {
-      const pathStep = urlStepFor(seg);
-      if (pathStep !== urlStepFor(draft.screen)) {
-        patchDraft({ screen: pathStep });
-        return;
+    if (popped.current) {
+      popped.current = false;
+      const seg = pathname.split("/")[2]?.split("?")[0] ?? "";
+      if (isStartStepId(seg)) {
+        const pathStep = urlStepFor(seg);
+        if (pathStep !== urlStepFor(draft.screen)) {
+          patchDraft({ screen: pathStep });
+        }
       }
+      return;
     }
 
     replaceStepUrl(draft.screen);
@@ -383,6 +397,7 @@ export function StartJourney({
         onQuiz={() => {
           setDraft((d) => ({ ...d, screen: "quiz", voice: { ...d.voice, mode: "quiz" } }));
           setStartDraftCookie();
+          replaceStepUrl("quiz");
         }}
       />,
     );
@@ -427,7 +442,11 @@ export function StartJourney({
               },
             };
           });
-          if (done) setStartDraftCookie();
+          if (done) {
+            setStartDraftCookie();
+            // Mark URL sync pending so we never re-adopt /quiz over theme.
+            replaceStepUrl("theme");
+          }
         }}
       />,
     );
