@@ -5,6 +5,13 @@ import { START_DRAFT_COOKIE, START_DRAFT_STORAGE_KEY, type StartDraft } from "./
 const COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
 const listeners = new Set<() => void>();
 
+/** Bumped on clear so in-memory draft snapshots miss even with zero subscribers. */
+let storageEpoch = 0;
+
+export function startDraftStorageEpoch(): number {
+  return storageEpoch;
+}
+
 function emit() {
   for (const listener of listeners) listener();
 }
@@ -60,5 +67,6 @@ export function clearStartDraftStorage(): void {
     /* ignore */
   }
   clearStartDraftCookie();
+  storageEpoch += 1;
   emit();
 }

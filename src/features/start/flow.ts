@@ -78,14 +78,19 @@ export function draftReadyToFinalize(draft: StartDraft): boolean {
   return businessComplete(draft);
 }
 
+/**
+ * True when the user has entered real journey data — not merely landed on a deep-link
+ * `/start/[step]` with an empty draft (screen alone must not count as progress).
+ */
 export function draftHasProgress(draft: StartDraft): boolean {
-  if (draft.screen !== "lang") return true;
+  if (draft.result) return true;
   if (draft.intent || draft.path) return true;
   if (draft.business.name.trim() || draft.voice.facts.name?.trim()) return true;
   if (draft.business.category || draft.voice.facts.category) return true;
   if (draft.business.subcategory || draft.voice.facts.subcategory) return true;
   if (draft.business.productsServices.trim() || draft.voice.facts.productsServices?.trim()) return true;
   if (draft.theme || draft.mood || draft.products.length) return true;
+  if (draft.voice.turns.length || draft.voice.done) return true;
   return false;
 }
 

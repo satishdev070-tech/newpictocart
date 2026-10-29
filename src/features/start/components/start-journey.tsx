@@ -75,11 +75,16 @@ export function StartJourney({
   const routedEmpty = useRef(false);
   const leavingDone = useRef(false);
   const bootstrapped = useRef(false);
+  /** Target path for the in-flight programmatic `router.replace` (ignore until it lands). */
+  const pendingPath = useRef<string | null>(null);
 
   const replaceStepUrl = useCallback(
     (screen: StartScreen) => {
       const path = startStepPath(urlStepFor(screen));
-      if (pathname !== path) router.replace(path);
+      if (pathname !== path) {
+        pendingPath.current = path;
+        router.replace(path);
+      }
     },
     [pathname, router],
   );
@@ -120,8 +125,12 @@ export function StartJourney({
   );
 
   // Bootstrap once (resume wins vs URL), then keep `/start/[step]` aligned with draft.screen.
+  // Browser Back/Forward adopts the URL into the draft; leaving /start never yanks back.
   useEffect(() => {
     if (!hydrated || !draft) return;
+
+    // Soft-nav away (e.g. marketing Login) — do not fight with replace(/start/…).
+    if (!pathname.startsWith("/start")) return;
 
     if (!bootstrapped.current) {
       bootstrapped.current = true;
@@ -150,8 +159,30 @@ export function StartJourney({
       return;
     }
 
+    if (pendingPath.current) {
+      if (pathname === pendingPath.current) {
+        pendingPath.current = null;
+      }
+      // Programmatic nav in flight: never adopt a stale URL into the draft.
+      const desired = startStepPath(urlStepFor(draft.screen));
+      if (pathname !== desired && pendingPath.current !== desired) {
+        pendingPath.current = desired;
+        router.replace(desired);
+      }
+      return;
+    }
+
+    const seg = pathname.split("/")[2]?.split("?")[0] ?? "";
+    if (isStartStepId(seg)) {
+      const pathStep = urlStepFor(seg);
+      if (pathStep !== urlStepFor(draft.screen)) {
+        patchDraft({ screen: pathStep });
+        return;
+      }
+    }
+
     replaceStepUrl(draft.screen);
-  }, [hydrated, draft, initialStep, patchDraft, replaceStepUrl]);
+  }, [hydrated, draft, initialStep, pathname, patchDraft, replaceStepUrl, router]);
 
 
   // Voice path is gated by NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED (default off).

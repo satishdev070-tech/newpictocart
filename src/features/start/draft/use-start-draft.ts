@@ -2,12 +2,13 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import { emptyStartDraft, parseStartDraft, type StartDraft } from "./schema";
-import { readStartDraftRaw, subscribeStartDraft, writeStartDraft } from "./storage";
+import { readStartDraftRaw, startDraftStorageEpoch, subscribeStartDraft, writeStartDraft } from "./storage";
 
 type Initial = { plan?: string | null; theme?: string | null };
 
 let clientSnapshot: StartDraft | null = null;
 let clientKey = "";
+let clientEpoch = -1;
 
 const serverSnapshots = new Map<string, StartDraft>();
 
@@ -19,6 +20,7 @@ function subscribe(listener: () => void) {
   return subscribeStartDraft(() => {
     clientSnapshot = null;
     clientKey = "";
+    clientEpoch = -1;
     listener();
   });
 }
@@ -49,14 +51,21 @@ function loadDraft(initial: Initial): StartDraft {
 
 function getClientSnapshot(initial: Initial): StartDraft {
   const key = keyOf(initial);
-  if (clientSnapshot && clientKey === key) return clientSnapshot;
+  const epoch = startDraftStorageEpoch();
+  if (clientSnapshot && clientKey === key && clientEpoch === epoch) return clientSnapshot;
   try {
     clientSnapshot = loadDraft(initial);
   } catch {
     clientSnapshot = freshDraft(initial);
   }
   clientKey = key;
+  clientEpoch = epoch;
   return clientSnapshot;
+}
+
+/** Test helper: read the live client snapshot after storage mutations (no React). */
+export function peekStartDraftClientSnapshot(initial: Initial = {}): StartDraft {
+  return getClientSnapshot(initial);
 }
 
 function getServerSnapshot(initial: Initial): StartDraft {
@@ -94,10 +103,15 @@ export function useStartDraft(initial: Initial) {
   const setDraft = useCallback((updater: StartDraft | ((prev: StartDraft) => StartDraft)) => {
     const current = { plan, theme };
     const key = keyOf(current);
-    const prev = clientSnapshot && clientKey === key ? clientSnapshot : getClientSnapshot(current);
+    const epoch = startDraftStorageEpoch();
+    const prev =
+      clientSnapshot && clientKey === key && clientEpoch === epoch
+        ? clientSnapshot
+        : getClientSnapshot(current);
     const next = typeof updater === "function" ? updater(prev) : updater;
     clientSnapshot = next;
     clientKey = key;
+    clientEpoch = epoch;
     writeStartDraft(next);
   }, [plan, theme]);
 
