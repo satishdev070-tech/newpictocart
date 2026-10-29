@@ -2,15 +2,15 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { platformIconMetadata } from "@/features/platform/server/public-config";
 import Link from "next/link";
-import { ChevronsUpDown, ExternalLink, LogOut, Shield, UserCircle } from "lucide-react";
+import { ChevronsUpDown, ExternalLink, Shield, UserCircle } from "lucide-react";
 import { requireTenant } from "@/lib/tenant/membership";
 import { DASHBOARD_NAV } from "@/components/dashboard/nav";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Popover, PopoverItem } from "@/components/app-shell/popover";
+import { SignOutButton } from "@/components/app-shell/sign-out-button";
 import { AppearanceQuickToggle, AppearanceToggle } from "@/components/ui/appearance-toggle";
 import { PanelLogo, PanelMark } from "@/components/app-shell/panel-logo";
 import { switchTenantAction } from "@/features/tenants/actions";
-import { signOutAction } from "@/features/auth/actions";
 import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
 import { roleLabel } from "@/lib/permissions/labels";
 import { cookies } from "next/headers";
@@ -82,12 +82,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         </span>
         <ExternalLink aria-hidden className="size-4 shrink-0 text-subtle group-hover:text-accent" strokeWidth={1.75} />
       </a>
-      <form action={signOutAction}>
-        <button type="submit" className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-small text-error transition-colors hover:bg-error/10">
-          <LogOut aria-hidden className="size-[18px]" strokeWidth={1.75} />
-          {t("account.signOut")}
-        </button>
-      </form>
+      <SignOutButton label={t("account.signOut")} />
     </>
   );
 
@@ -164,11 +159,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
           <PopoverItem href={storeUrl} external>
             <ExternalLink aria-hidden /> {t("account.viewStorefront")}
           </PopoverItem>
-          <form action={signOutAction}>
-            <PopoverItem>
-              <LogOut aria-hidden /> {t("account.signOut")}
-            </PopoverItem>
-          </form>
+          <SignOutButton variant="menu" label={t("account.signOut")} />
         </div>
       </Popover>
       </div>
