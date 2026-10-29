@@ -38,11 +38,11 @@ export async function accountAccessFor(userId: string, client?: SupabaseServerCl
 
 /**
  * Destination after sign-in. Platform staff → admin console, sellers → dashboard, nobody →
- * onboarding. A requested `next` (already safeRedirectPath'd) is honoured only when the account
+ * /start. A requested `next` (already safeRedirectPath'd) is honoured only when the account
  * can use that panel (see role-routing.ts).
  */
 export async function landingPathFor(userId: string, requested?: string | null, client?: SupabaseServerClient): Promise<string> {
   const access = await accountAccessFor(userId, client);
-  if (!access) return requested && !isAdminPath(requested) ? requested : "/onboarding";
+  if (!access) return requested && !isAdminPath(requested) ? requested : "/start";
   return landingFor(access, requested);
 }

@@ -128,7 +128,16 @@ export function StartJourney({
       clearStartDraftCookie();
       return;
     }
-    if (signedIn && !draftHasProgress(draft) && landingPath) {
+    // Empty draft: only eject completed sellers/staff. Never bounce to /start or /onboarding
+    // (same journey — that looped with the legacy onboarding redirect).
+    const sameJourney =
+      landingPath === "/start" ||
+      landingPath === "/onboarding" ||
+      Boolean(landingPath?.startsWith("/start?")) ||
+      Boolean(landingPath?.startsWith("/start/")) ||
+      Boolean(landingPath?.startsWith("/onboarding?")) ||
+      Boolean(landingPath?.startsWith("/onboarding/"));
+    if (signedIn && !draftHasProgress(draft) && landingPath && !sameJourney) {
       routedEmpty.current = true;
       router.replace(landingPath);
     }

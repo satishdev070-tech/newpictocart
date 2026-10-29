@@ -35,11 +35,18 @@ export default async function StartPage({ searchParams }: PageProps<"/start">) {
   const signedIn = Boolean(user);
   let landingPath: string | null = null;
 
-  // Signed-in sellers with no store land on /onboarding historically; keep them on /start
-  // for the five-screen flow (resume=1 or no draft cookie yet).
+  // Signed-in no-store users land on /start; keep them here for the five-screen flow
+  // (resume=1 or no draft cookie yet). Do not redirect to /start or legacy /onboarding.
   if (user && !draftCookie && !resume) {
     const landing = await landingPathFor(user.id);
-    if (landing !== "/onboarding") {
+    const stayOnStart =
+      landing === "/start" ||
+      landing === "/onboarding" ||
+      landing.startsWith("/start?") ||
+      landing.startsWith("/start/") ||
+      landing.startsWith("/onboarding?") ||
+      landing.startsWith("/onboarding/");
+    if (!stayOnStart) {
       redirect(landing);
     }
   }

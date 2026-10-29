@@ -2,7 +2,7 @@
  * Where an account goes after signing in on the shared /login page (pure, unit tested).
  * Access is read server-side from the user's own membership rows, never from which page or
  * button was used: platform staff → the console, store members → the seller dashboard,
- * everyone else → onboarding.
+ * everyone else → /start (store setup journey).
  */
 
 export type AccountAccess = {
@@ -14,7 +14,8 @@ export type AccountAccess = {
 
 export const ADMIN_HOME = "/admin";
 export const SELLER_HOME = "/dashboard";
-export const ONBOARDING_HOME = "/onboarding";
+/** No-store accounts land on the five-screen /start journey (legacy /onboarding redirects here). */
+export const ONBOARDING_HOME = "/start";
 
 export function isAdminPath(path: string): boolean {
   return path === ADMIN_HOME || path.startsWith(`${ADMIN_HOME}/`) || path.startsWith(`${ADMIN_HOME}?`);
