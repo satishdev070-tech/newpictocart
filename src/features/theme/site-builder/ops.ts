@@ -241,6 +241,8 @@ export function newPopup(name = "New popup"): Popup {
     ctaLabel: "Subscribe",
     ctaHref: "",
     newsletter: true,
+    contentType: "newsletter",
+    form: { fields: [], submitLabel: "Send", successMessage: "Thanks — we got your message." },
   };
 }
 
