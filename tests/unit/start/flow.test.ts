@@ -96,4 +96,14 @@ describe("start flow completeness", () => {
     d.business.name = "A";
     expect(draftHasProgress(d)).toBe(true);
   });
+
+  it("does not treat empty deep-link screens as progress", () => {
+    const d = emptyStartDraft();
+    d.screen = "theme";
+    expect(draftHasProgress(d)).toBe(false);
+    d.screen = "quiz";
+    expect(draftHasProgress(d)).toBe(false);
+    d.path = "ai";
+    expect(draftHasProgress(d)).toBe(true);
+  });
 });

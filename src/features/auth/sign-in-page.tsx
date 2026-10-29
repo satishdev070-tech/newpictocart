@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { MerchantSignIn } from "@/features/auth/merchant-auth";
 import { ClearStartDraftOnLogin } from "@/features/auth/clear-start-draft-on-login";
 import { googleSignInAction } from "@/features/auth/actions";
@@ -23,7 +22,14 @@ type SearchParams = Record<string, string | string[] | undefined>;
 export async function SharedSignInPage({ searchParams }: { searchParams: SearchParams }) {
   const requested = typeof searchParams.next === "string" ? safeRedirectPath(searchParams.next, "") : "";
   const user = await getSessionUser();
-  if (user) redirect(await landingPathFor(user.id, requested));
+  const signedInLanding = user ? await landingPathFor(user.id, requested) : null;
+
+  // Already signed in: clear abandoned /start draft client-side, then redirect.
+  // A server redirect would skip ClearStartDraftOnLogin and leave LS/module cache mid-wizard.
+  if (signedInLanding) {
+    return <ClearStartDraftOnLogin signedInLanding={signedInLanding} />;
+  }
+
   const toConsole = isAdminPath(requested);
   const google = await googleSignInAvailable("sellers");
   const gisClientId = google ? await googleIdentityClientId() : null;
