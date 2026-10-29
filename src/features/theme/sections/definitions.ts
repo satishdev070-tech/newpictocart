@@ -214,6 +214,18 @@ const megaMenu = {
   ],
 } satisfies SectionDefinition;
 
+/**
+ * Per-group visibility on a Hero slide (and other list items that opt in). Off hides the group in
+ * the storefront without clearing merchant copy/media; On restores the same values. Omitted = shown.
+ */
+const itemGroupVisibility = {
+  showSubtitle: z.boolean().default(true),
+  showTitle: z.boolean().default(true),
+  showDescription: z.boolean().default(true),
+  showMedia: z.boolean().default(true),
+  showActions: z.boolean().default(true),
+};
+
 const heroSlide = z.object({
   imagePath: imagePath.default(""),
   mobileImagePath: imagePath.default(""),
@@ -226,6 +238,7 @@ const heroSlide = z.object({
   ...ctaFields,
   align: z.enum(["left", "center", "right"]).default("left"),
   textTone: z.enum(["light", "dark"]).default("light"),
+  ...itemGroupVisibility,
 });
 const hero = {
   type: "Hero",

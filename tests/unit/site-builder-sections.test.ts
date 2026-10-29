@@ -4,7 +4,7 @@ import type { ThemeConfig } from "@/features/theme/schema/config";
 import { MAX_SECTIONS_PER_GROUP } from "@/features/theme/schema/config";
 import { SECTION_DEFINITIONS, defaultSettings } from "@/features/theme/sections/definitions";
 import type { EditorField, SectionDefinition, SectionInstance, SectionType } from "@/features/theme/sections/types";
-import { clearGroup, groupHasContent, itemGroups, itemHideField, itemLabel, partitionFields, primaryListField, sectionTabs, visibleFields } from "@/features/theme/site-builder/field-groups";
+import { clearGroup, groupHasContent, isGroupOn, isGroupShown, itemGroups, itemHideField, itemLabel, partitionFields, primaryListField, sectionTabs, setGroupVisible, visibleFields } from "@/features/theme/site-builder/field-groups";
 import { aiOutputSchema, aiSectionTypes, buildSectionPrompt, fallbackSettings, retryPrompt, sanitizeSectionSettings } from "@/features/theme/site-builder/ai-section";
 import { COALESCE_MS, HISTORY_LIMIT, canRedo, canUndo, historyReducer, initHistory, isDirty } from "@/features/theme/site-builder/history";
 import {
@@ -145,14 +145,66 @@ describe("field groups", () => {
         if (f.kind === "list") expect(itemGroups(f.fields).flatMap((g) => g.fields).length, `${def.type}.${f.key}`).toBe(f.fields.length);
   });
 
-  it("group toggles clear text/media values and report content", () => {
+  it("group toggles hide via show* flags without clearing text/media (Off→On round-trip)", () => {
     const hero = primaryListField(SECTION_DEFINITIONS.Hero)!;
-    const actions = itemGroups(hero.fields).find((g) => g.id === "actions")!;
-    const item = { ctaLabel: "Shop", ctaHref: "/collections/all", align: "left" };
+    const groups = itemGroups(hero.fields);
+    const title = groups.find((g) => g.id === "title")!;
+    const description = groups.find((g) => g.id === "description")!;
+    const media = groups.find((g) => g.id === "media")!;
+    const actions = groups.find((g) => g.id === "actions")!;
+    const item = {
+      heading: "Festive edit",
+      headingAccent: "a saree.",
+      subheading: "Hand block printed in Jaipur",
+      imagePath: "tenant/11111111-1111-4111-8111-111111111111/media/hero.jpg",
+      mobileImagePath: "",
+      alt: "Saree",
+      ctaLabel: "Shop",
+      ctaHref: "/collections/all",
+      align: "left",
+    };
+    expect(isGroupOn(title, item)).toBe(true);
     expect(groupHasContent(actions, item)).toBe(true);
+
+    const off = [title, description, media, actions].reduce((acc, g) => setGroupVisible(g, acc, false), item as Record<string, unknown>);
+    expect(off).toMatchObject({
+      heading: "Festive edit",
+      headingAccent: "a saree.",
+      subheading: "Hand block printed in Jaipur",
+      imagePath: item.imagePath,
+      alt: "Saree",
+      ctaLabel: "Shop",
+      ctaHref: "/collections/all",
+      showTitle: false,
+      showDescription: false,
+      showMedia: false,
+      showActions: false,
+    });
+    expect(isGroupOn(title, off)).toBe(false);
+    expect(isGroupShown("title", off)).toBe(false);
+    expect(isGroupShown("media", off)).toBe(false);
+
+    const on = [title, description, media, actions].reduce((acc, g) => setGroupVisible(g, acc, true), off);
+    expect(on.heading).toBe("Festive edit");
+    expect(on.subheading).toBe("Hand block printed in Jaipur");
+    expect(on.imagePath).toBe(item.imagePath);
+    expect(on.ctaLabel).toBe("Shop");
+    expect(isGroupOn(title, on)).toBe(true);
+    expect(isGroupShown("title", on)).toBe(true);
+
+    // Legacy clear helper still wipes (not used by the item editor Off path).
     const cleared = clearGroup(actions, item);
-    expect(cleared).toEqual({ ctaLabel: "", ctaHref: "", align: "left" });
-    expect(groupHasContent(actions, cleared)).toBe(false);
+    expect(cleared).toEqual({ ...item, ctaLabel: "", ctaHref: "" });
+  });
+
+  it("Hero slide schema keeps show* flags and defaults them to true", () => {
+    const parsed = SECTION_DEFINITIONS.Hero.schema.parse({
+      slides: [{ heading: "Hi", showTitle: false, showMedia: false, imagePath: "", subheading: "Kept" }],
+    });
+    const sl = parsed.slides[0]!;
+    expect(sl).toMatchObject({ heading: "Hi", subheading: "Kept", showTitle: false, showMedia: false, showDescription: true, showActions: true, showSubtitle: true });
+    const legacy = SECTION_DEFINITIONS.Hero.schema.parse({ slides: [{ heading: "Old" }] }).slides[0]!;
+    expect(legacy).toMatchObject({ showTitle: true, showDescription: true, showMedia: true, showActions: true, showSubtitle: true });
   });
 
   it("has no hide field in current item schemas (Hide is omitted)", () => {

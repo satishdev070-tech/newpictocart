@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { useBuilder, type SectionRef, type SectionTab } from "../../context";
 import { copyItem, findSection, moveItem, removeItem, setSectionSettings, setSectionStyle, updateItems, updateSection } from "../../ops";
-import { blankItem, clearGroup, groupHasContent, itemGroups, itemHideField, itemLabel, primaryListField, sectionTabs, visibleFields, type ItemGroup, type ListField } from "../../field-groups";
+import { blankItem, isGroupOn, itemGroups, itemHideField, itemLabel, primaryListField, sectionTabs, setGroupVisible, visibleFields, type ItemGroup, type ListField } from "../../field-groups";
 import { Field, VariantPicker } from "../fields";
 import { ImageSlotProvider } from "@/features/media/components/image-slot";
 import { SectionSizeSpacing } from "./section-size";
@@ -394,7 +394,7 @@ function ItemEditor({
 }) {
   const groups = itemGroups(field.fields);
   const [draft, setDraft] = useState<Item>(initial);
-  const [on, setOn] = useState<Record<string, boolean>>(() => Object.fromEntries(groups.map((g) => [g.id, isNew || !g.toggle || groupHasContent(g, initial)])));
+  const [on, setOn] = useState<Record<string, boolean>>(() => Object.fromEntries(groups.map((g) => [g.id, isGroupOn(g, initial, isNew)])));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -409,7 +409,8 @@ function ItemEditor({
   };
   const toggleGroup = (g: ItemGroup, v: boolean) => {
     setOn((o) => ({ ...o, [g.id]: v }));
-    if (!v) setDraft((d) => clearGroup(g, d));
+    // Persist visibility only — never clear title / description / media / actions strings.
+    setDraft((d) => setGroupVisible(g, d, v));
     setSaved(false);
   };
   const update = () => {
