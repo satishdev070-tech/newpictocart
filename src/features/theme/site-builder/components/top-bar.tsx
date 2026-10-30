@@ -78,7 +78,11 @@ export function TopBar() {
     return () => clearTimeout(t);
   }, [notice]);
 
-  /** Persist the current local document as the server draft (manual Save or autosave). */
+  /**
+   * Persist the current local document as the server draft (manual Save or autosave).
+   * Fire-and-forget via `startSave` — never call from colour/slider/`apply` handlers; canvas
+   * already paints from local history before this runs.
+   */
   const persistDraft = (force: boolean, source: "manual" | "auto") => {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -357,6 +361,7 @@ export function TopBar() {
 
       {notice ? (
         <div
+          key="builder-draft-notice"
           role={notice.tone === "error" ? "alert" : "status"}
           className={cn(
             "absolute right-3 top-full z-40 mt-2 flex max-w-md items-start gap-2 rounded-lg border px-3 py-2 text-small shadow-lg",

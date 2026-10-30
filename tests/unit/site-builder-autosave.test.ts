@@ -37,6 +37,25 @@ describe("site builder autosave helpers", () => {
 });
 
 describe("local-first dirty vs saved draft", () => {
+  it("apply updates present synchronously without touching the saved baseline (non-blocking paint)", () => {
+    const c0 = DEFAULT_THEME_CONFIG;
+    const c1 = {
+      ...c0,
+      tokens: {
+        ...c0.tokens,
+        colors: { ...c0.tokens.colors, accent: "#ff0000" },
+      },
+    };
+    let s = initHistory(c0);
+    // Colour/slider-style edit: history apply is sync; save baseline stays put until persistDraft.
+    s = historyReducer(s, { type: "apply", config: c1, coalesce: "tokens.colors.accent", now: 0 });
+    expect(s.present).toBe(c1);
+    expect(s.saved).toBe(c0);
+    expect(isDirty(s)).toBe(true);
+    // Autosave may be scheduled independently; it must not be required for paint.
+    expect(shouldScheduleAutosave({ dirty: true, conflict: false, saving: false })).toBe(true);
+  });
+
   it("stays dirty after apply until markSaved with the sent document", () => {
     const c0 = DEFAULT_THEME_CONFIG;
     const c1 = {

@@ -1,6 +1,18 @@
 # Implementation Status
 
-_Last updated: 2026-10-30 (Theme Customizer Master) · 2026-10-30 (Seller login harden) · 2026-10-29 (Theme pages + popups Phase E) · 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-30 (Customizer UX fixes) · 2026-10-30 (Theme Customizer Master) · 2026-10-30 (Seller login harden) · 2026-10-29 (Theme pages + popups Phase E) · 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Customizer UX fixes (2026-10-30, branch `cursor/customizer-ux-fixes-c73e`)
+
+Screenshot-driven follow-on to Theme Customizer Master (A2 text everywhere · B1 Customize = open page).
+
+- **Eyebrow colour:** Hero `!text-current` gated via `textCurrentClass(look)` so set `eyebrowLook.color` wins; framed-hero CSS no longer `!important` on eyebrow.
+- **Text styles (A2):** Shared `headingFields` / `headingEditor` carry `eyebrowLook` / `headingLook` / `subheadingLook`; `SectionIntro` + `hpLooks` wire home + page section renderers (ContactInfo, BlogPosts, Gallery, Team, CallToAction, RichText, ProductGrid, etc.).
+- **Pages ⋮:** **Customize** selects the page (same as row click). **Change layout** for theme pages (`applyPageTemplate`), Home (`HOME_LAYOUT_PACKS` → `templates.home`), Contact/FAQ/content (`templates.page`), Blog (`templates.blog`).
+- **Speed:** local `apply()` → canvas; Save draft / idle autosave; Publish → `revalidateStorefront` only (ADR-010). Stable `apply` identity.
+- **Onboarding `/start/theme`:** left vertical theme list + right `ThemeMockup`; **Click to Preview** opens `themePreviewHref` in a new tab.
+- **Tests:** `site-builder-apply-builtin-layout`, text-style / autosave extensions.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **155 files / 1864 tests**, build).
 
 ## Theme Customizer Master (2026-10-30, branch `cursor/theme-customizer-master-c73e`)
 

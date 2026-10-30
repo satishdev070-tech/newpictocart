@@ -9,24 +9,58 @@ import { BUILTIN_TITLE_DEFAULTS, builtinTitlesSchema, pageMetaSchema, MAX_POPUPS
 import type { SectionInstance, SectionType } from "@/features/theme/sections/types";
 import { renameContentPageAction } from "@/features/content/actions";
 import { useBuilder } from "../../context";
-import { addPage, applyPageTemplate, duplicatePage, newPopup, removePage, slugify, uniqueHandle, updatePageMeta, upsertPopup } from "../../ops";
+import {
+  addPage,
+  applyBuiltinTemplateLayout,
+  applyPageTemplate,
+  duplicatePage,
+  newPopup,
+  removePage,
+  slugify,
+  uniqueHandle,
+  updatePageMeta,
+  upsertPopup,
+  type BuiltinLayoutTemplateKey,
+} from "../../ops";
 import { headerMenu, menuParentIndex, nestPageInMenu, pageLink, setBuiltinTitle, setHomePage } from "../../page-ops";
-import { BLANK_TEMPLATE, PAGE_TEMPLATE_FAMILY_LABELS, PAGE_TEMPLATE_FAMILY_ORDER, PAGE_TEMPLATES, type PageTemplate } from "../../page-templates";
+import {
+  BLANK_TEMPLATE,
+  BUILTIN_LAYOUT_FAMILIES,
+  HOME_LAYOUT_PACKS,
+  PAGE_TEMPLATE_FAMILY_LABELS,
+  PAGE_TEMPLATE_FAMILY_ORDER,
+  PAGE_TEMPLATES,
+  type PageTemplate,
+  type PageTemplateFamily,
+} from "../../page-templates";
 import { PAGE_GROUP_LABELS, type BuilderPage, type PageGroup } from "../../pages";
 import { ImageField } from "../fields";
 import { Dialog, FieldRow, IconButton, MoreMenu, PanelFrame, Row, Toggle, input, useReorder } from "../ui";
 
 /**
  * Pages & menu panel: a sub-nav of page groups (Pages / eCommerce / Members area / Popups) and the
- * group's pages. Clicking a page loads it in the canvas. Each page row has a ⋮ menu:
+ * group's pages. Clicking a page loads it in the canvas. Each Pages-group row has a ⋮ menu with
+ * Customize (select that page, same as the row) plus:
  *  - site-builder pages: SEO & page setup · Rename · Change layout · Set as subitem · Set as homepage · Duplicate · Delete
- *  - the Home row: the homepage's own actions when a page is set as homepage (config.homePageId)
- *  - Blog: Manage blog · Rename; Contact / FAQ: Rename · Set as subitem; content pages: Set as subitem
- *    (the store's Contact content page is merged into the Contact row; Rename there renames both)
+ *  - builtin Home: Change layout (templates.home packs) · Page setup
+ *  - Blog: Change layout (templates.blog) · Manage blog · Rename · Set as subitem
+ *  - Contact / FAQ / content pages: Change layout (shared templates.page) · Rename · Set as subitem
  * Site-builder pages can be reordered by dragging; new ones start from a blank page or a template
  * (page-templates.ts) via "Add new page" pinned at the bottom. With a custom theme page open and no
  * section focused, the panel also offers Change layout (same wireframe packs as Add page).
  */
+
+/** Target for the Change layout dialog: a custom theme page, or a built-in template list. */
+type LayoutTarget =
+  | { kind: "theme"; pageId: string }
+  | {
+      kind: "builtin";
+      template: BuiltinLayoutTemplateKey;
+      label: string;
+      sharedNote?: string;
+      /** Prefer these families in the picker (defaults to BUILTIN_LAYOUT_FAMILIES[template]). */
+      families?: readonly PageTemplateFamily[];
+    };
 
 const GROUPS: { key: PageGroup; icon: typeof FileText }[] = [
   { key: "pages", icon: FileText },
@@ -47,10 +81,29 @@ export function PagesPanel() {
   const [group, setGroup] = useState<PageGroup>(() => (visibleGroups.some((g) => g.key === page.group) ? page.group : (visibleGroups[0]?.key ?? "pages")));
   const [dialog, setDialog] = useState<PageDialog | null>(null);
   const [adding, setAdding] = useState(false);
-  const [layoutPageId, setLayoutPageId] = useState<string | null>(null);
+  const [layoutTarget, setLayoutTarget] = useState<LayoutTarget | null>(null);
   const reserved = pageSources.contentPages.map((p) => p.slug);
   /** Custom theme page open, no section focused → offer the same wireframe packs as Add page. */
   const layoutTargetId = page.themePageId && !selected ? page.themePageId : null;
+
+  const SHARED_PAGE_NOTE =
+    "Contact, FAQ and content pages share one layout. Changing it updates all of them.";
+
+  const layoutFor = (p: BuilderPage): LayoutTarget | null => {
+    if (p.themePageId) return { kind: "theme", pageId: p.themePageId };
+    if (p.key === "home" && p.list === "templates.home") return { kind: "builtin", template: "home", label: p.label };
+    if (p.key === "blog" && p.list === "templates.blog") return { kind: "builtin", template: "blog", label: p.label };
+    if (p.list === "templates.page" && (p.key === "contact" || p.key === "faq" || p.key.startsWith("content:"))) {
+      const families: readonly PageTemplateFamily[] =
+        p.key === "contact"
+          ? ["contact", "faq", "about", "other"]
+          : p.key === "faq"
+            ? ["faq", "contact", "about", "other"]
+            : BUILTIN_LAYOUT_FAMILIES.page;
+      return { kind: "builtin", template: "page", label: p.label, sharedNote: SHARED_PAGE_NOTE, families };
+    }
+    return null;
+  };
 
   const list = pages.filter((p) => p.group === group);
   const reorder = useReorder((from, to) =>
@@ -95,34 +148,53 @@ export function PagesPanel() {
     if (id) setPageKey(`theme:${id}`);
   };
 
-  /** The ⋮ menu for a row in the Pages group. */
+  /** The ⋮ menu for a row in the Pages group. Customize always selects the row (B1). */
   const menuFor = (p: BuilderPage): MenuItem[] => {
     const d = (kind: PageDialog["kind"]) => () => setDialog({ kind, page: p });
     const isHome = p.key === "home";
+    const customize: MenuItem = { label: "Customize", onSelect: () => open(p) };
+    const changeLayout = (): MenuItem[] => {
+      const target = layoutFor(p);
+      return target
+        ? [
+            {
+              label: "Change layout",
+              onSelect: () => {
+                open(p);
+                setLayoutTarget(target);
+              },
+            },
+          ]
+        : [];
+    };
     if (p.themePageId) {
       return [
+        customize,
         { label: "SEO & page setup", onSelect: d("seo") },
         { label: "Rename", onSelect: d("rename") },
-        { label: "Change layout", onSelect: () => setLayoutPageId(p.themePageId!) },
+        ...changeLayout(),
         ...(isHome ? [] : [{ label: "Set as subitem", onSelect: d("subitem") }]),
         isHome ? { label: "Use the original home page", onSelect: unsetHome } : { label: "Set as homepage", onSelect: () => makeHome(p.themePageId!) },
         { label: "Duplicate page", onSelect: () => duplicate(p.themePageId!), disabled: config.pages.length >= MAX_THEME_PAGES },
         { label: "Delete page", onSelect: d("delete"), danger: true },
       ];
     }
-    if (isHome) return [{ label: "Page setup", onSelect: d("info") }];
+    if (isHome) return [customize, ...changeLayout(), { label: "Page setup", onSelect: d("info") }];
     if (p.key === "blog") {
       return [
+        customize,
+        ...changeLayout(),
         { label: "Manage blog", onSelect: () => openTab("/dashboard/content/blog") },
         { label: "Rename", onSelect: d("rename") },
         { label: "Set as subitem", onSelect: d("subitem") },
       ];
     }
-    const items: MenuItem[] = [];
+    const items: MenuItem[] = [customize, ...changeLayout()];
     if (BUILTIN_RENAMABLE.has(p.key)) items.push({ label: "Rename", onSelect: d("rename") });
     if (pageLink(config, p)) items.push({ label: "Set as subitem", onSelect: d("subitem") });
     if (p.settingsHref) items.push({ label: "Edit in dashboard", onSelect: () => openTab(p.settingsHref!) });
-    return items.length ? items : [{ label: "Page setup", onSelect: d("info") }];
+    if (items.length === 1) items.push({ label: "Page setup", onSelect: d("info") });
+    return items;
   };
 
   const footer =
@@ -197,7 +269,7 @@ export function PagesPanel() {
                   <p className="text-xs text-muted">Replace this page&apos;s sections with an About, Contact, FAQ or Blog starter. Title and URL stay the same.</p>
                 </div>
               </div>
-              <Button variant="secondary" className="w-full" onClick={() => setLayoutPageId(layoutTargetId)}>
+              <Button variant="secondary" className="w-full" onClick={() => setLayoutTarget({ kind: "theme", pageId: layoutTargetId })}>
                 Browse layouts
               </Button>
             </div>
@@ -211,7 +283,7 @@ export function PagesPanel() {
       {dialog?.kind === "subitem" ? <SubitemDialog page={dialog.page} onClose={() => setDialog(null)} /> : null}
       {dialog?.kind === "delete" && dialog.page.themePageId ? <DeleteDialog pageId={dialog.page.themePageId} onClose={() => setDialog(null)} /> : null}
       <AddPageDialog open={adding} onClose={() => setAdding(false)} />
-      <ChangeLayoutDialog pageId={layoutPageId} onClose={() => setLayoutPageId(null)} />
+      <ChangeLayoutDialog target={layoutTarget} onClose={() => setLayoutTarget(null)} />
     </PanelFrame>
   );
 }
@@ -549,22 +621,34 @@ function DeleteDialog({ pageId, onClose }: { pageId: string; onClose: () => void
 }
 
 // -----------------------------------------------------------------------------
-// Change layout (existing custom theme page → Add-page wireframe pack)
+// Change layout (custom theme page or built-in templates.home / .page / .blog)
 // -----------------------------------------------------------------------------
 
-function ChangeLayoutDialog({ pageId, onClose }: { pageId: string | null; onClose: () => void }) {
+function ChangeLayoutDialog({ target, onClose }: { target: LayoutTarget | null; onClose: () => void }) {
   const { config, apply, select } = useBuilder();
   const [chosen, setChosen] = useState<PageTemplate | null>(null);
-  const src = pageId ? config.pages.find((p) => p.id === pageId) : undefined;
   const close = () => {
     setChosen(null);
     onClose();
   };
-  if (!pageId || !src) return null;
+  if (!target) return null;
+
+  const themePage = target.kind === "theme" ? config.pages.find((p) => p.id === target.pageId) : undefined;
+  if (target.kind === "theme" && !themePage) return null;
+
+  const titleLabel = target.kind === "theme" ? themePage!.title : target.label;
+  const sectionCount = target.kind === "theme" ? themePage!.sections.length : config.templates[target.template].length;
+  const families: readonly PageTemplateFamily[] | undefined =
+    target.kind === "builtin" ? (target.families ?? BUILTIN_LAYOUT_FAMILIES[target.template]) : undefined;
+  const includeBlank = target.kind === "theme" || (target.kind === "builtin" && target.template === "home");
 
   const applyChosen = () => {
     if (!chosen) return;
-    apply((c) => applyPageTemplate(c, pageId, chosen.key));
+    if (target.kind === "theme") {
+      apply((c) => applyPageTemplate(c, target.pageId, chosen.key));
+    } else {
+      apply((c) => applyBuiltinTemplateLayout(c, target.template, chosen.key));
+    }
     select(null);
     close();
   };
@@ -573,7 +657,7 @@ function ChangeLayoutDialog({ pageId, onClose }: { pageId: string | null; onClos
     <Dialog
       open
       onClose={close}
-      title={chosen ? `Use “${chosen.label}”?` : `Change layout · ${src.title}`}
+      title={chosen ? `Use “${chosen.label}”?` : `Change layout · ${titleLabel}`}
       wide={!chosen}
       footer={
         chosen ? (
@@ -590,13 +674,21 @@ function ChangeLayoutDialog({ pageId, onClose }: { pageId: string | null; onClos
     >
       {chosen ? (
         <div className="space-y-3 text-small">
-          <p>
-            Replace the sections on <strong>{src.title}</strong> with the <strong>{chosen.label}</strong> starter.
-            The page title and URL (/pages/{src.handle}) stay the same.
-          </p>
-          {src.sections.length > 0 ? (
+          {target.kind === "theme" ? (
+            <p>
+              Replace the sections on <strong>{themePage!.title}</strong> with the <strong>{chosen.label}</strong> starter.
+              The page title and URL (/pages/{themePage!.handle}) stay the same.
+            </p>
+          ) : (
+            <p>
+              Replace the sections on <strong>{target.label}</strong> with the <strong>{chosen.label}</strong> starter.
+              {target.template !== "home" ? " The page’s own content (form, FAQ list or blog posts) stays in place." : " Store SEO settings are unchanged."}
+            </p>
+          )}
+          {target.kind === "builtin" && target.sharedNote ? <p className="text-muted">{target.sharedNote}</p> : null}
+          {sectionCount > 0 ? (
             <p className="text-muted">
-              The current {src.sections.length} section{src.sections.length === 1 ? "" : "s"} will be removed. You can undo until you save.
+              The current {sectionCount} section{sectionCount === 1 ? "" : "s"} will be removed. You can undo until you save.
             </p>
           ) : (
             <p className="text-muted">This page is empty — the starter sections will be added. You can undo until you save.</p>
@@ -607,8 +699,15 @@ function ChangeLayoutDialog({ pageId, onClose }: { pageId: string | null; onClos
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-small text-muted">Pick the same wireframe packs used when adding a page. Title and URL are kept.</p>
-          <TemplateGrid onPick={setChosen} />
+          <p className="text-small text-muted">
+            {target.kind === "theme"
+              ? "Pick the same wireframe packs used when adding a page. Title and URL are kept."
+              : target.template === "home"
+                ? "Pick a Home starter layout. You can undo until you save."
+                : "Pick a starter layout for the sections around this page’s content."}
+          </p>
+          {target.kind === "builtin" && target.sharedNote ? <p className="text-xs text-muted">{target.sharedNote}</p> : null}
+          <TemplateGrid onPick={setChosen} families={families} includeBlank={includeBlank} />
         </div>
       )}
     </Dialog>
@@ -632,12 +731,25 @@ function AddPageDialog({ open, onClose }: { open: boolean; onClose: () => void }
   );
 }
 
-function TemplateGrid({ onPick }: { onPick: (t: PageTemplate) => void }) {
-  const groups = PAGE_TEMPLATE_FAMILY_ORDER.map((family) => ({
-    family,
-    label: PAGE_TEMPLATE_FAMILY_LABELS[family],
-    templates: family === "other" ? [BLANK_TEMPLATE, ...PAGE_TEMPLATES.filter((t) => t.family === "other")] : PAGE_TEMPLATES.filter((t) => t.family === family),
-  })).filter((g) => g.templates.length > 0);
+function TemplateGrid({
+  onPick,
+  families,
+  includeBlank = true,
+}: {
+  onPick: (t: PageTemplate) => void;
+  /** When set, only these families (e.g. home / contact / blogs for built-in Change layout). */
+  families?: readonly PageTemplateFamily[];
+  includeBlank?: boolean;
+}) {
+  const order = families?.length ? [...families] : PAGE_TEMPLATE_FAMILY_ORDER;
+  const groups = order
+    .map((family) => {
+      const fromPages = family === "home" ? HOME_LAYOUT_PACKS : PAGE_TEMPLATES.filter((t) => t.family === family);
+      const templates =
+        family === "other" && includeBlank ? [BLANK_TEMPLATE, ...fromPages] : family === "home" && includeBlank ? [BLANK_TEMPLATE, ...fromPages] : fromPages;
+      return { family, label: PAGE_TEMPLATE_FAMILY_LABELS[family], templates };
+    })
+    .filter((g) => g.templates.length > 0);
 
   return (
     <div className="space-y-5">

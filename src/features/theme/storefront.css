@@ -2377,7 +2377,8 @@ a.sf-spot-add-square {
 
 /* Hero: framed */
 .sf-hero-frame-card { background: var(--sf-bg); color: var(--sf-text); border-radius: calc(var(--sf-radius-card) + 6px); }
-.sf-hero-frame-card .sf-eyebrow { color: var(--sf-muted) !important; }
+/* No !important: an inline TextLook colour on the eyebrow must win over the frame default. */
+.sf-hero-frame-card .sf-eyebrow { color: var(--sf-muted); }
 
 /* Rails */
 .sf-rail-item { scroll-snap-align: start; }

@@ -1,7 +1,11 @@
 /**
  * Pure helpers for the site builder's local-first save loop:
  * edit → canvas paints from local history → debounced Save draft → explicit Publish.
- * Persistence never blocks `apply()`; these helpers only decide when / how to schedule it.
+ *
+ * Contract: `shouldScheduleAutosave` answers only “may we arm an idle timer?” — never “may we
+ * paint?”. Colour / slider / text handlers call `apply()`; top-bar schedules persist after idle.
+ * Publish invalidates public storefront tags via `revalidateStorefront` (ADR-010); drafts never
+ * touch Redis.
  */
 
 /** Idle delay before an automatic draft save (ms). Manual Save remains immediate. */

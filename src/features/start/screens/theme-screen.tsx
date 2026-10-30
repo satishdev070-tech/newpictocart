@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import { findTheme } from "@/features/marketing-site/themes";
+import { findTheme, themePreviewHref } from "@/features/marketing-site/themes";
 import { ThemeMockup } from "@/features/theme/marketplace/mockup";
 import { listStartThemeOptionsAction } from "../actions";
 import { draftCategory, type StartDraft } from "../draft/schema";
@@ -89,8 +89,31 @@ export function ThemeScreen({
         </p>
       ) : null}
 
-      {/* Large live preview + theme cards — centered column */}
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 sm:gap-7">
+      {/* md+: list left + large preview right; mobile: list stacked above preview */}
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-5 md:grid-cols-[minmax(240px,300px)_minmax(0,1fr)] md:items-start md:gap-6 lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
+        <div
+          className="flex max-h-[280px] flex-col gap-2.5 overflow-y-auto overscroll-contain pr-1 md:max-h-[min(70vh,720px)]"
+          role="listbox"
+          aria-label="Theme options"
+        >
+          {loading && themes.length === 0
+            ? Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-[76px] w-full shrink-0 animate-pulse rounded-2xl border border-white/90 bg-white/50"
+                />
+              ))
+            : themes.map((t) => (
+                <ThemeCard
+                  key={t.key}
+                  theme={t}
+                  recommended={options?.recommended.key === t.key}
+                  active={selectedKey === t.key}
+                  onSelect={() => onPatch({ theme: t.key })}
+                />
+              ))}
+        </div>
+
         <div className="overflow-hidden rounded-[28px] border border-white/90 bg-white/70 shadow-[0_24px_60px_-28px_rgba(249,115,22,0.4)]">
           <div className="flex items-center justify-between gap-3 border-b border-[#2A2233]/8 px-4 py-3.5 sm:px-6">
             <div className="min-w-0">
@@ -105,13 +128,24 @@ export function ThemeScreen({
                 </p>
               ) : null}
             </div>
-            <span className="shrink-0 rounded-full bg-[#FFF7ED] px-2.5 py-1 text-xs font-semibold text-[#C2410C]">
-              Live preview
-            </span>
+            {selectedKey ? (
+              <a
+                href={themePreviewHref(selectedKey)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 rounded-full bg-[#FFF7ED] px-3 py-1.5 text-xs font-semibold text-[#C2410C] underline-offset-2 transition hover:bg-[#FFEDD5] hover:underline sm:text-sm"
+              >
+                Click to Preview
+              </a>
+            ) : (
+              <span className="shrink-0 rounded-full bg-[#FFF7ED]/60 px-3 py-1.5 text-xs font-semibold text-[#C2410C]/50 sm:text-sm">
+                Click to Preview
+              </span>
+            )}
           </div>
-          <div className="relative min-h-[360px] overflow-hidden bg-[#FFF7ED]/50 sm:min-h-[480px] lg:min-h-[560px]">
+          <div className="relative min-h-[320px] overflow-hidden bg-[#FFF7ED]/50 sm:min-h-[420px] lg:min-h-[560px]">
             {selectedFull ? (
-              <div className="max-h-[520px] overflow-hidden sm:max-h-[640px] lg:max-h-[720px]">
+              <div className="max-h-[480px] overflow-hidden sm:max-h-[560px] lg:max-h-[720px]">
                 <ThemeMockup
                   preset={selectedFull.preset}
                   name={selectedFull.name.split(" ")[0]!}
@@ -125,38 +159,14 @@ export function ThemeScreen({
               <img
                 src={selectedMeta.thumbnail}
                 alt=""
-                className="max-h-[520px] w-full object-cover object-top sm:max-h-[640px] lg:max-h-[720px]"
+                className="max-h-[480px] w-full object-cover object-top sm:max-h-[560px] lg:max-h-[720px]"
               />
             ) : (
-              <div className="grid min-h-[360px] place-items-center text-sm text-[#6B6275] sm:min-h-[480px] lg:min-h-[560px]">
+              <div className="grid min-h-[320px] place-items-center text-sm text-[#6B6275] sm:min-h-[420px] lg:min-h-[560px]">
                 {loading ? "Loading themes…" : "Select a theme to preview"}
               </div>
             )}
           </div>
-        </div>
-
-        {/* Theme options — horizontal scroll under the preview */}
-        <div
-          className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          role="listbox"
-          aria-label="Theme options"
-        >
-          {loading && themes.length === 0
-            ? Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-40 w-[148px] shrink-0 animate-pulse rounded-2xl border border-white/90 bg-white/50 sm:w-[168px]"
-                />
-              ))
-            : themes.map((t) => (
-                <ThemeCard
-                  key={t.key}
-                  theme={t}
-                  recommended={options?.recommended.key === t.key}
-                  active={selectedKey === t.key}
-                  onSelect={() => onPatch({ theme: t.key })}
-                />
-              ))}
         </div>
       </div>
 
@@ -199,35 +209,46 @@ function ThemeCard({
       role="option"
       onClick={onSelect}
       className={cn(
-        "relative flex w-[148px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left transition sm:w-[168px]",
+        "relative flex w-full shrink-0 gap-3 overflow-hidden rounded-2xl border p-2.5 text-left transition",
         active
-          ? "border-[#F97316] bg-white shadow-[0_16px_36px_-20px_rgba(249,115,22,0.55)] ring-2 ring-[#F97316]/25"
+          ? "border-[#F97316] bg-white shadow-[0_16px_36px_-20px_rgba(249,115,22,0.55)] ring-2 ring-[#F97316]/30"
           : "border-white/90 bg-white/55 hover:bg-white/80",
       )}
       aria-selected={active}
     >
-      <div className="h-28 overflow-hidden border-b border-[#2A2233]/8 bg-[#FFF7ED]/50" aria-hidden>
+      <div
+        className="h-[56px] w-[84px] shrink-0 overflow-hidden rounded-xl border border-[#2A2233]/8 bg-[#FFF7ED]/50"
+        aria-hidden
+      >
         {full ? (
-          <div className="origin-top scale-[0.48]" style={{ width: "208%", height: "208%" }}>
-            <ThemeMockup preset={full.preset} name={full.name.split(" ")[0]!} tagline={full.tagline} themeKey={full.key} size="card" />
+          <div className="origin-top-left scale-[0.42]" style={{ width: "238%", height: "238%" }}>
+            <ThemeMockup
+              preset={full.preset}
+              name={full.name.split(" ")[0]!}
+              tagline={full.tagline}
+              themeKey={full.key}
+              size="card"
+            />
           </div>
         ) : theme.thumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element -- static theme preview webp
           <img src={theme.thumbnail} alt="" className="size-full object-cover object-top" />
         ) : (
-          <div className="grid size-full place-items-center text-xs text-[#6B6275]">Preview</div>
+          <div className="grid size-full place-items-center text-[10px] text-[#6B6275]">Preview</div>
         )}
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-2.5">
-        <span className="line-clamp-2 text-sm font-semibold leading-snug">{theme.name}</span>
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 pr-5">
+        <span className="line-clamp-2 text-sm font-semibold leading-snug text-[#2A2233]">{theme.name}</span>
         {recommended ? (
-          <span className="text-[11px] font-semibold text-[#C2410C]">Recommended</span>
+          <span className="w-fit rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[11px] font-semibold text-[#C2410C]">
+            Recommended
+          </span>
         ) : theme.industry ? (
           <span className="text-[11px] capitalize text-[#6B6275]">{theme.industry.replace(/-/g, " ")}</span>
         ) : null}
       </div>
       {active ? (
-        <span className="absolute bottom-2 right-2 grid size-5 place-items-center rounded-full bg-[#F97316] text-[10px] text-white">
+        <span className="absolute bottom-2.5 right-2.5 grid size-5 place-items-center rounded-full bg-[#F97316] text-[10px] text-white">
           ✓
         </span>
       ) : null}

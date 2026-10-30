@@ -14,9 +14,9 @@ import { assetUrl } from "@/lib/storage/assets";
 import { pickStock, type StockImage, type StockSet } from "@/lib/unsplash-stock";
 import type { ProductCardSettings } from "@/features/theme/schema/tokens";
 import type { CardRatio, CategoryVariant, ProductGridVariant } from "@/features/theme/sections/variants";
-import { Cta, Intro, hp, type IntroProps } from "./parts";
+import { Cta } from "./parts";
 import { slideGroups } from "./slide-visibility";
-import { TextBox, lookOf, textBoxProps } from "./text-look";
+import { SectionIntro, TextBox, hpLooks, lookOf, textBoxProps, textCurrentClass, type SectionIntroProps } from "./text-look";
 import type { RenderContext } from "./context";
 
 /**
@@ -74,7 +74,7 @@ function HeroText({ sl, first, size = "lg", light = false, itemIndex = 0 }: { sl
   return (
     <div className="space-y-4">
       {g.subtitle && sl.eyebrow ? (
-        <TextBox role="eyebrow" look={lookOf(sl.eyebrowLook)} itemIndex={itemIndex} as="p" className="sf-eyebrow !text-current opacity-80">
+        <TextBox role="eyebrow" look={lookOf(sl.eyebrowLook)} itemIndex={itemIndex} as="p" className={`sf-eyebrow ${textCurrentClass(lookOf(sl.eyebrowLook))} opacity-80`}>
           {sl.eyebrow}
         </TextBox>
       ) : null}
@@ -191,20 +191,31 @@ export function HeroVariant({ s, ctx }: P<"Hero">) {
           <div className="sf-container grid gap-6 py-10 @[64rem]:grid-cols-[1.4fr_1fr] @[64rem]:items-end @[64rem]:py-14">
             <div className="space-y-3">
               {g.subtitle && first.eyebrow ? (
-                <TextBox role="eyebrow" look={lookOf(first.eyebrowLook)} itemIndex={0} as="p" className="sf-eyebrow !text-current opacity-80">
+                <TextBox role="eyebrow" look={lookOf(first.eyebrowLook)} itemIndex={0} as="p" className={`sf-eyebrow ${textCurrentClass(lookOf(first.eyebrowLook))} opacity-80`}>
                   {first.eyebrow}
                 </TextBox>
               ) : null}
               {g.title ? (
-                <h1 className="sf-heading text-4xl @[64rem]:text-7xl">
+                <TextBox role="heading" look={lookOf(first.headingLook)} itemIndex={0} as="h1" className="sf-heading text-4xl @[64rem]:text-7xl">
                   {first.heading}
                   {first.headingAccent ? <em className="sf-hero-accent">{first.headingAccent}</em> : null}
-                </h1>
+                </TextBox>
               ) : null}
             </div>
             <div className="space-y-5">
-              {g.description && first.subheading ? <p className="text-lg opacity-85">{first.subheading}</p> : null}
-              {g.actions ? <Cta label={first.ctaLabel} href={first.ctaHref} /> : null}
+              {g.description && first.subheading ? (
+                <TextBox role="subheading" look={lookOf(first.subheadingLook)} itemIndex={0} as="p" className="text-lg opacity-85">
+                  {first.subheading}
+                </TextBox>
+              ) : null}
+              {g.actions ? (
+                <Cta
+                  label={first.ctaLabel}
+                  href={first.ctaHref}
+                  style={textBoxProps("cta", lookOf(first.ctaLook), 0).style}
+                  dataAttrs={textBoxProps("cta", lookOf(first.ctaLook), 0).attrs}
+                />
+              ) : null}
             </div>
           </div>
         </section>
@@ -259,14 +270,14 @@ export function HeroVariant({ s, ctx }: P<"Hero">) {
 // -----------------------------------------------------------------------------
 // Product grids
 // -----------------------------------------------------------------------------
-export async function ProductGridVariant({ ctx, args, variant, intro, cardRatio, columns = 4 }: { ctx: RenderContext; args: ListArgs | null; variant: ProductGridVariant; intro: IntroProps; cardRatio?: CardRatio; columns?: number }) {
+export async function ProductGridVariant({ ctx, args, variant, intro, cardRatio, columns = 4 }: { ctx: RenderContext; args: ListArgs | null; variant: ProductGridVariant; intro: SectionIntroProps; cardRatio?: CardRatio; columns?: number }) {
   if (!args) return null;
   const { cards } = await listProducts(ctx.sf.tenant.tenantId, args);
   const stock: StockSet | null = ctx.stockProducts ? ctx.stock : null;
   const settings = cardSettings(ctx.sf.theme.productCard, cardRatio);
   return (
     <section className="sf-container sf-section">
-      <Intro {...intro} />
+      <SectionIntro {...intro} />
       {!cards.length ? <p className="sf-muted text-sm">Products will appear here soon.</p> : <ProductLayout cards={cards} variant={variant} settings={settings} stock={stock} columns={columns} commerceEnabled={!isInformative(ctx.sf.siteMode)} />}
     </section>
   );
@@ -372,7 +383,7 @@ function BigTile({ p, stock, className, priority = false }: { p: ProductCardData
 // -----------------------------------------------------------------------------
 export type Tile = { href: string; label: string; imagePath: string | null; subtitle?: string };
 
-export function TileLayout({ tiles, variant, intro, ctx }: { tiles: Tile[]; variant: Exclude<CategoryVariant, "grid">; intro: IntroProps; ctx: RenderContext }) {
+export function TileLayout({ tiles, variant, intro, ctx }: { tiles: Tile[]; variant: Exclude<CategoryVariant, "grid">; intro: SectionIntroProps; ctx: RenderContext }) {
   const stockAt = (t: Tile, i: number) => stockFor(ctx, t.imagePath, "tiles", i);
   let body: ReactNode;
   switch (variant) {
@@ -451,7 +462,7 @@ export function TileLayout({ tiles, variant, intro, ctx }: { tiles: Tile[]; vari
   }
   return (
     <section className="sf-container sf-section">
-      <Intro {...intro} />
+      <SectionIntro {...intro} />
       {body}
     </section>
   );
@@ -461,13 +472,29 @@ export function TileLayout({ tiles, variant, intro, ctx }: { tiles: Tile[]; vari
 // Brand story
 // -----------------------------------------------------------------------------
 function StoryText({ s, centred = false, big = false }: { s: SectionSettings<"BrandStory">; centred?: boolean; big?: boolean }) {
+  const eyebrowLook = lookOf(s.eyebrowLook);
+  const cta = textBoxProps("cta", lookOf(s.ctaLook));
   return (
     <div className={`space-y-5 ${centred ? "text-center" : ""}`}>
-      {s.eyebrow ? <p className="sf-eyebrow !text-current opacity-75">{s.eyebrow}</p> : null}
-      <h2 className={`sf-heading ${big ? "text-4xl @[64rem]:text-6xl" : "text-3xl @[64rem]:text-5xl"}`}>{s.heading}</h2>
-      {s.subheading ? <p className="text-lg">{s.subheading}</p> : null}
-      {s.body ? <p className={`whitespace-pre-line leading-relaxed opacity-80 ${centred ? "mx-auto max-w-2xl" : ""}`}>{s.body}</p> : null}
-      <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-outline" />
+      {s.eyebrow ? (
+        <TextBox role="eyebrow" look={eyebrowLook} as="p" className={`sf-eyebrow ${textCurrentClass(eyebrowLook)} opacity-75`}>
+          {s.eyebrow}
+        </TextBox>
+      ) : null}
+      <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className={`sf-heading ${big ? "text-4xl @[64rem]:text-6xl" : "text-3xl @[64rem]:text-5xl"}`}>
+        {s.heading}
+      </TextBox>
+      {s.subheading ? (
+        <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className="text-lg">
+          {s.subheading}
+        </TextBox>
+      ) : null}
+      {s.body ? (
+        <TextBox role="body" look={lookOf(s.bodyLook)} as="p" className={`whitespace-pre-line leading-relaxed opacity-80 ${centred ? "mx-auto max-w-2xl" : ""}`}>
+          {s.body}
+        </TextBox>
+      ) : null}
+      <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-outline" style={cta.style} dataAttrs={cta.attrs} />
     </div>
   );
 }
@@ -620,7 +647,7 @@ export function TestimonialsVariant({ s }: { s: SectionSettings<"Testimonials">;
       return (
         <section className={`sf-tone-${s.tone}`}>
           <div className="sf-container sf-section !pb-6">
-            <Intro {...hp(s)} />
+            <SectionIntro {...hpLooks(s)} />
           </div>
           <div className="sf-marquee pb-14" style={{ ["--sf-marquee-duration" as string]: `${Math.max(30, items.length * 12)}s` }}>
             <ul className="sf-marquee-track">
@@ -650,7 +677,7 @@ export function TestimonialsVariant({ s }: { s: SectionSettings<"Testimonials">;
   return (
     <section className={`sf-tone-${s.tone}`}>
       <div className="sf-container sf-section">
-        <Intro {...hp(s)} />
+        <SectionIntro {...hpLooks(s)} />
         {body}
       </div>
     </section>
@@ -662,11 +689,27 @@ export function TestimonialsVariant({ s }: { s: SectionSettings<"Testimonials">;
 // -----------------------------------------------------------------------------
 export function NewsletterVariant({ s, ctx }: P<"Newsletter">) {
   const img = stockFor(ctx, s.imagePath, "story", 1);
+  const eyebrowLook = lookOf(s.eyebrowLook);
   const text = (light = false) => (
     <div className="space-y-3">
-      {s.eyebrow ? <p className={`sf-eyebrow ${light ? "!text-current opacity-80" : ""}`}>{s.eyebrow}</p> : null}
-      <h2 className="sf-heading text-3xl @[64rem]:text-4xl">{s.heading}</h2>
-      {s.subheading ? <p className={light ? "opacity-85" : "sf-muted"}>{s.subheading}</p> : null}
+      {s.eyebrow ? (
+        <TextBox
+          role="eyebrow"
+          look={eyebrowLook}
+          as="p"
+          className={`sf-eyebrow ${light ? `${textCurrentClass(eyebrowLook)} opacity-80` : ""}`}
+        >
+          {s.eyebrow}
+        </TextBox>
+      ) : null}
+      <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className="sf-heading text-3xl @[64rem]:text-4xl">
+        {s.heading}
+      </TextBox>
+      {s.subheading ? (
+        <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className={light ? "opacity-85" : "sf-muted"}>
+          {s.subheading}
+        </TextBox>
+      ) : null}
     </div>
   );
   switch (s.variant) {
@@ -716,7 +759,9 @@ export function NewsletterVariant({ s, ctx }: P<"Newsletter">) {
       return (
         <section className={`sf-tone-${s.tone} border-y border-[var(--sf-border)]`}>
           <div className="sf-container flex flex-col gap-4 py-7 @[64rem]:flex-row @[64rem]:items-center @[64rem]:justify-between">
-            <p className="sf-heading text-2xl">{s.heading}</p>
+            <TextBox role="heading" look={lookOf(s.headingLook)} as="p" className="sf-heading text-2xl">
+              {s.heading}
+            </TextBox>
             <div className="sf-newsletter-left w-full @[64rem]:max-w-md">
               <NewsletterForm buttonLabel={s.buttonLabel} />
             </div>
