@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useReducer, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import type { ThemeConfig } from "@/features/theme/schema/config";
 import type { ThemeMenu } from "@/features/theme/schema/links";
 import type { SiteMode } from "@/features/stores/site-mode";
@@ -16,8 +16,9 @@ import type { ListKey } from "./slots";
  * Panels never talk to the canvas directly: they `apply()` a new document and the canvas host
  * (components/canvas-frame.tsx) posts it to the iframe.
  *
- * Local-first: `apply()` updates history + canvas only. Persistence is Save draft
- * (manual or debounced autosave) then explicit Publish — never awaited before paint.
+ * Local-first: `apply()` is synchronous — history dispatch only — so colour/slider/text edits
+ * paint the canvas on the next React commit. Persistence is Save draft (manual or debounced
+ * autosave in top-bar) then explicit Publish; neither path is awaited inside `apply()`.
  */
 
 export type SectionRef = { list: ListKey; sectionId: string };
@@ -92,13 +93,25 @@ export function BuilderProvider({ data, children }: { data: BuilderData; childre
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
 
   const config = hist.present;
-  const apply = useCallback<BuilderApi["apply"]>(
-    (next, coalesce) => {
-      const value = typeof next === "function" ? next(config) : next;
-      dispatch({ type: "apply", config: value, coalesce });
-    },
-    [config],
-  );
+  // Stable apply identity: colour/slider handlers must not recreate `apply` every stroke
+  // (avoids effect/subscription churn while paint stays sync via dispatch).
+  const presentRef = useRef(config);
+  presentRef.current = config;
+  const apply = useCallback<BuilderApi["apply"]>((next, coalesce) => {
+    const value = typeof next === "function" ? next(presentRef.current) : next;
+    dispatch({ type: "apply", config: value, coalesce });
+  }, []);
+  const undo = useCallback(() => dispatch({ type: "undo" }), []);
+  const redo = useCallback(() => dispatch({ type: "redo" }), []);
+  const markSaved = useCallback<BuilderApi["markSaved"]>((updatedAt, savedConfig) => {
+    setBase(updatedAt);
+    dispatch({ type: "saved", config: savedConfig });
+  }, []);
+  const setPageKeyAndClear = useCallback((k: string) => {
+    setPageKey(k);
+    select(null);
+  }, []);
+
   const pages = useMemo(() => builderPages(config, data.pageSources, data.siteMode), [config, data.pageSources, data.siteMode]);
   const page = pages.find((p) => p.key === pageKey) ?? pages[0]!;
 
@@ -106,22 +119,16 @@ export function BuilderProvider({ data, children }: { data: BuilderData; childre
     ...data,
     config,
     apply,
-    undo: () => dispatch({ type: "undo" }),
-    redo: () => dispatch({ type: "redo" }),
+    undo,
+    redo,
     canUndo: canUndo(hist),
     canRedo: canRedo(hist),
     dirty: isDirty(hist),
-    markSaved: (updatedAt, savedConfig) => {
-      setBase(updatedAt);
-      dispatch({ type: "saved", config: savedConfig });
-    },
+    markSaved,
     baseUpdatedAt,
     pages,
     page,
-    setPageKey: (k) => {
-      setPageKey(k);
-      select(null);
-    },
+    setPageKey: setPageKeyAndClear,
     panel,
     setPanel,
     selected,
