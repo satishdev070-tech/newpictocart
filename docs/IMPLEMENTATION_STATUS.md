@@ -1,6 +1,20 @@
 # Implementation Status
 
-_Last updated: 2026-10-30 (Theme/store crash + 404 resilience) · 2026-10-30 (Marketing homepage perf P0–P1) · 2026-10-30 (Customizer speed model lock) · 2026-10-30 (Customizer UX fixes) · 2026-10-30 (Theme Customizer Master) · 2026-10-30 (Seller login harden) · 2026-10-29 (Theme pages + popups Phase E) · 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-10-30 (Marketing GTmetrix LCP/JS) · 2026-10-30 (Theme/store crash + 404 resilience) · 2026-10-30 (Marketing homepage perf P0–P1) · 2026-10-30 (Customizer speed model lock) · 2026-10-30 (Customizer UX fixes) · 2026-10-30 (Theme Customizer Master) · 2026-10-30 (Seller login harden) · 2026-10-29 (Theme pages + popups Phase E) · 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Marketing GTmetrix LCP / JS (2026-10-30, branch `cursor/marketing-gtmetrix-perf-c73e`)
+
+**Baseline (pictocartdev.in):** Performance 43%, LCP 8.0s, TBT 401ms, 1.89MB / 66 req. **Root cause:** LCP = Unsplash hero `<img>` inside first `ThemeMockup` (desktop); phone frame was also `fetchPriority=high`; hero slideshow mounted active+next; below-fold theme cards fan-out Unsplash; Inter italic declared unused.
+
+**Fixes (design preserved):**
+- Desktop-only LCP eager/high; phone stays lazy
+- Hero `ThemeMockup` `compact` skips product-rail images; `react-dom` `preload()` of LCP URL
+- Slideshow mounts **active only** until idle, then warms next
+- Themes grid: first 4 cards SSR; rest via `WhenVisible` + `content-visibility`
+- Viewports extracted from client `live-frame`; dynamic `ClickToLive`; Inter italic face dropped
+- Target after deploy: LCP &lt; 2.5s / TBT &lt; 200ms / GTmetrix **B–C** (A not promised while GA4 + multi-section home remain). Remaining: capture `theme-previews.json` WebPs to eliminate Unsplash mockups.
+
+**Verification:** `pnpm check` ✅ (155 files / 1864 tests, build).
 
 ## Page content chrome + perf + resilience (2026-10-30, branch `cursor/pagecontent-perf-resilience-c73e`)
 
