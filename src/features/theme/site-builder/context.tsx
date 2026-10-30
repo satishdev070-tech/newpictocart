@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import type { ThemeConfig } from "@/features/theme/schema/config";
 import type { ThemeMenu } from "@/features/theme/schema/links";
 import type { SiteMode } from "@/features/stores/site-mode";
@@ -96,15 +96,20 @@ export function BuilderProvider({ data, children }: { data: BuilderData; childre
   // Stable apply identity: colour/slider handlers must not recreate `apply` every stroke
   // (avoids effect/subscription churn while paint stays sync via dispatch).
   const presentRef = useRef(config);
-  presentRef.current = config;
+  // Keep ref in sync after undo/redo/saved (apply updates the ref inline for chained strokes).
+  useLayoutEffect(() => {
+    presentRef.current = config;
+  }, [config]);
   const apply = useCallback<BuilderApi["apply"]>((next, coalesce) => {
     const value = typeof next === "function" ? next(presentRef.current) : next;
+    presentRef.current = value;
     dispatch({ type: "apply", config: value, coalesce });
   }, []);
   const undo = useCallback(() => dispatch({ type: "undo" }), []);
   const redo = useCallback(() => dispatch({ type: "redo" }), []);
   const markSaved = useCallback<BuilderApi["markSaved"]>((updatedAt, savedConfig) => {
     setBase(updatedAt);
+    if (savedConfig) presentRef.current = savedConfig;
     dispatch({ type: "saved", config: savedConfig });
   }, []);
   const setPageKeyAndClear = useCallback((k: string) => {

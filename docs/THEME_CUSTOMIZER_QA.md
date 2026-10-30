@@ -199,6 +199,17 @@ Mark each item `[ ]` → `[x]` during manual QA. IDs are stable (`A1-01` … `E-
 
 ---
 
+## UX — Eyebrow colour + Pages ⋮ + start theme (branch `cursor/customizer-ux-fixes-c73e`)
+
+| Check | Pass when |
+|---|---|
+| Eyebrow colour | Hero eyebrow Colour in panel paints canvas immediately (no stuck white/muted). |
+| Pages Customize | ⋮ → Customize opens that page in the canvas/editor (same as clicking the row). |
+| Pages Change layout | Home / Contact / FAQ / Blog / custom pages offer Change layout packs with confirm. |
+| Section text styles | Non-Hero sections with heading fields expose Font/Colour/Size and paint via TextBox. |
+| Start theme | `/start/theme`: themes left vertical, preview right, Click to Preview new tab. |
+| Speed | Edit → instant canvas; Save draft non-blocking; Publish public invalidate only. |
+
 ## Suggested merge / verify order
 
 1. **A1** (done on main) — run smoke + A1 unit files.  
@@ -207,7 +218,8 @@ Mark each item `[ ]` → `[x]` during manual QA. IDs are stable (`A1-01` … `E-
 4. **D** — text controls on Hero + RichText.  
 5. **E** — confirm 4× templates + popup newsletter\|form.  
 6. **M0 → M4** — Theme Customizer Master (`cursor/theme-customizer-master-c73e`); run smoke `--phase M0`…`M4` + `pnpm check`.  
-7. Full `pnpm check` on the integration branch.
+7. **UX fixes** — `cursor/customizer-ux-fixes-c73e` (eyebrow, Pages ⋮, start theme, A2 text).  
+8. Full `pnpm check` on the integration branch.
 
 ## Out of scope for Phase F / Master
 
