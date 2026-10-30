@@ -4,13 +4,13 @@
  * Smoke: `pnpm exec tsx scripts/dev/theme-customizer-qa/smoke.mts`
  */
 
-export type QaPhase = "A1" | "A2" | "B" | "C" | "D" | "E";
+export type QaPhase = "A1" | "A2" | "B" | "C" | "D" | "E" | "M0" | "M1" | "M2" | "M3" | "M4";
 
 export type QaItem = {
   id: string;
   phase: QaPhase;
   title: string;
-  /** How this is verified on current main (manual until C–E land). */
+  /** How this is verified on current main (manual until C–E / Master land). */
   coverage: "unit" | "manual" | "unit+manual";
   /** Optional unit files that already exercise the acceptance on main. */
   unitFiles?: readonly string[];
@@ -240,9 +240,139 @@ export const THEME_CUSTOMIZER_QA: readonly QaItem[] = [
     title: "Popup can use form mode (contact / lead form) distinct from newsletter when Phase E ships",
     coverage: "manual",
   },
+
+  // ----- M0 Master Phase 0 — stability + local-first -----
+  {
+    id: "M0-01",
+    phase: "M0",
+    title: "Members Login / Signup / Reset canvas has no EmptySlot white band after marketplace apply",
+    coverage: "manual",
+  },
+  {
+    id: "M0-02",
+    phase: "M0",
+    title: "Pages panel lists each eCommerce / Members surface once (no product-list dup)",
+    coverage: "unit",
+    unitFiles: ["tests/unit/site-builder-pages.test.ts"],
+  },
+  {
+    id: "M0-03",
+    phase: "M0",
+    title: "Token / section / text edit paints canvas via local apply without awaiting draft save",
+    coverage: "manual",
+  },
+  {
+    id: "M0-04",
+    phase: "M0",
+    title: "Publish invalidates public storefront tags / Redis only (ADR-010; no draft Redis)",
+    coverage: "manual",
+  },
+
+  // ----- M1 Master Phase 1 — per-text styling -----
+  {
+    id: "M1-01",
+    phase: "M1",
+    title: "Canvas textSelect focuses matching TextStyleField role in the section panel",
+    coverage: "unit+manual",
+    unitFiles: ["tests/unit/site-builder-schema.test.ts", "tests/unit/text-style.test.ts"],
+  },
+  {
+    id: "M1-02",
+    phase: "M1",
+    title: "Hero eyebrowLook is independent of headingLook / subheadingLook",
+    coverage: "unit",
+    unitFiles: ["tests/unit/text-style.test.ts", "tests/unit/site-builder-sections.test.ts"],
+  },
+  {
+    id: "M1-03",
+    phase: "M1",
+    title: "ProductGrid / BrandStory / FAQ / CTA expose title/body TextStyleField",
+    coverage: "manual",
+  },
+  {
+    id: "M1-04",
+    phase: "M1",
+    title: "textLook fontKey accepts concrete FONT_KEYS with safe fallback",
+    coverage: "unit",
+    unitFiles: ["tests/unit/text-style.test.ts"],
+  },
+
+  // ----- M2 Master Phase 2 — custom page layout packs -----
+  {
+    id: "M2-01",
+    phase: "M2",
+    title: "applyPageTemplate replaces sections but preserves page title / handle",
+    coverage: "unit",
+    unitFiles: ["tests/unit/site-builder-apply-page-template.test.ts"],
+  },
+  {
+    id: "M2-02",
+    phase: "M2",
+    title: "Custom pages keep Home-parity section allow-list (groupAllows)",
+    coverage: "unit+manual",
+    unitFiles: ["tests/unit/site-builder-pages.test.ts"],
+  },
+  {
+    id: "M2-03",
+    phase: "M2",
+    title: "Selected custom page shows Change layout wireframes matching Add page families",
+    coverage: "manual",
+  },
+
+  // ----- M3 Master Phase 3 — shop/Members chrome + popups -----
+  {
+    id: "M3-01",
+    phase: "M3",
+    title: "Shop PageContent offers five chrome layouts (classic sidebar minimal editorial dense)",
+    coverage: "unit",
+    unitFiles: ["tests/unit/theme-page-chrome.test.ts"],
+  },
+  {
+    id: "M3-02",
+    phase: "M3",
+    title: "Members account packs cover image-left/right, stacked, minimal, brand-panel",
+    coverage: "unit+manual",
+    unitFiles: ["tests/unit/theme-page-chrome.test.ts"],
+  },
+  {
+    id: "M3-03",
+    phase: "M3",
+    title: "Popups support four layouts including corner",
+    coverage: "unit",
+    unitFiles: ["tests/unit/theme-page-chrome.test.ts", "tests/unit/theme-pages-popups-phase-e.test.ts"],
+  },
+
+  // ----- M4 Master Phase 4 — fonts / space / colour search -----
+  {
+    id: "M4-01",
+    phase: "M4",
+    title: "FONT_STACKS groups English + Hindi (Noto Sans Devanagari, Hind); self-hosted",
+    coverage: "unit",
+    unitFiles: ["tests/unit/site-builder-logo-fonts.test.ts"],
+  },
+  {
+    id: "M4-02",
+    phase: "M4",
+    title: "Section margin clamp allows negative (−80); padding min stays 0",
+    coverage: "unit",
+    unitFiles: ["tests/unit/section-box.test.ts"],
+  },
+  {
+    id: "M4-03",
+    phase: "M4",
+    title: "filterPalettes matches preset name and swatch hex / near-match",
+    coverage: "unit",
+    unitFiles: ["tests/unit/site-builder-theme.test.ts"],
+  },
+  {
+    id: "M4-04",
+    phase: "M4",
+    title: "Manual Lifestyle Sarees–style check: Hindi heading, negative margin, colour search",
+    coverage: "manual",
+  },
 ] as const;
 
-export const QA_PHASES: readonly QaPhase[] = ["A1", "A2", "B", "C", "D", "E"];
+export const QA_PHASES: readonly QaPhase[] = ["A1", "A2", "B", "C", "D", "E", "M0", "M1", "M2", "M3", "M4"];
 
 export function checklistIds(): string[] {
   return THEME_CUSTOMIZER_QA.map((i) => i.id);

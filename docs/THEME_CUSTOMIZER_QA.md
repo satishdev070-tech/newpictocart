@@ -14,7 +14,80 @@ This is **not** a Playwright suite. Automated coverage today is focused unit tes
 | Catalog source | `scripts/dev/theme-customizer-qa/checklist.ts` |
 | Harness unit test | `tests/unit/theme-customizer-qa-checklist.test.ts` |
 
-Mark each item `[ ]` → `[x]` during manual QA. IDs are stable (`A1-01` … `E-06`).
+Mark each item `[ ]` → `[x]` during manual QA. IDs are stable (`A1-01` … `E-06`, then Master `M0-01` … `M4-04`).
+
+---
+
+## M0 — Stability + local-first (Master Phase 0)
+
+**Branch / PR:** `cursor/theme-customizer-master-c73e`  
+**Surfaces:** Theme editor Pages (Members / eCommerce), Login/Signup/Reset canvas, Save draft / Publish  
+**Code:** `marketplace/apply.ts` account seed, `pages.ts` / `pages-panel.tsx`, `canvas-bridge` busy filter, `publishThemeAction` → `revalidateStorefront` (public Redis only)
+
+| ID | Pass when | Auto |
+|---|---|---|
+| **M0-01** | Members Login / Signup / Reset canvas has no white EmptySlot band or duplicate chrome blocks after marketplace apply. | manual |
+| **M0-02** | Pages panel lists each eCommerce / Members surface once (no product-list ↔ collections dup). | unit |
+| **M0-03** | Token / section / text edit paints canvas via local `apply()` without awaiting draft save. | manual |
+| **M0-04** | Publish invalidates public storefront tags / Redis only — never caches private drafts (ADR-010). | manual |
+
+---
+
+## M1 — Per-content text styling (Master Phase 1)
+
+**Branch / PR:** `cursor/theme-customizer-master-c73e`  
+**Surfaces:** Hero slide + RichText + ProductGrid / BrandStory / FAQ / CTA headings  
+**Code:** `text-style.ts`, `text-style-field.tsx`, canvas `textSelect` → section panel `textRole`, `eyebrowLook`
+
+| ID | Pass when | Auto |
+|---|---|---|
+| **M1-01** | Click Heading / Sub-heading in preview focuses the matching TextStyleField group in the left panel. | unit+manual |
+| **M1-02** | Hero eyebrow has independent `eyebrowLook`; heading / subheading looks stay separate. | unit |
+| **M1-03** | High-traffic Home sections expose title/body TextStyleField (ProductGrid, BrandStory, FAQ, CTA). | manual |
+| **M1-04** | `fontKey` accepts concrete FONT_KEYS; unknown keys fall back safely. | unit |
+
+---
+
+## M2 — Custom page layout packs (Master Phase 2)
+
+**Branch / PR:** `cursor/theme-customizer-master-c73e`  
+**Surfaces:** Pages → open About/Contact/FAQ/Blog → Change layout  
+**Code:** `applyPageTemplate` in `ops.ts`, `page-templates.ts`, `pages-panel.tsx`
+
+| ID | Pass when | Auto |
+|---|---|---|
+| **M2-01** | Applying an Add-page family pack replaces sections but preserves page title / handle. | unit |
+| **M2-02** | Custom pages keep Home-parity section allow-list (`groupAllows`). | unit+manual |
+| **M2-03** | When a custom page is selected (no section focused), Layout / design wireframes match Add page. | manual |
+
+---
+
+## M3 — Shop + Members chrome + Popups (Master Phase 3)
+
+**Branch / PR:** `cursor/theme-customizer-master-c73e`  
+**Surfaces:** Product list / PDP / Search / Collections / Cart; account auth; Popups panel  
+**Code:** `PAGE_CHROME_VARIANTS`, `ACCOUNT_PACK_VARIANTS`, `page-content.ts`, `store-auth-split`, `POPUP_LAYOUTS` + `corner`
+
+| ID | Pass when | Auto |
+|---|---|---|
+| **M3-01** | Shop PageContent offers 5 chrome layouts: classic, sidebar, minimal, editorial, dense. | unit |
+| **M3-02** | Members Login / Signup / Reset offer image/layout packs + lifestyle media fields. | unit+manual |
+| **M3-03** | Popups support 4 layouts including `corner`; Change-design cards work in popup panel. | unit |
+
+---
+
+## M4 — Fonts, negative spacing, colour search (Master Phase 4)
+
+**Branch / PR:** `cursor/theme-customizer-master-c73e`  
+**Surfaces:** Theme settings fonts; section margin; Preset + Colours search  
+**Code:** `FONT_STACKS` / `storefront-fonts.ts`, `SECTION_BOX_LIMITS`, `filterPalettes`
+
+| ID | Pass when | Auto |
+|---|---|---|
+| **M4-01** | Font pickers list English + Hindi (Noto Sans Devanagari, Hind); self-hosted only (ADR-019). | unit |
+| **M4-02** | Section margin can go negative (clamp −80); padding min stays 0. | unit |
+| **M4-03** | Theme Preset / Colours search matches palette name and swatch hex / near-match. | unit |
+| **M4-04** | Manual: Hindi heading + negative margin + colour search on Lifestyle Sarees–style store. | manual |
 
 ---
 
@@ -133,10 +206,13 @@ Mark each item `[ ]` → `[x]` during manual QA. IDs are stable (`A1-01` … `E-
 3. **C** — local-first / autosave; verify C-01…C-05 against dirty Publish guards.  
 4. **D** — text controls on Hero + RichText.  
 5. **E** — confirm 4× templates + popup newsletter\|form.  
-6. Full `pnpm check` on the integration branch.
+6. **M0 → M4** — Theme Customizer Master (`cursor/theme-customizer-master-c73e`); run smoke `--phase M0`…`M4` + `pnpm check`.  
+7. Full `pnpm check` on the integration branch.
 
-## Out of scope for Phase F
+## Out of scope for Phase F / Master
 
 - Full Playwright / visual regression suite  
-- Re-implementing C–E features on this branch  
+- Putting private theme **drafts** in Redis  
+- Free-form CSS / arbitrary `@import` fonts  
+- Rebuilding the entire customizer UI chrome  
 - Marketplace theme content rewrites unrelated to B imagery

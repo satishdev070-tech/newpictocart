@@ -79,8 +79,8 @@ export type EditorField =
   | (FieldBase & {
       /** Per-text look: font, weight, size, colour, align, bold/italic/underline, and text-box width. */
       kind: "textStyle";
-      /** Which copy field this styles (heading / subheading / body / cta) — used by canvas chrome. */
-      role: "heading" | "subheading" | "body" | "cta";
+      /** Which copy field this styles (heading / subheading / body / cta / eyebrow) — used by canvas chrome. */
+      role: "heading" | "subheading" | "body" | "cta" | "eyebrow";
     })
   | (FieldBase & { kind: "picker"; picker: PickerKind })
   | (FieldBase & { kind: "multiPicker"; picker: "product" | "collection" | "category"; max: number })
@@ -110,13 +110,21 @@ export type SectionBoxWidth = (typeof SECTION_BOX_WIDTHS)[number];
 /** Vertical spacing sides (px). */
 export const SECTION_BOX_SIDES = ["marginTop", "marginBottom", "paddingTop", "paddingBottom"] as const;
 export type SectionBoxSide = (typeof SECTION_BOX_SIDES)[number];
-/** Limits shared by the schema, the renderer and the builder sliders. */
-export const SECTION_BOX_LIMITS = { scale: { min: 80, max: 130, step: 5 }, space: { min: 0, max: 160 }, mobileFactor: 0.6 } as const;
+/**
+ * Limits shared by the schema, the renderer and the builder sliders.
+ * `space` covers margins (negative allowed so sections can pull together); padding stays ≥ 0.
+ */
+export const SECTION_BOX_LIMITS = {
+  scale: { min: 80, max: 130, step: 5 },
+  space: { min: -80, max: 160 },
+  padding: { min: 0, max: 160 },
+  mobileFactor: 0.6,
+} as const;
 
 /**
  * Per-section size & spacing (every key optional = theme default). `scale` is a percentage
- * (80–130, steps of 5) of the section's type and item sizes; spacing values are px (0–160).
- * `mobile` holds explicit phone values; a missing phone value is 60% of the desktop one.
+ * (80–130, steps of 5) of the section's type and item sizes; margins are px (−80–160), padding
+ * 0–160. `mobile` holds explicit phone values; a missing phone value is 60% of the desktop one.
  */
 export type SectionBox = {
   scale?: number;

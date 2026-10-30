@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getRenderContext } from "@/features/theme/render/load";
 import { splitAtPageContent } from "@/features/theme/render/sections";
-import { ThemeSlot } from "@/features/theme/render/slot";
+import { PageChrome, ThemeSlot } from "@/features/theme/render/slot";
 import { getCategoryBySlug, getListingFacets, listProducts } from "@/features/storefront/server/catalog";
 import { redirectOrNotFound } from "@/features/storefront/server/redirects";
 import { LISTING_PAGE_SIZE, parseListingParams, toListingRpcArgs } from "@/features/storefront/filters";
@@ -41,29 +41,32 @@ export default async function CategoryPage({ params, searchParams }: PageProps<"
     listProducts(tenantId, { ...toListingRpcArgs(filters), p_category: category.id }),
     getListingFacets(tenantId, { categoryId: category.id }),
   ]);
-  const [sectionsBefore, sectionsAfter] = splitAtPageContent(ctx.sf.theme.templates.collection);
+  const collectionTemplate = ctx.sf.theme.templates.collection;
+  const [sectionsBefore, sectionsAfter] = splitAtPageContent(collectionTemplate);
   return (
     <>
       <ThemeSlot slot="templates.collection.before" sections={sectionsBefore} ctx={ctx} />
-      <div className="sf-container sf-section space-y-6">
-        <Breadcrumbs primaryHost={ctx.sf.tenant.primaryHost} items={[{ name: "Home", path: "/" }, ...trail.map((c) => ({ name: c.name, path: paths.category(c.slug) }))]} />
-        <header className="max-w-2xl space-y-2">
-          <h1 className="sf-heading text-4xl">{category.name}</h1>
-          {category.description ? <p className="sf-muted">{category.description}</p> : null}
-        </header>
-        {children.length ? (
-          <ul className="flex flex-wrap gap-2" aria-label="Subcategories">
-            {children.map((c) => (
-              <li key={c.id}>
-                <Link href={paths.category(c.slug)} className="sf-badge">
-                  {c.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <ListingView basePath={paths.category(category.slug)} filters={filters} facets={facets} products={cards} total={total} pageSize={LISTING_PAGE_SIZE} cardSettings={ctx.sf.theme.productCard} />
-      </div>
+      <PageChrome list={collectionTemplate}>
+        <div className="sf-container sf-section space-y-6">
+          <Breadcrumbs primaryHost={ctx.sf.tenant.primaryHost} items={[{ name: "Home", path: "/" }, ...trail.map((c) => ({ name: c.name, path: paths.category(c.slug) }))]} />
+          <header className="max-w-2xl space-y-2">
+            <h1 className="sf-heading text-4xl">{category.name}</h1>
+            {category.description ? <p className="sf-muted">{category.description}</p> : null}
+          </header>
+          {children.length ? (
+            <ul className="flex flex-wrap gap-2" aria-label="Subcategories">
+              {children.map((c) => (
+                <li key={c.id}>
+                  <Link href={paths.category(c.slug)} className="sf-badge">
+                    {c.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <ListingView basePath={paths.category(category.slug)} filters={filters} facets={facets} products={cards} total={total} pageSize={LISTING_PAGE_SIZE} cardSettings={ctx.sf.theme.productCard} />
+        </div>
+      </PageChrome>
       <ThemeSlot slot="templates.collection.after" sections={sectionsAfter} ctx={ctx} />
     </>
   );

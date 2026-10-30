@@ -73,7 +73,11 @@ function HeroText({ sl, first, size = "lg", light = false, itemIndex = 0 }: { sl
   const cta = textBoxProps("cta", lookOf(sl.ctaLook), itemIndex);
   return (
     <div className="space-y-4">
-      {g.subtitle && sl.eyebrow ? <p className="sf-eyebrow !text-current opacity-80">{sl.eyebrow}</p> : null}
+      {g.subtitle && sl.eyebrow ? (
+        <TextBox role="eyebrow" look={lookOf(sl.eyebrowLook)} itemIndex={itemIndex} as="p" className="sf-eyebrow !text-current opacity-80">
+          {sl.eyebrow}
+        </TextBox>
+      ) : null}
       {g.title ? (
         <TextBox
           role="heading"
@@ -186,7 +190,11 @@ export function HeroVariant({ s, ctx }: P<"Hero">) {
           </div>
           <div className="sf-container grid gap-6 py-10 @[64rem]:grid-cols-[1.4fr_1fr] @[64rem]:items-end @[64rem]:py-14">
             <div className="space-y-3">
-              {g.subtitle && first.eyebrow ? <p className="sf-eyebrow !text-current opacity-80">{first.eyebrow}</p> : null}
+              {g.subtitle && first.eyebrow ? (
+                <TextBox role="eyebrow" look={lookOf(first.eyebrowLook)} itemIndex={0} as="p" className="sf-eyebrow !text-current opacity-80">
+                  {first.eyebrow}
+                </TextBox>
+              ) : null}
               {g.title ? (
                 <h1 className="sf-heading text-4xl @[64rem]:text-7xl">
                   {first.heading}

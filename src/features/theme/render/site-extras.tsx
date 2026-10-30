@@ -196,6 +196,27 @@ function PopupView({ popup, onClose }: { popup: Popup; onClose: () => void }) {
       </div>
     );
   }
+  if (popup.layout === "corner") {
+    return (
+      <div className="pointer-events-none fixed inset-0 z-[60] flex items-end justify-end p-4 sm:p-6">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={popup.heading || popup.name}
+          className="pointer-events-auto relative w-full max-w-sm overflow-hidden rounded-[var(--sf-radius-card)] bg-[var(--sf-bg)] text-[var(--sf-text)] shadow-2xl ring-1 ring-[var(--sf-border)]"
+        >
+          <button type="button" onClick={onClose} aria-label="Close" className="absolute right-3 top-3 z-10 grid size-8 place-items-center rounded-full bg-[var(--sf-bg)] text-lg leading-none shadow">
+            ×
+          </button>
+          {img ? (
+            // eslint-disable-next-line @next/next/no-img-element -- tenant storage image, sized by CSS
+            <img src={img} alt={popup.imageAlt} className="aspect-[16/9] w-full object-cover" />
+          ) : null}
+          <div className="p-5 text-left sm:p-6">{body}</div>
+        </div>
+      </div>
+    );
+  }
   const split = popup.layout === "image-left" && img;
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>

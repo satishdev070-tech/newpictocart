@@ -4,7 +4,7 @@ import { resolveStorefrontTenant } from "@/lib/tenant/resolve";
 import Link from "next/link";
 import { getRenderContext } from "@/features/theme/render/load";
 import { splitAtPageContent } from "@/features/theme/render/sections";
-import { ThemeSlot } from "@/features/theme/render/slot";
+import { PageChrome, ThemeSlot } from "@/features/theme/render/slot";
 import { categoryTrail, getAllCategories, getProductBySlug, listProducts } from "@/features/storefront/server/catalog";
 import { getProductReviews } from "@/features/storefront/server/content";
 import { redirectOrNotFound } from "@/features/storefront/server/redirects";
@@ -96,10 +96,12 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
     ratingCount: p.ratingCount,
   });
 
-  const [sectionsBefore, sectionsAfter] = splitAtPageContent(sf.theme.templates.product);
+  const productTemplate = sf.theme.templates.product;
+  const [sectionsBefore, sectionsAfter] = splitAtPageContent(productTemplate);
   return (
     <>
       <ThemeSlot slot="templates.product.before" sections={sectionsBefore} ctx={ctx} />
+      <PageChrome list={productTemplate}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(ld) }} />
       <TrackEvent
         name="view_item"
@@ -237,6 +239,7 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
         </section>
       ) : null}
       <RecentlyViewed current={{ slug: p.slug, title: p.title }} />
+      </PageChrome>
       <ThemeSlot slot="templates.product.after" sections={sectionsAfter} ctx={ctx} />
     </>
   );

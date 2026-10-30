@@ -127,6 +127,14 @@ export const DIAGRAMS: Record<string, Box[]> = {
   fullbleed: [[0, 0, 40, 18], [4, 20, 6, 4], [12, 20, 6, 4], [20, 20, 6, 4]],
   journal: [[6, 2, 28, 4, "t"], [8, 8, 24, 14]],
   overlap: [[1, 1, 26, 20], [20, 8, 18, 12, "t"]],
+  // PageContent shop chrome + members account packs (+ popup corner)
+  sidebar: [[1, 2, 10, 20], [13, 2, 12, 6], [27, 2, 12, 6], [13, 10, 12, 6], [27, 10, 12, 6]],
+  dense: [[1, 1, 9, 7], [11, 1, 9, 7], [21, 1, 9, 7], [31, 1, 8, 7], [1, 9, 9, 7], [11, 9, 9, 7], [21, 9, 9, 7], [31, 9, 8, 7], [1, 17, 9, 6], [11, 17, 9, 6]],
+  "image-left": [[0, 0, 22, 24], [25, 8, 12, 2, "t"], [25, 13, 10, 3, "t"]],
+  "image-right": [[3, 8, 12, 2, "t"], [3, 13, 10, 3, "t"], [18, 0, 22, 24]],
+  stacked: [[0, 0, 40, 11], [8, 14, 24, 2, "t"], [10, 18, 20, 3, "t"]],
+  "brand-panel": [[0, 0, 18, 24], [22, 8, 14, 2, "t"], [22, 13, 12, 3, "t"]],
+  corner: [[22, 12, 17, 11], [24, 14, 10, 2, "t"], [24, 18, 8, 2, "t"]],
 };
 
 /** Wireframe from a variant value, or from explicit boxes. */
@@ -270,7 +278,7 @@ export function Field({ field, value, onChange, pickers, error }: FieldProps) {
       );
     case "textStyle":
       return (
-        <div>
+        <div id={`pc-text-style-${field.role}`} data-pc-text-style={field.role}>
           <TextStyleField label={field.label} value={value} help={field.help} onChange={onChange} />
           {error ? <p className="mt-1 text-xs text-error">{error}</p> : null}
         </div>

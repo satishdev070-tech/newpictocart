@@ -16,6 +16,7 @@ import {
   type TextLook,
   type TextWeight,
 } from "@/features/theme/schema/text-style";
+import { FONT_GROUP_LABELS, FONT_GROUPS, FONT_STACKS, fontKeysInGroup, type FontKey } from "@/features/theme/schema/tokens";
 import { cn } from "@/lib/cn";
 import { ColorInput, input } from "./ui";
 
@@ -29,6 +30,20 @@ const FONT_LABELS: Record<TextFont, string> = {
   heading: "Heading font",
   body: "Body font",
 };
+
+/** Select value: role fonts use `role:<name>`; concrete stacks use the FONT_STACKS key. */
+function fontSelectValue(look: TextLook): string {
+  return look.fontKey || `role:${look.font}`;
+}
+
+function applyFontSelect(value: string): Partial<TextLook> {
+  if (value.startsWith("role:")) {
+    const font = value.slice(5) as TextFont;
+    return { font: TEXT_FONTS.includes(font) ? font : "default", fontKey: "" };
+  }
+  if (value in FONT_STACKS) return { font: "default", fontKey: value as FontKey };
+  return { font: "default", fontKey: "" };
+}
 const WEIGHT_LABELS: Record<TextWeight, string> = {
   default: "Theme default",
   "300": "Light",
@@ -72,14 +87,25 @@ export function TextStyleField({
           <span className="block text-[11px] font-medium text-muted">Font</span>
           <select
             className={input}
-            value={look.font}
-            onChange={(e) => set({ font: e.target.value as TextFont })}
+            value={fontSelectValue(look)}
+            onChange={(e) => set(applyFontSelect(e.target.value))}
             aria-label={`${label} font`}
           >
-            {TEXT_FONTS.map((f) => (
-              <option key={f} value={f}>
-                {FONT_LABELS[f]}
-              </option>
+            <optgroup label="Theme">
+              {TEXT_FONTS.map((f) => (
+                <option key={f} value={`role:${f}`}>
+                  {FONT_LABELS[f]}
+                </option>
+              ))}
+            </optgroup>
+            {FONT_GROUPS.map((group) => (
+              <optgroup key={group} label={FONT_GROUP_LABELS[group]}>
+                {fontKeysInGroup(group).map((k) => (
+                  <option key={k} value={k}>
+                    {FONT_STACKS[k].label.split(" (")[0]}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </label>

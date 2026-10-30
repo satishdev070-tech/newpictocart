@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { CSSProperties } from "react";
 import { HEX_COLOR_RE, hexColor } from "./primitives";
+import { FONT_KEYS, FONT_STACKS, type FontKey } from "./tokens";
 
 /**
  * Per-text look overrides for Hero slides and RichText (Phase D). Structured settings only — never
@@ -16,7 +17,7 @@ export const TEXT_ALIGNS = ["default", "left", "center", "right"] as const;
 export type TextAlign = (typeof TEXT_ALIGNS)[number];
 
 /** Text roles that get their own look on Hero slides / RichText. */
-export const TEXT_ROLES = ["heading", "subheading", "body", "cta"] as const;
+export const TEXT_ROLES = ["heading", "subheading", "body", "cta", "eyebrow"] as const;
 export type TextRole = (typeof TEXT_ROLES)[number];
 
 /** Limits shared by schema, panel steppers and canvas resize. */
@@ -34,9 +35,13 @@ const size = z.coerce.number().int().min(TEXT_LOOK_LIMITS.size.min).max(TEXT_LOO
 const widthPct = z.coerce.number().int().min(TEXT_LOOK_LIMITS.widthPct.min).max(TEXT_LOOK_LIMITS.widthPct.max).default(0);
 /** Empty string or #rrggbb (hexColor rejects anything that could break out of a CSS declaration). */
 const color = z.union([z.literal(""), hexColor]).default("");
+/** Concrete FONT_STACKS key, or "" to use `font` (theme default / heading / body role). */
+const fontKey = z.union([z.literal(""), z.enum(FONT_KEYS)]).default("");
 
 export const textLookSchema = z.object({
   font: z.enum(TEXT_FONTS).default("default"),
+  /** Optional concrete stack; when set it wins over `font` role mapping (backward compatible). */
+  fontKey,
   weight: z.enum(TEXT_WEIGHTS).default("default"),
   /** Desktop size in px; 0 = theme default. Phones get 80% (never below 12px). */
   size,
@@ -53,6 +58,7 @@ export type TextLook = z.infer<typeof textLookSchema>;
 
 export const DEFAULT_TEXT_LOOK: TextLook = {
   font: "default",
+  fontKey: "",
   weight: "default",
   size: 0,
   color: "",
@@ -68,6 +74,7 @@ export function normalizeTextLook(look: TextLook | undefined | null): TextLook |
   if (!look) return undefined;
   const out: Partial<TextLook> = {};
   if (look.font !== "default") out.font = look.font;
+  if (look.fontKey) out.fontKey = look.fontKey;
   if (look.weight !== "default") out.weight = look.weight;
   if (look.size > 0) out.size = look.size;
   if (look.color) out.color = look.color;
@@ -117,6 +124,15 @@ const FONT_CSS: Record<Exclude<TextFont, "default">, string> = {
   body: "var(--sf-font-body)",
 };
 
+/** Resolve the CSS font-family for a look: concrete `fontKey` wins over role `font`. */
+export function textLookFontFamily(look: TextLook | undefined | null): string | undefined {
+  if (!look) return undefined;
+  const key = look.fontKey;
+  if (key && (FONT_KEYS as readonly string[]).includes(key)) return FONT_STACKS[key as FontKey].stack;
+  if (look.font !== "default") return FONT_CSS[look.font];
+  return undefined;
+}
+
 /**
  * Inline style map for a text look. Only emits properties that differ from the theme default so
  * Tailwind / sf-* classes keep winning when the seller hasn't overridden them.
@@ -125,7 +141,8 @@ export function textLookStyle(look: TextLook | undefined | null, opts?: { device
   if (!look) return undefined;
   const device = opts?.device ?? "desktop";
   const style: CSSProperties = {};
-  if (look.font !== "default") style.fontFamily = FONT_CSS[look.font];
+  const family = textLookFontFamily(look);
+  if (family) style.fontFamily = family;
   if (look.bold) style.fontWeight = 700;
   else if (look.weight !== "default" && /^[3-8]00$/.test(look.weight)) style.fontWeight = Number(look.weight);
   if (Number.isInteger(look.size) && look.size > 0) {

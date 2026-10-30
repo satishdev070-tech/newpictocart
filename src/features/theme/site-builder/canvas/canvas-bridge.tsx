@@ -515,7 +515,9 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
       if (Array.isArray(busy) && busy.length) {
         if (selected && selectedBox && busy.includes(selected.slot)) busyBoxes = [selectedBox];
         else {
-          const els = busy.flatMap((slot) => Array.from(document.querySelectorAll<HTMLElement>(`[data-builder-slot-item="${CSS.escape(slot)}"]`)));
+          const els = busy.flatMap((slot) =>
+            Array.from(document.querySelectorAll<HTMLElement>(`[data-builder-slot-item="${CSS.escape(slot)}"]`)).filter((el) => !el.hasAttribute("data-builder-page-content")),
+          );
           busyBoxes = els
             .slice(0, MAX_SHIMMER)
             .map(boxOf)

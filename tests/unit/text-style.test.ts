@@ -6,14 +6,17 @@ import {
   patchTextLook,
   textLookAttrs,
   textLookChanged,
+  textLookFontFamily,
   textLookSchema,
   textLookStyle,
 } from "@/features/theme/schema/text-style";
+import { FONT_STACKS } from "@/features/theme/schema/tokens";
 
 describe("text look schema", () => {
   it("defaults every key so old themes parse unchanged", () => {
     expect(textLookSchema.parse({})).toEqual({
       font: "default",
+      fontKey: "",
       weight: "default",
       size: 0,
       color: "",
@@ -44,6 +47,14 @@ describe("text look schema", () => {
     expect(textLookChanged(undefined)).toBe(false);
   });
 
+  it("accepts optional fontKey from FONT_STACKS and keeps old themes without it", () => {
+    expect(textLookSchema.parse({ font: "body" }).fontKey).toBe("");
+    const withKey = textLookSchema.parse({ fontKey: "hind", font: "default" });
+    expect(withKey.fontKey).toBe("hind");
+    expect(normalizeTextLook(withKey)).toMatchObject({ fontKey: "hind" });
+    expect(parseTextLook({ fontKey: "not-a-font" }).error).toBeTruthy();
+  });
+
   it("rejects unsafe colour / out-of-range values without throwing from parseTextLook", () => {
     expect(parseTextLook({ color: "red" }).error).toBeTruthy();
     expect(parseTextLook({ size: 200 }).error).toBeTruthy();
@@ -72,6 +83,13 @@ describe("text look style helpers", () => {
       maxWidth: "100%",
     });
     expect(style?.["--pc-text-w" as keyof typeof style]).toBe("70%");
+  });
+
+  it("lets fontKey win over the heading/body role font", () => {
+    const look = textLookSchema.parse({ font: "heading", fontKey: "noto-sans-devanagari" });
+    expect(textLookFontFamily(look)).toBe(FONT_STACKS["noto-sans-devanagari"].stack);
+    expect(textLookStyle(look)?.fontFamily).toBe(FONT_STACKS["noto-sans-devanagari"].stack);
+    expect(textLookFontFamily(textLookSchema.parse({ font: "body" }))).toBe("var(--sf-font-body)");
   });
 
   it("lets bold win over weight and shrinks size on mobile", () => {

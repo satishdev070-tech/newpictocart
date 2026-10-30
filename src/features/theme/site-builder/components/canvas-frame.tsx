@@ -380,7 +380,8 @@ export function CanvasFrame() {
         const ref = { list, sectionId: msg.sectionId };
         selectFromCanvas.current = true;
         b.select(ref);
-        b.setPanel({ kind: "section", ref, tab: "edit" });
+        // Open Edit and focus the matching TextStyleField (Heading / Sub-heading / …).
+        b.setPanel({ kind: "section", ref, tab: "edit", textRole: msg.role, ...(msg.itemIndex !== undefined ? { itemIndex: msg.itemIndex } : {}) });
         return;
       }
       case "textResize": {

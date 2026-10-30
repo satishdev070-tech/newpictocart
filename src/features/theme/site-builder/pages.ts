@@ -65,7 +65,10 @@ export function builderPages(config: ThemeConfig, src: PageSources, siteMode?: S
   out.push({ key: "faq", label: t.faq || "FAQ", group: "pages", path: paths.faq(), list: "templates.page", settingsHref: "/dashboard/content/faqs" });
   if (src.blog) out.push({ key: "blog", label: t.blog || "Blog", group: "pages", path: paths.blog(), list: "templates.blog", settingsHref: "/dashboard/content/blog" });
 
-  out.push({ key: "product-list", label: "Product list", group: "ecommerce", path: src.sampleCollectionSlug ? paths.collection(src.sampleCollectionSlug) : paths.collections(), list: src.sampleCollectionSlug ? "templates.collection" : "templates.collectionList", settingsHref: "/dashboard/collections" });
+  // Product list only when we have a real collection sample — otherwise it duplicates Collections (/collections + collectionList).
+  if (src.sampleCollectionSlug) {
+    out.push({ key: "product-list", label: "Product list", group: "ecommerce", path: paths.collection(src.sampleCollectionSlug), list: "templates.collection", settingsHref: "/dashboard/collections" });
+  }
   if (src.sampleProductSlug) out.push({ key: "product", label: "Product details", group: "ecommerce", path: paths.product(src.sampleProductSlug), list: "templates.product", settingsHref: "/dashboard/products" });
   out.push({ key: "search", label: "Search", group: "ecommerce", path: paths.search(), list: "templates.search" });
   out.push({ key: "collections", label: "Collections", group: "ecommerce", path: paths.collections(), list: "templates.collectionList", settingsHref: "/dashboard/collections" });

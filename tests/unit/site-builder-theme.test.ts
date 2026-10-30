@@ -6,7 +6,17 @@ import { typographySchema, type Typography } from "@/features/theme/schema/site"
 import { HEX_COLOR_RE } from "@/features/theme/schema/primitives";
 import { typographyCss } from "@/features/theme/tokens-style";
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
-import { applyPalette, applyPresetTokens, COLOR_KEYS, isPaletteActive, PALETTES } from "@/features/theme/site-builder/palettes";
+import {
+  applyPalette,
+  applyPresetTokens,
+  COLOR_KEYS,
+  colourSearchHaystack,
+  filterPalettes,
+  filterThemesByColourSearch,
+  isPaletteActive,
+  matchesColourSearch,
+  PALETTES,
+} from "@/features/theme/site-builder/palettes";
 
 const base = (): ThemeConfig => structuredClone(DEFAULT_THEME_CONFIG);
 const typo = (patch: Partial<Record<keyof Typography, Record<string, unknown>>>): Typography => typographySchema.parse(patch) as Typography;
@@ -36,6 +46,29 @@ describe("site builder palettes", () => {
     expect(bad.tokens.colors.primary).toBe(c.tokens.colors.primary);
     expect(bad.tokens.colors.text).toBe("#abcdef");
     expect(parseThemeConfigStrict(next).ok).toBe(true);
+  });
+
+  it("filters palettes by hex, colour role name, or palette name", () => {
+    expect(filterPalettes(PALETTES, "")).toHaveLength(PALETTES.length);
+    expect(filterPalettes(PALETTES, "ocean").map((p) => p.key)).toEqual(["ocean"]);
+    expect(filterPalettes(PALETTES, "#0b3c5d").some((p) => p.key === "ocean")).toBe(true);
+    expect(filterPalettes(PALETTES, "0b3c5d").some((p) => p.key === "ocean")).toBe(true);
+    expect(filterPalettes(PALETTES, "sale").length).toBeGreaterThan(0);
+    expect(filterPalettes(PALETTES, "zzznomatch")).toEqual([]);
+    const hay = colourSearchHaystack({ name: "Ocean", colors: PALETTES.find((p) => p.key === "ocean")!.colors });
+    expect(matchesColourSearch("primary", hay)).toBe(true);
+    expect(matchesColourSearch("#d9b310", hay)).toBe(true);
+  });
+
+  it("filters marketplace themes by name and colour hex", () => {
+    const sample = [
+      { name: "Coastal", tagline: "Sea breeze", industry: "fashion", style: "airy", preset: { tokens: { colors: { primary: "#0b3c5d", accent: "#d9b310" } } } },
+      { name: "Ink", tagline: "Dark type", industry: "books", style: "editorial", preset: { tokens: { colors: { primary: "#111111", accent: "#c9a24a" } } } },
+    ] as const;
+    expect(filterThemesByColourSearch(sample, "coastal")).toHaveLength(1);
+    expect(filterThemesByColourSearch(sample, "#0b3c5d")).toHaveLength(1);
+    expect(filterThemesByColourSearch(sample, "books")).toHaveLength(1);
+    expect(filterThemesByColourSearch(sample, "")).toHaveLength(2);
   });
 });
 

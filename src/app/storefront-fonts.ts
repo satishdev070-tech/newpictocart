@@ -37,7 +37,35 @@ export const outfit = localFont({ src: [{ path: "../../node_modules/@fontsource-
 export const poppins = localFont({ src: [{ path: "../../node_modules/@fontsource/poppins/files/poppins-latin-400-normal.woff2", weight: "400" }, { path: "../../node_modules/@fontsource/poppins/files/poppins-latin-500-normal.woff2", weight: "500" }, { path: "../../node_modules/@fontsource/poppins/files/poppins-latin-600-normal.woff2", weight: "600" }, { path: "../../node_modules/@fontsource/poppins/files/poppins-latin-700-normal.woff2", weight: "700" }], variable: "--font-poppins", display: "swap", preload: false });
 export const montserrat = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/montserrat/files/montserrat-latin-wght-normal.woff2", weight: "100 900" }], variable: "--font-montserrat", display: "swap", preload: false });
 
+// Hindi / Devanagari (ADR-019: self-hosted @fontsource, no Google CDN). Devanagari + Latin so
+// mixed Hindi/English storefront copy uses one family; nothing downloads unless the theme picks it.
+export const notoSansDevanagari = localFont({
+  src: [
+    { path: "../../node_modules/@fontsource-variable/noto-sans-devanagari/files/noto-sans-devanagari-devanagari-wght-normal.woff2", weight: "100 900" },
+    { path: "../../node_modules/@fontsource-variable/noto-sans-devanagari/files/noto-sans-devanagari-latin-wght-normal.woff2", weight: "100 900" },
+  ],
+  variable: "--font-noto-sans-devanagari",
+  display: "swap",
+  preload: false,
+});
+export const hind = localFont({
+  src: [
+    { path: "../../node_modules/@fontsource/hind/files/hind-devanagari-400-normal.woff2", weight: "400" },
+    { path: "../../node_modules/@fontsource/hind/files/hind-devanagari-500-normal.woff2", weight: "500" },
+    { path: "../../node_modules/@fontsource/hind/files/hind-devanagari-600-normal.woff2", weight: "600" },
+    { path: "../../node_modules/@fontsource/hind/files/hind-devanagari-700-normal.woff2", weight: "700" },
+    { path: "../../node_modules/@fontsource/hind/files/hind-latin-400-normal.woff2", weight: "400" },
+    { path: "../../node_modules/@fontsource/hind/files/hind-latin-500-normal.woff2", weight: "500" },
+    { path: "../../node_modules/@fontsource/hind/files/hind-latin-600-normal.woff2", weight: "600" },
+    { path: "../../node_modules/@fontsource/hind/files/hind-latin-700-normal.woff2", weight: "700" },
+  ],
+  variable: "--font-hind",
+  display: "swap",
+  preload: false,
+});
+
 export const storefrontFontVariables = [
   cormorant, playfair, bodoni, bodoniExt, marcellus, manrope, jost, jostExt, spaceGrotesk, dmSans, barlowCondensed,
   asapSharp, openSans, arimo, robotoCondensed, roboto, isometra, rubik, outfit, poppins, montserrat,
+  notoSansDevanagari, hind,
 ].map((f) => f.variable).join(" ");

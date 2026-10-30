@@ -132,7 +132,7 @@ describe("field groups", () => {
     const groups = itemGroups(hero.fields);
     const keys = Object.fromEntries(groups.map((g) => [g.id, g.fields.map((f) => f.key)]));
     expect(groups.map((g) => g.id)).toEqual(["subtitle", "title", "description", "media", "actions", "other"]);
-    expect(keys.subtitle).toEqual(["eyebrow"]);
+    expect(keys.subtitle).toEqual(["eyebrow", "eyebrowLook"]);
     expect(keys.title).toEqual(["heading", "headingAccent", "headingLook"]);
     expect(keys.description).toEqual(["subheading", "subheadingLook"]);
     expect(keys.media).toEqual(["imagePath", "mobileImagePath", "alt"]);
