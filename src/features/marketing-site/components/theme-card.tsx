@@ -11,6 +11,7 @@ import { buttonClass } from "./ui";
 import { DESKTOP_VIEWPORT, PHONE_VIEWPORT } from "./device-viewports";
 import { themeShot, type ShotDevice } from "../theme-shots";
 import { themePreviewHref } from "../themes";
+import { DeferredAfterLcp } from "./deferred-after-lcp";
 import type { ReactNode } from "react";
 import type { CategoryImage } from "@/lib/unsplash";
 
@@ -126,11 +127,14 @@ export function ThemeDevicePreview({ theme, previewUrl = null, size = "card", ea
   // Only the desktop frame may be LCP-eager; phone must stay lazy so it does not steal bandwidth.
   // Hero large+eager uses compact mockups (no product-rail Unsplash fan-out).
   const compact = !card && eager;
+  // Large hero: keep the phone chrome shell for CLS, but defer the heavy Still until after LCP.
+  const phoneStill = <Still theme={theme} device="phone" size={size} eager={false} fill compact={compact} />;
+  const phone = !card && eager ? <DeferredAfterLcp>{phoneStill}</DeferredAfterLcp> : phoneStill;
   const still = (
     <Devices
       size={size}
       desktop={card ? <CardDesktop theme={theme} image={image} /> : <Still theme={theme} device="desktop" size={size} eager={eager} compact={compact} />}
-      phone={<Still theme={theme} device="phone" size={size} eager={false} fill compact={compact} />}
+      phone={phone}
     />
   );
   if (!live || !previewUrl) return still;
