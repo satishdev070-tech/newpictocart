@@ -1,14 +1,15 @@
 "use client";
 
 import { useId, useState, useTransition } from "react";
-import { ExternalLink, FileText, GripVertical, Home, Lock, Megaphone, Plus, Settings, ShoppingBag } from "lucide-react";
+import { ExternalLink, FileText, GripVertical, Home, LayoutTemplate, Lock, Megaphone, Plus, Settings, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { builderGroupVisible } from "@/features/stores/site-mode";
 import { BUILTIN_TITLE_DEFAULTS, builtinTitlesSchema, pageMetaSchema, MAX_POPUPS, MAX_THEME_PAGES, type BuiltinTitleKey } from "@/features/theme/schema/site";
 import type { SectionInstance, SectionType } from "@/features/theme/sections/types";
 import { renameContentPageAction } from "@/features/content/actions";
 import { useBuilder } from "../../context";
-import { addPage, duplicatePage, newPopup, removePage, slugify, uniqueHandle, updatePageMeta, upsertPopup } from "../../ops";
+import { addPage, applyPageTemplate, duplicatePage, newPopup, removePage, slugify, uniqueHandle, updatePageMeta, upsertPopup } from "../../ops";
 import { headerMenu, menuParentIndex, nestPageInMenu, pageLink, setBuiltinTitle, setHomePage } from "../../page-ops";
 import { BLANK_TEMPLATE, PAGE_TEMPLATE_FAMILY_LABELS, PAGE_TEMPLATE_FAMILY_ORDER, PAGE_TEMPLATES, type PageTemplate } from "../../page-templates";
 import { PAGE_GROUP_LABELS, type BuilderPage, type PageGroup } from "../../pages";
@@ -18,12 +19,13 @@ import { Dialog, FieldRow, IconButton, MoreMenu, PanelFrame, Row, Toggle, input,
 /**
  * Pages & menu panel: a sub-nav of page groups (Pages / eCommerce / Members area / Popups) and the
  * group's pages. Clicking a page loads it in the canvas. Each page row has a ⋮ menu:
- *  - site-builder pages: SEO & page setup · Rename · Set as subitem · Set as homepage · Duplicate · Delete
+ *  - site-builder pages: SEO & page setup · Rename · Change layout · Set as subitem · Set as homepage · Duplicate · Delete
  *  - the Home row: the homepage's own actions when a page is set as homepage (config.homePageId)
  *  - Blog: Manage blog · Rename; Contact / FAQ: Rename · Set as subitem; content pages: Set as subitem
  *    (the store's Contact content page is merged into the Contact row; Rename there renames both)
  * Site-builder pages can be reordered by dragging; new ones start from a blank page or a template
- * (page-templates.ts) via "Add new page" pinned at the bottom.
+ * (page-templates.ts) via "Add new page" pinned at the bottom. With a custom theme page open and no
+ * section focused, the panel also offers Change layout (same wireframe packs as Add page).
  */
 
 const GROUPS: { key: PageGroup; icon: typeof FileText }[] = [
@@ -40,11 +42,15 @@ const BUILTIN_RENAMABLE = new Set<string>(["blog", "contact", "faq"]);
 const openTab = (href: string) => window.open(href, "_blank", "noopener,noreferrer");
 
 export function PagesPanel() {
-  const { config, apply, pages, page, setPageKey, setPanel, pageSources } = useBuilder();
-  const [group, setGroup] = useState<PageGroup>(page.group);
+  const { config, apply, pages, page, setPageKey, setPanel, pageSources, siteMode, selected } = useBuilder();
+  const visibleGroups = GROUPS.filter((g) => builderGroupVisible(g.key, siteMode));
+  const [group, setGroup] = useState<PageGroup>(() => (visibleGroups.some((g) => g.key === page.group) ? page.group : (visibleGroups[0]?.key ?? "pages")));
   const [dialog, setDialog] = useState<PageDialog | null>(null);
   const [adding, setAdding] = useState(false);
+  const [layoutPageId, setLayoutPageId] = useState<string | null>(null);
   const reserved = pageSources.contentPages.map((p) => p.slug);
+  /** Custom theme page open, no section focused → offer the same wireframe packs as Add page. */
+  const layoutTargetId = page.themePageId && !selected ? page.themePageId : null;
 
   const list = pages.filter((p) => p.group === group);
   const reorder = useReorder((from, to) =>
@@ -97,6 +103,7 @@ export function PagesPanel() {
       return [
         { label: "SEO & page setup", onSelect: d("seo") },
         { label: "Rename", onSelect: d("rename") },
+        { label: "Change layout", onSelect: () => setLayoutPageId(p.themePageId!) },
         ...(isHome ? [] : [{ label: "Set as subitem", onSelect: d("subitem") }]),
         isHome ? { label: "Use the original home page", onSelect: unsetHome } : { label: "Set as homepage", onSelect: () => makeHome(p.themePageId!) },
         { label: "Duplicate page", onSelect: () => duplicate(p.themePageId!), disabled: config.pages.length >= MAX_THEME_PAGES },
@@ -135,7 +142,7 @@ export function PagesPanel() {
     <PanelFrame title="Pages & menu" onClose={() => setPanel(null)} footer={footer}>
       <div className="flex gap-3">
         <nav aria-label="Page groups" className="flex w-24 shrink-0 flex-col gap-1">
-          {GROUPS.map(({ key, icon: Icon }) => (
+          {visibleGroups.map(({ key, icon: Icon }) => (
             <button
               key={key}
               type="button"
@@ -181,6 +188,20 @@ export function PagesPanel() {
               </Row>
             );
           })}
+          {group === "pages" && layoutTargetId ? (
+            <div className="mt-3 space-y-2 rounded-lg border border-border bg-surface-secondary/40 p-3">
+              <div className="flex items-start gap-2">
+                <LayoutTemplate className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="text-small font-medium">Change layout</p>
+                  <p className="text-xs text-muted">Replace this page&apos;s sections with an About, Contact, FAQ or Blog starter. Title and URL stay the same.</p>
+                </div>
+              </div>
+              <Button variant="secondary" className="w-full" onClick={() => setLayoutPageId(layoutTargetId)}>
+                Browse layouts
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -190,6 +211,7 @@ export function PagesPanel() {
       {dialog?.kind === "subitem" ? <SubitemDialog page={dialog.page} onClose={() => setDialog(null)} /> : null}
       {dialog?.kind === "delete" && dialog.page.themePageId ? <DeleteDialog pageId={dialog.page.themePageId} onClose={() => setDialog(null)} /> : null}
       <AddPageDialog open={adding} onClose={() => setAdding(false)} />
+      <ChangeLayoutDialog pageId={layoutPageId} onClose={() => setLayoutPageId(null)} />
     </PanelFrame>
   );
 }
@@ -522,6 +544,73 @@ function DeleteDialog({ pageId, onClose }: { pageId: string; onClose: () => void
       <p className="text-small">
         Delete “{src.title}”? Links to /pages/{src.handle} stop working{isHome ? " and your store goes back to the original home page" : ""}. You can undo this until you save.
       </p>
+    </Dialog>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Change layout (existing custom theme page → Add-page wireframe pack)
+// -----------------------------------------------------------------------------
+
+function ChangeLayoutDialog({ pageId, onClose }: { pageId: string | null; onClose: () => void }) {
+  const { config, apply, select } = useBuilder();
+  const [chosen, setChosen] = useState<PageTemplate | null>(null);
+  const src = pageId ? config.pages.find((p) => p.id === pageId) : undefined;
+  const close = () => {
+    setChosen(null);
+    onClose();
+  };
+  if (!pageId || !src) return null;
+
+  const applyChosen = () => {
+    if (!chosen) return;
+    apply((c) => applyPageTemplate(c, pageId, chosen.key));
+    select(null);
+    close();
+  };
+
+  return (
+    <Dialog
+      open
+      onClose={close}
+      title={chosen ? `Use “${chosen.label}”?` : `Change layout · ${src.title}`}
+      wide={!chosen}
+      footer={
+        chosen ? (
+          <>
+            <Button variant="secondary" onClick={() => setChosen(null)}>
+              Back
+            </Button>
+            <Button variant="accent" onClick={applyChosen}>
+              Replace layout
+            </Button>
+          </>
+        ) : undefined
+      }
+    >
+      {chosen ? (
+        <div className="space-y-3 text-small">
+          <p>
+            Replace the sections on <strong>{src.title}</strong> with the <strong>{chosen.label}</strong> starter.
+            The page title and URL (/pages/{src.handle}) stay the same.
+          </p>
+          {src.sections.length > 0 ? (
+            <p className="text-muted">
+              The current {src.sections.length} section{src.sections.length === 1 ? "" : "s"} will be removed. You can undo until you save.
+            </p>
+          ) : (
+            <p className="text-muted">This page is empty — the starter sections will be added. You can undo until you save.</p>
+          )}
+          <div className="mx-auto w-40 overflow-hidden rounded-lg border border-border bg-surface-secondary p-2">
+            <Wireframe sections={chosen.sections} />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-small text-muted">Pick the same wireframe packs used when adding a page. Title and URL are kept.</p>
+          <TemplateGrid onPick={setChosen} />
+        </div>
+      )}
     </Dialog>
   );
 }

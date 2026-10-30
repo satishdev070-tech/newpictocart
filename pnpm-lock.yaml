@@ -38,6 +38,9 @@ importers:
       '@fontsource-variable/montserrat':
         specifier: ^5.3.0
         version: 5.3.0
+      '@fontsource-variable/noto-sans-devanagari':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@fontsource-variable/open-sans':
         specifier: ^5.3.0
         version: 5.3.0
@@ -60,6 +63,9 @@ importers:
         specifier: ^5.3.0
         version: 5.3.0
       '@fontsource/barlow-condensed':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/hind':
         specifier: ^5.3.0
         version: 5.3.0
       '@fontsource/isometra':
@@ -460,6 +466,9 @@ packages:
   '@fontsource-variable/montserrat@5.3.0':
     resolution: {integrity: sha512-7PaZoxaxrWLAyrhO46v65An9LhUhfkTExWLhfbywYZCnZEgg/W1rEHnlNmZKjNZ3nJTVYyicqxlJt10z/26yTA==}
 
+  '@fontsource-variable/noto-sans-devanagari@5.3.0':
+    resolution: {integrity: sha512-52XBcJS3jRvZ5ugFXJvdKgffXPYnN08LeodXkgCbepOdMKVRVTQu1yj071cq8S3zmUwT6w6XKKXRSQlQkwwNNg==}
+
   '@fontsource-variable/open-sans@5.3.0':
     resolution: {integrity: sha512-VOfhZfLIOBVa6K/dTEu7scqQXYdGa4jBX8quFpQ0S6574B+W2EOBJf9PkqyVtMEI7WWIWNEbpvPc3vY1mN2mmQ==}
 
@@ -483,6 +492,9 @@ packages:
 
   '@fontsource/barlow-condensed@5.3.0':
     resolution: {integrity: sha512-RA7MmIx0v3eQ6Gcf74qLVLOwLB0GpPOzx+eU9iG/AmCnSJGcIWYeU8y6CEMGZ210MGwGg5CZhzLkkvyZdTTk1g==}
+
+  '@fontsource/hind@5.3.0':
+    resolution: {integrity: sha512-tN9N0AurZa2N8JakQw8Eqs5/1Rzpw7J6YA1mYpkkHZ3iTw1JjbSHq6V6hGjhRdZlUMHk1sN+jOhPmuF+RkRKEg==}
 
   '@fontsource/isometra@5.3.1':
     resolution: {integrity: sha512-1OpEMDQG/H2VL5HqykgzgqCsTMwQVKRLg9vSQedOQkgQECZPgTaU8nuuO9jeSIRptiekHVb4/7OI4RIqbM0unw==}
@@ -3053,6 +3065,8 @@ snapshots:
 
   '@fontsource-variable/montserrat@5.3.0': {}
 
+  '@fontsource-variable/noto-sans-devanagari@5.3.0': {}
+
   '@fontsource-variable/open-sans@5.3.0': {}
 
   '@fontsource-variable/outfit@5.3.0': {}
@@ -3068,6 +3082,8 @@ snapshots:
   '@fontsource-variable/space-grotesk@5.3.0': {}
 
   '@fontsource/barlow-condensed@5.3.0': {}
+
+  '@fontsource/hind@5.3.0': {}
 
   '@fontsource/isometra@5.3.1': {}
 

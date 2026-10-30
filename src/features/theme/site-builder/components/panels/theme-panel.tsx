@@ -8,13 +8,13 @@ import { assetUrl } from "@/lib/storage/assets";
 import { MediaPicker } from "@/features/media/components/media-picker";
 import { IMAGE_STANDARDS, recommendedText } from "@/features/media/image-standards";
 import type { ThemeConfig } from "@/features/theme/schema/config";
-import { BUTTON_SHAPES, BUTTON_VARIANTS, CARD_RADII, CONTAINER_WIDTHS, FONT_KEYS, FONT_STACKS, LOGO_LIMITS, MENU_FONT_WEIGHTS, MENU_LETTER_SPACINGS, MENU_TEXT_CASES, SPACING_SCALES, type FontKey, type HeaderSettings, type LogoPosition, type MobileLogoPosition, type ProductCardSettings, type ThemeTokens } from "@/features/theme/schema/tokens";
+import { BUTTON_SHAPES, BUTTON_VARIANTS, CARD_RADII, CONTAINER_WIDTHS, FONT_GROUP_LABELS, FONT_GROUPS, FONT_STACKS, LOGO_LIMITS, MENU_FONT_WEIGHTS, MENU_LETTER_SPACINGS, MENU_TEXT_CASES, SPACING_SCALES, fontKeysInGroup, type FontKey, type HeaderSettings, type LogoPosition, type MobileLogoPosition, type ProductCardSettings, type ThemeTokens } from "@/features/theme/schema/tokens";
 import { AUTO_LOGO_HEIGHT } from "@/features/theme/render/logo-layout";
 import { DEFAULT_TYPE_SIZES, TYPE_FONTS, TYPE_LEVELS, TYPE_LEVEL_LABELS, TYPE_WEIGHTS, type TypeLevel, type TypeStyle } from "@/features/theme/schema/site";
 import type { MarketplaceTheme } from "@/features/theme/marketplace/types";
 import { UNSPLASH_CATEGORIES } from "@/lib/unsplash-categories";
 import { useBuilder } from "../../context";
-import { applyPalette, applyPresetTokens, COLOR_KEYS, COLOR_LABELS, isPaletteActive, PALETTES } from "../../palettes";
+import { applyPalette, applyPresetTokens, COLOR_KEYS, COLOR_LABELS, filterPalettes, filterThemesByColourSearch, isPaletteActive, PALETTES } from "../../palettes";
 import { ColorInput, Dialog, FieldRow, input, PanelFrame, Toggle } from "../ui";
 
 /**
@@ -153,16 +153,12 @@ function PresetTab() {
     };
   }, []);
 
-  const shown = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    if (!themes) return [];
-    return term ? themes.filter((t) => `${t.name} ${t.tagline} ${t.industry} ${t.style}`.toLowerCase().includes(term)) : themes;
-  }, [themes, q]);
+  const shown = useMemo(() => (themes ? filterThemesByColourSearch(themes, q) : []), [themes, q]);
 
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted">Restyles colours, fonts, buttons, corners and spacing. Your sections, text, images and menus stay as they are. You can undo it.</p>
-      <input type="search" className={input} placeholder="Search themes (name, industry, style)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search themes" />
+      <input type="search" className={input} placeholder="Search themes (name, hex, colour)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search themes" />
       {failed ? <p className="text-small text-error">Couldn&apos;t load the themes. Reload the page and try again.</p> : null}
       {!themes && !failed ? <p className="text-small text-muted">Loading themes…</p> : null}
       {themes && !shown.length ? <p className="text-small text-muted">No theme matches “{q}”.</p> : null}
@@ -228,12 +224,16 @@ function PresetTab() {
 function ColorsTab() {
   const { config, apply } = useBuilder();
   const [custom, setCustom] = useState(false);
+  const [q, setQ] = useState("");
   const tokens = config.tokens;
+  const shown = useMemo(() => filterPalettes(PALETTES, q), [q]);
   return (
     <div className="space-y-4">
       <Group title="Palettes">
+        <input type="search" className={input} placeholder="Search by name or hex (#1f1a17)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search colour palettes" />
         <div className="space-y-1.5">
-          {PALETTES.map((p) => {
+          {!shown.length ? <p className="text-small text-muted">No palette matches “{q}”.</p> : null}
+          {shown.map((p) => {
             const active = isPaletteActive(tokens, p);
             return (
               <button
@@ -316,25 +316,32 @@ function FontPicker({ label, value, sample, onChange }: { label: string; value: 
         <ChevronRight className={cn("size-4 shrink-0 text-muted transition-transform", open && "rotate-90")} />
       </button>
       {open ? (
-        <ul id={`${id}-list`} aria-labelledby={`${id}-label`} className="max-h-72 space-y-0.5 overflow-y-auto rounded-lg border border-border bg-surface p-1">
-          {FONT_KEYS.map((k) => (
-            <li key={k}>
-              <button
-                type="button"
-                aria-pressed={k === value}
-                onClick={() => {
-                  onChange(k);
-                  setOpen(false);
-                }}
-                className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left", k === value ? "bg-accent-soft text-accent" : "hover:bg-surface-secondary")}
-              >
-                <span className="min-w-0 flex-1" style={{ fontFamily: FONT_STACKS[k].stack }}>
-                  <span className="block truncate text-[15px] leading-tight">{fontName(k)}</span>
-                  <span className="block truncate text-xs opacity-70">{sample}</span>
-                </span>
-                <span className="shrink-0 text-[10px] text-muted">{fontHint(k)}</span>
-                {k === value ? <Check className="size-3.5 shrink-0" /> : null}
-              </button>
+        <ul id={`${id}-list`} aria-labelledby={`${id}-label`} className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-border bg-surface p-1">
+          {FONT_GROUPS.map((group) => (
+            <li key={group} className="space-y-0.5">
+              <span className="block px-2 pt-1 text-[10px] font-semibold uppercase tracking-wide text-muted">{FONT_GROUP_LABELS[group]}</span>
+              <ul className="space-y-0.5">
+                {fontKeysInGroup(group).map((k) => (
+                  <li key={k}>
+                    <button
+                      type="button"
+                      aria-pressed={k === value}
+                      onClick={() => {
+                        onChange(k);
+                        setOpen(false);
+                      }}
+                      className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left", k === value ? "bg-accent-soft text-accent" : "hover:bg-surface-secondary")}
+                    >
+                      <span className="min-w-0 flex-1" style={{ fontFamily: FONT_STACKS[k].stack }}>
+                        <span className="block truncate text-[15px] leading-tight">{fontName(k)}</span>
+                        <span className="block truncate text-xs opacity-70">{group === "hindi" ? "नमस्ते · " : ""}{sample}</span>
+                      </span>
+                      <span className="shrink-0 text-[10px] text-muted">{fontHint(k)}</span>
+                      {k === value ? <Check className="size-3.5 shrink-0" /> : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </li>
           ))}
         </ul>

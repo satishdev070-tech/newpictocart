@@ -78,7 +78,7 @@ export const RESERVED_PAGE_HANDLES = new Set(["home", "index", "new", "edit", "p
 // Popups
 // -----------------------------------------------------------------------------
 export const POPUP_TRIGGERS = ["delay", "exit", "link"] as const;
-export const POPUP_LAYOUTS = ["center", "image-left", "bottom-bar"] as const;
+export const POPUP_LAYOUTS = ["center", "image-left", "bottom-bar", "corner"] as const;
 export const POPUP_CONTENT_TYPES = ["newsletter", "form"] as const;
 export const POPUP_FIELD_TYPES = ["text", "email", "phone", "textarea", "select", "radio", "checkbox"] as const;
 export const MAX_POPUPS = 10;

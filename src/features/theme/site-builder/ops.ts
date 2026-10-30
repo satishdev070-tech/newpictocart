@@ -5,6 +5,7 @@ import type { SectionInstance, SectionStyle, SectionType } from "@/features/them
 import type { ThemeMenu } from "@/features/theme/schema/links";
 import type { PageMeta, Popup } from "@/features/theme/schema/site";
 import { MAX_THEME_PAGES, MAX_POPUPS } from "@/features/theme/schema/site";
+import { pageTemplate } from "./page-templates";
 import { getList, groupOfList, setList, type ListKey } from "./slots";
 
 /**
@@ -154,11 +155,12 @@ export function updateItems(config: ThemeConfig, key: ListKey, id: string, field
   return updateSection(config, key, id, (s) => ({ ...s, settings: { ...(s.settings as Record<string, unknown>), [field]: fn(listOf(s, field)) } }));
 }
 
-const LOOK_KEY: Record<"heading" | "subheading" | "body" | "cta", string> = {
+const LOOK_KEY: Record<"heading" | "subheading" | "body" | "cta" | "eyebrow", string> = {
   heading: "headingLook",
   subheading: "subheadingLook",
   body: "bodyLook",
   cta: "ctaLook",
+  eyebrow: "eyebrowLook",
 };
 
 /**
@@ -258,6 +260,23 @@ export function duplicatePage(config: ThemeConfig, id: string, reserved: readonl
   const src = config.pages.find((p) => p.id === id);
   if (!src) return { config, page: null };
   return addPage(config, `${src.title} copy`, src.sections.map(({ id: _id, ...rest }) => structuredClone(rest)), reserved);
+}
+
+/**
+ * Replace a theme page's sections with an Add-page wireframe pack (page-templates.ts).
+ * Preserves title, handle, and SEO fields; gives every section a fresh id.
+ * Unknown page / template ids are no-ops.
+ */
+export function applyPageTemplate(config: ThemeConfig, pageId: string, templateId: string): ThemeConfig {
+  const src = config.pages.find((p) => p.id === pageId);
+  const template = pageTemplate(templateId);
+  if (!src || !template) return config;
+  const sections: SectionInstance[] = structuredClone(template.sections).map((s) => ({ ...s, id: newId() }));
+  if (sections.length > MAX_SECTIONS_PER_GROUP) return config;
+  return {
+    ...config,
+    pages: config.pages.map((p) => (p.id === pageId ? { ...p, sections } : p)),
+  };
 }
 
 export function newPopup(name = "New popup"): Popup {

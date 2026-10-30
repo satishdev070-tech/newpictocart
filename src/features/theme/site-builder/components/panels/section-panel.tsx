@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Check, GripVertical, ListPlus, Pencil, Plus } from "lucide-react";
 import { SECTION_DEFINITIONS, defaultSettings } from "@/features/theme/sections/definitions";
 import type { EditorField, SectionDefinition, SectionInstance } from "@/features/theme/sections/types";
@@ -62,12 +62,31 @@ export function SectionPanel() {
   // Image fields pick their crop / size standard from the section type and layout.
   return (
     <ImageSlotProvider sectionType={section.type} variant={typeof variant === "string" ? variant : undefined}>
-      <SectionPanelBody key={section.id} section={section} sectionRef={panel.ref} tab={panel.tab} />
+      <SectionPanelBody
+        key={section.id}
+        section={section}
+        sectionRef={panel.ref}
+        tab={panel.tab}
+        textRole={panel.textRole}
+        itemIndex={panel.itemIndex}
+      />
     </ImageSlotProvider>
   );
 }
 
-function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstance; sectionRef: SectionRef; tab: SectionTab }) {
+function SectionPanelBody({
+  section,
+  sectionRef,
+  tab,
+  textRole,
+  itemIndex,
+}: {
+  section: SectionInstance;
+  sectionRef: SectionRef;
+  tab: SectionTab;
+  textRole?: "heading" | "subheading" | "body" | "cta" | "eyebrow";
+  itemIndex?: number;
+}) {
   const b = useBuilder();
   const def = SECTION_DEFINITIONS[section.type] as SectionDefinition;
   const settings = section.settings as Settings;
@@ -75,6 +94,16 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
   const list = primaryListField(def);
   /** Values that failed validation, kept in their inputs until fixed. */
   const [pending, setPending] = useState<Record<string, { value: unknown; error: string }>>({});
+
+  // Canvas text click → scroll the matching TextStyleField into view and open its list item editor.
+  useEffect(() => {
+    if (tab !== "edit" || !textRole) return;
+    const id = `pc-text-style-${textRole}${itemIndex !== undefined ? `-${itemIndex}` : ""}`;
+    const t = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [tab, textRole, itemIndex, section.id]);
 
   const setField = (key: string, value: unknown) => {
     const r = def.schema.safeParse({ ...settings, [key]: value });
@@ -110,8 +139,11 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
   const close = () => b.setPanel(null);
   const setTab = (t: SectionTab) => b.setPanel({ kind: "section", ref: sectionRef, tab: t });
 
-  const contentFields = tabs.edit.filter((f) => f !== list);
   const isPageContent = section.type === "PageContent";
+  const isAccountTemplate = sectionRef.list === "templates.account";
+  // PageContent: shop templates edit `chrome`; Members account edits `pack` + optional image.
+  const contentFields = tabs.edit.filter((f) => f !== list && !(isPageContent && !isAccountTemplate && f.key === "imagePath"));
+  const designFields = isPageContent ? tabs.design.filter((f) => (isAccountTemplate ? f.key === "pack" : f.key === "chrome")) : tabs.design;
 
   return (
     <PanelFrame title={def.label} subtitle={def.description} onClose={close}>
@@ -139,10 +171,20 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
         <div role="tabpanel" className="space-y-5">
           {isPageContent ? (
             <EmptyState title="Page content">
-              This is where the page&apos;s own content appears (product details, cart, account forms, blog posts…). Move it up or down in Layers. Use Settings and Colours for spacing and overrides around it — same tabs as on the home page.
+              This is where the page&apos;s own content appears (product details, cart, account forms, blog posts…). Move it up or down in Layers. Use Change design for shop layouts and account packs, and Settings / Colours for spacing — same tabs as on the home page.
             </EmptyState>
           ) : null}
-          {list ? <ManageList field={list} section={section} sectionRef={sectionRef} def={def} pickers={b.pickers} /> : null}
+          {list ? (
+            <ManageList
+              key={`${section.id}-${itemIndex ?? "none"}-${textRole ?? "none"}`}
+              field={list}
+              section={section}
+              sectionRef={sectionRef}
+              def={def}
+              pickers={b.pickers}
+              focusItemIndex={itemIndex}
+            />
+          ) : null}
           {contentFields.length ? (
             <section className="space-y-3">
               <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Section data</h3>
@@ -161,9 +203,9 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
 
       {tab === "design" ? (
         <div role="tabpanel" className="space-y-4">
-          {tabs.design.length ? (
-            tabs.design.map((f) =>
-              f.kind === "select" ? <VariantPicker key={f.key} field={f} value={String(values[f.key] ?? "")} onChange={(v) => setField(f.key, v)} hideLegend={tabs.design.length === 1} /> : null,
+          {designFields.length ? (
+            designFields.map((f) =>
+              f.kind === "select" ? <VariantPicker key={f.key} field={f} value={String(values[f.key] ?? "")} onChange={(v) => setField(f.key, v)} hideLegend={designFields.length === 1} /> : null,
             )
           ) : (
             <EmptyState title="One design">This section has a single layout. Use Settings and Colours to restyle it.</EmptyState>
@@ -228,12 +270,31 @@ function SectionPanelBody({ section, sectionRef, tab }: { section: SectionInstan
 
 type Item = Record<string, unknown>;
 
-function ManageList({ field, section, sectionRef, def, pickers }: { field: ListField; section: SectionInstance; sectionRef: SectionRef; def: SectionDefinition; pickers: EditorPickers }) {
+function ManageList({
+  field,
+  section,
+  sectionRef,
+  def,
+  pickers,
+  focusItemIndex,
+}: {
+  field: ListField;
+  section: SectionInstance;
+  sectionRef: SectionRef;
+  def: SectionDefinition;
+  pickers: EditorPickers;
+  focusItemIndex?: number;
+}) {
   const b = useBuilder();
   const settings = section.settings as Settings;
   const items: Item[] = Array.isArray(settings[field.key]) ? (settings[field.key] as Item[]) : [];
-  /** Item editor: index into items (items.length = a new, not yet added item). */
-  const [editing, setEditing] = useState<{ index: number; draft: Item; isNew: boolean } | null>(null);
+  /** Item editor: index into items (items.length = a new, not yet added item). Remount via key when canvas focuses a slide. */
+  const [editing, setEditing] = useState<{ index: number; draft: Item; isNew: boolean } | null>(() => {
+    if (typeof focusItemIndex === "number" && items[focusItemIndex]) {
+      return { index: focusItemIndex, draft: structuredClone(items[focusItemIndex]!), isNew: false };
+    }
+    return null;
+  });
   const [error, setError] = useState<string | null>(null);
   const hide = itemHideField(field.fields);
   const min = field.min ?? 0;

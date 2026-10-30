@@ -22,6 +22,7 @@ import {
   VIDEO_SHOP_VARIANTS,
 } from "./variants";
 import {
+  ACCOUNT_PACK_VARIANTS,
   CARD_RATIOS,
   CATEGORY_VARIANTS,
   FOOTER_LAYOUTS,
@@ -29,6 +30,7 @@ import {
   HERO_MEDIA_RATIOS,
   HERO_VARIANTS,
   NEWSLETTER_VARIANTS,
+  PAGE_CHROME_VARIANTS,
   PRODUCT_GRID_VARIANTS,
   SECTION_SPACINGS,
   STORY_VARIANTS,
@@ -241,6 +243,7 @@ const heroSlide = z.object({
   textTone: z.enum(["light", "dark"]).default("light"),
   ...itemGroupVisibility,
   /** Per-text look overrides (font / size / colour / align / emphasis + text-box width). */
+  eyebrowLook: textLookField,
   headingLook: textLookField,
   subheadingLook: textLookField,
   ctaLook: textLookField,
@@ -293,6 +296,7 @@ const hero = {
         { kind: "image", key: "mobileImagePath", label: "Image (mobile, optional)" },
         { kind: "text", key: "alt", label: "Image description (alt text)", maxLength: 200 },
         { kind: "text", key: "eyebrow", label: "Eyebrow", maxLength: 60 },
+        { kind: "textStyle", key: "eyebrowLook", label: "Eyebrow style", role: "eyebrow" },
         { kind: "text", key: "heading", label: "Heading", maxLength: 120 },
         { kind: "text", key: "headingAccent", label: "Second line (italic, optional)", maxLength: 80 },
         { kind: "textStyle", key: "headingLook", label: "Heading style", role: "heading" },
@@ -1133,11 +1137,31 @@ const featureBand = {
 const pageContent = {
   type: "PageContent",
   label: "Page content",
-  description: "Where the page's own content (product grid, product details) appears. Sections above it show before the content.",
+  description: "Where the page's own content (product grid, product details, cart, account forms…) appears. Sections above it show before the content.",
   groups: ["collection", "product"],
   singleton: true,
-  schema: z.object({}),
-  fields: [],
+  schema: z.object({
+    /** Shop template body layout (collection / product / search / cart / …). */
+    chrome: variantSchema(PAGE_CHROME_VARIANTS),
+    /** Members auth layout (templates.account → StoreAuthSplit). */
+    pack: variantSchema(ACCOUNT_PACK_VARIANTS),
+    /** Optional account panel image; empty falls back to the home Hero slide. */
+    imagePath: imagePath.default(""),
+  }),
+  fields: [
+    variantEditor("chrome", "Shop page layout", PAGE_CHROME_VARIANTS, {
+      help: "Used on product, collection, search, cart and similar shop templates.",
+    }),
+    variantEditor("pack", "Account layout", ACCOUNT_PACK_VARIANTS, {
+      help: "Used on Login, Sign up and Reset password in the Members area.",
+    }),
+    {
+      kind: "image",
+      key: "imagePath",
+      label: "Account panel image (optional)",
+      help: "Shown on Login / Sign up / Reset. Leave empty to use the home page hero photo.",
+    },
+  ],
 } satisfies SectionDefinition;
 
 const footer = {

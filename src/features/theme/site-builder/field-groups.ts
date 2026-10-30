@@ -163,6 +163,7 @@ function itemGroupOf(f: EditorField, all: readonly EditorField[]): ItemGroupId {
   if (f.kind === "image" || f.kind === "video") return "media";
   if (/^(alt|imageAlt|mediaAlt)$/i.test(k) || /Alt$/.test(k)) return all.some((x) => x.kind === "image" || x.kind === "video") ? "media" : "other";
   if (f.kind === "textStyle") {
+    if (f.role === "eyebrow") return "subtitle";
     if (f.role === "heading") return "title";
     if (f.role === "subheading" || f.role === "body") return "description";
     if (f.role === "cta") return "actions";

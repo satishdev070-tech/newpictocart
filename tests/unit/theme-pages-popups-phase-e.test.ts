@@ -124,11 +124,11 @@ describe("Phase E ecommerce / members panel depth", () => {
     }
   });
 
-  it("PageContent still exposes Settings and Colours tabs (empty Edit fields)", () => {
+  it("PageContent Change design exposes shop chrome + account pack cards", () => {
     const tabs = sectionTabs(SECTION_DEFINITIONS.PageContent);
-    expect(tabs.edit).toEqual([]);
-    expect(tabs.design).toEqual([]);
-    // Size/visibility/colours are panel chrome even when definition fields are empty.
+    expect(tabs.design.map((f) => f.key)).toEqual(["chrome", "pack"]);
+    expect(tabs.edit.map((f) => f.key)).toEqual(["imagePath"]);
+    // Size/visibility/colours are panel chrome even when definition colour fields are empty.
     expect(tabs.settings).toEqual([]);
     expect(tabs.colors).toEqual([]);
   });

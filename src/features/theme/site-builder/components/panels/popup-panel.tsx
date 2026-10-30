@@ -44,7 +44,12 @@ function popupErrors(p: Popup): Errors {
   return out;
 }
 
-const LAYOUT_LABELS: Record<(typeof POPUP_LAYOUTS)[number], string> = { center: "Centred box", "image-left": "Image on the left", "bottom-bar": "Bar at the bottom" };
+const LAYOUT_LABELS: Record<(typeof POPUP_LAYOUTS)[number], string> = {
+  center: "Centred box",
+  "image-left": "Image on the left",
+  "bottom-bar": "Bar at the bottom",
+  corner: "Corner card",
+};
 const FIELD_TYPE_LABELS: Record<PopupFieldType, string> = {
   text: "Short text",
   email: "Email",

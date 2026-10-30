@@ -122,7 +122,11 @@ async function Hero({ s, ctx }: P<"Hero">) {
               )}
               <div className={`sf-container ${banner ? "relative py-6 @[48rem]:absolute @[48rem]:inset-x-0 @[48rem]:bottom-0 @[48rem]:py-12" : "relative py-16"} ${sl.align === "center" ? "text-center" : ""} ${sl.textTone === "light" ? (banner ? "@[48rem]:text-white" : "text-white") : ""}`}>
                 <div className={`max-w-xl space-y-4 ${sl.align === "center" ? "mx-auto" : ""}`}>
-                  {g.subtitle && sl.eyebrow ? <p className="sf-eyebrow !text-current opacity-85">{sl.eyebrow}</p> : null}
+                  {g.subtitle && sl.eyebrow ? (
+                    <TextBox role="eyebrow" look={lookOf(sl.eyebrowLook)} itemIndex={i} as="p" className="sf-eyebrow !text-current opacity-85">
+                      {sl.eyebrow}
+                    </TextBox>
+                  ) : null}
                   {g.title ? (
                     <TextBox role="heading" look={lookOf(sl.headingLook)} itemIndex={i} as={i === 0 ? "h1" : "h2"} className="sf-heading text-4xl @[64rem]:text-6xl">
                       {sl.heading}

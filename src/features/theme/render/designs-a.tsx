@@ -59,7 +59,11 @@ function SlideText({ sl, first, light, itemIndex = 0 }: { sl: Slide; first: bool
   const cta = textBoxProps("cta", lookOf(sl.ctaLook), itemIndex);
   return (
     <div className="space-y-4">
-      {g.subtitle && sl.eyebrow ? <p className="sf-eyebrow !text-current opacity-85">{sl.eyebrow}</p> : null}
+      {g.subtitle && sl.eyebrow ? (
+        <TextBox role="eyebrow" look={lookOf(sl.eyebrowLook)} itemIndex={itemIndex} as="p" className="sf-eyebrow !text-current opacity-85">
+          {sl.eyebrow}
+        </TextBox>
+      ) : null}
       {g.title ? (
         <TextBox role="heading" look={lookOf(sl.headingLook)} itemIndex={itemIndex} as={H} className="sf-heading text-4xl @[64rem]:text-6xl">
           {sl.heading}

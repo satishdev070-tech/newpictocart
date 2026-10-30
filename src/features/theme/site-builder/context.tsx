@@ -30,7 +30,7 @@ export type Panel =
   | { kind: "embeds" }
   | { kind: "layers" }
   | { kind: "popup"; popupId: string }
-  | { kind: "section"; ref: SectionRef; tab: SectionTab }
+  | { kind: "section"; ref: SectionRef; tab: SectionTab; textRole?: "heading" | "subheading" | "body" | "cta" | "eyebrow"; itemIndex?: number }
   /** "+" picker: add a section to `list` before/after `anchorId` (null = end). ai = "Add with AI". */
   | { kind: "insert"; list: ListKey; anchorId: string | null; where: "before" | "after"; ai: boolean };
 

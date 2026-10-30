@@ -91,10 +91,10 @@ describe("builderPages / pageForPath", () => {
     expect(pages.find((p) => p.group === "popups")).toMatchObject({ key: "popup:uabcdefghi", popupId: "uabcdefghi", list: null });
   });
 
-  it("omits blog and product when the store has none", () => {
+  it("omits blog, product, and product-list when the store has no samples (product-list would duplicate Collections)", () => {
     const bare = builderPages(DEFAULT_THEME_CONFIG, { contentPages: [], sampleProductSlug: null, sampleCollectionSlug: null, blog: false });
-    expect(bare.some((p) => p.key === "blog" || p.key === "product")).toBe(false);
-    expect(bare.find((p) => p.key === "product-list")!.list).toBe("templates.collectionList");
+    expect(bare.some((p) => p.key === "blog" || p.key === "product" || p.key === "product-list")).toBe(false);
+    expect(bare.find((p) => p.key === "collections")!.list).toBe("templates.collectionList");
   });
 
   it("maps canvas paths back to registry pages", () => {

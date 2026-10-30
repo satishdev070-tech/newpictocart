@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mobileSpace, normalizeSectionBox, parseSectionBox, sectionBoxVars } from "@/features/theme/schema/section-box";
+import { SECTION_BOX_LIMITS } from "@/features/theme/sections/types";
 
 describe("section size and spacing envelope", () => {
   it("keeps a compact, validated set of overrides", () => {
@@ -22,6 +23,19 @@ describe("section size and spacing envelope", () => {
       },
       attrs: { "data-sf-scale": "", "data-sf-width": "narrow", "data-sf-mt": "", "data-sf-pb": "" },
     });
+  });
+
+  it("allows negative margins and keeps padding ≥ 0", () => {
+    expect(SECTION_BOX_LIMITS.space.min).toBe(-80);
+    expect(SECTION_BOX_LIMITS.padding.min).toBe(0);
+    const box = parseSectionBox({ marginTop: -80, marginBottom: -40, paddingTop: 0, paddingBottom: 24 }).box;
+    expect(box).toMatchObject({ marginTop: -80, marginBottom: -40, paddingTop: 0, paddingBottom: 24 });
+    expect(mobileSpace(box!, "marginTop")).toBe(-48);
+    expect(sectionBoxVars(box!)?.vars["--sf-mt"]).toBe("-80px");
+    expect(sectionBoxVars(box!)?.vars["--sf-mt-m"]).toBe("-48px");
+    expect(parseSectionBox({ marginTop: -81 }).error).toBeTruthy();
+    expect(parseSectionBox({ paddingTop: -1 }).error).toBeTruthy();
+    expect(parseSectionBox({ paddingBottom: -8 }).error).toBeTruthy();
   });
 
   it("rejects malformed values without preventing the rest of a section from rendering", () => {

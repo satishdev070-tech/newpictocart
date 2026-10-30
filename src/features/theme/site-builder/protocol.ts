@@ -18,7 +18,7 @@ export const SECTION_ACTIONS = ["edit", "design", "settings", "colors", "up", "d
 export type SectionAction = (typeof SECTION_ACTIONS)[number];
 
 /** Text roles the canvas can select / resize (must match schema/text-style TEXT_ROLES). */
-export const TEXT_ROLES = ["heading", "subheading", "body", "cta"] as const;
+export const TEXT_ROLES = ["heading", "subheading", "body", "cta", "eyebrow"] as const;
 export type ProtocolTextRole = (typeof TEXT_ROLES)[number];
 
 export type HostMessage =
