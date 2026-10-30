@@ -14,6 +14,7 @@ import { RotatingWords } from "./rotating-words";
 import { HeroSlideshow } from "./hero-slideshow";
 import { Reveal } from "./reveal";
 import { themeMockupHeroUrl } from "@/features/theme/marketplace/mockup";
+import { themeShot } from "../theme-shots";
 import { ThemeCard, ThemeDevicePreview } from "./theme-card";
 import { WhenVisible } from "./when-visible";
 
@@ -71,9 +72,13 @@ const enter = (delay = "", from = "starting:translate-y-4", duration = "duration
 
 export function LandingHero({ content, themes, tokens }: { content: LandingContent["hero"]; themes: MarketplaceTheme[]; tokens: Record<string, string | number> }) {
   const stats = content.stats.filter((s) => s.value && s.label);
-  // Preload LCP image when hero falls back to ThemeMockup (no CMS slides/image).
+  // Preload LCP image: prefer same-origin theme shot WebP, else ThemeMockup Unsplash (no CMS hero).
   const cmsHero = content.slides.some((s) => s.imageUrl) || Boolean(content.imageUrl);
-  const lcpPreload = !cmsHero && themes[0] ? themeMockupHeroUrl(themes[0], 640) : cmsHero ? content.slides.find((s) => s.imageUrl)?.imageUrl || content.imageUrl || null : null;
+  const firstTheme = themes[0];
+  const localShot = firstTheme ? themeShot(firstTheme.key, "desktop") : null;
+  const lcpPreload = cmsHero
+    ? content.slides.find((s) => s.imageUrl)?.imageUrl || content.imageUrl || null
+    : localShot || (firstTheme ? themeMockupHeroUrl(firstTheme, 640) : null);
   if (lcpPreload) preload(lcpPreload, { as: "image", fetchPriority: "high" });
   return (
     <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-brand-night text-white">

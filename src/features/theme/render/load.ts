@@ -7,6 +7,7 @@ import { getStoreCustomer } from "@/features/customer-account/session";
 import type { ThemeConfig } from "@/features/theme/schema/config";
 import { canPreviewThemes } from "@/features/theme/marketplace/showcase";
 import { getStorefrontStock } from "@/features/theme/server/imagery";
+import { markStorefrontPreview } from "@/features/storefront/preview-flag";
 import { isInformative } from "@/features/stores/site-mode";
 import type { RenderContext } from "./context";
 
@@ -33,6 +34,8 @@ export async function loadThemeMenus(tenantId: string, theme: ThemeConfig): Prom
 /** Per-request storefront render context shared by the store layout and pages (memoised). */
 export const getRenderContext = cache(async (host: string): Promise<RenderContext> => {
   const sf = await requireStorefront(host);
+  // Before any section renders StoreImage: draft/builder preview disables LCP image priority.
+  markStorefrontPreview(sf.preview);
   const commerce = !isInformative(sf.siteMode);
   const [menus, cartCount, customer, stock] = await Promise.all([
     loadThemeMenus(sf.tenant.tenantId, sf.theme),

@@ -177,8 +177,8 @@ export function ThemeMockup({
           {text(false, true)}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gridTemplateRows: "repeat(2, 1fr)", gap: 4, height: heroH - 16 }}>
             <div style={{ gridColumn: "1 / 3", gridRow: "1 / 3" }}><Photo src={hero[0]!} radius={radius} eager={eager} /></div>
-            <Photo src={hero[1]!} radius={radius} eager={eager} />
-            <Photo src={hero[2]!} radius={radius} eager={eager} />
+            <Photo src={hero[1]!} radius={radius} eager={false} />
+            <Photo src={hero[2]!} radius={radius} eager={false} />
           </div>
         </div>
       );

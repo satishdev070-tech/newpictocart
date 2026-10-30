@@ -4,9 +4,15 @@ import { assetUrl } from "@/lib/storage/assets";
 import imageLoader from "@/lib/images/loader";
 import { IconGlyph } from "@/lib/icons/icon-glyph";
 import { parseIconValue } from "@/lib/icons/names";
+import { isStorefrontPreview } from "@/features/storefront/preview-flag";
 
 /** A stand-in photo (Unsplash stock, src/lib/unsplash-stock.ts) for an empty image slot. */
 export type ImageFallback = { url: string; alt: string };
+
+/** LCP-eager only on the published storefront — builder preview always lazy-loads. */
+function imagePriority(requested: boolean): boolean {
+  return requested && !isStorefrontPreview();
+}
 
 /**
  * Tenant image from Supabase Storage via next/image. When the path is empty/invalid (assetUrl only
@@ -42,16 +48,19 @@ export function StoreImage({
     );
   }
   const own = assetUrl(path);
-  const src = own ?? stock?.url ?? null;
-  const label = !own && stock ? alt || stock.alt : alt;
+  // Builder preview: skip remote Unsplash stand-ins so page switches do not fan out stock fetches.
+  const src = own ?? (isStorefrontPreview() ? null : stock?.url) ?? null;
+  const label = !own && stock && !isStorefrontPreview() ? alt || stock.alt : alt;
   if (!src) {
     return <div aria-hidden className={`absolute inset-0 bg-[color-mix(in_srgb,var(--sf-border)_60%,var(--sf-surface))] ${className}`} />;
   }
   // `priority` = the LCP candidate (eager, high fetch priority, preloaded); everything else lazy-loads.
   // Kept on the deprecated `priority` prop on purpose: `preload` emits a different preload hint, and
   // the browser then reuses a different candidate width (measurable pixel change on live stores).
-  if (natural) return <Image src={src} alt={label} width={0} height={0} sizes={sizes} priority={priority} className={`block h-auto w-full ${className}`} />;
-  return <Image src={src} alt={label} fill sizes={sizes} priority={priority} className={`object-cover ${className}`} />;
+  // Draft/builder preview (`sf.preview`) always forces lazy so customizer page switches stay light.
+  const eager = imagePriority(priority);
+  if (natural) return <Image src={src} alt={label} width={0} height={0} sizes={sizes} priority={eager} className={`block h-auto w-full ${className}`} />;
+  return <Image src={src} alt={label} fill sizes={sizes} priority={eager} className={`object-cover ${className}`} />;
 }
 
 /**
@@ -80,9 +89,15 @@ export function StoreArtImage({
   // Icon values have no URL, so they take the StoreImage path below (which renders the icon).
   const desktop = assetUrl(path);
   const mobile = assetUrl(mobilePath);
-  if (!desktop || !mobile) return <StoreImage path={path || mobilePath} alt={alt} sizes={sizes} priority={priority} natural={natural} stock={stock} />;
+  const eager = imagePriority(priority);
+  if (!desktop || !mobile) return <StoreImage path={path || mobilePath} alt={alt} sizes={sizes} priority={eager} natural={natural} stock={stock} />;
   // getImageProps ignores `priority`; the LCP slide gets an eager, high-priority fetch instead.
-  const common = { alt, sizes, ...(priority ? { loading: "eager" as const, fetchPriority: "high" as const } : {}), ...(natural ? { width: 0, height: 0 } : { fill: true }) };
+  const common = {
+    alt,
+    sizes,
+    ...(eager ? { loading: "eager" as const, fetchPriority: "high" as const } : { loading: "lazy" as const }),
+    ...(natural ? { width: 0, height: 0 } : { fill: true }),
+  };
   const { props: d } = getImageProps({ ...common, src: desktop });
   const { props: m } = getImageProps({ ...common, src: mobile });
   return (
