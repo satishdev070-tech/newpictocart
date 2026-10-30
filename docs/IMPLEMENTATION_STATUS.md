@@ -12,7 +12,7 @@ Screenshot-driven follow-on to Theme Customizer Master (A2 text everywhere · B1
 - **Speed:** local `apply()` → canvas; Save draft / idle autosave; Publish → `revalidateStorefront` only (ADR-010). Stable `apply` identity.
 - **Onboarding `/start/theme`:** left vertical theme list + right `ThemeMockup`; **Click to Preview** opens `themePreviewHref` in a new tab.
 - **Tests:** `site-builder-apply-builtin-layout`, text-style / autosave extensions.
-- **Verification:** `pnpm check` (see latest commit).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **155 files / 1864 tests**, build).
 
 ## Theme Customizer Master (2026-10-30, branch `cursor/theme-customizer-master-c73e`)
 
