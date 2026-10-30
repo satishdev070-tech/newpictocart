@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-
-/** Real device viewports the demo store is rendered at, then scaled down to fit the frame. */
-export const DESKTOP_VIEWPORT = { width: 1280, height: 800 } as const;
-export const PHONE_VIEWPORT = { width: 390, height: 844 } as const;
+export { DESKTOP_VIEWPORT, PHONE_VIEWPORT } from "./device-viewports";
 
 /**
  * A live, scaled demo store. The store is rendered at a true device width (so the phone frame

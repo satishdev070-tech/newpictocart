@@ -5,7 +5,7 @@ import { siteOrigin } from "@/features/marketing-site/site";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { getLandingContent } from "@/features/marketing-site/server/landing";
 import { findTheme, SHOWCASE_INDUSTRIES, showcaseThemes } from "@/features/marketing-site/themes";
-import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { MARKETPLACE_THEME_COUNT } from "@/features/theme/marketplace/catalog";
 import { themeCardImage } from "@/features/theme/layouts/imagery";
 import { stripHighlights, themesShown, type SectionKey } from "@/features/marketing-site/landing";
 import {
@@ -47,7 +47,7 @@ export default async function HomePage() {
     const img = themeCardImage(t);
     return img ? [[t.key, img] as const] : [];
   }));
-  const tokens = { themes: MARKETPLACE_THEMES.length };
+  const tokens = { themes: MARKETPLACE_THEME_COUNT };
   // Hero fallback slideshow (when the CMS has no slides or image): the hero theme, then the showcase.
   const heroThemes = [...(hero ? [hero] : []), ...themes.filter((t) => t.key !== hero?.key)].slice(0, 4);
 

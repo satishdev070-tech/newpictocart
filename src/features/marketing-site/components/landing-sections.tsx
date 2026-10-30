@@ -1,5 +1,6 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { preload } from "react-dom";
 import { ArrowRight, Check, ChevronDown, ChevronRight, Quote, Star } from "lucide-react";
 import type { ReactNode } from "react";
 import type { MarketplaceTheme } from "@/features/theme/marketplace/types";
@@ -12,7 +13,9 @@ import { ACCENT, Highlighted, LandingIconView, tagColor } from "./landing-icons"
 import { RotatingWords } from "./rotating-words";
 import { HeroSlideshow } from "./hero-slideshow";
 import { Reveal } from "./reveal";
+import { themeMockupHeroUrl } from "@/features/theme/marketplace/mockup";
 import { ThemeCard, ThemeDevicePreview } from "./theme-card";
+import { WhenVisible } from "./when-visible";
 
 /** Below-fold pricing island — keep the client PricingTable out of the initial home JS. */
 const PricingTable = dynamic(() => import("./pricing-table").then((m) => ({ default: m.PricingTable })));
@@ -68,6 +71,10 @@ const enter = (delay = "", from = "starting:translate-y-4", duration = "duration
 
 export function LandingHero({ content, themes, tokens }: { content: LandingContent["hero"]; themes: MarketplaceTheme[]; tokens: Record<string, string | number> }) {
   const stats = content.stats.filter((s) => s.value && s.label);
+  // Preload LCP image when hero falls back to ThemeMockup (no CMS slides/image).
+  const cmsHero = content.slides.some((s) => s.imageUrl) || Boolean(content.imageUrl);
+  const lcpPreload = !cmsHero && themes[0] ? themeMockupHeroUrl(themes[0], 640) : cmsHero ? content.slides.find((s) => s.imageUrl)?.imageUrl || content.imageUrl || null : null;
+  if (lcpPreload) preload(lcpPreload, { as: "image", fetchPriority: "high" });
   return (
     <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-brand-night text-white">
       <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_15%_10%,rgb(79_70_229/0.45),transparent_70%),radial-gradient(50%_60%_at_85%_80%,rgb(124_58_237/0.4),transparent_70%),radial-gradient(40%_40%_at_70%_20%,rgb(5_150_105/0.18),transparent_70%)]" />
@@ -539,10 +546,25 @@ export function LandingThemes({ content, themes, images }: { content: LandingCon
     <section id="themes" aria-labelledby="themes-title" className="scroll-mt-20 bg-white py-20 sm:py-24">
       <Container>
         <Heading id="themes-title" badge={content.badge} tone="green" title={content.title} body={content.body} />
-        <ul className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {themes.map((t) => (
+        <ul className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 [content-visibility:auto] [contain-intrinsic-size:auto_420px]">
+          {themes.map((t, i) => (
             <li key={t.key} className="h-full">
-              <ThemeCard theme={t} image={images?.get(t.key) ?? null} location="home_themes" />
+              {/* First row can paint with the page; deeper cards wait until near viewport. */}
+              {i < 4 ? (
+                <ThemeCard theme={t} image={images?.get(t.key) ?? null} location="home_themes" />
+              ) : (
+                <WhenVisible
+                  placeholder={
+                    <div
+                      className="aspect-[4/3] w-full animate-pulse rounded-brand-md border border-border bg-brand-canvas"
+                      style={{ background: t.preset.tokens.colors.background }}
+                      aria-hidden
+                    />
+                  }
+                >
+                  <ThemeCard theme={t} image={images?.get(t.key) ?? null} location="home_themes" />
+                </WhenVisible>
+              )}
             </li>
           ))}
         </ul>

@@ -6,7 +6,7 @@ import { BENEFITS, CATEGORY_CARDS, CTA_CREATE, CTA_THEMES, HERO, HOW_IT_WORKS, S
 import { themeCountFor, themeForIndustry, themesHref } from "../themes";
 import { ButtonLink, Container, Section, SectionHeading } from "./ui";
 import { ThemeCard, ThemeDevicePreview } from "./theme-card";
-import { DESKTOP_VIEWPORT } from "./live-frame";
+import { DESKTOP_VIEWPORT } from "./device-viewports";
 import { themeShot } from "../theme-shots";
 
 const BENEFIT_ICONS: Record<BenefitKey, typeof Check> = {
