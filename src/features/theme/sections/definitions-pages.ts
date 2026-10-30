@@ -31,11 +31,21 @@ const TONES = ["light", "dark", "accent", "muted"] as const;
 const toneEditor: EditorField = { kind: "select", key: "tone", label: "Background", options: TONES.map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) })) };
 const spacingEditor: EditorField = { kind: "select", key: "spacing", label: "Space above and below", options: SECTION_SPACINGS.map((o) => ({ value: o.value, label: o.label })) };
 
-const headingFields = { eyebrow: txt(60), heading: txt(120), subheading: txt(300) };
+const headingFields = {
+  eyebrow: txt(60),
+  heading: txt(120),
+  subheading: txt(300),
+  eyebrowLook: textLookField,
+  headingLook: textLookField,
+  subheadingLook: textLookField,
+};
 const headingEditor: EditorField[] = [
   { kind: "text", key: "eyebrow", label: "Eyebrow", maxLength: 60, placeholder: "Small text above the heading" },
+  { kind: "textStyle", key: "eyebrowLook", label: "Eyebrow style", role: "eyebrow" },
   { kind: "text", key: "heading", label: "Heading", maxLength: 120 },
+  { kind: "textStyle", key: "headingLook", label: "Heading style", role: "heading" },
   { kind: "text", key: "subheading", label: "Subheading", maxLength: 300, multiline: true },
+  { kind: "textStyle", key: "subheadingLook", label: "Subheading style", role: "subheading" },
 ];
 const commonFields = { tone: z.enum(TONES).default("light"), spacing: variantSchema(SECTION_SPACINGS) };
 
@@ -208,8 +218,6 @@ const richText = {
     body: txt(6000, "Write a few paragraphs here.\n\nLeave an empty line to start a new paragraph."),
     ctaLabel: txt(40),
     ctaHref: safeHref.default(""),
-    headingLook: textLookField,
-    subheadingLook: textLookField,
     bodyLook: textLookField,
     ctaLook: textLookField,
     ...commonFields,
@@ -217,8 +225,6 @@ const richText = {
   fields: editorFields([
     variantEditor("Layout", RICH_TEXT_VARIANTS),
     ...headingEditor,
-    { kind: "textStyle", key: "headingLook", label: "Heading style", role: "heading" },
-    { kind: "textStyle", key: "subheadingLook", label: "Subheading style", role: "subheading" },
     { kind: "text", key: "body", label: "Text", maxLength: 6000, multiline: true, help: "Leave an empty line between paragraphs." },
     { kind: "textStyle", key: "bodyLook", label: "Body style", role: "body" },
     { kind: "text", key: "ctaLabel", label: "Button text (optional)", maxLength: 40 },

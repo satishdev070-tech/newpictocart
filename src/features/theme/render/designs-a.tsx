@@ -14,8 +14,8 @@ import { toDescription } from "@/features/storefront/seo";
 import { getInstagramFeed } from "@/features/social/server/instagram-feed";
 import { assetUrl } from "@/lib/storage/assets";
 import type { StockImage } from "@/lib/unsplash-stock";
-import { Cta, HeadingText, Intro, headingClass, hp, type IntroProps } from "./parts";
-import { TextBox, lookOf, textBoxProps } from "./text-look";
+import { Cta, HeadingText, headingClass } from "./parts";
+import { SectionIntro, TextBox, hpLooks, lookOf, textBoxProps, textCurrentClass, type SectionIntroProps } from "./text-look";
 import { slideGroups } from "./slide-visibility";
 import { PhotoCredit, stockFor, type Tile } from "./variants";
 import type { RenderContext } from "./context";
@@ -60,7 +60,7 @@ function SlideText({ sl, first, light, itemIndex = 0 }: { sl: Slide; first: bool
   return (
     <div className="space-y-4">
       {g.subtitle && sl.eyebrow ? (
-        <TextBox role="eyebrow" look={lookOf(sl.eyebrowLook)} itemIndex={itemIndex} as="p" className="sf-eyebrow !text-current opacity-85">
+        <TextBox role="eyebrow" look={lookOf(sl.eyebrowLook)} itemIndex={itemIndex} as="p" className={`sf-eyebrow ${textCurrentClass(lookOf(sl.eyebrowLook))} opacity-85`}>
           {sl.eyebrow}
         </TextBox>
       ) : null}
@@ -183,13 +183,14 @@ function Badge({ text, className = "" }: { text: string; className?: string }) {
   return text ? <span className={`sf-promo-badge ${className}`}>{text}</span> : null;
 }
 
-function PromoCopy({ t, badge, light, big = false }: { t: PromoTile; badge: string; light: boolean; big?: boolean }) {
+function PromoCopy({ t, badge, light, big = false, itemIndex }: { t: PromoTile; badge: string; light: boolean; big?: boolean; itemIndex?: number }) {
+  const cta = textBoxProps("cta", lookOf(t.ctaLook), itemIndex);
   return (
     <>
       <Badge text={badge} />
       {t.heading ? <h2 className={`sf-heading ${big ? "text-4xl @[64rem]:text-6xl" : "text-3xl @[64rem]:text-4xl"}`}>{t.heading}</h2> : null}
       {t.text ? <p className="max-w-xl text-base opacity-90 @[64rem]:text-lg">{t.text}</p> : null}
-      <Cta label={t.ctaLabel} href={t.ctaHref} className={light ? "sf-btn sf-btn-light" : "sf-btn"} />
+      <Cta label={t.ctaLabel} href={t.ctaHref} className={light ? "sf-btn sf-btn-light" : "sf-btn"} style={cta.style} dataAttrs={cta.attrs} />
     </>
   );
 }
@@ -215,7 +216,7 @@ export function PromoDesign({ s, ctx, variant }: P<"PromoBanner"> & { variant: E
                 <>
                   <div aria-hidden className={`absolute inset-0 ${s.align === "center" ? "bg-black/40" : s.align === "right" ? "bg-gradient-to-l from-black/65 to-transparent" : "bg-gradient-to-r from-black/65 to-transparent"}`} />
                   <div className={`sf-container relative flex flex-col gap-4 py-12 text-white ${ALIGN_TEXT[s.align]} ${ALIGN_ITEMS[s.align]}`}>
-                    <PromoCopy t={t} badge={s.badge} light big />
+                    <PromoCopy t={t} badge={s.badge} light big itemIndex={i} />
                   </div>
                 </>
               ) : (
@@ -236,7 +237,7 @@ export function PromoDesign({ s, ctx, variant }: P<"PromoBanner"> & { variant: E
                 <PhotoCredit img={stock(t, i)} className="sf-photo-credit-on" />
               </div>
               <div className={`flex flex-col justify-center gap-4 p-8 @[64rem]:p-14 ${ALIGN_TEXT[s.align]} ${ALIGN_ITEMS[s.align]}`}>
-                <PromoCopy t={t} badge={i === 0 ? s.badge : ""} light={false} />
+                <PromoCopy t={t} badge={i === 0 ? s.badge : ""} light={false} itemIndex={i} />
               </div>
             </div>
           ))}
@@ -256,7 +257,13 @@ export function PromoDesign({ s, ctx, variant }: P<"PromoBanner"> & { variant: E
                     {t.heading ? <h2 className={`sf-heading ${i === 0 ? "text-3xl @[64rem]:text-5xl" : "text-2xl"}`}>{t.heading}</h2> : null}
                     {t.text ? <p className="text-sm opacity-90">{t.text}</p> : null}
                     <div className="mt-1">
-                      <Cta label={t.ctaLabel} href={t.ctaHref} className="sf-btn sf-btn-light" />
+                      <Cta
+                        label={t.ctaLabel}
+                        href={t.ctaHref}
+                        className="sf-btn sf-btn-light"
+                        style={textBoxProps("cta", lookOf(t.ctaLook), i).style}
+                        dataAttrs={textBoxProps("cta", lookOf(t.ctaLook), i).attrs}
+                      />
                     </div>
                   </div>
                 ) : (
@@ -282,7 +289,7 @@ export function PromoDesign({ s, ctx, variant }: P<"PromoBanner"> & { variant: E
                 <div
                   className={`sf-promo-card relative mx-4 -mt-14 flex flex-col gap-4 p-7 @[64rem]:absolute @[64rem]:top-1/2 @[64rem]:mx-0 @[64rem]:mt-0 @[64rem]:w-[42%] @[64rem]:-translate-y-1/2 @[64rem]:p-12 ${right ? "@[64rem]:left-0" : "@[64rem]:right-0"} ${tone} ${ALIGN_TEXT[s.align]} ${ALIGN_ITEMS[s.align]}`}
                 >
-                  <PromoCopy t={t} badge={i === 0 ? s.badge : ""} light={false} />
+                  <PromoCopy t={t} badge={i === 0 ? s.badge : ""} light={false} itemIndex={i} />
                 </div>
               </div>
             );
@@ -295,6 +302,7 @@ export function PromoDesign({ s, ctx, variant }: P<"PromoBanner"> & { variant: E
           <ul className={`sf-container grid divide-y divide-[var(--sf-border)] @[64rem]:divide-x @[64rem]:divide-y-0 ${s.tiles.length === 3 ? "@[64rem]:grid-cols-3" : s.tiles.length === 2 ? "@[64rem]:grid-cols-2" : ""}`}>
             {s.tiles.map((t, i) => {
               const img = assetUrl(t.imagePath);
+              const cta = textBoxProps("cta", lookOf(t.ctaLook), i);
               return (
                 <li key={i} className={`flex flex-wrap items-center gap-x-5 gap-y-3 py-5 @[64rem]:px-6 @[64rem]:first:pl-0 @[64rem]:last:pr-0 ${s.tiles.length === 1 ? "@[48rem]:flex-nowrap" : ""} ${s.align === "center" ? "justify-center text-center" : s.align === "right" ? "justify-end text-right" : ""}`}>
                   {i === 0 && s.badge ? <span className="sf-promo-strip-badge sf-heading">{s.badge}</span> : null}
@@ -307,7 +315,7 @@ export function PromoDesign({ s, ctx, variant }: P<"PromoBanner"> & { variant: E
                     {t.heading ? <span className="sf-heading block text-xl @[64rem]:text-2xl">{t.heading}</span> : null}
                     {t.text ? <span className="block text-sm opacity-85">{t.text}</span> : null}
                   </span>
-                  <Cta label={t.ctaLabel} href={t.ctaHref} className="sf-btn shrink-0" />
+                  <Cta label={t.ctaLabel} href={t.ctaHref} className="sf-btn shrink-0" style={cta.style} dataAttrs={cta.attrs} />
                 </li>
               );
             })}
@@ -320,7 +328,7 @@ export function PromoDesign({ s, ctx, variant }: P<"PromoBanner"> & { variant: E
           <div className={`sf-container sf-section grid gap-12 ${s.tiles.length === 3 ? "@[64rem]:grid-cols-3" : s.tiles.length === 2 ? "@[48rem]:grid-cols-2" : ""}`}>
             {s.tiles.map((t, i) => (
               <div key={i} className={`flex flex-col gap-5 ${s.tiles.length === 1 ? `max-w-3xl ${ALIGN_SELF[s.align]}` : ""} ${ALIGN_TEXT[s.align]} ${ALIGN_ITEMS[s.align]}`}>
-                <PromoCopy t={t} badge={i === 0 ? s.badge : ""} light={false} big={s.tiles.length === 1} />
+                <PromoCopy t={t} badge={i === 0 ? s.badge : ""} light={false} big={s.tiles.length === 1} itemIndex={i} />
               </div>
             ))}
           </div>
@@ -340,7 +348,7 @@ export const isCategoryDesign = (v: CategoryVariant): v is CategoryDesignVariant
 const BENTO = ["col-span-2 row-span-2", "col-span-2", "", "", "row-span-2", "col-span-2"];
 const OVERLAY_COLS: Record<number, string> = { 1: "", 2: "@[48rem]:grid-cols-2", 3: "@[48rem]:grid-cols-3", 4: "@[48rem]:grid-cols-4" };
 
-export function CategoryDesign({ tiles, variant, intro, ctx }: { tiles: Tile[]; variant: CategoryDesignVariant; intro: IntroProps; ctx: RenderContext }) {
+export function CategoryDesign({ tiles, variant, intro, ctx }: { tiles: Tile[]; variant: CategoryDesignVariant; intro: SectionIntroProps; ctx: RenderContext }) {
   const stockAt = (t: Tile, i: number) => stockFor(ctx, t.imagePath, "tiles", i);
   let body: ReactNode;
   switch (variant) {
@@ -419,7 +427,7 @@ export function CategoryDesign({ tiles, variant, intro, ctx }: { tiles: Tile[]; 
   }
   return (
     <section className="sf-container sf-section">
-      <Intro {...intro} />
+      <SectionIntro {...intro} />
       {body}
     </section>
   );
@@ -455,19 +463,28 @@ function FaqHeading({ s, centred = false }: { s: SectionSettings<"FAQ">; centred
   if (!s.eyebrow && !s.heading && !s.subheading) return null;
   return (
     <div className={`space-y-3 ${centred ? "mx-auto max-w-2xl text-center" : ""}`}>
-      {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
-      {s.heading ? (
-        <h2 className={headingClass(s.headingStyle, "sf-heading text-3xl @[64rem]:text-5xl")}>
-          <HeadingText heading={s.heading} accent={s.headingAccent} />
-        </h2>
+      {s.eyebrow ? (
+        <TextBox role="eyebrow" look={lookOf(s.eyebrowLook)} as="p" className="sf-eyebrow">
+          {s.eyebrow}
+        </TextBox>
       ) : null}
-      {s.subheading ? <p className="sf-muted">{s.subheading}</p> : null}
+      {s.heading ? (
+        <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className={headingClass(s.headingStyle, "sf-heading text-3xl @[64rem]:text-5xl")}>
+          <HeadingText heading={s.heading} accent={s.headingAccent} />
+        </TextBox>
+      ) : null}
+      {s.subheading ? (
+        <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className="sf-muted">
+          {s.subheading}
+        </TextBox>
+      ) : null}
     </div>
   );
 }
 
 export function FaqDesign({ s, items }: { s: SectionSettings<"FAQ">; items: FaqItem[] }) {
-  const cta = <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-outline" />;
+  const ctaLook = textBoxProps("cta", lookOf(s.ctaLook));
+  const cta = <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-outline" style={ctaLook.style} dataAttrs={ctaLook.attrs} />;
   switch (s.variant) {
     case "faq-split":
       return (
@@ -482,7 +499,7 @@ export function FaqDesign({ s, items }: { s: SectionSettings<"FAQ">; items: FaqI
     case "faq-cards":
       return (
         <section className="sf-container sf-section">
-          <Intro {...hp(s)} />
+          <SectionIntro {...hpLooks(s)} />
           <dl className="grid gap-4 @[48rem]:grid-cols-2 @[64rem]:grid-cols-3">
             {items.map((f, i) => (
               <div key={i} className="sf-faq-card p-6">
@@ -531,13 +548,17 @@ export function FaqDesign({ s, items }: { s: SectionSettings<"FAQ">; items: FaqI
               </div>
             ))}
           </dl>
-          {s.ctaLabel && s.ctaHref ? <div className="mt-8 flex justify-end">{<Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn" />}</div> : null}
+          {s.ctaLabel && s.ctaHref ? (
+            <div className="mt-8 flex justify-end">
+              <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn" style={ctaLook.style} dataAttrs={ctaLook.attrs} />
+            </div>
+          ) : null}
         </section>
       );
     default:
       return (
         <section className="sf-container sf-section mx-auto max-w-3xl">
-          <Intro {...hp(s)} />
+          <SectionIntro {...hpLooks(s)} />
           <Accordion items={items} />
         </section>
       );
@@ -638,7 +659,7 @@ export async function SocialProofSection({ s, ctx }: P<"SocialProof">) {
     const shown = posts.slice(0, 9);
     return (
       <section className="sf-container sf-section mx-auto max-w-4xl">
-        <Intro {...hp(s)} />
+        <SectionIntro {...hpLooks(s)} />
         <div className="mb-6 flex items-center gap-5 @[48rem]:gap-10 @[48rem]:px-6">
           <IgAvatar ctx={ctx} size="lg" />
           <div className="min-w-0 flex-1 space-y-2">
@@ -676,7 +697,7 @@ export async function SocialProofSection({ s, ctx }: P<"SocialProof">) {
   if (layout === "ig-reels") {
     return (
       <section className="sf-container sf-section">
-        <Intro {...hp(s)} />
+        <SectionIntro {...hpLooks(s)} />
         {profileRow}
         <ul className={`${greyscale}sf-scroll-row -mx-4 px-4 @[48rem]:mx-0 @[48rem]:px-0`} aria-label="Instagram reels">
           {posts.map((p, i) => (
@@ -724,7 +745,7 @@ export async function SocialProofSection({ s, ctx }: P<"SocialProof">) {
     ));
     return (
       <section className="sf-container sf-section">
-        <Intro {...hp(s)} />
+        <SectionIntro {...hpLooks(s)} />
         <ul className={`${greyscale}sf-ig-collage grid grid-cols-2 items-start gap-3 @[48rem]:grid-cols-4 @[48rem]:gap-4`}>
           {[...tiles.slice(0, 1), card, ...tiles.slice(1)]}
         </ul>
@@ -739,7 +760,7 @@ export async function SocialProofSection({ s, ctx }: P<"SocialProof">) {
   const shown = mosaic ? posts.slice(0, posts.length >= 9 ? 9 : posts.length >= 5 ? 5 : posts.length) : posts;
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} />
+      <SectionIntro {...hpLooks(s)} />
       {profileRow}
       <ul className={`${greyscale}${strip ? "sf-reel-strip" : `grid gap-2 @[48rem]:gap-3 ${mosaic ? "grid-cols-2 @[48rem]:grid-cols-4" : "grid-cols-3 @[64rem]:grid-cols-6"}`}`}>
         {shown.map((p, i) => {

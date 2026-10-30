@@ -11,6 +11,8 @@ import {
   textLookStyle,
 } from "@/features/theme/schema/text-style";
 import { FONT_STACKS } from "@/features/theme/schema/tokens";
+import { lookOf, textCurrentClass } from "@/features/theme/render/text-look";
+import { SECTION_DEFINITIONS, defaultSettings } from "@/features/theme/sections/definitions";
 
 describe("text look schema", () => {
   it("defaults every key so old themes parse unchanged", () => {
@@ -117,5 +119,39 @@ describe("text look style helpers", () => {
   it("patches looks for the editor and canvas resize", () => {
     expect(patchTextLook({}, { widthPct: 60 }).widthPct).toBe(60);
     expect(patchTextLook({ font: "body", widthPct: 40 }, { widthPct: 25 })).toMatchObject({ font: "body", widthPct: 25 });
+  });
+
+  it("skips !text-current when a look colour is set so inline colour can win", () => {
+    expect(textCurrentClass(undefined)).toBe("!text-current");
+    expect(textCurrentClass(lookOf({}))).toBe("!text-current");
+    expect(textCurrentClass(lookOf({ color: "" }))).toBe("!text-current");
+    expect(textCurrentClass(lookOf({ color: "#1c1917" }))).toBe("");
+  });
+});
+
+describe("section heading / CTA looks", () => {
+  it("defaults empty looks on ProductGrid / BrandStory / FAQ so old themes parse", () => {
+    const grid = defaultSettings("ProductGrid");
+    expect(grid).toMatchObject({
+      eyebrowLook: expect.objectContaining({ color: "" }),
+      headingLook: expect.objectContaining({ color: "" }),
+      subheadingLook: expect.objectContaining({ color: "" }),
+    });
+    const story = defaultSettings("BrandStory");
+    expect(story).toMatchObject({
+      bodyLook: expect.objectContaining({ color: "" }),
+      ctaLook: expect.objectContaining({ color: "" }),
+    });
+    const faq = defaultSettings("FAQ");
+    expect(faq).toMatchObject({ ctaLook: expect.objectContaining({ color: "" }) });
+  });
+
+  it("exposes TextStyleField rows next to heading and CTA copy", () => {
+    const keys = (type: keyof typeof SECTION_DEFINITIONS) => SECTION_DEFINITIONS[type].fields.map((f) => f.key);
+    expect(keys("ProductGrid")).toEqual(expect.arrayContaining(["eyebrowLook", "headingLook", "subheadingLook"]));
+    expect(keys("BrandStory")).toEqual(expect.arrayContaining(["eyebrowLook", "headingLook", "subheadingLook", "bodyLook", "ctaLook"]));
+    expect(keys("SaleBanner")).toEqual(expect.arrayContaining(["ctaLook"]));
+    expect(keys("FAQ")).toEqual(expect.arrayContaining(["ctaLook"]));
+    expect(keys("RichText")).toEqual(expect.arrayContaining(["eyebrowLook", "headingLook", "subheadingLook", "bodyLook", "ctaLook"]));
   });
 });

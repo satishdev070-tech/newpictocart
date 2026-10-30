@@ -25,9 +25,9 @@ import { AutoScrollRow } from "@/features/storefront/components/auto-scroll-row"
 import { DECOR_ARTWORKS } from "@/features/theme/sections/definitions";
 import { assetUrl } from "@/lib/storage/assets";
 import { AnnouncementBar, Footer, Header, MegaMenu } from "./chrome";
-import { Cta, HeadingText, Intro, ViewAll, headingClass, hp, sourceArgs } from "./parts";
+import { Cta, HeadingText, ViewAll, headingClass, sourceArgs } from "./parts";
 import { slideGroups } from "./slide-visibility";
-import { TextBox, lookOf, textBoxProps } from "./text-look";
+import { SectionIntro, TextBox, hpLooks, lookOf, textBoxProps, textCurrentClass } from "./text-look";
 import { HeroVariant, NewsletterVariant, PhotoCredit, ProductGridVariant, StoryVariant, TestimonialsVariant, TileLayout, cardSettings, stockFor } from "./variants";
 import { productPlaceholder } from "@/features/storefront/components/product-card";
 import type { CardRatio } from "@/features/theme/sections/variants";
@@ -123,7 +123,7 @@ async function Hero({ s, ctx }: P<"Hero">) {
               <div className={`sf-container ${banner ? "relative py-6 @[48rem]:absolute @[48rem]:inset-x-0 @[48rem]:bottom-0 @[48rem]:py-12" : "relative py-16"} ${sl.align === "center" ? "text-center" : ""} ${sl.textTone === "light" ? (banner ? "@[48rem]:text-white" : "text-white") : ""}`}>
                 <div className={`max-w-xl space-y-4 ${sl.align === "center" ? "mx-auto" : ""}`}>
                   {g.subtitle && sl.eyebrow ? (
-                    <TextBox role="eyebrow" look={lookOf(sl.eyebrowLook)} itemIndex={i} as="p" className="sf-eyebrow !text-current opacity-85">
+                    <TextBox role="eyebrow" look={lookOf(sl.eyebrowLook)} itemIndex={i} as="p" className={`sf-eyebrow ${textCurrentClass(lookOf(sl.eyebrowLook))} opacity-85`}>
                       {sl.eyebrow}
                     </TextBox>
                   ) : null}
@@ -181,7 +181,13 @@ function PromoBanner({ s, ctx }: P<"PromoBanner">) {
               <h2 className="sf-heading text-2xl">{t.heading}</h2>
               {t.text ? <p className="mt-1 text-sm opacity-90">{t.text}</p> : null}
               <div className="mt-3">
-                <Cta label={t.ctaLabel} href={t.ctaHref} className="sf-btn sf-btn-light" />
+                <Cta
+                  label={t.ctaLabel}
+                  href={t.ctaHref}
+                  className="sf-btn sf-btn-light"
+                  style={textBoxProps("cta", lookOf(t.ctaLook), i).style}
+                  dataAttrs={textBoxProps("cta", lookOf(t.ctaLook), i).attrs}
+                />
               </div>
             </div>
             )}
@@ -217,13 +223,13 @@ async function CategoryGrid({ s, ctx }: P<"CategoryGrid">) {
     // Banner rows show each category's description (only these designs, so older layouts are unchanged).
     const desc = new Map(all.map((c) => [paths.category(c.slug), c.description]));
     const subtitled = s.variant === "cat-banners" ? tiles.map((t) => ({ ...t, subtitle: tileSubtitle(desc.get(t.href)) })) : tiles;
-    return <CategoryDesign tiles={subtitled} variant={s.variant} intro={hp(s)} ctx={ctx} />;
+    return <CategoryDesign tiles={subtitled} variant={s.variant} intro={hpLooks(s)} ctx={ctx} />;
   }
-  if (s.variant !== "grid") return <TileLayout tiles={tiles} variant={s.variant} intro={hp(s)} ctx={ctx} />;
+  if (s.variant !== "grid") return <TileLayout tiles={tiles} variant={s.variant} intro={hpLooks(s)} ctx={ctx} />;
   if (s.shape === "arch") {
     return (
       <section className="sf-container sf-section">
-        <Intro {...hp(s)} />
+        <SectionIntro {...hpLooks(s)} />
         <ul className={`sf-arch-grid grid grid-cols-3 gap-x-3 gap-y-5 @[48rem]:gap-x-6 ${DESKTOP_COLS[Math.min(tiles.length, 6)] ?? DESKTOP_COLS[6]}`}>
           {tiles.map((t, i) => (
             <li key={t.href}>
@@ -242,7 +248,7 @@ async function CategoryGrid({ s, ctx }: P<"CategoryGrid">) {
   const aspect = s.shape === "circle" ? "aspect-square rounded-full" : s.shape === "square" ? "aspect-square" : "aspect-[3/4]";
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} />
+      <SectionIntro {...hpLooks(s)} />
       <ul className={`grid gap-4 ${s.shape === "circle" ? "grid-cols-3 @[48rem]:grid-cols-4 @[64rem]:grid-cols-6" : `grid-cols-2 ${DESKTOP_COLS[Math.min(tiles.length, 6)] ?? DESKTOP_COLS[6]}`}`}>
         {tiles.map((t, i) => (
           <li key={t.href}>
@@ -267,12 +273,12 @@ async function CollectionGrid({ s, ctx }: P<"CollectionGrid">) {
   if (!ordered.length) return null;
   if (s.layout !== "grid") {
     const tiles = ordered.map((c) => ({ href: paths.collection(c.slug), label: labels.get(c.id)?.label || c.title, imagePath: labels.get(c.id)?.imagePath || c.imagePath, subtitle: labels.get(c.id)?.subtitle || "" }));
-    return <TileLayout tiles={tiles} variant={s.layout} intro={hp(s)} ctx={ctx} />;
+    return <TileLayout tiles={tiles} variant={s.layout} intro={hpLooks(s)} ctx={ctx} />;
   }
   if (s.variant === "overlay") {
     return (
       <section className="sf-container sf-section">
-        <Intro {...hp(s)} />
+        <SectionIntro {...hpLooks(s)} />
         <ul className={`grid grid-cols-2 gap-3 @[48rem]:gap-5 ${s.columns >= 4 ? "@[64rem]:grid-cols-4" : s.columns === 3 ? "@[64rem]:grid-cols-3" : ""}`}>
           {ordered.map((c, i) => {
             const item = labels.get(c.id);
@@ -295,7 +301,7 @@ async function CollectionGrid({ s, ctx }: P<"CollectionGrid">) {
   }
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} />
+      <SectionIntro {...hpLooks(s)} />
       <ul className={`grid grid-cols-2 gap-4 ${s.columns >= 4 ? "@[64rem]:grid-cols-4" : s.columns === 3 ? "@[64rem]:grid-cols-3" : ""}`}>
         {ordered.map((c, i) => (
           <li key={c.id}>
@@ -314,21 +320,21 @@ async function CollectionGrid({ s, ctx }: P<"CollectionGrid">) {
 
 async function ProductCarouselSection({ s, ctx }: P<"ProductCarousel">) {
   if (s.variant === "tilt") return <TiltCarousel s={s} ctx={ctx} />;
-  if (s.variant === "rail") return <ProductGridVariant ctx={ctx} args={sourceArgs(s)} variant="rail" intro={{ ...hp(s), action: <ViewAll href={s.viewAllHref} /> }} cardRatio={s.cardRatio} />;
+  if (s.variant === "rail") return <ProductGridVariant ctx={ctx} args={sourceArgs(s)} variant="rail" intro={{ ...hpLooks(s), action: <ViewAll href={s.viewAllHref} /> }} cardRatio={s.cardRatio} />;
   if (s.variant === "carousel-tiles") return <TileCarousel s={s} ctx={ctx} />;
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
+      <SectionIntro {...hpLooks(s)} action={<ViewAll href={s.viewAllHref} />} />
       <Products ctx={ctx} args={sourceArgs(s)} layout="carousel" cardRatio={s.cardRatio} />
     </section>
   );
 }
 
 async function ProductGridSection({ s, ctx }: P<"ProductGrid">) {
-  if (s.variant !== "grid") return <ProductGridVariant ctx={ctx} args={sourceArgs(s)} variant={s.variant} intro={{ ...hp(s), action: <ViewAll href={s.viewAllHref} /> }} cardRatio={s.cardRatio} columns={s.columns} />;
+  if (s.variant !== "grid") return <ProductGridVariant ctx={ctx} args={sourceArgs(s)} variant={s.variant} intro={{ ...hpLooks(s), action: <ViewAll href={s.viewAllHref} /> }} cardRatio={s.cardRatio} columns={s.columns} />;
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
+      <SectionIntro {...hpLooks(s)} action={<ViewAll href={s.viewAllHref} />} />
       <Products ctx={ctx} args={sourceArgs(s)} layout="grid" columns={s.columns} cardRatio={s.cardRatio} />
     </section>
   );
@@ -336,10 +342,10 @@ async function ProductGridSection({ s, ctx }: P<"ProductGrid">) {
 
 async function Bestseller({ s, ctx }: P<"Bestseller">) {
   const args: ListArgs = { p_sort: "best_selling", p_limit: s.limit, p_offset: 0 };
-  if (s.layout !== "carousel" && s.layout !== "grid") return <ProductGridVariant ctx={ctx} args={args} variant={s.layout} intro={{ ...hp(s), action: <ViewAll href={s.viewAllHref} /> }} cardRatio={s.cardRatio} />;
+  if (s.layout !== "carousel" && s.layout !== "grid") return <ProductGridVariant ctx={ctx} args={args} variant={s.layout} intro={{ ...hpLooks(s), action: <ViewAll href={s.viewAllHref} /> }} cardRatio={s.cardRatio} />;
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
+      <SectionIntro {...hpLooks(s)} action={<ViewAll href={s.viewAllHref} />} />
       <Products ctx={ctx} args={args} layout={s.layout === "carousel" ? "carousel" : "grid"} cardRatio={s.cardRatio} />
     </section>
   );
@@ -347,26 +353,39 @@ async function Bestseller({ s, ctx }: P<"Bestseller">) {
 
 async function NewArrivals({ s, ctx }: P<"NewArrivals">) {
   const args: ListArgs = { p_sort: "newest", p_limit: s.limit, p_offset: 0 };
-  if (s.layout !== "carousel" && s.layout !== "grid") return <ProductGridVariant ctx={ctx} args={args} variant={s.layout} intro={{ ...hp(s), action: <ViewAll href={s.viewAllHref} /> }} cardRatio={s.cardRatio} />;
+  if (s.layout !== "carousel" && s.layout !== "grid") return <ProductGridVariant ctx={ctx} args={args} variant={s.layout} intro={{ ...hpLooks(s), action: <ViewAll href={s.viewAllHref} /> }} cardRatio={s.cardRatio} />;
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
+      <SectionIntro {...hpLooks(s)} action={<ViewAll href={s.viewAllHref} />} />
       <Products ctx={ctx} args={args} layout={s.layout === "carousel" ? "carousel" : "grid"} cardRatio={s.cardRatio} />
     </section>
   );
 }
 
 function SaleBanner({ s }: P<"SaleBanner">) {
+  const eyebrowLook = lookOf(s.eyebrowLook);
+  const headingLook = lookOf(s.headingLook);
+  const subheadingLook = lookOf(s.subheadingLook);
+  const cta = textBoxProps("cta", lookOf(s.ctaLook));
+  const eyebrow = s.eyebrow ? (
+    <TextBox role="eyebrow" look={eyebrowLook} as="p" className={`sf-eyebrow ${textCurrentClass(eyebrowLook)} opacity-80`}>
+      {s.eyebrow}
+    </TextBox>
+  ) : null;
   if (s.variant === "sale-split") {
     return (
       <section style={{ background: s.background, color: s.textColor }}>
         <div className="sf-container sf-section grid items-center gap-8 text-center @[48rem]:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] @[48rem]:text-left">
           <div>
-            {s.eyebrow ? <p className="sf-eyebrow !text-current opacity-80">{s.eyebrow}</p> : null}
-            <h2 className={headingClass(s.headingStyle, "sf-heading mt-2 text-4xl @[64rem]:text-6xl")}>
+            {eyebrow}
+            <TextBox role="heading" look={headingLook} as="h2" className={headingClass(s.headingStyle, "sf-heading mt-2 text-4xl @[64rem]:text-6xl")}>
               <HeadingText heading={s.heading} accent={s.headingAccent} />
-            </h2>
-            {s.subheading ? <p className="mt-3 max-w-xl opacity-90 @[48rem]:text-lg">{s.subheading}</p> : null}
+            </TextBox>
+            {s.subheading ? (
+              <TextBox role="subheading" look={subheadingLook} as="p" className="mt-3 max-w-xl opacity-90 @[48rem]:text-lg">
+                {s.subheading}
+              </TextBox>
+            ) : null}
           </div>
           <div className="flex flex-col items-center gap-3 @[48rem]:items-end">
             {s.code ? (
@@ -375,7 +394,7 @@ function SaleBanner({ s }: P<"SaleBanner">) {
               </p>
             ) : null}
             {s.endsText ? <p className="text-xs opacity-80">{s.endsText}</p> : null}
-            <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-light mt-2" />
+            <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-light mt-2" style={cta.style} dataAttrs={cta.attrs} />
           </div>
         </div>
       </section>
@@ -386,11 +405,15 @@ function SaleBanner({ s }: P<"SaleBanner">) {
       <section className="sf-container sf-section">
         <div className="sf-sale-ticket mx-auto grid max-w-4xl @[48rem]:grid-cols-[minmax(0,1fr)_auto]" style={{ background: s.background, color: s.textColor }}>
           <div className="space-y-2 px-8 py-8 text-center @[48rem]:px-12 @[48rem]:py-10 @[48rem]:text-left">
-            {s.eyebrow ? <p className="sf-eyebrow !text-current opacity-80">{s.eyebrow}</p> : null}
-            <h2 className={headingClass(s.headingStyle, "sf-heading text-3xl @[64rem]:text-4xl")}>
+            {eyebrow}
+            <TextBox role="heading" look={headingLook} as="h2" className={headingClass(s.headingStyle, "sf-heading text-3xl @[64rem]:text-4xl")}>
               <HeadingText heading={s.heading} accent={s.headingAccent} />
-            </h2>
-            {s.subheading ? <p className="opacity-90">{s.subheading}</p> : null}
+            </TextBox>
+            {s.subheading ? (
+              <TextBox role="subheading" look={subheadingLook} as="p" className="opacity-90">
+                {s.subheading}
+              </TextBox>
+            ) : null}
             {s.endsText ? <p className="text-xs opacity-80">{s.endsText}</p> : null}
           </div>
           <div className="sf-sale-ticket-stub flex flex-col items-center justify-center gap-3 px-8 py-8 @[48rem]:px-10">
@@ -400,7 +423,7 @@ function SaleBanner({ s }: P<"SaleBanner">) {
                 <p className="font-mono text-2xl font-semibold tracking-[0.18em] @[64rem]:text-3xl">{s.code}</p>
               </>
             ) : null}
-            <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-light" />
+            <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-light" style={cta.style} dataAttrs={cta.attrs} />
           </div>
         </div>
       </section>
@@ -409,9 +432,15 @@ function SaleBanner({ s }: P<"SaleBanner">) {
   return (
     <section style={{ background: s.background, color: s.textColor }}>
       <div className="sf-container sf-section text-center">
-        {s.eyebrow ? <p className="sf-eyebrow !text-current opacity-80">{s.eyebrow}</p> : null}
-        <h2 className="sf-heading mt-2 text-4xl @[64rem]:text-5xl">{s.heading}</h2>
-        {s.subheading ? <p className="mt-3 opacity-90">{s.subheading}</p> : null}
+        {eyebrow}
+        <TextBox role="heading" look={headingLook} as="h2" className="sf-heading mt-2 text-4xl @[64rem]:text-5xl">
+          {s.heading}
+        </TextBox>
+        {s.subheading ? (
+          <TextBox role="subheading" look={subheadingLook} as="p" className="mt-3 opacity-90">
+            {s.subheading}
+          </TextBox>
+        ) : null}
         {s.code ? (
           <p className="mt-4 text-sm">
             Use code <span className="rounded border border-current px-2 py-0.5 font-mono tracking-widest">{s.code}</span>
@@ -419,7 +448,7 @@ function SaleBanner({ s }: P<"SaleBanner">) {
         ) : null}
         {s.endsText ? <p className="mt-2 text-xs opacity-80">{s.endsText}</p> : null}
         <div className="mt-6">
-          <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-light" />
+          <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-light" style={cta.style} dataAttrs={cta.attrs} />
         </div>
       </div>
     </section>
@@ -461,11 +490,33 @@ async function EditorialImageText({ s, ctx }: P<"EditorialImageText">) {
               <PhotoCredit img={stock} className="sf-photo-credit-on" />
             </div>
             <div className={`sf-overlap-card relative z-10 mx-4 -mt-16 space-y-4 p-7 shadow-xl @[64rem]:col-span-5 @[64rem]:row-start-1 @[64rem]:mx-0 @[64rem]:mt-0 @[64rem]:p-12 ${s.imagePosition === "right" ? "@[64rem]:col-start-1" : "@[64rem]:col-start-8"}`}>
-              {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
-              {heading ? <h2 className="sf-heading text-3xl @[64rem]:text-4xl">{heading}</h2> : null}
-              {s.subheading ? <p className="text-lg">{s.subheading}</p> : null}
-              {body ? <p className="sf-muted whitespace-pre-line leading-relaxed">{body}</p> : null}
-              <Cta label={s.ctaLabel || (href ? "Read more" : "")} href={href} className="sf-btn sf-btn-outline" />
+              {s.eyebrow ? (
+                <TextBox role="eyebrow" look={lookOf(s.eyebrowLook)} as="p" className="sf-eyebrow">
+                  {s.eyebrow}
+                </TextBox>
+              ) : null}
+              {heading ? (
+                <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className="sf-heading text-3xl @[64rem]:text-4xl">
+                  {heading}
+                </TextBox>
+              ) : null}
+              {s.subheading ? (
+                <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className="text-lg">
+                  {s.subheading}
+                </TextBox>
+              ) : null}
+              {body ? (
+                <TextBox role="body" look={lookOf(s.bodyLook)} as="p" className="sf-muted whitespace-pre-line leading-relaxed">
+                  {body}
+                </TextBox>
+              ) : null}
+              <Cta
+                label={s.ctaLabel || (href ? "Read more" : "")}
+                href={href}
+                className="sf-btn sf-btn-outline"
+                style={textBoxProps("cta", lookOf(s.ctaLook)).style}
+                dataAttrs={textBoxProps("cta", lookOf(s.ctaLook)).attrs}
+              />
             </div>
           </div>
         </div>
@@ -480,11 +531,33 @@ async function EditorialImageText({ s, ctx }: P<"EditorialImageText">) {
           <PhotoCredit img={stock} className="sf-photo-credit-on" />
         </div>
         <div className="space-y-4">
-          {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
-          {heading ? <h2 className="sf-heading text-3xl @[64rem]:text-5xl">{heading}</h2> : null}
-          {s.subheading ? <p className="text-lg">{s.subheading}</p> : null}
-          {body ? <p className="sf-muted whitespace-pre-line leading-relaxed">{body}</p> : null}
-          <Cta label={s.ctaLabel || (href ? "Read more" : "")} href={href} className="sf-btn sf-btn-outline" />
+          {s.eyebrow ? (
+            <TextBox role="eyebrow" look={lookOf(s.eyebrowLook)} as="p" className="sf-eyebrow">
+              {s.eyebrow}
+            </TextBox>
+          ) : null}
+          {heading ? (
+            <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className="sf-heading text-3xl @[64rem]:text-5xl">
+              {heading}
+            </TextBox>
+          ) : null}
+          {s.subheading ? (
+            <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className="text-lg">
+              {s.subheading}
+            </TextBox>
+          ) : null}
+          {body ? (
+            <TextBox role="body" look={lookOf(s.bodyLook)} as="p" className="sf-muted whitespace-pre-line leading-relaxed">
+              {body}
+            </TextBox>
+          ) : null}
+          <Cta
+            label={s.ctaLabel || (href ? "Read more" : "")}
+            href={href}
+            className="sf-btn sf-btn-outline"
+            style={textBoxProps("cta", lookOf(s.ctaLook)).style}
+            dataAttrs={textBoxProps("cta", lookOf(s.ctaLook)).attrs}
+          />
         </div>
       </div>
     </section>
@@ -493,14 +566,15 @@ async function EditorialImageText({ s, ctx }: P<"EditorialImageText">) {
 
 function VideoBanner({ s }: P<"VideoBanner">) {
   if (s.variant !== "video-boxed") return <VideoBannerVariant s={s} />;
+  const cta = textBoxProps("cta", lookOf(s.ctaLook));
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} />
+      <SectionIntro {...hpLooks(s)} />
       <div className="relative aspect-video overflow-hidden rounded-[var(--sf-radius-card)] bg-black">
         <VideoBannerMedia s={s} />
       </div>
       <div className="mt-6 text-center">
-        <Cta label={s.ctaLabel} href={s.ctaHref} />
+        <Cta label={s.ctaLabel} href={s.ctaHref} style={cta.style} dataAttrs={cta.attrs} />
       </div>
     </section>
   );
@@ -534,15 +608,24 @@ function VideoBannerMedia({ s }: { s: SectionSettings<"VideoBanner"> }) {
 
 /** Full-width (text over the video) and split (video beside the text) video banners. */
 function VideoBannerVariant({ s }: { s: SectionSettings<"VideoBanner"> }) {
+  const cta = textBoxProps("cta", lookOf(s.ctaLook));
   const text = (light: boolean) => (
     <>
-      {s.eyebrow ? <p className={`sf-eyebrow ${light ? "!text-white/90" : ""}`}>{s.eyebrow}</p> : null}
-      {s.heading ? (
-        <h2 className={headingClass(s.headingStyle, "sf-heading text-3xl @[64rem]:text-5xl")}>
-          <HeadingText heading={s.heading} accent={s.headingAccent} />
-        </h2>
+      {s.eyebrow ? (
+        <TextBox role="eyebrow" look={lookOf(s.eyebrowLook)} as="p" className={`sf-eyebrow ${light ? "!text-white/90" : ""}`}>
+          {s.eyebrow}
+        </TextBox>
       ) : null}
-      {s.subheading ? <p className={light ? "max-w-xl text-white/90" : "sf-muted max-w-xl leading-relaxed"}>{s.subheading}</p> : null}
+      {s.heading ? (
+        <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className={headingClass(s.headingStyle, "sf-heading text-3xl @[64rem]:text-5xl")}>
+          <HeadingText heading={s.heading} accent={s.headingAccent} />
+        </TextBox>
+      ) : null}
+      {s.subheading ? (
+        <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className={light ? "max-w-xl text-white/90" : "sf-muted max-w-xl leading-relaxed"}>
+          {s.subheading}
+        </TextBox>
+      ) : null}
     </>
   );
   if (s.variant === "video-fullbleed") {
@@ -556,7 +639,7 @@ function VideoBannerVariant({ s }: { s: SectionSettings<"VideoBanner"> }) {
             {text(true)}
             {s.ctaLabel && s.ctaHref ? (
               <div className="pointer-events-auto pt-2">
-                <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-light" />
+                <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-light" style={cta.style} dataAttrs={cta.attrs} />
               </div>
             ) : null}
           </div>
@@ -571,7 +654,7 @@ function VideoBannerVariant({ s }: { s: SectionSettings<"VideoBanner"> }) {
       </div>
       <div className="space-y-4">
         {text(false)}
-        <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-outline" />
+        <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-outline" style={cta.style} dataAttrs={cta.attrs} />
       </div>
     </section>
   );
@@ -583,7 +666,7 @@ function Lookbook({ s, ctx }: P<"Lookbook">) {
   if (s.layout === "lookbook-rail") return <LookbookRail s={s} ctx={ctx} />;
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} />
+      <SectionIntro {...hpLooks(s)} />
       <ul className={s.layout === "masonry" ? "columns-2 gap-4 @[64rem]:columns-3 [&>li]:mb-4 [&>li]:break-inside-avoid" : "grid grid-cols-2 gap-4 @[64rem]:grid-cols-3"}>
         {s.looks.map((l, i) => (
           <li key={i}>
@@ -603,13 +686,28 @@ function Lookbook({ s, ctx }: P<"Lookbook">) {
 function BrandStory({ s, ctx }: P<"BrandStory">) {
   if (s.variant !== "split") return <StoryVariant s={s} ctx={ctx} />;
   const stock = stockFor(ctx, s.imagePath, "story", 0);
+  const cta = textBoxProps("cta", lookOf(s.ctaLook));
   const grid = (
     <section className={`sf-container sf-section grid items-center gap-10 @[48rem]:grid-cols-2 ${s.imagePosition === "left" ? "@[48rem]:[&>*:first-child]:order-2" : ""}`}>
       <div className="space-y-5">
-        {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
-        <h2 className="sf-heading text-3xl @[64rem]:text-5xl">{s.heading}</h2>
-        {s.subheading ? <p className="text-lg">{s.subheading}</p> : null}
-        {s.body ? <p className="sf-muted whitespace-pre-line leading-relaxed">{s.body}</p> : null}
+        {s.eyebrow ? (
+          <TextBox role="eyebrow" look={lookOf(s.eyebrowLook)} as="p" className="sf-eyebrow">
+            {s.eyebrow}
+          </TextBox>
+        ) : null}
+        <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className="sf-heading text-3xl @[64rem]:text-5xl">
+          {s.heading}
+        </TextBox>
+        {s.subheading ? (
+          <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className="text-lg">
+            {s.subheading}
+          </TextBox>
+        ) : null}
+        {s.body ? (
+          <TextBox role="body" look={lookOf(s.bodyLook)} as="p" className="sf-muted whitespace-pre-line leading-relaxed">
+            {s.body}
+          </TextBox>
+        ) : null}
         {s.stats.length ? (
           <dl className="grid grid-cols-2 gap-6 pt-2 @[48rem]:grid-cols-4">
             {s.stats.map((st, i) => (
@@ -620,7 +718,7 @@ function BrandStory({ s, ctx }: P<"BrandStory">) {
             ))}
           </dl>
         ) : null}
-        <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-outline" />
+        <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-outline" style={cta.style} dataAttrs={cta.attrs} />
       </div>
       <div className="relative aspect-[4/5] overflow-hidden rounded-[var(--sf-radius-card)]">
         <StoreImage path={s.imagePath} alt={s.alt} sizes="(min-width: 768px) 50vw, 100vw" stock={stock} />
@@ -638,7 +736,7 @@ function Testimonials({ s, ctx }: P<"Testimonials">) {
   return (
     <section className="sf-surface">
       <div className="sf-container sf-section">
-        <Intro {...hp(s)} />
+        <SectionIntro {...hpLooks(s)} />
         <ul className="grid gap-6 @[48rem]:grid-cols-3">
           {s.items.map((t, i) => (
             <li key={i}>
@@ -666,7 +764,7 @@ async function ReviewsSection({ s, ctx }: P<"Reviews">) {
     return (
       <section className="sf-section sf-reviews-band">
         <div className="sf-container">
-          <Intro {...hp(s)} />
+          <SectionIntro {...hpLooks(s)} />
           <ReviewSummary average={summary.average} count={summary.count} className="mb-8 justify-center" />
           <ul className="grid gap-4 @[48rem]:grid-cols-2 @[64rem]:grid-cols-3 @[64rem]:gap-5">
             {reviews.map((r) => (
@@ -684,13 +782,21 @@ async function ReviewsSection({ s, ctx }: P<"Reviews">) {
       <section className="sf-section sf-reviews-band">
         <div className="sf-container grid gap-8 @[64rem]:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)] @[64rem]:gap-12">
           <div className="space-y-5 @[64rem]:sticky @[64rem]:top-24 @[64rem]:self-start">
-            {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
-            {s.heading ? (
-              <h2 className={headingClass(s.headingStyle, "sf-heading text-3xl @[64rem]:text-4xl")}>
-                <HeadingText heading={s.heading} accent={s.headingAccent} />
-              </h2>
+            {s.eyebrow ? (
+              <TextBox role="eyebrow" look={lookOf(s.eyebrowLook)} as="p" className="sf-eyebrow">
+                {s.eyebrow}
+              </TextBox>
             ) : null}
-            {s.subheading ? <p className="sf-muted">{s.subheading}</p> : null}
+            {s.heading ? (
+              <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className={headingClass(s.headingStyle, "sf-heading text-3xl @[64rem]:text-4xl")}>
+                <HeadingText heading={s.heading} accent={s.headingAccent} />
+              </TextBox>
+            ) : null}
+            {s.subheading ? (
+              <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className="sf-muted">
+                {s.subheading}
+              </TextBox>
+            ) : null}
             {summary.count ? (
               <div className="sf-reviews-score">
                 <p className="sf-heading text-6xl leading-none">{summary.average.toFixed(1)}</p>
@@ -715,7 +821,7 @@ async function ReviewsSection({ s, ctx }: P<"Reviews">) {
   return (
     <section className="sf-section sf-reviews-band">
       <div className="sf-container">
-        <Intro {...hp(s)} />
+        <SectionIntro {...hpLooks(s)} />
         <ReviewSummary average={summary.average} count={summary.count} className="mb-8 justify-center" />
         <Carousel label="Customer reviews" itemClassName="w-[84%] @[48rem]:w-[46%] @[64rem]:w-[calc((100%-3.75rem)/4)]">
           {reviews.map((r) => (
@@ -737,9 +843,19 @@ function Newsletter({ s, ctx }: P<"Newsletter">) {
   return (
     <section className={`sf-tone-${s.tone}`}>
       <div className="sf-container sf-section mx-auto max-w-2xl space-y-4 text-center">
-        {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
-        <h2 className="sf-heading text-3xl">{s.heading}</h2>
-        {s.subheading ? <p className="sf-muted">{s.subheading}</p> : null}
+        {s.eyebrow ? (
+          <TextBox role="eyebrow" look={lookOf(s.eyebrowLook)} as="p" className="sf-eyebrow">
+            {s.eyebrow}
+          </TextBox>
+        ) : null}
+        <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className="sf-heading text-3xl">
+          {s.heading}
+        </TextBox>
+        {s.subheading ? (
+          <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className="sf-muted">
+            {s.subheading}
+          </TextBox>
+        ) : null}
         <NewsletterForm buttonLabel={s.buttonLabel} />
       </div>
     </section>
@@ -752,7 +868,7 @@ async function FAQ({ s, ctx }: P<"FAQ">) {
   if (s.variant !== "accordion") return <FaqDesign s={s} items={items} />;
   return (
     <section className="sf-container sf-section mx-auto max-w-3xl">
-      <Intro {...hp(s)} />
+      <SectionIntro {...hpLooks(s)} />
       <div className="sf-border divide-y divide-[var(--sf-border)] border-y">
         {items.map((f, i) => (
           <details key={i} className="group py-4">
@@ -924,7 +1040,7 @@ async function VideoShop({ s, ctx }: P<"VideoShop">) {
   if (!items.length) return null;
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} />
+      <SectionIntro {...hpLooks(s)} />
       <VideoShopPlayer items={items} layout={s.layout} />
     </section>
   );
@@ -959,7 +1075,7 @@ function BrandStrip({ s }: P<"BrandStrip">) {
   return (
     <section className={`sf-tone-${s.tone} sf-section`}>
       <div className="sf-container">
-        <Intro {...hp(s)} />
+        <SectionIntro {...hpLooks(s)} />
       </div>
       {s.layout === "marquee" ? (
         <div className="sf-marquee" style={{ ["--sf-marquee-duration" as string]: `${Math.max(20, s.items.length * 5)}s` }}>
@@ -999,7 +1115,7 @@ async function TiltCarousel({ s, ctx }: P<"ProductCarousel">) {
   return (
     <section className="sf-section overflow-hidden">
       <div className="sf-container">
-        <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
+        <SectionIntro {...hpLooks(s)} action={<ViewAll href={s.viewAllHref} />} />
       </div>
       <div className="sf-tilt" data-drag-label={s.dragLabel || undefined}>
         {s.autoScroll ? (
@@ -1026,7 +1142,7 @@ async function TileCarousel({ s, ctx }: P<"ProductCarousel">) {
   const stock = ctx.stockProducts ? ctx.stock : null;
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
+      <SectionIntro {...hpLooks(s)} action={<ViewAll href={s.viewAllHref} />} />
       <Carousel label={s.heading || "Products"} itemClassName="w-[86%] @[48rem]:w-[48%] @[64rem]:w-[calc((100%-2.5rem)/3)]">
         {cards.map((p) => (
           <Link key={p.id} href={paths.product(p.slug)} className="group relative block aspect-[4/5] overflow-hidden rounded-[var(--sf-radius-card)]">
@@ -1073,7 +1189,7 @@ async function CompactProducts({ s, ctx }: P<"CompactProducts">) {
     // One product per line; wide screens split the list into up to two columns.
     return (
       <section className="sf-container sf-section sf-compact">
-        <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
+        <SectionIntro {...hpLooks(s)} action={<ViewAll href={s.viewAllHref} />} />
         <ul className={`sf-compact-list grid gap-x-10 ${s.columns >= 2 ? "@[64rem]:grid-cols-2" : ""}`}>
           {cards.map((p) => (
             <li key={p.id} className="flex items-center gap-3 py-3 @[48rem]:gap-5">
@@ -1096,7 +1212,7 @@ async function CompactProducts({ s, ctx }: P<"CompactProducts">) {
   if (s.variant === "compact-rail") {
     return (
       <section className="sf-container sf-section sf-compact">
-        <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
+        <SectionIntro {...hpLooks(s)} action={<ViewAll href={s.viewAllHref} />} />
         <ul className="sf-scroll-row -mx-4 px-4 @[48rem]:mx-0 @[48rem]:px-0">
           {cards.map((p) => (
             <li key={p.id} className="sf-rail-item sf-compact-card flex w-[78%] shrink-0 items-center gap-3 p-3 @[48rem]:w-[40%] @[64rem]:w-[calc((100%-2.25rem)/4)]">
@@ -1118,7 +1234,7 @@ async function CompactProducts({ s, ctx }: P<"CompactProducts">) {
   }
   return (
     <section className="sf-container sf-section sf-compact">
-      <Intro {...hp(s)} action={<ViewAll href={s.viewAllHref} />} />
+      <SectionIntro {...hpLooks(s)} action={<ViewAll href={s.viewAllHref} />} />
       <ul className={`grid grid-cols-2 gap-x-3 gap-y-5 @[48rem]:gap-x-6 ${cols}`}>
         {cards.map((p) => (
           <li key={p.id} className="flex items-start gap-2.5 @[48rem]:gap-4">
@@ -1163,7 +1279,7 @@ function SpotlightView({ s, items, blurbs, commerceEnabled }: { s: SectionSettin
     // Every product as its own row, photo sides alternating on wide screens; no switching.
     return (
       <section className="sf-container sf-section">
-        <Intro {...hp(s)} />
+        <SectionIntro {...hpLooks(s)} />
         <ul className="space-y-12 @[64rem]:space-y-16">
           {items.map((p, i) => (
             <li key={p.id} className={`grid items-center gap-6 @[48rem]:grid-cols-2 @[64rem]:gap-14 ${i % 2 ? "@[48rem]:[&>*:first-child]:order-2" : ""}`}>
@@ -1196,7 +1312,7 @@ function SpotlightView({ s, items, blurbs, commerceEnabled }: { s: SectionSettin
   }
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} />
+      <SectionIntro {...hpLooks(s)} />
       <div className={`sf-spot${s.variant === "spotlight-reverse" ? " sf-spot-reverse" : ""}`}>
         {items.map((p, i) => (
           <input key={p.id} type="radio" name={`spot-${uid}`} id={rid(i)} defaultChecked={i === 0} className="sf-spot-radio sr-only" aria-label={p.title} />
@@ -1302,9 +1418,9 @@ async function FeatureBand({ s, ctx }: P<"FeatureBand">) {
           <div className={`grid gap-6 @[64rem]:gap-7 ${bandCols}`}>
             {stacked ? null : <div className={`hidden @[64rem]:block ${reverse ? "@[64rem]:order-2" : ""}`} />}
             {s.heading ? (
-              <h2 className={headingClass(s.headingStyle, "sf-heading text-center text-3xl @[64rem]:text-4xl")}>
+              <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className={headingClass(s.headingStyle, "sf-heading text-center text-3xl @[64rem]:text-4xl")}>
                 <HeadingText heading={s.heading} accent={s.headingAccent} />
-              </h2>
+              </TextBox>
             ) : null}
           </div>
           <div className={`mt-6 grid gap-6 @[64rem]:gap-7 ${bandCols}`}>
@@ -1329,7 +1445,13 @@ async function FeatureBand({ s, ctx }: P<"FeatureBand">) {
           </div>
           {s.ctaLabel && s.ctaHref ? (
             <div className="mt-8 text-center">
-              <Cta label={s.ctaLabel} href={s.ctaHref} className="sf-btn sf-btn-light" />
+              <Cta
+                label={s.ctaLabel}
+                href={s.ctaHref}
+                className="sf-btn sf-btn-light"
+                style={textBoxProps("cta", lookOf(s.ctaLook)).style}
+                dataAttrs={textBoxProps("cta", lookOf(s.ctaLook)).attrs}
+              />
             </div>
           ) : null}
         </div>
@@ -1356,15 +1478,29 @@ function EditorialFullbleed({ s, ctx, heading, href, imagePath }: EditorialProps
       </div>
       <div className="sf-container flex min-h-[34rem] flex-col justify-between gap-10 py-14 @[64rem]:min-h-[38rem] @[64rem]:py-20">
         <div className="max-w-md space-y-4 @[64rem]:pl-6">
-          {s.eyebrow ? <p className="sf-eyebrow !text-white/90">{s.eyebrow}</p> : null}
+          {s.eyebrow ? (
+            <TextBox role="eyebrow" look={lookOf(s.eyebrowLook)} as="p" className="sf-eyebrow !text-white/90">
+              {s.eyebrow}
+            </TextBox>
+          ) : null}
           {heading ? (
-            <h2 className={headingClass(s.headingStyle, "sf-heading text-4xl @[64rem]:text-5xl")}>
+            <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className={headingClass(s.headingStyle, "sf-heading text-4xl @[64rem]:text-5xl")}>
               {heading}
               {s.headingAccent ? <em className="sf-fullbleed-accent block">{s.headingAccent}</em> : null}
-            </h2>
+            </TextBox>
           ) : null}
-          {s.subheading ? <p className="text-sm font-medium">{s.subheading}</p> : null}
-          <Cta label={s.ctaLabel} href={href} className="sf-btn sf-btn-light" />
+          {s.subheading ? (
+            <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className="text-sm font-medium">
+              {s.subheading}
+            </TextBox>
+          ) : null}
+          <Cta
+            label={s.ctaLabel}
+            href={href}
+            className="sf-btn sf-btn-light"
+            style={textBoxProps("cta", lookOf(s.ctaLook)).style}
+            dataAttrs={textBoxProps("cta", lookOf(s.ctaLook)).attrs}
+          />
         </div>
         <div className="flex items-end justify-between gap-6">
           {s.thumbs.length ? (
@@ -1397,15 +1533,33 @@ function EditorialJournal({ s, heading, body, href, imagePath }: EditorialProps)
     <section className={`sf-tone-${s.tone}`}>
       <div className="sf-container sf-section grid items-center gap-8 @[48rem]:grid-cols-[1fr_1.2fr_1fr] @[64rem]:gap-14">
         <div className="space-y-5">
-          {s.eyebrow ? <p className="sf-eyebrow !text-current">{s.eyebrow}</p> : null}
-          {heading ? (
-            <h2 className={`${headingClass(s.headingStyle === "default" ? "condensed" : s.headingStyle, "sf-heading text-4xl")} sf-journal-title`}>
-              <HeadingText heading={heading} accent={s.headingAccent} />
-            </h2>
+          {s.eyebrow ? (
+            <TextBox role="eyebrow" look={lookOf(s.eyebrowLook)} as="p" className={`sf-eyebrow ${textCurrentClass(lookOf(s.eyebrowLook))}`}>
+              {s.eyebrow}
+            </TextBox>
           ) : null}
-          {s.subheading ? <p className="sf-muted whitespace-pre-line leading-relaxed">{s.subheading}</p> : null}
+          {heading ? (
+            <TextBox
+              role="heading"
+              look={lookOf(s.headingLook)}
+              as="h2"
+              className={`${headingClass(s.headingStyle === "default" ? "condensed" : s.headingStyle, "sf-heading text-4xl")} sf-journal-title`}
+            >
+              <HeadingText heading={heading} accent={s.headingAccent} />
+            </TextBox>
+          ) : null}
+          {s.subheading ? (
+            <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className="sf-muted whitespace-pre-line leading-relaxed">
+              {s.subheading}
+            </TextBox>
+          ) : null}
           {s.ctaLabel && href ? (
-            <Link href={href} className="sf-underline-link">
+            <Link
+              href={href}
+              className="sf-underline-link"
+              style={textBoxProps("cta", lookOf(s.ctaLook)).style}
+              {...textBoxProps("cta", lookOf(s.ctaLook)).attrs}
+            >
               {s.ctaLabel}
             </Link>
           ) : null}
@@ -1416,7 +1570,11 @@ function EditorialJournal({ s, heading, body, href, imagePath }: EditorialProps)
         <div className="space-y-4">
           {s.noteEyebrow ? <p className="sf-eyebrow !text-current">{s.noteEyebrow}</p> : null}
           {s.noteHeading ? <h3 className="sf-heading whitespace-pre-line text-3xl leading-tight">{s.noteHeading}</h3> : null}
-          {body ? <p className="sf-muted whitespace-pre-line leading-relaxed">{body}</p> : null}
+          {body ? (
+            <TextBox role="body" look={lookOf(s.bodyLook)} as="p" className="sf-muted whitespace-pre-line leading-relaxed">
+              {body}
+            </TextBox>
+          ) : null}
         </div>
       </div>
     </section>
@@ -1431,14 +1589,22 @@ async function LookbookArches({ s, ctx }: P<"Lookbook">) {
   return (
     <section className="sf-container sf-section grid items-center gap-8 @[64rem]:grid-cols-[1fr_2.6fr] @[64rem]:gap-12">
       <div className="space-y-3">
-        {s.eyebrow ? <p className="sf-eyebrow !text-current">{s.eyebrow}</p> : null}
+        {s.eyebrow ? (
+          <TextBox role="eyebrow" look={lookOf(s.eyebrowLook)} as="p" className={`sf-eyebrow ${textCurrentClass(lookOf(s.eyebrowLook))}`}>
+            {s.eyebrow}
+          </TextBox>
+        ) : null}
         {s.heading ? (
-          <h2 className={headingClass(s.headingStyle, "sf-heading text-4xl @[64rem]:text-5xl")}>
+          <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className={headingClass(s.headingStyle, "sf-heading text-4xl @[64rem]:text-5xl")}>
             {s.heading}
             {s.headingAccent ? <em className="sf-heading-accent block">{s.headingAccent}</em> : null}
-          </h2>
+          </TextBox>
         ) : null}
-        {s.subheading ? <p className="sf-muted text-sm">{s.subheading}</p> : null}
+        {s.subheading ? (
+          <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className="sf-muted text-sm">
+            {s.subheading}
+          </TextBox>
+        ) : null}
       </div>
       <ul className={`grid gap-3 @[48rem]:gap-5 ${looks.length >= 3 ? "grid-cols-3" : "grid-cols-2"}`}>
         {looks.map((l, i) => {
@@ -1472,7 +1638,7 @@ async function LookbookRail({ s, ctx }: P<"Lookbook">) {
   const refs = ids.length ? await getProductRefs(ctx.sf.tenant.tenantId, ids) : new Map<string, { slug: string; title: string }>();
   return (
     <section className="sf-container sf-section">
-      <Intro {...hp(s)} />
+      <SectionIntro {...hpLooks(s)} />
       <ul className="sf-scroll-row -mx-4 px-4 @[48rem]:mx-0 @[48rem]:px-0" aria-label={s.heading || "Lookbook"}>
         {s.looks.map((l, i) => {
           const ref = l.productId ? refs.get(l.productId) : undefined;
