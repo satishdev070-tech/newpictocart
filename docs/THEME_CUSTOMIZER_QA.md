@@ -155,6 +155,8 @@ Mark each item `[ ]` → `[x]` during manual QA. IDs are stable (`A1-01` … `E-
 **Surfaces:** `/dashboard/theme` top bar + canvas iframe  
 **Baseline on main today:** local `apply()` → canvas postMessage preview; Publish already `disabled` while `dirty` (`top-bar.tsx`). Autosave / local-first persistence is the Phase C increment.
 
+**Locked speed model** (`cursor/pagecontent-perf-resilience-c73e`): local `apply()` → canvas; Save draft / idle autosave non-blocking; Publish → `revalidateStorefront` only; no private draft Redis or job queues (ADR-010).
+
 | ID | Pass when | Auto |
 |---|---|---|
 | **C-01** | Typing / toggling in the panel updates the canvas without clicking Save draft. | manual |
