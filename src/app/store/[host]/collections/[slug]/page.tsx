@@ -17,7 +17,8 @@ export async function generateMetadata({ params, searchParams }: PageProps<"/sto
   const { host, slug } = await params;
   const { sf } = await getRenderContext(host);
   const c = await getCollectionBySlug(sf.tenant.tenantId, slug);
-  if (!c) return {};
+  // Missing slug: noindex so crawlers don't keep a soft URL even if status streams as 200.
+  if (!c) return { robots: { index: false, follow: false } };
   const filtered = Object.keys(await searchParams).length > 0;
   return buildPageMetadata({
     primaryHost: sf.tenant.primaryHost,

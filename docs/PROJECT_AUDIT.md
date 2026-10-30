@@ -90,7 +90,7 @@ App Router ─► feature services (src/features/*/server) ─► Supabase (user
 ## 10. SEO issues
 
 - Good: per-tenant title/description/canonical, product + breadcrumb + org JSON-LD, sitemap/robots per store, `noindex` on account/cart/search.
-- Unknown product slugs render the not-found page with `noindex` but **HTTP 200** (the store `loading.tsx` streams before `notFound()`). Fix = move the storefront loading boundary below the page level.
+- ~~Unknown product slugs render the not-found page with `noindex` but **HTTP 200** (the store `loading.tsx` streams before `notFound()`).~~ Fixed 2026-10-30: removed host/slug `loading.tsx` wrappers so leaf `notFound()` emits HTTP 404; not-found + missing-slug metadata stay `noindex`.
 
 ## 11. Mobile issues
 
@@ -107,7 +107,7 @@ App Router ─► feature services (src/features/*/server) ─► Supabase (user
 | P1 | Media library UI | ⏳ open |
 | P2 | Admin tenant stats, shopper password reset, PDP rating placement, hero mobile image | ✅ fixed |
 | P2 | Photo reviews, rating distribution, guest wishlist, drag-and-drop theme sections | ⏳ open |
-| P3 | 200-status soft 404, catalog caching, CSP nonces | ⏳ open |
+| P3 | 200-status soft 404, catalog caching, CSP nonces | soft 404 ✅ fixed 2026-10-30; caching/CSP ⏳ open |
 
 ## 13. Recommended implementation order
 

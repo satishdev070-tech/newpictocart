@@ -33,7 +33,8 @@ export async function generateMetadata({ params }: PageProps<"/store/[host]/prod
   const { host, slug } = await params;
   const { sf } = await getRenderContext(host);
   const p = await getProductBySlug(sf.tenant.tenantId, slug);
-  if (!p) return {};
+  // Missing slug: noindex so crawlers don't keep a soft URL even if status streams as 200.
+  if (!p) return { robots: { index: false, follow: false } };
   return buildPageMetadata({
     primaryHost: sf.tenant.primaryHost,
     path: paths.product(p.slug),

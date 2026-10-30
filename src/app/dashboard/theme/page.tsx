@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { requireTenantPermission } from "@/lib/tenant/membership";
 import { getBuilderData } from "@/features/theme/site-builder/server/data";
+import { BuilderErrorBoundary } from "@/features/theme/site-builder/components/builder-error-boundary";
 import { buttonClass } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/states";
 
@@ -30,5 +31,9 @@ export default async function ThemePage() {
       </div>
     );
   }
-  return <SiteBuilder data={data} />;
+  return (
+    <BuilderErrorBoundary>
+      <SiteBuilder data={data} />
+    </BuilderErrorBoundary>
+  );
 }
