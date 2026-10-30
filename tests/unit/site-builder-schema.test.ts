@@ -158,6 +158,8 @@ describe("canvas slots and protocol", () => {
     expect(slotSections(c.config, "layout.header")?.[0]!.type).toBe("Header");
     expect(slotSections(c.config, "templates.nope")).toBeNull();
     expect(listKeyOf("templates.product.after")).toBe("templates.product");
+    expect(listKeyOf("templates.page.chrome")).toBe("templates.page");
+    expect(SLOT_KEY_RE.test("templates.page.chrome")).toBe(true);
     expect(SLOT_KEY_RE.test("pages.pabout123")).toBe(true);
     expect(SLOT_KEY_RE.test("layout.header;drop")).toBe(false);
   });

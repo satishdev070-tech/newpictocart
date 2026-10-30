@@ -81,19 +81,30 @@ export function HeroSlideshow({ slides, captions, interval, autoplay, label, cla
       }}
     >
       <div className="relative" aria-live={playing ? "off" : "polite"}>
-        {slides.map((slide, i) => (
-          <div
-            key={i}
-            role="group"
-            aria-roledescription="slide"
-            aria-label={`${i + 1} of ${count}${captions[i] ? `: ${captions[i]}` : ""}`}
-            aria-hidden={i !== index}
-            inert={i !== index}
-            className={cn("transition-[opacity,transform] duration-700 ease-out", i === 0 ? "relative" : "absolute inset-0", i === index ? "z-[1] scale-100 opacity-100" : "pointer-events-none scale-[1.015] opacity-0")}
-          >
-            {slide}
-          </div>
-        ))}
+        {slides.map((slide, i) => {
+          // Mount only the active slide and the next one so off-screen hero images stay out of the
+          // network waterfall (LCP). Dot buttons still jump to any index; that slide mounts on select.
+          // Active slide is `relative` so the frame keeps height when slide 0 is unmounted.
+          const next = (index + 1) % count;
+          const mounted = i === index || i === next;
+          const active = i === index;
+          return (
+            <div
+              key={i}
+              role="group"
+              aria-roledescription="slide"
+              aria-label={`${i + 1} of ${count}${captions[i] ? `: ${captions[i]}` : ""}`}
+              aria-hidden={!active}
+              inert={!active}
+              className={cn(
+                "transition-[opacity,transform] duration-700 ease-out",
+                active ? "relative z-[1] scale-100 opacity-100" : "pointer-events-none absolute inset-0 scale-[1.015] opacity-0",
+              )}
+            >
+              {mounted ? slide : null}
+            </div>
+          );
+        })}
       </div>
       {count > 1 ? (
         <div className="mt-5 flex items-center justify-center gap-3">

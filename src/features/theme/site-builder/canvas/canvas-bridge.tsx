@@ -157,6 +157,8 @@ const CHROME_CSS = `
 [data-builder-chrome] .pcb-item{box-sizing:border-box;margin:0;height:34px;padding:0 10px;display:flex;align-items:center;gap:9px;border:0;border-radius:8px;
   background:transparent;color:#1c1917;font:500 12.5px/1 system-ui,-apple-system,"Segoe UI",sans-serif;text-align:left;cursor:pointer;white-space:nowrap}
 [data-builder-chrome] .pcb-item:hover{background:#fff7ed;color:#c2410c}
+[data-builder-chrome] .pcb-item:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+[data-builder-chrome] .pcb-item:disabled:hover{background:transparent;color:#1c1917}
 [data-builder-chrome] .pcb-danger{color:#b91c1c}
 [data-builder-chrome] .pcb-danger:hover{background:#fef2f2;color:#991b1b}
 [data-builder-chrome] .pcb-chip{display:inline-flex;align-items:center;gap:6px;max-width:260px;padding:5px 10px;border-radius:999px;
@@ -709,64 +711,56 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
             aria-label={`${label(active)} section`}
             style={{ position: "fixed", top: tbTop, left: tbLeft, display: "flex", alignItems: "center", gap: 6, pointerEvents: "auto", zIndex: Z + 3, flexWrap: "nowrap", visibility: boxes.toolbar.w ? "visible" : "hidden" }}
           >
-            {active.pageContent ? (
-              <span className="pcb-btn pcb-static">Page content</span>
-            ) : (
-              <>
-                <button type="button" className="pcb-btn" onClick={() => act("edit")}>
-                  <Icon d={ICONS.pencil} /> Edit
-                </button>
-                {!compact ? (
-                  <button type="button" className="pcb-btn" onClick={() => act("design")}>
-                    <Icon d={ICONS.layout} /> Change design
-                  </button>
-                ) : null}
-                <button type="button" className="pcb-btn pcb-icon" title="Section settings" aria-label="Section settings" onClick={() => act("settings")}>
-                  <Icon d={ICONS.gear} />
-                </button>
-                {!compact ? (
-                  <button type="button" className="pcb-btn pcb-icon" title="Colours" aria-label="Colours" onClick={() => act("colors")}>
-                    <Icon d={ICONS.drop} />
-                  </button>
-                ) : null}
-              </>
-            )}
+            <button type="button" className="pcb-btn" onClick={() => act("edit")}>
+              <Icon d={ICONS.pencil} /> Edit
+            </button>
+            {!compact ? (
+              <button type="button" className="pcb-btn" onClick={() => act("design")}>
+                <Icon d={ICONS.layout} /> Change design
+              </button>
+            ) : null}
+            <button type="button" className="pcb-btn pcb-icon" title="Section settings" aria-label="Section settings" onClick={() => act("settings")}>
+              <Icon d={ICONS.gear} />
+            </button>
+            {!compact ? (
+              <button type="button" className="pcb-btn pcb-icon" title="Colours" aria-label="Colours" onClick={() => act("colors")}>
+                <Icon d={ICONS.drop} />
+              </button>
+            ) : null}
             <button type="button" className="pcb-btn pcb-icon" title="Move up" aria-label="Move up" onClick={() => act("up")}>
               <Icon d={ICONS.up} />
             </button>
             <button type="button" className="pcb-btn pcb-icon" title="Move down" aria-label="Move down" onClick={() => act("down")}>
               <Icon d={ICONS.down} />
             </button>
-            {!active.pageContent ? (
-              <span style={{ position: "relative", display: "inline-flex" }}>
-                <button type="button" className="pcb-btn pcb-icon" title="More" aria-label="More actions" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
-                  <Icon d={ICONS.more} />
-                </button>
-                {menuOpen ? (
-                  <span role="menu" className="pcb-menu pcb-fade" style={menuUp ? { bottom: "calc(100% + 6px)" } : { top: "calc(100% + 6px)" }}>
-                    {compact ? (
-                      <>
-                        <button type="button" role="menuitem" className="pcb-item" onClick={() => act("design")}>
-                          <Icon d={ICONS.layout} /> Change design
-                        </button>
-                        <button type="button" role="menuitem" className="pcb-item" onClick={() => act("colors")}>
-                          <Icon d={ICONS.drop} /> Colours
-                        </button>
-                      </>
-                    ) : null}
-                    <button type="button" role="menuitem" className="pcb-item" onClick={() => act("duplicate")}>
-                      <Icon d={ICONS.copy} /> Duplicate
-                    </button>
-                    <button type="button" role="menuitem" className="pcb-item" onClick={() => act("hide")}>
-                      <Icon d={ICONS.eyeOff} /> Hide
-                    </button>
-                    <button type="button" role="menuitem" className="pcb-item pcb-danger" onClick={() => act("delete")}>
-                      <Icon d={ICONS.trash} /> Delete
-                    </button>
-                  </span>
-                ) : null}
-              </span>
-            ) : null}
+            <span style={{ position: "relative", display: "inline-flex" }}>
+              <button type="button" className="pcb-btn pcb-icon" title="More" aria-label="More actions" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+                <Icon d={ICONS.more} />
+              </button>
+              {menuOpen ? (
+                <span role="menu" className="pcb-menu pcb-fade" style={menuUp ? { bottom: "calc(100% + 6px)" } : { top: "calc(100% + 6px)" }}>
+                  {compact ? (
+                    <>
+                      <button type="button" role="menuitem" className="pcb-item" onClick={() => act("design")}>
+                        <Icon d={ICONS.layout} /> Change design
+                      </button>
+                      <button type="button" role="menuitem" className="pcb-item" onClick={() => act("colors")}>
+                        <Icon d={ICONS.drop} /> Colours
+                      </button>
+                    </>
+                  ) : null}
+                  <button type="button" role="menuitem" className="pcb-item" disabled={active.pageContent} onClick={() => act("duplicate")}>
+                    <Icon d={ICONS.copy} /> Duplicate
+                  </button>
+                  <button type="button" role="menuitem" className="pcb-item" onClick={() => act("hide")}>
+                    <Icon d={ICONS.eyeOff} /> Hide
+                  </button>
+                  <button type="button" role="menuitem" className="pcb-item pcb-danger" onClick={() => act("delete")}>
+                    <Icon d={ICONS.trash} /> Delete
+                  </button>
+                </span>
+              ) : null}
+            </span>
           </div>
           {/* Insert after */}
           {showAfter ? (

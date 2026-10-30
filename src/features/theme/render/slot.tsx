@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { TemplateKey } from "@/features/theme/schema/config";
+import { isSectionHidden, type TemplateKey } from "@/features/theme/schema/config";
 import type { SectionInstance } from "@/features/theme/sections/types";
 import { CanvasSlot } from "@/features/theme/site-builder/canvas/canvas-slot";
 import { EmptySlotInsert } from "@/features/theme/site-builder/canvas/empty-slot";
@@ -52,9 +52,11 @@ export function TemplateFrame({ template, ctx, children }: { template: TemplateK
   const [before, after] = splitAtPageContent(list);
   const marker = list.find((s) => s.type === "PageContent");
   const { chrome } = pageContentSettings(marker);
+  // PageContent is a marker, not a rendered section — hide the page body the same way SectionList
+  // skips fully-hidden sections.
   const body = (
     <div className={pageChromeClass(chrome)} data-pc-chrome={chrome}>
-      {children}
+      {marker && isSectionHidden(marker) ? null : children}
     </div>
   );
   return (

@@ -127,39 +127,35 @@ function LayerGroup({ title, list, note, contentPlaceholder }: { title: string; 
                   <span className={cn("block truncate font-medium", hidden && "line-through")}>{def?.label ?? s.type}</span>
                   {summary ? <span className="block truncate text-xs text-muted">{summary}</span> : null}
                 </button>
-                {marker ? null : (
-                  <>
-                    <IconButton label={hidden ? "Show section" : "Hide section"} onClick={() => apply((c) => toggleHidden(c, list, s.id))}>
-                      {hidden ? <EyeOff /> : <Eye />}
-                    </IconButton>
-                    <MoreMenu
-                      items={[
-                        {
-                          label: "Duplicate",
-                          disabled: !!(def as { singleton?: boolean } | undefined)?.singleton,
-                          onSelect: () => {
-                            const r = duplicateSection(config, list, s.id);
-                            if (!r.newId) return;
-                            apply(r.config);
-                            const ref = { list, sectionId: r.newId };
-                            select(ref);
-                          },
-                        },
-                        {
-                          label: "Delete",
-                          danger: true,
-                          onSelect: () => {
-                            apply((c) => removeSection(c, list, s.id));
-                            if (active) {
-                              select(null);
-                              setPanel({ kind: "layers" });
-                            }
-                          },
-                        },
-                      ]}
-                    />
-                  </>
-                )}
+                <IconButton label={hidden ? "Show section" : "Hide section"} onClick={() => apply((c) => toggleHidden(c, list, s.id))}>
+                  {hidden ? <EyeOff /> : <Eye />}
+                </IconButton>
+                <MoreMenu
+                  items={[
+                    {
+                      label: "Duplicate",
+                      disabled: !!(def as { singleton?: boolean } | undefined)?.singleton,
+                      onSelect: () => {
+                        const r = duplicateSection(config, list, s.id);
+                        if (!r.newId) return;
+                        apply(r.config);
+                        const ref = { list, sectionId: r.newId };
+                        select(ref);
+                      },
+                    },
+                    {
+                      label: "Delete",
+                      danger: true,
+                      onSelect: () => {
+                        apply((c) => removeSection(c, list, s.id));
+                        if (active) {
+                          select(null);
+                          setPanel({ kind: "layers" });
+                        }
+                      },
+                    },
+                  ]}
+                />
               </Row>
             </li>
           );

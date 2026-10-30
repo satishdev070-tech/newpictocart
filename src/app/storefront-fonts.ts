@@ -1,9 +1,10 @@
 import localFont from "next/font/local";
 
 /**
- * Storefront theme fonts, self-hosted from @fontsource (ADR-019). Declared once as CSS variables;
- * browsers only download a font when a theme actually uses it (preload off). Mapped to theme
- * font keys in features/theme/schema/tokens.ts (FONT_STACKS).
+ * Storefront theme fonts, self-hosted from @fontsource (ADR-019). CSS variables are applied on the
+ * storefront layout only (not the root layout) so marketing pages do not download them. Browsers
+ * only fetch a font when a theme actually uses it (preload off). Mapped to theme font keys in
+ * features/theme/schema/tokens.ts (FONT_STACKS).
  */
 export const cormorant = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/cormorant-garamond/files/cormorant-garamond-latin-wght-normal.woff2", weight: "300 700" }, { path: "../../node_modules/@fontsource-variable/cormorant-garamond/files/cormorant-garamond-latin-wght-italic.woff2", weight: "300 700", style: "italic" }], variable: "--font-cormorant", display: "swap", preload: false });
 export const playfair = localFont({ src: [{ path: "../../node_modules/@fontsource-variable/playfair-display/files/playfair-display-latin-wght-normal.woff2", weight: "400 900" }, { path: "../../node_modules/@fontsource-variable/playfair-display/files/playfair-display-latin-wght-italic.woff2", weight: "400 900", style: "italic" }], variable: "--font-playfair", display: "swap", preload: false });
