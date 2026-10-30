@@ -5,8 +5,11 @@ import type { SectionInstance, SectionStyle, SectionType } from "@/features/them
 import type { ThemeMenu } from "@/features/theme/schema/links";
 import type { PageMeta, Popup } from "@/features/theme/schema/site";
 import { MAX_THEME_PAGES, MAX_POPUPS } from "@/features/theme/schema/site";
-import { pageTemplate } from "./page-templates";
+import { BUILTIN_LAYOUT_FAMILIES, pageTemplate } from "./page-templates";
 import { getList, groupOfList, setList, type ListKey } from "./slots";
+
+/** Built-in template keys that accept Change layout packs from the Pages panel. */
+export type BuiltinLayoutTemplateKey = keyof typeof BUILTIN_LAYOUT_FAMILIES;
 
 /**
  * Pure theme-document operations used by the site builder. Every function returns a NEW config
@@ -277,6 +280,44 @@ export function applyPageTemplate(config: ThemeConfig, pageId: string, templateI
     ...config,
     pages: config.pages.map((p) => (p.id === pageId ? { ...p, sections } : p)),
   };
+}
+
+/**
+ * Replace a built-in template list (`templates.home` / `.page` / `.blog`) with a wireframe pack.
+ * Preserves an existing PageContent marker on page/blog (or inserts one) so Contact/FAQ/Blog
+ * chrome keeps the page's own content. Unknown template / pack keys are no-ops. Pack must belong
+ * to that template's allowed families (BUILTIN_LAYOUT_FAMILIES).
+ */
+export function applyBuiltinTemplateLayout(
+  config: ThemeConfig,
+  templateKey: BuiltinLayoutTemplateKey,
+  packKey: string,
+): ThemeConfig {
+  const pack = pageTemplate(packKey);
+  const allowed = BUILTIN_LAYOUT_FAMILIES[templateKey];
+  if (!pack) return config;
+  // Blank clears the home template only; page/blog always keep PageContent and reject blank.
+  if (pack.key === "blank") {
+    if (templateKey !== "home") return config;
+  } else if (!allowed.includes(pack.family)) {
+    return config;
+  }
+
+  const packSections: SectionInstance[] = structuredClone(pack.sections).map((s) => ({ ...s, id: newId() }));
+  let sections: SectionInstance[];
+  if (templateKey === "home") {
+    sections = packSections;
+  } else {
+    const prev = config.templates[templateKey];
+    const prevMarker = prev.find((s) => s.type === "PageContent");
+    const marker: SectionInstance = prevMarker
+      ? { ...structuredClone(prevMarker), id: prevMarker.id }
+      : { id: newId(), type: "PageContent", settings: defaultSettings("PageContent"), visibility: { desktop: true, mobile: true } };
+    // Pack chrome above the page's own content (Contact form / FAQ list / blog index).
+    sections = [...packSections, marker];
+  }
+  if (sections.length > MAX_SECTIONS_PER_GROUP) return config;
+  return { ...config, templates: { ...config.templates, [templateKey]: sections } };
 }
 
 export function newPopup(name = "New popup"): Popup {

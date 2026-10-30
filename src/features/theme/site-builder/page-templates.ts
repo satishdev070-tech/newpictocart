@@ -12,9 +12,10 @@ import type { SectionInstance, SectionType } from "@/features/theme/sections/typ
  * starters). The Add-page picker groups by `family`.
  */
 
-export type PageTemplateFamily = "about" | "contact" | "faq" | "blogs" | "blog-detail" | "other";
+export type PageTemplateFamily = "home" | "about" | "contact" | "faq" | "blogs" | "blog-detail" | "other";
 
 export const PAGE_TEMPLATE_FAMILY_LABELS: Record<PageTemplateFamily, string> = {
+  home: "Home",
   about: "About",
   contact: "Contact",
   faq: "FAQ",
@@ -55,6 +56,87 @@ export const BLANK_TEMPLATE: PageTemplate = {
   family: "other",
   sections: [],
 };
+
+/**
+ * Curated Home packs for Change layout on the built-in Home row (`templates.home`).
+ * Same wireframe shape as Add-page templates; not listed in the Add-page picker.
+ */
+export const HOME_LAYOUT_PACKS: PageTemplate[] = [
+  {
+    key: "home-classic",
+    label: "Home · Classic",
+    description: "Hero, categories, featured products, a story band, bestsellers and trust.",
+    family: "home",
+    sections: [
+      hero("Welcome", "Fresh designs, made in small batches.", "Shop now", "/collections"),
+      sec("CategoryGrid", { eyebrow: "Shop by category", heading: "Find your silhouette" }),
+      sec("ProductGrid", { eyebrow: "Featured", heading: "The edit", source: "featured", limit: 8 }),
+      sec("EditorialImageText", {
+        eyebrow: "The craft",
+        heading: "Made with care",
+        body: "Every piece is checked by hand before it reaches you.",
+        ctaLabel: "Our story",
+        ctaHref: "/pages/about",
+      }),
+      sec("ProductGrid", { eyebrow: "Most loved", heading: "Bestsellers", source: "bestselling", limit: 8 }),
+      sec("TrustBadges"),
+      sec("Newsletter"),
+    ],
+  },
+  {
+    key: "home-editorial",
+    label: "Home · Editorial",
+    description: "A quieter homepage: hero, lookbook, brand story, testimonials and a soft CTA.",
+    family: "home",
+    sections: [
+      hero("The new season", "Quiet pieces for everyday wear."),
+      sec("Lookbook", { heading: "From the lookbook" }),
+      sec("BrandStory", {
+        heading: "Who we are",
+        body: "A small studio making things meant to last — honest materials, fair work, careful packing.",
+        stats: [
+          { value: "2015", label: "founded" },
+          { value: "40+", label: "makers" },
+          { value: "10k+", label: "happy customers" },
+        ],
+      }),
+      sec("Testimonials", {
+        heading: "Kind words",
+        items: [
+          { quote: "Beautifully made and arrived quicker than expected.", author: "Ananya", location: "Pune", rating: 5 },
+          { quote: "You can feel the care that goes into every piece.", author: "Rahul", location: "Delhi", rating: 5 },
+        ],
+      }),
+      sec("CallToAction", { heading: "Shop the collection", text: "Browse new arrivals or write to us for help choosing.", ctaLabel: "Shop now", ctaHref: "/collections" }),
+    ],
+  },
+  {
+    key: "home-shop",
+    label: "Home · Shop first",
+    description: "Promo tiles, categories, best sellers, a featured band and trust badges.",
+    family: "home",
+    sections: [
+      sec("PromoBanner"),
+      sec("CategoryGrid", { heading: "Shop by category" }),
+      sec("ProductGrid", { heading: "Best sellers", source: "bestselling", viewAllHref: "/collections" }),
+      sec("FeatureBand", { heading: "Just landed", featureHeading: "New this week" }),
+      sec("TrustBadges"),
+      sec("Newsletter"),
+    ],
+  },
+  {
+    key: "home-minimal",
+    label: "Home · Minimal",
+    description: "A short homepage: hero, product grid and a newsletter invite.",
+    family: "home",
+    sections: [
+      hero("Hello", "A smaller collection, updated often.", "Shop", "/collections"),
+      sec("ProductGrid", { heading: "New in", source: "newest", limit: 8, viewAllHref: "/collections" }),
+      sec("TrustBadges"),
+      sec("Newsletter", { heading: "Stay in the loop" }),
+    ],
+  },
+];
 
 export const PAGE_TEMPLATES: PageTemplate[] = [
   // ---------------------------------------------------------------------------
@@ -577,13 +659,22 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
   },
 ];
 
-/** Families shown first in the Add-page picker (Phase E starters). */
+/** Families shown first in the Add-page picker (Phase E starters). Home packs are Change-layout only. */
 export const PAGE_TEMPLATE_FAMILY_ORDER: PageTemplateFamily[] = ["about", "contact", "faq", "blogs", "blog-detail", "other"];
 
+/** Families shown when changing layout on a built-in template (Contact/FAQ share `page`). */
+export const BUILTIN_LAYOUT_FAMILIES: Record<"home" | "page" | "blog", readonly PageTemplateFamily[]> = {
+  home: ["home"],
+  page: ["about", "contact", "faq", "other"],
+  blog: ["blogs"],
+};
+
 export function pageTemplate(key: string): PageTemplate | null {
-  return key === BLANK_TEMPLATE.key ? BLANK_TEMPLATE : (PAGE_TEMPLATES.find((t) => t.key === key) ?? null);
+  if (key === BLANK_TEMPLATE.key) return BLANK_TEMPLATE;
+  return HOME_LAYOUT_PACKS.find((t) => t.key === key) ?? PAGE_TEMPLATES.find((t) => t.key === key) ?? null;
 }
 
 export function pageTemplatesByFamily(family: PageTemplateFamily): PageTemplate[] {
+  if (family === "home") return HOME_LAYOUT_PACKS;
   return PAGE_TEMPLATES.filter((t) => t.family === family);
 }
