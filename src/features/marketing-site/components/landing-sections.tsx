@@ -1,4 +1,5 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ArrowRight, Check, ChevronDown, ChevronRight, Quote, Star } from "lucide-react";
 import type { ReactNode } from "react";
 import type { MarketplaceTheme } from "@/features/theme/marketplace/types";
@@ -12,7 +13,9 @@ import { RotatingWords } from "./rotating-words";
 import { HeroSlideshow } from "./hero-slideshow";
 import { Reveal } from "./reveal";
 import { ThemeCard, ThemeDevicePreview } from "./theme-card";
-import { PricingTable } from "./pricing-table";
+
+/** Below-fold pricing island — keep the client PricingTable out of the initial home JS. */
+const PricingTable = dynamic(() => import("./pricing-table").then((m) => ({ default: m.PricingTable })));
 
 /* eslint-disable @next/next/no-img-element -- CMS images are admin-provided URLs, shown as-is */
 

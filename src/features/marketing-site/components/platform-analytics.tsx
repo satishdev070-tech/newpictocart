@@ -38,10 +38,11 @@ export function PlatformAnalytics({ id }: { id: string }) {
   }, [valid]);
 
   if (!valid) return null;
+  // lazyOnload keeps gtag off the critical path (marketing LCP / TBT); page_view still fires after load.
   return (
     <>
-      <Script src={`https://www.googletagmanager.com/gtag/js?id=${id}`} strategy="afterInteractive" />
-      <Script id="platform-gtag" strategy="afterInteractive">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}window.gtag=gtag;gtag('js',new Date());gtag('config',${JSON.stringify(id)});`}</Script>
+      <Script src={`https://www.googletagmanager.com/gtag/js?id=${id}`} strategy="lazyOnload" />
+      <Script id="platform-gtag" strategy="lazyOnload">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}window.gtag=gtag;gtag('js',new Date());gtag('config',${JSON.stringify(id)});`}</Script>
     </>
   );
 }

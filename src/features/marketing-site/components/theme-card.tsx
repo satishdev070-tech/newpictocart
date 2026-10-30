@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ExternalLink, Eye } from "lucide-react";
 import { InformativeThemeMockup, ThemeMockup } from "@/features/theme/marketplace/mockup";
 import { THEME_STYLE_LABELS, type MarketplaceTheme } from "@/features/theme/marketplace/types";
@@ -7,12 +8,15 @@ import { themeSiteType } from "@/features/theme/marketplace/types";
 import { industryShort } from "@/features/stores/industries";
 import { analyticsAttributes } from "../analytics";
 import { buttonClass } from "./ui";
-import { DESKTOP_VIEWPORT, LiveFrame, PHONE_VIEWPORT } from "./live-frame";
+import { DESKTOP_VIEWPORT, PHONE_VIEWPORT } from "./live-frame";
 import { ClickToLive } from "./click-to-live";
 import { themeShot, type ShotDevice } from "../theme-shots";
 import { themePreviewHref } from "../themes";
 import type { ReactNode } from "react";
 import type { CategoryImage } from "@/lib/unsplash";
+
+/** LiveFrame is only needed when `live` is on — keep it out of home ThemeCard bundles. */
+const LiveFrame = dynamic(() => import("./live-frame").then((m) => ({ default: m.LiveFrame })));
 
 /** Short display name for the theme's mock store header ("Heritage Kashmir" -> "Heritage"). */
 const mockName = (t: MarketplaceTheme) => t.name.split(" ")[0]!;
@@ -31,7 +35,7 @@ function Still({ theme, device, size, eager, fill = false }: { theme: Marketplac
         // eslint-disable-next-line @next/next/no-img-element
         <img src={shot} alt="" width={vp.width} height={vp.height} loading={eager ? "eager" : "lazy"} decoding="async" className="block size-full object-cover object-top" />
       ) : (
-        <ThemeMockup preset={theme.preset} name={mockName(theme)} tagline={theme.tagline} themeKey={theme.key} size={device === "phone" ? "phone" : size === "large" ? "large" : "card"} />
+        <ThemeMockup preset={theme.preset} name={mockName(theme)} tagline={theme.tagline} themeKey={theme.key} size={device === "phone" ? "phone" : size === "large" ? "large" : "card"} eager={eager} />
       )}
     </div>
   );
