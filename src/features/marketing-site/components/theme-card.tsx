@@ -8,21 +8,35 @@ import { themeSiteType } from "@/features/theme/marketplace/types";
 import { industryShort } from "@/features/stores/industries";
 import { analyticsAttributes } from "../analytics";
 import { buttonClass } from "./ui";
-import { DESKTOP_VIEWPORT, PHONE_VIEWPORT } from "./live-frame";
-import { ClickToLive } from "./click-to-live";
+import { DESKTOP_VIEWPORT, PHONE_VIEWPORT } from "./device-viewports";
 import { themeShot, type ShotDevice } from "../theme-shots";
 import { themePreviewHref } from "../themes";
 import type { ReactNode } from "react";
 import type { CategoryImage } from "@/lib/unsplash";
 
-/** LiveFrame is only needed when `live` is on — keep it out of home ThemeCard bundles. */
+/** LiveFrame / ClickToLive only when `live` is on — keep them out of home ThemeCard bundles. */
 const LiveFrame = dynamic(() => import("./live-frame").then((m) => ({ default: m.LiveFrame })));
+const ClickToLive = dynamic(() => import("./click-to-live").then((m) => ({ default: m.ClickToLive })));
 
 /** Short display name for the theme's mock store header ("Heritage Kashmir" -> "Heritage"). */
 const mockName = (t: MarketplaceTheme) => t.name.split(" ")[0]!;
 
 /** A theme screenshot (static file) or, when none was captured, the token mockup. `fill` sizes it to its frame. */
-function Still({ theme, device, size, eager, fill = false }: { theme: MarketplaceTheme; device: ShotDevice; size: "card" | "large"; eager: boolean; fill?: boolean }) {
+function Still({
+  theme,
+  device,
+  size,
+  eager,
+  fill = false,
+  compact = false,
+}: {
+  theme: MarketplaceTheme;
+  device: ShotDevice;
+  size: "card" | "large";
+  eager: boolean;
+  fill?: boolean;
+  compact?: boolean;
+}) {
   if (themeSiteType(theme) === "informative") {
     return <div className={fill ? "size-full overflow-hidden" : "overflow-hidden"}><InformativeThemeMockup theme={theme} size={device === "phone" ? "phone" : size === "large" ? "large" : "card"} /></div>;
   }
@@ -33,9 +47,17 @@ function Still({ theme, device, size, eager, fill = false }: { theme: Marketplac
       {shot ? (
         // Plain <img> on purpose: a pre-sized static WebP needs no Image Optimization.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={shot} alt="" width={vp.width} height={vp.height} loading={eager ? "eager" : "lazy"} decoding="async" className="block size-full object-cover object-top" />
+        <img src={shot} alt="" width={vp.width} height={vp.height} loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : undefined} decoding="async" className="block size-full object-cover object-top" />
       ) : (
-        <ThemeMockup preset={theme.preset} name={mockName(theme)} tagline={theme.tagline} themeKey={theme.key} size={device === "phone" ? "phone" : size === "large" ? "large" : "card"} eager={eager} />
+        <ThemeMockup
+          preset={theme.preset}
+          name={mockName(theme)}
+          tagline={theme.tagline}
+          themeKey={theme.key}
+          size={device === "phone" ? "phone" : size === "large" ? "large" : "card"}
+          eager={eager}
+          compact={compact}
+        />
       )}
     </div>
   );
@@ -101,20 +123,22 @@ function Devices({ desktop, phone, size }: { desktop: ReactNode; phone: ReactNod
  */
 export function ThemeDevicePreview({ theme, previewUrl = null, size = "card", eager = false, live = false, image = null }: { theme: MarketplaceTheme; previewUrl?: string | null; size?: "card" | "large"; eager?: boolean; live?: boolean; image?: CategoryImage | null }) {
   const card = size === "card";
-  // Phone frames are always height-capped by Devices; fill so the shot crops instead of forcing a tall ratio.
+  // Only the desktop frame may be LCP-eager; phone must stay lazy so it does not steal bandwidth.
+  // Hero large+eager uses compact mockups (no product-rail Unsplash fan-out).
+  const compact = !card && eager;
   const still = (
     <Devices
       size={size}
-      desktop={card ? <CardDesktop theme={theme} image={image} /> : <Still theme={theme} device="desktop" size={size} eager={eager} />}
-      phone={<Still theme={theme} device="phone" size={size} eager={eager} fill />}
+      desktop={card ? <CardDesktop theme={theme} image={image} /> : <Still theme={theme} device="desktop" size={size} eager={eager} compact={compact} />}
+      phone={<Still theme={theme} device="phone" size={size} eager={false} fill compact={compact} />}
     />
   );
   if (!live || !previewUrl) return still;
   const liveView = (
     <Devices
       size={size}
-      desktop={<LiveFrame src={previewUrl} viewport={DESKTOP_VIEWPORT} fallback={<Still theme={theme} device="desktop" size={size} eager />} eager />}
-      phone={<LiveFrame src={previewUrl} viewport={PHONE_VIEWPORT} fallback={<Still theme={theme} device="phone" size={size} eager fill />} eager fill />}
+      desktop={<LiveFrame src={previewUrl} viewport={DESKTOP_VIEWPORT} fallback={<Still theme={theme} device="desktop" size={size} eager={false} />} eager />}
+      phone={<LiveFrame src={previewUrl} viewport={PHONE_VIEWPORT} fallback={<Still theme={theme} device="phone" size={size} eager={false} fill />} eager fill />}
     />
   );
   return <ClickToLive still={still} live={liveView} label="Live preview" />;

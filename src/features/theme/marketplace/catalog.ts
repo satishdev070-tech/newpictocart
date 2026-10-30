@@ -112,6 +112,8 @@ function withLayouts(themes: MarketplaceTheme[]): MarketplaceTheme[] {
 }
 
 export const MARKETPLACE_THEMES: readonly MarketplaceTheme[] = withLayouts(RAW_THEMES);
+/** Lightweight count for marketing tokens — avoids importing the full catalogue where only length is needed. */
+export const MARKETPLACE_THEME_COUNT = MARKETPLACE_THEMES.length;
 
 export function findMarketplaceTheme(key: string): MarketplaceTheme | null {
   return MARKETPLACE_THEMES.find((t) => t.key === key) ?? null;

@@ -73,6 +73,16 @@ export function InformativeThemeMockup({ theme, size = "card" }: { theme: Pick<M
   );
 }
 
+/** Same Unsplash hero URL ThemeMockup uses for a large desktop frame — for `<link rel="preload">`. */
+export function themeMockupHeroUrl(theme: Pick<MarketplaceTheme, "key" | "name" | "preset">, width = 640): string | null {
+  const cat = toUnsplashCategory(theme.preset.family ?? "general");
+  const shift = stockIndex(theme.key ?? theme.name);
+  const heroes = curatedStock(cat, "hero");
+  if (!heroes.length) return null;
+  const item = heroes[shift % heroes.length]!;
+  return sizedStockUrl(item.url, width);
+}
+
 function Photo({ src, style, radius = "0", eager = false }: { src: string; style?: CSSProperties; radius?: string; eager?: boolean }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- tiny decorative thumbnail, pre-sized by Unsplash
@@ -94,6 +104,7 @@ export function ThemeMockup({
   size = "card",
   themeKey,
   eager = false,
+  compact = false,
 }: {
   preset: ThemePreset;
   name: string;
@@ -103,6 +114,11 @@ export function ThemeMockup({
   themeKey?: string;
   /** When true, hero photos load eagerly with high fetch priority (LCP). Product thumbs stay lazy. */
   eager?: boolean;
+  /**
+   * Hero LCP mode: skip the product rail / footer product photos so the LCP frame does not fan out
+   * extra Unsplash requests inside the same viewport.
+   */
+  compact?: boolean;
 }) {
   const t = preset.tokens as Record<string, unknown> & { colors: Record<string, string> };
   const c = t.colors;
@@ -308,8 +324,10 @@ export function ThemeMockup({
         ) : null}
       </div>
       {heroNode}
-      <div style={{ padding: pad }}>{products}</div>
-      {layout.footerLayout === "statement" ? (
+      {compact ? null : <div style={{ padding: pad }}>{products}</div>}
+      {compact ? (
+        <div style={{ background: footerBg, height: large ? 18 : 10 }} />
+      ) : layout.footerLayout === "statement" ? (
         <div style={{ background: footerBg, color: preset.footerTone === "dark" ? "#fff" : c.text, ...hType, fontSize: large ? "4em" : "2.6em", textAlign: "center", lineHeight: 1, padding: "4px 0", overflow: "hidden", whiteSpace: "nowrap" }}>{name}</div>
       ) : (
         <div style={{ background: footerBg, height: large ? 24 : 14 }} />
