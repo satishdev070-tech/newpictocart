@@ -2,8 +2,16 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, MoreVertical, X } from "lucide-react";
+import { HEX_COLOR_RE } from "@/features/theme/schema/primitives";
 import { cn } from "@/lib/cn";
 import { inputClassName } from "@/components/ui/field";
+
+/** Native `<input type="color">` requires #rrggbb; never pass empty/invalid (throws in some browsers). */
+function safePickerHex(raw: unknown): string {
+  if (typeof raw !== "string") return "#ffffff";
+  const v = raw.trim().toLowerCase();
+  return HEX_COLOR_RE.test(v) ? v : "#ffffff";
+}
 
 /**
  * Small UI kit for the site builder panels. Uses the dashboard (orange panel) tokens:
@@ -104,16 +112,40 @@ export function Toggle({ checked, onChange, label, id }: { checked: boolean; onC
   );
 }
 
-export function ColorInput({ value, onChange, label, allowEmpty }: { value: string; onChange: (v: string) => void; label: string; allowEmpty?: boolean }) {
+export function ColorInput({
+  value,
+  onChange,
+  label,
+  allowEmpty,
+  onPointerActive,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  label: string;
+  allowEmpty?: boolean;
+  /** Optional: hold-autosave agent wires this to pause idle save during colour drag. */
+  onPointerActive?: (held: boolean) => void;
+}) {
   const id = useId();
+  const valid = typeof value === "string" && HEX_COLOR_RE.test(value.trim()) ? value.trim().toLowerCase() : "";
+  const pickerValue = safePickerHex(value);
   return (
     <div className="flex items-center gap-2">
-      <input id={id} type="color" value={value || "#ffffff"} onChange={(e) => onChange(e.target.value)} className="size-8 shrink-0 cursor-pointer rounded-lg border border-border bg-transparent p-0.5 transition-colors hover:border-accent/50" />
+      <input
+        id={id}
+        type="color"
+        value={pickerValue}
+        onChange={(e) => onChange(e.target.value)}
+        onPointerDown={onPointerActive ? () => onPointerActive(true) : undefined}
+        onPointerUp={onPointerActive ? () => onPointerActive(false) : undefined}
+        onPointerCancel={onPointerActive ? () => onPointerActive(false) : undefined}
+        className="size-8 shrink-0 cursor-pointer rounded-lg border border-border bg-transparent p-0.5 transition-colors hover:border-accent/50"
+      />
       <label htmlFor={id} className="flex-1 text-small">
         {label}
       </label>
-      <span className="font-mono text-xs text-muted">{value || "theme"}</span>
-      {allowEmpty && value ? (
+      <span className="font-mono text-xs text-muted">{valid || (allowEmpty ? "theme" : pickerValue)}</span>
+      {allowEmpty && valid ? (
         <button type="button" onClick={() => onChange("")} className="text-xs text-accent hover:underline">
           Reset
         </button>

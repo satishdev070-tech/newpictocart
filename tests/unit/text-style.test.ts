@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_TEXT_LOOK,
+  TEXT_LOOK_THEME_SIZE_DISPLAY,
   clampTextWidthPct,
   normalizeTextLook,
   parseTextLook,
   patchTextLook,
+  safePatchTextLook,
+  shownTextLookSize,
   textLookAttrs,
   textLookChanged,
   textLookFontFamily,
@@ -119,6 +123,32 @@ describe("text look style helpers", () => {
   it("patches looks for the editor and canvas resize", () => {
     expect(patchTextLook({}, { widthPct: 60 }).widthPct).toBe(60);
     expect(patchTextLook({ font: "body", widthPct: 40 }, { widthPct: 25 })).toMatchObject({ font: "body", widthPct: 25 });
+  });
+
+  it("safePatchTextLook never throws on garbage, floats, null, or size 0", () => {
+    expect(() => safePatchTextLook(null)).not.toThrow();
+    expect(safePatchTextLook(null)).toEqual(DEFAULT_TEXT_LOOK);
+    expect(safePatchTextLook(undefined)).toEqual(DEFAULT_TEXT_LOOK);
+    expect(safePatchTextLook("nope")).toEqual(DEFAULT_TEXT_LOOK);
+    expect(safePatchTextLook(42)).toEqual(DEFAULT_TEXT_LOOK);
+    expect(safePatchTextLook({ size: 12.7 }).size).toBe(13);
+    expect(safePatchTextLook({ widthPct: 55.2 }).widthPct).toBe(55);
+    expect(safePatchTextLook({ size: Number.NaN })).toEqual(DEFAULT_TEXT_LOOK);
+    expect(safePatchTextLook({ color: "red", font: "comic-sans" })).toEqual(DEFAULT_TEXT_LOOK);
+    expect(safePatchTextLook({ size: 0, widthPct: 0 })).toMatchObject({ size: 0, widthPct: 0 });
+    expect(safePatchTextLook({ font: "body", size: 40 }, { size: 18.6 })).toMatchObject({ font: "body", size: 19 });
+    expect(safePatchTextLook({ font: "heading" }, { widthPct: Number.POSITIVE_INFINITY })).toMatchObject({
+      font: "heading",
+      widthPct: 0,
+    });
+  });
+
+  it("shownTextLookSize mirrors Theme Fonts display (never raw 0)", () => {
+    expect(shownTextLookSize(0)).toBe(TEXT_LOOK_THEME_SIZE_DISPLAY);
+    expect(shownTextLookSize(-1)).toBe(TEXT_LOOK_THEME_SIZE_DISPLAY);
+    expect(shownTextLookSize(Number.NaN)).toBe(TEXT_LOOK_THEME_SIZE_DISPLAY);
+    expect(shownTextLookSize(48)).toBe(48);
+    expect(shownTextLookSize(18.7)).toBe(19);
   });
 
   it("skips !text-current when a look colour is set so inline colour can win", () => {
