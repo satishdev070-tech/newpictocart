@@ -113,10 +113,55 @@ export function clampTextWidthPct(widthPct: number, device: "desktop" | "mobile"
   return Math.min(TEXT_LOOK_LIMITS.mobileMaxWidthPct, Math.max(TEXT_LOOK_LIMITS.mobileMinWidthPct, capped));
 }
 
-/** Merge a patch onto a look (editor / canvas resize). */
+/** Merge a patch onto a look (editor / canvas resize). Throws on invalid input — prefer `safePatchTextLook` in React render. */
 export function patchTextLook(current: unknown, patch: Partial<TextLook>): TextLook {
   const base = textLookSchema.parse(current ?? {});
   return textLookSchema.parse({ ...base, ...patch });
+}
+
+/**
+ * Round size/widthPct so mid-drag floats and coerced strings don't fail `.int()`.
+ * Non-finite values become undefined so Zod defaults apply.
+ */
+function coerceLookNumbers(raw: unknown): unknown {
+  if (raw === undefined || raw === null || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const src = raw as Record<string, unknown>;
+  let changed = false;
+  const out: Record<string, unknown> = { ...src };
+  for (const key of ["size", "widthPct"] as const) {
+    if (!(key in src) || src[key] === undefined || src[key] === null || src[key] === "") continue;
+    const n = typeof src[key] === "number" ? src[key] : Number(src[key]);
+    if (!Number.isFinite(n)) {
+      out[key] = undefined;
+      changed = true;
+      continue;
+    }
+    const rounded = Math.round(n);
+    if (rounded !== src[key]) {
+      out[key] = rounded;
+      changed = true;
+    }
+  }
+  return changed ? out : raw;
+}
+
+/**
+ * Never-throw merge for Edit panel render / onChange. Invalid or partial looks fall back to
+ * `DEFAULT_TEXT_LOOK` (size/width 0 = Theme / Auto) so Zod `.parse` cannot blank the editor.
+ */
+export function safePatchTextLook(current: unknown, patch: Partial<TextLook> = {}): TextLook {
+  const baseResult = textLookSchema.safeParse(coerceLookNumbers(current ?? {}));
+  const base = baseResult.success ? baseResult.data : { ...DEFAULT_TEXT_LOOK };
+  const merged = textLookSchema.safeParse({ ...base, ...(coerceLookNumbers(patch) as Partial<TextLook>) });
+  return merged.success ? merged.data : base;
+}
+
+/** Slider/number display when `size` is Theme (0). Persisted value stays 0 until the seller changes it. */
+export const TEXT_LOOK_THEME_SIZE_DISPLAY = 16;
+
+/** Display px for size controls — mirrors Theme Fonts `shownSize` (never show raw 0). */
+export function shownTextLookSize(size: number): number {
+  return Number.isFinite(size) && size > 0 ? Math.round(size) : TEXT_LOOK_THEME_SIZE_DISPLAY;
 }
 
 const FONT_CSS: Record<Exclude<TextFont, "default">, string> = {

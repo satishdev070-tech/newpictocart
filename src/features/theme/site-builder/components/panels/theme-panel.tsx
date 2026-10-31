@@ -16,6 +16,7 @@ import { UNSPLASH_CATEGORIES } from "@/lib/unsplash-categories";
 import { useBuilder } from "../../context";
 import { resolveFooterSectionRef } from "../../footer-ref";
 import { applyPalette, applyPresetTokens, COLOR_KEYS, COLOR_LABELS, filterPalettes, filterThemesByColourSearch, isPaletteActive, PALETTES } from "../../palettes";
+import { useHoldAutosave } from "../../use-hold-autosave";
 import { ColorInput, Dialog, FieldRow, input, PanelFrame, Toggle } from "../ui";
 
 /**
@@ -445,13 +446,26 @@ function FontsTab() {
 
 function TypeEditor({ level, style, onChange, onReset }: { level: TypeLevel; style: TypeStyle; onChange: (patch: Partial<TypeStyle>, field: string) => void; onReset: () => void }) {
   const id = useId();
+  const hold = useHoldAutosave();
   const shownSize = style.size > 0 ? style.size : DEFAULT_TYPE_SIZES[level];
   const clampSize = (n: number) => (Number.isFinite(n) ? Math.max(10, Math.min(96, Math.round(n))) : 0);
   return (
     <div className="space-y-3 border-t border-border px-2.5 py-3">
       <FieldRow label="Size (px)" htmlFor={`${id}-size`} hint={style.size > 0 ? undefined : "Theme default"}>
         <div className="flex items-center gap-2">
-          <input type="range" min={10} max={96} value={shownSize} onChange={(e) => onChange({ size: clampSize(Number(e.target.value)) }, "size")} className="flex-1 accent-accent" aria-label="Size" />
+          <input
+            type="range"
+            min={10}
+            max={96}
+            value={shownSize}
+            onChange={(e) => onChange({ size: clampSize(Number(e.target.value)) }, "size")}
+            onPointerDown={hold.onPointerDown}
+            onPointerUp={hold.onPointerUp}
+            onPointerCancel={hold.onPointerCancel}
+            onBlur={hold.onBlur}
+            className="flex-1 accent-accent"
+            aria-label="Size"
+          />
           <input id={`${id}-size`} type="number" min={10} max={96} className={cn(input, "w-20")} value={shownSize} onChange={(e) => onChange({ size: clampSize(Number(e.target.value)) }, "size")} />
         </div>
       </FieldRow>
@@ -468,6 +482,10 @@ function TypeEditor({ level, style, onChange, onReset }: { level: TypeLevel; sty
           step={5}
           value={style.lineHeight > 0 ? style.lineHeight : 120}
           onChange={(e) => onChange({ lineHeight: Math.max(90, Math.min(200, Number(e.target.value) || 0)) }, "lineHeight")}
+          onPointerDown={hold.onPointerDown}
+          onPointerUp={hold.onPointerUp}
+          onPointerCancel={hold.onPointerCancel}
+          onBlur={hold.onBlur}
           className="w-full accent-accent"
         />
       </FieldRow>
@@ -528,6 +546,7 @@ const HEADER_TOGGLES: [keyof HeaderSettings & ("showSearch" | "showAccount" | "s
 /** px slider with readout; 0 = auto (slider shows autoValue, the size the storefront uses today). */
 function SizeSlider({ label, value, autoValue, autoLabel = "Auto", limits, onChange }: { label: string; value: number; autoValue: number; autoLabel?: string; limits: { min: number; max: number }; onChange: (v: number) => void }) {
   const id = useId();
+  const hold = useHoldAutosave();
   const shown = Math.max(limits.min, Math.min(limits.max, value || autoValue));
   return (
     <div className="space-y-1">
@@ -548,7 +567,20 @@ function SizeSlider({ label, value, autoValue, autoLabel = "Auto", limits, onCha
           )}
         </span>
       </div>
-      <input id={id} type="range" min={limits.min} max={limits.max} step={2} value={shown} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-accent" />
+      <input
+        id={id}
+        type="range"
+        min={limits.min}
+        max={limits.max}
+        step={2}
+        value={shown}
+        onChange={(e) => onChange(Number(e.target.value))}
+        onPointerDown={hold.onPointerDown}
+        onPointerUp={hold.onPointerUp}
+        onPointerCancel={hold.onPointerCancel}
+        onBlur={hold.onBlur}
+        className="w-full accent-accent"
+      />
     </div>
   );
 }

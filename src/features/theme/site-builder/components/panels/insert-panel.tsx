@@ -95,12 +95,16 @@ export function InsertPanel() {
   const generate = () => {
     setError(null);
     startGenerate(async () => {
-      const r = await generateSectionAction({ prompt, list, storeContext: { pageTitle: latest.current.page.label } });
-      if (!r.ok) {
-        setError(r.error.fieldErrors?._form?.[0] ?? r.error.fieldErrors?.prompt?.[0] ?? r.error.message);
-        return;
+      try {
+        const r = await generateSectionAction({ prompt, list, storeContext: { pageTitle: latest.current.page.label } });
+        if (!r.ok) {
+          setError(r.error.fieldErrors?._form?.[0] ?? r.error.fieldErrors?.prompt?.[0] ?? r.error.message);
+          return;
+        }
+        if (!insert(r.data.type, r.data.settings)) setError(`A ${SECTION_DEFINITIONS[r.data.type].label.toLowerCase()} section can't be added here (the page may be full, or it allows only one). Try another description.`);
+      } catch {
+        setError("Could not generate a section. Check your connection and try again.");
       }
-      if (!insert(r.data.type, r.data.settings)) setError(`A ${SECTION_DEFINITIONS[r.data.type].label.toLowerCase()} section can't be added here (the page may be full, or it allows only one). Try another description.`);
     });
   };
 

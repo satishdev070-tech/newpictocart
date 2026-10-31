@@ -441,10 +441,14 @@ function RenameDialog({ page, onClose }: { page: BuilderPage; onClose: () => voi
       if (page.contentPageId && value) {
         const contentPageId = page.contentPageId;
         return startTransition(async () => {
-          const res = await renameContentPageAction({ id: contentPageId, title: value });
-          if (!res.ok) return setError(res.error.message);
-          apply((c) => setBuiltinTitle(c, builtinKey, value));
-          onClose();
+          try {
+            const res = await renameContentPageAction({ id: contentPageId, title: value });
+            if (!res.ok) return setError(res.error.message);
+            apply((c) => setBuiltinTitle(c, builtinKey, value));
+            onClose();
+          } catch {
+            setError("Could not rename the page. Check your connection and try again.");
+          }
         });
       }
       apply((c) => setBuiltinTitle(c, builtinKey, value));

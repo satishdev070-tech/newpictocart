@@ -16,6 +16,7 @@ import { IconGlyph } from "@/lib/icons/icon-glyph";
 import { iconLabel, parseIconValue } from "@/lib/icons/names";
 import { cn } from "@/lib/cn";
 import { blankItem, itemLabel, visibleFields } from "../field-groups";
+import { useHoldAutosave } from "../use-hold-autosave";
 import { ColorInput, IconButton, Toggle, input } from "./ui";
 import { TextStyleField } from "./text-style-field";
 
@@ -191,6 +192,8 @@ export function ImageField({ label, value, onChange, id, fieldKey = "", standard
 
 export function Field({ field, value, onChange, pickers, error }: FieldProps) {
   const id = `f-${field.key}-${useId()}`;
+  // Always call (hooks rule); only spread onto number inputs that fire rapid onChange.
+  const hold = useHoldAutosave();
   const label = (
     <label htmlFor={id} className="mb-1 block text-xs font-medium">
       {field.label}
@@ -237,7 +240,21 @@ export function Field({ field, value, onChange, pickers, error }: FieldProps) {
       return (
         <div>
           {label}
-          <input id={id} aria-invalid={invalid} type="number" className={input} min={field.min} max={field.max} step={field.step ?? 1} value={Number(value ?? field.min)} onChange={(e) => onChange(Number(e.target.value))} />
+          <input
+            id={id}
+            aria-invalid={invalid}
+            type="number"
+            className={input}
+            min={field.min}
+            max={field.max}
+            step={field.step ?? 1}
+            value={Number(value ?? field.min)}
+            onChange={(e) => onChange(Number(e.target.value))}
+            onPointerDown={hold.onPointerDown}
+            onPointerUp={hold.onPointerUp}
+            onPointerCancel={hold.onPointerCancel}
+            onBlur={hold.onBlur}
+          />
           {foot}
         </div>
       );

@@ -8,6 +8,7 @@ import type { ThemeTokens } from "@/features/theme/schema/tokens";
 import { cn } from "@/lib/cn";
 import { useBuilder, type SectionRef } from "../../context";
 import { updateSection } from "../../ops";
+import { useHoldAutosave } from "../../use-hold-autosave";
 
 /**
  * Section → Settings → "Size & spacing": content size (%), content width and margin / padding
@@ -251,6 +252,7 @@ function RangeRow({
   onReset?: () => void;
 }) {
   const id = useId();
+  const hold = useHoldAutosave();
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
@@ -278,6 +280,10 @@ function RangeRow({
         step={step}
         value={Math.min(max, Math.max(min, value))}
         onChange={(e) => onChange(Math.min(max, Math.max(min, Math.round(Number(e.target.value)))))}
+        onPointerDown={hold.onPointerDown}
+        onPointerUp={hold.onPointerUp}
+        onPointerCancel={hold.onPointerCancel}
+        onBlur={hold.onBlur}
         className="w-full accent-accent"
       />
     </div>

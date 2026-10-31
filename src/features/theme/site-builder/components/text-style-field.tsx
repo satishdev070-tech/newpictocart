@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, type PointerEvent as ReactPointerEvent } from "react";
 import { AlignCenter, AlignLeft, AlignRight, Bold, Italic, RotateCcw, Underline } from "lucide-react";
 import {
   DEFAULT_TEXT_LOOK,
@@ -9,7 +9,8 @@ import {
   TEXT_LOOK_LIMITS,
   TEXT_WEIGHTS,
   clampTextWidthPct,
-  patchTextLook,
+  safePatchTextLook,
+  shownTextLookSize,
   textLookChanged,
   type TextAlign,
   type TextFont,
@@ -18,6 +19,7 @@ import {
 } from "@/features/theme/schema/text-style";
 import { FONT_GROUP_LABELS, FONT_GROUPS, FONT_STACKS, fontKeysInGroup, type FontKey } from "@/features/theme/schema/tokens";
 import { cn } from "@/lib/cn";
+import { useHoldAutosave } from "../use-hold-autosave";
 import { ColorInput, input } from "./ui";
 
 /**
@@ -59,23 +61,62 @@ const ALIGN_ICONS: Record<Exclude<TextAlign, "default">, typeof AlignLeft> = {
   right: AlignRight,
 };
 
+function clampSize(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(TEXT_LOOK_LIMITS.size.min, Math.min(TEXT_LOOK_LIMITS.size.max, Math.round(n)));
+}
+
+function clampWidthPct(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(TEXT_LOOK_LIMITS.widthPct.min, Math.min(TEXT_LOOK_LIMITS.widthPct.max, Math.round(n)));
+}
+
 export function TextStyleField({
   label,
   value,
   onChange,
   help,
+  onPointerActive,
 }: {
   label: string;
   value: unknown;
   onChange: (v: TextLook) => void;
   help?: string;
+  /** Optional: hold-autosave agent wires this to pause idle save during slider/colour drag. */
+  onPointerActive?: (held: boolean) => void;
 }) {
   const id = useId();
-  const look = patchTextLook(value, {});
+  // Never throw in render — invalid/partial looks fall back to DEFAULT_TEXT_LOOK.
+  const look = safePatchTextLook(value, {});
+  // Hold draft autosave while size/width sliders are dragged (colour uses ColorInput hold).
+  const hold = useHoldAutosave();
   const changed = textLookChanged(look);
-  const set = (patch: Partial<TextLook>) => onChange(patchTextLook(look, patch));
+  const set = (patch: Partial<TextLook>) => onChange(safePatchTextLook(look, patch));
   const width = look.widthPct;
   const mobileW = clampTextWidthPct(width, "mobile");
+  // size 0 = Theme: show body-ish default in controls (TypeEditor shownSize pattern); still persist 0.
+  const shownSize = shownTextLookSize(look.size);
+  // widthPct 0 = Auto: keep range at 0; number input shows empty + "Auto" placeholder.
+  const widthNumberValue = width > 0 ? width : "";
+
+  const pointerHold = {
+    onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
+      hold.onPointerDown(e);
+      onPointerActive?.(true);
+    },
+    onPointerUp: () => {
+      hold.onPointerUp();
+      onPointerActive?.(false);
+    },
+    onPointerCancel: () => {
+      hold.onPointerCancel();
+      onPointerActive?.(false);
+    },
+    onBlur: () => {
+      hold.onBlur();
+      onPointerActive?.(false);
+    },
+  };
 
   return (
     <fieldset className="space-y-2.5 rounded-lg border border-border bg-surface p-2.5">
@@ -140,15 +181,16 @@ export function TextStyleField({
           min={TEXT_LOOK_LIMITS.size.min}
           max={TEXT_LOOK_LIMITS.size.max}
           step={1}
-          value={look.size}
-          onChange={(e) => set({ size: Number(e.target.value) })}
+          value={shownSize}
+          {...pointerHold}
+          onChange={(e) => set({ size: clampSize(Number(e.target.value)) })}
           className="w-full accent-[var(--color-accent,#f97316)]"
         />
         <div className="flex items-center gap-1">
           <Stepper
             label={`${label} size down`}
-            onClick={() => set({ size: Math.max(0, look.size - 1) })}
-            disabled={look.size <= 0}
+            onClick={() => set({ size: clampSize(look.size > 0 ? look.size - 1 : shownSize - 1) })}
+            disabled={look.size <= 0 && shownSize <= TEXT_LOOK_LIMITS.size.min}
           >
             −
           </Stepper>
@@ -157,21 +199,27 @@ export function TextStyleField({
             className={cn(input, "h-7 text-center")}
             min={0}
             max={TEXT_LOOK_LIMITS.size.max}
-            value={look.size}
+            value={look.size > 0 ? look.size : shownSize}
             aria-label={`${label} size in pixels`}
-            onChange={(e) => set({ size: Number(e.target.value) || 0 })}
+            onChange={(e) => set({ size: clampSize(Number(e.target.value) || 0) })}
           />
           <Stepper
             label={`${label} size up`}
-            onClick={() => set({ size: Math.min(TEXT_LOOK_LIMITS.size.max, look.size + 1) })}
-            disabled={look.size >= TEXT_LOOK_LIMITS.size.max}
+            onClick={() => set({ size: clampSize((look.size > 0 ? look.size : shownSize) + 1) })}
+            disabled={(look.size > 0 ? look.size : shownSize) >= TEXT_LOOK_LIMITS.size.max}
           >
             +
           </Stepper>
         </div>
       </div>
 
-      <ColorInput label="Colour" value={look.color} allowEmpty onChange={(v) => set({ color: v })} />
+      <ColorInput
+        label="Colour"
+        value={look.color}
+        allowEmpty
+        onChange={(v) => set({ color: v })}
+        onPointerActive={onPointerActive}
+      />
 
       <div className="space-y-1" role="group" aria-label={`${label} alignment`}>
         <span className="block text-[11px] font-medium text-muted">Alignment</span>
@@ -216,13 +264,14 @@ export function TextStyleField({
           max={100}
           step={1}
           value={width}
-          onChange={(e) => set({ widthPct: Number(e.target.value) })}
+          {...pointerHold}
+          onChange={(e) => set({ widthPct: clampWidthPct(Number(e.target.value)) })}
           className="w-full accent-[var(--color-accent,#f97316)]"
         />
         <div className="flex items-center gap-1">
           <Stepper
             label={`${label} width down`}
-            onClick={() => set({ widthPct: Math.max(0, width - 5) })}
+            onClick={() => set({ widthPct: clampWidthPct(width - 5) })}
             disabled={width <= 0}
           >
             −
@@ -233,13 +282,14 @@ export function TextStyleField({
             min={0}
             max={100}
             step={5}
-            value={width}
+            value={widthNumberValue}
+            placeholder="Auto"
             aria-label={`${label} width percent`}
-            onChange={(e) => set({ widthPct: Number(e.target.value) || 0 })}
+            onChange={(e) => set({ widthPct: clampWidthPct(Number(e.target.value) || 0) })}
           />
           <Stepper
             label={`${label} width up`}
-            onClick={() => set({ widthPct: Math.min(100, width + 5) })}
+            onClick={() => set({ widthPct: clampWidthPct(width + 5) })}
             disabled={width >= 100}
           >
             +

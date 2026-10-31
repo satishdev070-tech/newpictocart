@@ -86,6 +86,12 @@ export type BuilderApi = BuilderData & {
   select: (ref: SectionRef | null) => void;
   device: "desktop" | "mobile";
   setDevice: (d: "desktop" | "mobile") => void;
+  /**
+   * True while a panel field is holding a pointer (slider / colour drag). TopBar skips
+   * scheduling autosave until release so continuous applies do not POST on every stroke.
+   */
+  holdAutosave: boolean;
+  setHoldAutosave: (hold: boolean) => void;
 };
 
 const Ctx = createContext<BuilderApi | null>(null);
@@ -103,6 +109,13 @@ export function BuilderProvider({ data, children }: { data: BuilderData; childre
   const [panel, setPanel] = useState<Panel | null>({ kind: "pages" });
   const [selected, select] = useState<SectionRef | null>(null);
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  // Depth so overlapping holds (e.g. colour + range) stay held until the last release.
+  const holdDepthRef = useRef(0);
+  const [holdAutosave, setHoldAutosaveState] = useState(false);
+  const setHoldAutosave = useCallback((hold: boolean) => {
+    holdDepthRef.current = Math.max(0, holdDepthRef.current + (hold ? 1 : -1));
+    setHoldAutosaveState(holdDepthRef.current > 0);
+  }, []);
 
   const config = hist.present;
   // Stable apply identity: colour/slider handlers must not recreate `apply` every stroke
@@ -169,6 +182,8 @@ export function BuilderProvider({ data, children }: { data: BuilderData; childre
     select,
     device,
     setDevice,
+    holdAutosave,
+    setHoldAutosave,
   };
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
