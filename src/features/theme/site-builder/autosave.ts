@@ -24,11 +24,16 @@ export type AutosaveGate = {
   conflict: boolean;
   /** A save (manual or auto) is already in flight. */
   saving: boolean;
+  /**
+   * Pointer held on a slider / colour control: skip idle + max-wait timers until release
+   * so continuous `apply()` strokes do not storm draft POSTs (ADR-010 still idle ~2.5s after).
+   */
+  holdAutosave?: boolean;
 };
 
 /** Whether a debounced autosave timer should be armed for the current editor state. */
-export function shouldScheduleAutosave({ dirty, conflict, saving }: AutosaveGate): boolean {
-  return dirty && !conflict && !saving;
+export function shouldScheduleAutosave({ dirty, conflict, saving, holdAutosave }: AutosaveGate): boolean {
+  return dirty && !conflict && !saving && !holdAutosave;
 }
 
 /**

@@ -5,6 +5,7 @@ import { ArrowLeft, MoreVertical, X } from "lucide-react";
 import { HEX_COLOR_RE } from "@/features/theme/schema/primitives";
 import { cn } from "@/lib/cn";
 import { inputClassName } from "@/components/ui/field";
+import { useHoldAutosave } from "../use-hold-autosave";
 
 /** Native `<input type="color">` requires #rrggbb; never pass empty/invalid (throws in some browsers). */
 function safePickerHex(raw: unknown): string {
@@ -123,12 +124,14 @@ export function ColorInput({
   onChange: (v: string) => void;
   label: string;
   allowEmpty?: boolean;
-  /** Optional: hold-autosave agent wires this to pause idle save during colour drag. */
+  /** Optional extra notify; draft autosave is paused via useHoldAutosave regardless. */
   onPointerActive?: (held: boolean) => void;
 }) {
   const id = useId();
   const valid = typeof value === "string" && HEX_COLOR_RE.test(value.trim()) ? value.trim().toLowerCase() : "";
   const pickerValue = safePickerHex(value);
+  // Hold draft autosave for the whole colour interaction (native picker drag → continuous onChange).
+  const hold = useHoldAutosave();
   return (
     <div className="flex items-center gap-2">
       <input
@@ -136,9 +139,22 @@ export function ColorInput({
         type="color"
         value={pickerValue}
         onChange={(e) => onChange(e.target.value)}
-        onPointerDown={onPointerActive ? () => onPointerActive(true) : undefined}
-        onPointerUp={onPointerActive ? () => onPointerActive(false) : undefined}
-        onPointerCancel={onPointerActive ? () => onPointerActive(false) : undefined}
+        onPointerDown={(e) => {
+          hold.onPointerDown(e);
+          onPointerActive?.(true);
+        }}
+        onPointerUp={() => {
+          hold.onPointerUp();
+          onPointerActive?.(false);
+        }}
+        onPointerCancel={() => {
+          hold.onPointerCancel();
+          onPointerActive?.(false);
+        }}
+        onBlur={() => {
+          hold.onBlur();
+          onPointerActive?.(false);
+        }}
         className="size-8 shrink-0 cursor-pointer rounded-lg border border-border bg-transparent p-0.5 transition-colors hover:border-accent/50"
       />
       <label htmlFor={id} className="flex-1 text-small">

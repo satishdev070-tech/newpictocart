@@ -30,6 +30,12 @@ describe("site builder autosave helpers", () => {
     expect(shouldScheduleAutosave({ dirty: true, conflict: false, saving: true })).toBe(false);
   });
 
+  it("skips scheduling while holdAutosave (slider/colour pointer hold)", () => {
+    expect(shouldScheduleAutosave({ dirty: true, conflict: false, saving: false, holdAutosave: true })).toBe(false);
+    expect(shouldScheduleAutosave({ dirty: true, conflict: false, saving: false, holdAutosave: false })).toBe(true);
+    expect(shouldScheduleAutosave({ dirty: true, conflict: false, saving: false })).toBe(true);
+  });
+
   it("computes max-wait delay from the dirty streak start", () => {
     expect(autosaveMaxWaitDelayMs(null, 1_000)).toBeNull();
     expect(autosaveMaxWaitDelayMs(0, 1_000, 10_000)).toBe(9_000);

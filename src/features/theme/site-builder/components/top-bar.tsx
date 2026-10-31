@@ -242,8 +242,16 @@ export function TopBar() {
   };
 
   // Latest dirty/conflict for the idle / max-wait timers (effect-event may only run from effects).
+  // holdAutosave: panel slider/colour pointer hold — do not POST mid-drag (Fix 3c).
   const autosaveNow = useEffectEvent(() => {
-    if (!shouldScheduleAutosave({ dirty: dirtyRef.current, conflict: isStaleDraftConflict(saveErr?.code), saving: savingRef.current })) {
+    if (
+      !shouldScheduleAutosave({
+        dirty: dirtyRef.current,
+        conflict: isStaleDraftConflict(saveErr?.code),
+        saving: savingRef.current,
+        holdAutosave: b.holdAutosave,
+      })
+    ) {
       return;
     }
     void persistDraft(false, "auto");
@@ -259,8 +267,9 @@ export function TopBar() {
   }, [b.dirty, conflict, b.config]);
 
   // Debounced autosave: idle after local edits, plus max-wait so long sessions sync without only idle.
+  // Skipped while holdAutosave (pointer on range/colour); re-arms on release with the same idle/max-wait.
   useEffect(() => {
-    if (!shouldScheduleAutosave({ dirty: b.dirty, conflict, saving })) return;
+    if (!shouldScheduleAutosave({ dirty: b.dirty, conflict, saving, holdAutosave: b.holdAutosave })) return;
     const idleTimer = window.setTimeout(() => autosaveNow(), AUTOSAVE_IDLE_MS);
     const maxDelay = autosaveMaxWaitDelayMs(dirtySinceRef.current, Date.now(), AUTOSAVE_MAX_WAIT_MS);
     const maxTimer = maxDelay == null ? undefined : window.setTimeout(() => autosaveNow(), maxDelay);
@@ -268,7 +277,7 @@ export function TopBar() {
       window.clearTimeout(idleTimer);
       if (maxTimer != null) window.clearTimeout(maxTimer);
     };
-  }, [b.dirty, b.config, conflict, saving]);
+  }, [b.dirty, b.config, conflict, saving, b.holdAutosave]);
 
   // beforeunload only while dirty or saving (tab close / hard reload).
   useEffect(() => {

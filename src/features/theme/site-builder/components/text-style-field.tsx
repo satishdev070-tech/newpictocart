@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, type PointerEvent as ReactPointerEvent } from "react";
 import { AlignCenter, AlignLeft, AlignRight, Bold, Italic, RotateCcw, Underline } from "lucide-react";
 import {
   DEFAULT_TEXT_LOOK,
@@ -19,6 +19,7 @@ import {
 } from "@/features/theme/schema/text-style";
 import { FONT_GROUP_LABELS, FONT_GROUPS, FONT_STACKS, fontKeysInGroup, type FontKey } from "@/features/theme/schema/tokens";
 import { cn } from "@/lib/cn";
+import { useHoldAutosave } from "../use-hold-autosave";
 import { ColorInput, input } from "./ui";
 
 /**
@@ -87,6 +88,8 @@ export function TextStyleField({
   const id = useId();
   // Never throw in render — invalid/partial looks fall back to DEFAULT_TEXT_LOOK.
   const look = safePatchTextLook(value, {});
+  // Hold draft autosave while size/width sliders are dragged (colour uses ColorInput hold).
+  const hold = useHoldAutosave();
   const changed = textLookChanged(look);
   const set = (patch: Partial<TextLook>) => onChange(safePatchTextLook(look, patch));
   const width = look.widthPct;
@@ -96,13 +99,24 @@ export function TextStyleField({
   // widthPct 0 = Auto: keep range at 0; number input shows empty + "Auto" placeholder.
   const widthNumberValue = width > 0 ? width : "";
 
-  const pointerHold = onPointerActive
-    ? {
-        onPointerDown: () => onPointerActive(true),
-        onPointerUp: () => onPointerActive(false),
-        onPointerCancel: () => onPointerActive(false),
-      }
-    : undefined;
+  const pointerHold = {
+    onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
+      hold.onPointerDown(e);
+      onPointerActive?.(true);
+    },
+    onPointerUp: () => {
+      hold.onPointerUp();
+      onPointerActive?.(false);
+    },
+    onPointerCancel: () => {
+      hold.onPointerCancel();
+      onPointerActive?.(false);
+    },
+    onBlur: () => {
+      hold.onBlur();
+      onPointerActive?.(false);
+    },
+  };
 
   return (
     <fieldset className="space-y-2.5 rounded-lg border border-border bg-surface p-2.5">
