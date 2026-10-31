@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, ChevronDown, ExternalLink, FileText, History, Monitor, Redo2, Smartphone, Undo2 } from "lucide-react";
@@ -8,15 +8,18 @@ import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import type { PublicError } from "@/lib/errors";
 import { publishThemeAction, refreshPreviewUrlAction, rollbackThemeAction, saveThemeDraftAction } from "@/features/theme/actions";
-import { AUTOSAVE_IDLE_MS, draftStatusLabel, isStaleDraftConflict, shouldScheduleAutosave } from "../autosave";
+import { AUTOSAVE_IDLE_MS, AUTOSAVE_MAX_WAIT_MS, autosaveMaxWaitDelayMs, draftStatusLabel, isStaleDraftConflict, shouldScheduleAutosave } from "../autosave";
 import { useBuilder } from "../context";
+import { leaveDecision, shouldGateLeave } from "../leave-gate";
 import { PAGE_GROUP_LABELS, type PageGroup } from "../pages";
+import { ExitUnsavedDialog } from "./exit-unsaved-dialog";
 import { Dialog, IconButton, input } from "./ui";
 import { previewUrlFor } from "./canvas-frame";
 
 /** Set before a deliberate reload / navigation so the "unsaved changes" prompt is skipped. */
 export const leaveGuard = { bypass: false };
 
+const DASHBOARD_HREF = "/dashboard";
 const GROUP_ORDER: PageGroup[] = ["pages", "ecommerce", "members", "popups"];
 
 type Notice =
@@ -24,8 +27,16 @@ type Notice =
   | { tone: "error"; text: string; conflict?: boolean }
   | null;
 
+type LeaveIntent = { kind: "href"; href: string } | { kind: "history" };
+
 function errorText(e: PublicError): string {
   return e.fieldErrors?._form?.[0] ?? Object.values(e.fieldErrors ?? {})[0]?.[0] ?? e.message;
+}
+
+function waitMs(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 /** Small anchored popover that closes on outside click / Escape. */
@@ -68,8 +79,26 @@ export function TopBar() {
   const [previewing, startPreview] = useTransition();
   const [publishOpen, setPublishOpen] = useState(false);
   const [note, setNote] = useState("");
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [leaveIntent, setLeaveIntent] = useState<LeaveIntent | null>(null);
+  const [leaveFlushing, setLeaveFlushing] = useState(false);
   const savingRef = useRef(false);
+  const dirtyRef = useRef(b.dirty);
+  const configRef = useRef(b.config);
+  const baseRef = useRef(b.baseUpdatedAt);
+  const dirtySinceRef = useRef<number | null>(null);
   const conflict = isStaleDraftConflict(saveErr?.code);
+
+  useLayoutEffect(() => {
+    dirtyRef.current = b.dirty;
+    configRef.current = b.config;
+    baseRef.current = b.baseUpdatedAt;
+  }, [b.dirty, b.config, b.baseUpdatedAt]);
+
+  // Module-level bypass survives SPA remounts; clear on each editor open.
+  useEffect(() => {
+    leaveGuard.bypass = false;
+  }, []);
 
   // Auto-hide success notices (pending / conflict stay until resolved).
   useEffect(() => {
@@ -79,60 +108,192 @@ export function TopBar() {
   }, [notice]);
 
   /**
-   * Persist the current local document as the server draft (manual Save or autosave).
-   * Fire-and-forget via `startSave` — never call from colour/slider/`apply` handlers; canvas
-   * already paints from local history before this runs.
+   * Persist the current local document as the server draft (manual Save, autosave, or exit flush).
+   * Returns true on success. Never call from colour/slider/`apply` handlers; canvas already paints
+   * from local history before this runs.
    */
-  const persistDraft = (force: boolean, source: "manual" | "auto") => {
-    if (savingRef.current) return;
+  const persistDraft = (force: boolean, source: "manual" | "auto" | "flush"): Promise<boolean> => {
+    if (savingRef.current) return Promise.resolve(false);
     savingRef.current = true;
     // Capture at fire time — edits during the round-trip stay dirty for the next pass.
-    const sent = b.config;
-    const baseUpdatedAt = b.baseUpdatedAt;
-    startSave(async () => {
-      try {
-        const fd = new FormData();
-        fd.set("config", JSON.stringify(sent));
-        fd.set("baseUpdatedAt", baseUpdatedAt);
-        if (force) fd.set("force", "1");
-        const r = await saveThemeDraftAction(null, fd);
-        if (r.ok) {
-          b.markSaved(r.data.updatedAt, sent);
-          setSaveErr(null);
-          setNotice({ tone: "ok", text: source === "auto" ? "Draft autosaved." : "Draft saved." });
-        } else {
-          setSaveErr(r.error);
-          const stale = isStaleDraftConflict(r.error.code);
-          setNotice({
-            tone: "error",
-            conflict: stale,
-            text: stale
-              ? "Someone else saved this theme after you opened it. Reload to see their draft, or save anyway to keep yours."
-              : errorText(r.error),
-          });
+    const sent = configRef.current;
+    const baseUpdatedAt = baseRef.current;
+    const saveGeneration = b.captureSaveGeneration();
+    return new Promise((resolve) => {
+      startSave(async () => {
+        let ok = false;
+        try {
+          const fd = new FormData();
+          fd.set("config", JSON.stringify(sent));
+          fd.set("baseUpdatedAt", baseUpdatedAt);
+          if (force) fd.set("force", "1");
+          const r = await saveThemeDraftAction(null, fd);
+          if (r.ok) {
+            const accepted = b.markSaved(r.data.updatedAt, sent, saveGeneration);
+            if (accepted) {
+              setSaveErr(null);
+              if (source !== "flush") {
+                setNotice({ tone: "ok", text: source === "auto" ? "Draft autosaved." : "Draft saved." });
+              }
+            }
+            ok = true;
+          } else {
+            setSaveErr(r.error);
+            const stale = isStaleDraftConflict(r.error.code);
+            setNotice({
+              tone: "error",
+              conflict: stale,
+              text: stale
+                ? "Someone else saved this theme after you opened it. Reload to see their draft, or save anyway to keep yours."
+                : errorText(r.error),
+            });
+            ok = false;
+          }
+        } catch {
+          ok = false;
+          setNotice({ tone: "error", text: "Could not save the draft. Check your connection and try again." });
+        } finally {
+          savingRef.current = false;
+          resolve(ok);
         }
-      } finally {
-        savingRef.current = false;
-      }
+      });
     });
   };
 
-  const saveManual = (force: boolean) => persistDraft(force, "manual");
+  /**
+   * Forced flush for exit / leave: wait out any in-flight save, then persist while still dirty.
+   * Returns true when the local document is clean (or was already clean).
+   */
+  const flushDraft = async (force = false): Promise<boolean> => {
+    // Wait briefly for an in-flight autosave/manual save to finish.
+    const deadline = Date.now() + AUTOSAVE_MAX_WAIT_MS;
+    while (savingRef.current && Date.now() < deadline) {
+      await waitMs(40);
+    }
+    if (savingRef.current) return false;
 
-  // Latest dirty/conflict for the idle timer (effect-event may only run from effects).
-  const autosaveNow = useEffectEvent(() => {
-    if (!shouldScheduleAutosave({ dirty: b.dirty, conflict: isStaleDraftConflict(saveErr?.code), saving: savingRef.current })) {
+    // Up to a few passes: edits during a flush stay dirty and need another persist.
+    for (let pass = 0; pass < 3; pass++) {
+      if (!dirtyRef.current) return true;
+      const sent = configRef.current;
+      const ok = await persistDraft(force, "flush");
+      if (!ok) return false;
+      // markSaved is sync but React dirty may lag one frame — treat identity match as clean.
+      if (configRef.current === sent) {
+        dirtyRef.current = false;
+        return true;
+      }
+      dirtyRef.current = true;
+    }
+    return !dirtyRef.current;
+  };
+
+  const saveManual = (force: boolean) => {
+    void persistDraft(force, "manual");
+  };
+
+  const navigateAway = (intent: LeaveIntent) => {
+    leaveGuard.bypass = true;
+    setLeaveOpen(false);
+    setLeaveIntent(null);
+    if (intent.kind === "href") {
+      router.push(intent.href);
       return;
     }
-    persistDraft(false, "auto");
+    window.history.back();
+  };
+
+  /** Central leave helper: prompt when dirty or saving; otherwise navigate. */
+  const requestLeave = (intent: LeaveIntent) => {
+    if (leaveDecision({ dirty: dirtyRef.current, saving: savingRef.current || saving, bypass: leaveGuard.bypass }) === "proceed") {
+      navigateAway(intent);
+      return;
+    }
+    setLeaveIntent(intent);
+    setLeaveOpen(true);
+  };
+
+  const onLeaveSave = async () => {
+    if (leaveFlushing || !leaveIntent) return;
+    setLeaveFlushing(true);
+    try {
+      const ok = await flushDraft(conflict);
+      if (ok && !dirtyRef.current) {
+        navigateAway(leaveIntent);
+        return;
+      }
+      // Stay open with the error notice from persistDraft.
+    } finally {
+      setLeaveFlushing(false);
+    }
+  };
+
+  const onLeaveDiscard = () => {
+    if (leaveFlushing || !leaveIntent) return;
+    b.discardLocalEdits();
+    setSaveErr(null);
+    navigateAway(leaveIntent);
+  };
+
+  const onLeaveCancel = () => {
+    if (leaveFlushing) return;
+    setLeaveOpen(false);
+    setLeaveIntent(null);
+  };
+
+  // Latest dirty/conflict for the idle / max-wait timers (effect-event may only run from effects).
+  const autosaveNow = useEffectEvent(() => {
+    if (!shouldScheduleAutosave({ dirty: dirtyRef.current, conflict: isStaleDraftConflict(saveErr?.code), saving: savingRef.current })) {
+      return;
+    }
+    void persistDraft(false, "auto");
   });
 
-  // Debounced autosave: idle after local edits → Save draft. Canvas never waits on this.
+  // Track the start of a continuous dirty streak for max-wait flush.
+  useEffect(() => {
+    if (!b.dirty || conflict) {
+      dirtySinceRef.current = null;
+      return;
+    }
+    if (dirtySinceRef.current == null) dirtySinceRef.current = Date.now();
+  }, [b.dirty, conflict, b.config]);
+
+  // Debounced autosave: idle after local edits, plus max-wait so long sessions sync without only idle.
   useEffect(() => {
     if (!shouldScheduleAutosave({ dirty: b.dirty, conflict, saving })) return;
-    const t = window.setTimeout(() => autosaveNow(), AUTOSAVE_IDLE_MS);
-    return () => window.clearTimeout(t);
+    const idleTimer = window.setTimeout(() => autosaveNow(), AUTOSAVE_IDLE_MS);
+    const maxDelay = autosaveMaxWaitDelayMs(dirtySinceRef.current, Date.now(), AUTOSAVE_MAX_WAIT_MS);
+    const maxTimer = maxDelay == null ? undefined : window.setTimeout(() => autosaveNow(), maxDelay);
+    return () => {
+      window.clearTimeout(idleTimer);
+      if (maxTimer != null) window.clearTimeout(maxTimer);
+    };
   }, [b.dirty, b.config, conflict, saving]);
+
+  // beforeunload only while dirty or saving (tab close / hard reload).
+  useEffect(() => {
+    if (!shouldGateLeave({ dirty: b.dirty, saving })) return;
+    const onUnload = (e: BeforeUnloadEvent) => {
+      if (leaveGuard.bypass) return;
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onUnload);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  }, [b.dirty, saving]);
+
+  // Browser Back: re-push and open the dialog (no useBlocker in this Next tree).
+  useEffect(() => {
+    if (!shouldGateLeave({ dirty: b.dirty, saving })) return;
+    const onPopState = () => {
+      if (leaveGuard.bypass) return;
+      window.history.pushState({ siteBuilderLeave: 1 }, "", window.location.href);
+      setLeaveIntent({ kind: "history" });
+      setLeaveOpen(true);
+    };
+    window.history.pushState({ siteBuilderLeave: 1 }, "", window.location.href);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [b.dirty, saving]);
 
   const reloadAfterConflict = () => {
     leaveGuard.bypass = true;
@@ -194,9 +355,10 @@ export function TopBar() {
     // No overflow clipping on the bar: the history popover and notices hang below it.
     <header data-tour="builder-topbar" className="relative z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
       <Link
-        href="/dashboard"
+        href={DASHBOARD_HREF}
         onClick={(e) => {
-          if (b.dirty && !confirm("Leave the editor? Your unsaved changes will be lost.")) e.preventDefault();
+          e.preventDefault();
+          requestLeave({ kind: "href", href: DASHBOARD_HREF });
         }}
         className="grid size-8 shrink-0 place-items-center rounded-lg border border-border text-muted hover:bg-surface-secondary hover:text-foreground [&_svg]:size-4"
         aria-label="Back to dashboard"
@@ -409,6 +571,8 @@ export function TopBar() {
           <input id="sb-publish-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={80} placeholder="e.g. Diwali homepage" className={input} />
         </div>
       </Dialog>
+
+      <ExitUnsavedDialog open={leaveOpen} saving={leaveFlushing} onSave={() => void onLeaveSave()} onDiscard={onLeaveDiscard} onCancel={onLeaveCancel} />
     </header>
   );
 }

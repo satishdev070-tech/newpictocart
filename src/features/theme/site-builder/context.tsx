@@ -6,6 +6,7 @@ import type { ThemeMenu } from "@/features/theme/schema/links";
 import type { SiteMode } from "@/features/stores/site-mode";
 import type { EditorPickers, ThemeVersionSummary } from "@/features/theme/server/queries";
 import { canRedo, canUndo, historyReducer, initHistory, isDirty } from "./history";
+import { shouldAcceptDraftSave } from "./leave-gate";
 import { builderPages, type BuilderPage, type PageSources } from "./pages";
 import type { ListKey } from "./slots";
 
@@ -62,8 +63,19 @@ export type BuilderApi = BuilderData & {
   canUndo: boolean;
   canRedo: boolean;
   dirty: boolean;
-  /** Call after a successful draft save with the document that was sent. */
-  markSaved: (updatedAt: string, savedConfig?: ThemeConfig) => void;
+  /**
+   * Call after a successful draft save with the document that was sent.
+   * Pass `saveGeneration` captured at fire time so a discard mid-flight cannot advance the baseline.
+   * Returns false when the generation was superseded (caller should ignore the response locally).
+   */
+  markSaved: (updatedAt: string, savedConfig?: ThemeConfig, saveGeneration?: number) => boolean;
+  /**
+   * Drop local unsynced edits (restore history `present` to last `saved`) and bump the save
+   * generation so in-flight autosave cannot `markSaved`.
+   */
+  discardLocalEdits: () => void;
+  /** Capture before starting a draft save; pass the same value into `markSaved`. */
+  captureSaveGeneration: () => number;
   baseUpdatedAt: string;
   pages: BuilderPage[];
   page: BuilderPage;
@@ -96,10 +108,15 @@ export function BuilderProvider({ data, children }: { data: BuilderData; childre
   // Stable apply identity: colour/slider handlers must not recreate `apply` every stroke
   // (avoids effect/subscription churn while paint stays sync via dispatch).
   const presentRef = useRef(config);
-  // Keep ref in sync after undo/redo/saved (apply updates the ref inline for chained strokes).
+  const savedRef = useRef(hist.saved);
+  const saveGenerationRef = useRef(0);
+  // Keep refs in sync after undo/redo/saved/discard (apply updates presentRef inline for chained strokes).
   useLayoutEffect(() => {
     presentRef.current = config;
   }, [config]);
+  useLayoutEffect(() => {
+    savedRef.current = hist.saved;
+  }, [hist.saved]);
   const apply = useCallback<BuilderApi["apply"]>((next, coalesce) => {
     const value = typeof next === "function" ? next(presentRef.current) : next;
     presentRef.current = value;
@@ -107,10 +124,20 @@ export function BuilderProvider({ data, children }: { data: BuilderData; childre
   }, []);
   const undo = useCallback(() => dispatch({ type: "undo" }), []);
   const redo = useCallback(() => dispatch({ type: "redo" }), []);
-  const markSaved = useCallback<BuilderApi["markSaved"]>((updatedAt, savedConfig) => {
+  const captureSaveGeneration = useCallback(() => saveGenerationRef.current, []);
+  const markSaved = useCallback<BuilderApi["markSaved"]>((updatedAt, savedConfig, saveGeneration) => {
+    if (saveGeneration !== undefined && !shouldAcceptDraftSave(saveGenerationRef.current, saveGeneration)) {
+      return false;
+    }
     setBase(updatedAt);
-    if (savedConfig) presentRef.current = savedConfig;
+    // Do not clobber presentRef with the sent document — mid-flight edits stay on present.
     dispatch({ type: "saved", config: savedConfig });
+    return true;
+  }, []);
+  const discardLocalEdits = useCallback(() => {
+    saveGenerationRef.current += 1;
+    presentRef.current = savedRef.current;
+    dispatch({ type: "discard" });
   }, []);
   const setPageKeyAndClear = useCallback((k: string) => {
     setPageKey(k);
@@ -130,6 +157,8 @@ export function BuilderProvider({ data, children }: { data: BuilderData; childre
     canRedo: canRedo(hist),
     dirty: isDirty(hist),
     markSaved,
+    discardLocalEdits,
+    captureSaveGeneration,
     baseUpdatedAt,
     pages,
     page,

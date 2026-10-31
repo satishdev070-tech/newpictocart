@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import { Check, ChevronRight, LayoutTemplate, Palette as PaletteIcon, PanelTop, RectangleHorizontal, ShoppingBag, Type } from "lucide-react";
+import { Fragment, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { Check, ChevronRight, LayoutTemplate, Palette as PaletteIcon, PanelBottom, PanelTop, RectangleHorizontal, ShoppingBag, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { assetUrl } from "@/lib/storage/assets";
@@ -14,13 +14,14 @@ import { DEFAULT_TYPE_SIZES, TYPE_FONTS, TYPE_LEVELS, TYPE_LEVEL_LABELS, TYPE_WE
 import type { MarketplaceTheme } from "@/features/theme/marketplace/types";
 import { UNSPLASH_CATEGORIES } from "@/lib/unsplash-categories";
 import { useBuilder } from "../../context";
+import { resolveFooterSectionRef } from "../../footer-ref";
 import { applyPalette, applyPresetTokens, COLOR_KEYS, COLOR_LABELS, filterPalettes, filterThemesByColourSearch, isPaletteActive, PALETTES } from "../../palettes";
 import { ColorInput, Dialog, FieldRow, input, PanelFrame, Toggle } from "../ui";
 
 /**
  * Theme settings (site builder left panel): theme preset, site colours, font styles, buttons &
- * layout, header and product cards. Every change goes through apply() (undoable); rapid edits of
- * one field coalesce into one history step.
+ * layout, header, footer (opens the Footer section — same path as Layers), and product cards.
+ * Every change goes through apply() (undoable); rapid edits of one field coalesce into one history step.
  */
 
 type Tab = "preset" | "colors" | "fonts" | "layout" | "header" | "cards";
@@ -33,29 +34,59 @@ const TABS: { key: Tab; label: string; hint: string; icon: ReactNode }[] = [
   { key: "cards", label: "Product cards", hint: "Image shape, badges, prices", icon: <ShoppingBag /> },
 ];
 
+const FOOTER_NAV = { label: "Footer", hint: "Menus, contact, social links", icon: <PanelBottom /> };
+const navBtnClass =
+  "flex w-full items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2.5 text-left hover:border-border-strong hover:bg-surface-secondary";
+
 export function ThemePanel() {
-  const { setPanel } = useBuilder();
+  const { config, select, setPanel } = useBuilder();
   const [tab, setTab] = useState<Tab | null>(null);
+  const [footerEmpty, setFooterEmpty] = useState(false);
   const current = TABS.find((t) => t.key === tab);
+
+  const openFooter = () => {
+    const ref = resolveFooterSectionRef(config);
+    if (!ref) {
+      setFooterEmpty(true);
+      return;
+    }
+    select(ref);
+    setPanel({ kind: "section", ref, tab: "edit" });
+  };
+
+  if (footerEmpty) {
+    return (
+      <PanelFrame title="Footer" subtitle="Theme settings" onBack={() => setFooterEmpty(false)} onClose={() => setPanel(null)}>
+        <p className="text-small text-muted">This theme has no Footer section yet. Open Layers and add a Footer to the footer group.</p>
+      </PanelFrame>
+    );
+  }
 
   if (!current) {
     return (
       <PanelFrame title="Theme settings" subtitle="Applies to every page" onClose={() => setPanel(null)}>
         <nav className="space-y-1.5" aria-label="Theme settings">
           {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className="flex w-full items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2.5 text-left hover:border-border-strong hover:bg-surface-secondary"
-            >
-              <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-4">{t.icon}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-small font-medium">{t.label}</span>
-                <span className="block truncate text-xs text-muted">{t.hint}</span>
-              </span>
-              <ChevronRight className="size-4 text-muted" />
-            </button>
+            <Fragment key={t.key}>
+              <button type="button" onClick={() => setTab(t.key)} className={navBtnClass}>
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-4">{t.icon}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-small font-medium">{t.label}</span>
+                  <span className="block truncate text-xs text-muted">{t.hint}</span>
+                </span>
+                <ChevronRight className="size-4 text-muted" />
+              </button>
+              {t.key === "header" ? (
+                <button type="button" onClick={openFooter} className={navBtnClass}>
+                  <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-4">{FOOTER_NAV.icon}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-small font-medium">{FOOTER_NAV.label}</span>
+                    <span className="block truncate text-xs text-muted">{FOOTER_NAV.hint}</span>
+                  </span>
+                  <ChevronRight className="size-4 text-muted" />
+                </button>
+              ) : null}
+            </Fragment>
           ))}
         </nav>
       </PanelFrame>

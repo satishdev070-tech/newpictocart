@@ -11,6 +11,13 @@
 /** Idle delay before an automatic draft save (ms). Manual Save remains immediate. */
 export const AUTOSAVE_IDLE_MS = 2500;
 
+/**
+ * While the document stays dirty through continuous edits, force a draft flush at least
+ * this often so long sessions sync without depending only on idle. Manual Save / exit flush
+ * remain immediate.
+ */
+export const AUTOSAVE_MAX_WAIT_MS = 10_000;
+
 export type AutosaveGate = {
   dirty: boolean;
   /** Stale-draft conflict: wait for Reload / Save anyway — do not keep overwriting. */
@@ -22,6 +29,16 @@ export type AutosaveGate = {
 /** Whether a debounced autosave timer should be armed for the current editor state. */
 export function shouldScheduleAutosave({ dirty, conflict, saving }: AutosaveGate): boolean {
   return dirty && !conflict && !saving;
+}
+
+/**
+ * Delay until the max-wait flush should fire, given when the current dirty streak began.
+ * `null` means do not arm a max-wait timer (not dirty / already past — caller flushes now).
+ */
+export function autosaveMaxWaitDelayMs(dirtySinceMs: number | null, nowMs: number, maxWaitMs: number = AUTOSAVE_MAX_WAIT_MS): number | null {
+  if (dirtySinceMs == null) return null;
+  const remaining = maxWaitMs - (nowMs - dirtySinceMs);
+  return remaining > 0 ? remaining : 0;
 }
 
 export type DraftStatusInput = {
