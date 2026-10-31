@@ -11,5 +11,6 @@ export function resolveFooterSectionRef(config: Pick<ThemeConfig, "layout">): Fo
   const list = config.layout.footer;
   if (!list.length) return null;
   const section = list.find((s) => s.type === "Footer") ?? list[0];
+  if (!section) return null;
   return { list: "layout.footer", sectionId: section.id };
 }
