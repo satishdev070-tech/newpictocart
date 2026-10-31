@@ -116,7 +116,8 @@ describe("contact page merge", () => {
     const pages = builderPages(DEFAULT_THEME_CONFIG, src).filter((p) => p.group === "pages");
     expect(pages.filter((p) => /contact/i.test(p.label))).toHaveLength(1);
     const row = pages.find((p) => p.key === "contact")!;
-    expect(row).toMatchObject({ label: "Contact", path: "/contact", contentPageId: CONTACT_ID, altPath: "/pages/contact", settingsHref: `/dashboard/content/pages/${CONTACT_ID}` });
+    // Canvas prefers /pages/<slug> (TemplateFrame + CMS body); /contact stays as altPath for live-route matching.
+    expect(row).toMatchObject({ label: "Contact", path: "/pages/contact", contentPageId: CONTACT_ID, altPath: "/contact", settingsHref: `/dashboard/content/pages/${CONTACT_ID}` });
     expect(pages.some((p) => p.key === `content:${CONTACT_ID}`)).toBe(false);
   });
 
@@ -130,9 +131,11 @@ describe("contact page merge", () => {
 
   it("falls back to a page of kind contact and keeps the built-in row alone without one", () => {
     const other = builderPages(DEFAULT_THEME_CONFIG, { ...SOURCES, contentPages: [{ id: CONTACT_ID, title: "Reach us", slug: "reach-us", kind: "contact" }] });
-    expect(other.find((p) => p.key === "contact")).toMatchObject({ label: "Reach us", altPath: "/pages/reach-us" });
+    expect(other.find((p) => p.key === "contact")).toMatchObject({ label: "Reach us", path: "/pages/reach-us", altPath: "/contact" });
     const none = builderPages(DEFAULT_THEME_CONFIG, SOURCES).find((p) => p.key === "contact")!;
     expect(none.contentPageId).toBeUndefined();
+    expect(none.path).toBe("/contact");
+    expect(none.altPath).toBeUndefined();
     expect(none.label).toBe("Contact");
   });
 

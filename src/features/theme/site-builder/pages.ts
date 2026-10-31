@@ -50,7 +50,8 @@ export function builderPages(config: ThemeConfig, src: PageSources, siteMode?: S
   ];
   for (const p of config.pages) if (p !== homePage) out.push({ key: `theme:${p.id}`, label: p.title, group: "pages", path: paths.page(p.handle), list: `pages.${p.id}`, themePageId: p.id });
   // New stores get a "Contact" content page (/pages/contact) besides the built-in /contact, which
-  // already shows that page's text with the contact form. List them as one Contact row.
+  // already shows that page's text with the contact form. List them as one Contact row. Prefer the
+  // CMS path in the canvas (TemplateFrame via pages/[slug]); keep /contact as altPath for live matching.
   const contactPage = contactContentPage(src.contentPages);
   for (const p of src.contentPages) {
     if (p === contactPage) continue;
@@ -59,7 +60,7 @@ export function builderPages(config: ThemeConfig, src: PageSources, siteMode?: S
   const t = config.builtinTitles;
   out.push(
     contactPage
-      ? { key: "contact", label: t.contact || contactPage.title || "Contact", group: "pages", path: paths.contact(), list: "templates.page", settingsHref: `/dashboard/content/pages/${contactPage.id}`, contentPageId: contactPage.id, altPath: paths.page(contactPage.slug) }
+      ? { key: "contact", label: t.contact || contactPage.title || "Contact", group: "pages", path: paths.page(contactPage.slug), list: "templates.page", settingsHref: `/dashboard/content/pages/${contactPage.id}`, contentPageId: contactPage.id, altPath: paths.contact() }
       : { key: "contact", label: t.contact || "Contact", group: "pages", path: paths.contact(), list: "templates.page", settingsHref: "/dashboard/settings" },
   );
   out.push({ key: "faq", label: t.faq || "FAQ", group: "pages", path: paths.faq(), list: "templates.page", settingsHref: "/dashboard/content/faqs" });
