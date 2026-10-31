@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cartesian, cleanOptions, emptyVariant, generateVariantMatrix, previewVariantMatrixRegen, slugify, suggestSku, variantTitle } from "@/features/catalog/variants";
+import { cartesian, cleanOptions, emptyVariant, generateVariantMatrix, initialSlugTouched, isSlugLinkedToTitle, previewVariantMatrixRegen, productCanonicalPreview, slugify, suggestSku, variantTitle } from "@/features/catalog/variants";
 import { normalizeTags, productInputSchema, toSaveProductPayload } from "@/features/catalog/schemas";
 import { emptyProductDraft } from "@/features/catalog/types";
 import { readAttributes } from "@/features/storefront/server/catalog";
@@ -12,6 +12,20 @@ describe("variant helpers", () => {
     expect(slugify("Rosé & Gold — Lehenga")).toBe("rose-and-gold-lehenga");
     expect(slugify("---")).toBe("");
     expect(slugify("a".repeat(200)).length).toBe(120);
+  });
+
+  it("keeps the handle linked to the title until manually overridden", () => {
+    expect(isSlugLinkedToTitle("indigo-kurta", "Indigo Kurta")).toBe(true);
+    expect(isSlugLinkedToTitle("custom-handle", "Indigo Kurta")).toBe(false);
+    expect(initialSlugTouched({ id: null, slug: "", title: "" })).toBe(false);
+    expect(initialSlugTouched({ id: "p1", slug: "indigo-kurta", title: "Indigo Kurta" })).toBe(false);
+    expect(initialSlugTouched({ id: "p1", slug: "old-handle", title: "Indigo Kurta" })).toBe(true);
+  });
+
+  it("previews the auto canonical URL from slug + store origin", () => {
+    expect(productCanonicalPreview("indigo-kurta")).toBe("/products/indigo-kurta");
+    expect(productCanonicalPreview("")).toBe("/products/…");
+    expect(productCanonicalPreview("indigo-kurta", "https://aangan.example.com/")).toBe("https://aangan.example.com/products/indigo-kurta");
   });
 
   it("titles and cartesian products", () => {

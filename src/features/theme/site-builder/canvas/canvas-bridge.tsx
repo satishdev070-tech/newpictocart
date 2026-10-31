@@ -152,7 +152,7 @@ const CHROME_CSS = `
   background:linear-gradient(#fff,#fff) padding-box,linear-gradient(90deg,#f97316,#ec4899 55%,#8b5cf6) border-box}
 [data-builder-chrome] .pcb-ai:hover{color:#1c1917;background:linear-gradient(#fff7ed,#fff7ed) padding-box,linear-gradient(90deg,#f97316,#ec4899 55%,#8b5cf6) border-box}
 [data-builder-chrome] .pcb-ai svg{color:#ec4899}
-[data-builder-chrome] .pcb-menu{position:absolute;right:0;display:flex;flex-direction:column;min-width:160px;padding:4px;background:#fff;
+[data-builder-chrome] .pcb-menu{position:absolute;right:0;z-index:2;display:flex;flex-direction:column;min-width:160px;padding:4px;background:#fff;
   border:1px solid rgba(28,25,23,.08);border-radius:12px;box-shadow:0 16px 36px -8px rgba(28,25,23,.25)}
 [data-builder-chrome] .pcb-item{box-sizing:border-box;margin:0;height:34px;padding:0 10px;display:flex;align-items:center;gap:9px;border:0;border-radius:8px;
   background:transparent;color:#1c1917;font:500 12.5px/1 system-ui,-apple-system,"Segoe UI",sans-serif;text-align:left;cursor:pointer;white-space:nowrap}

@@ -6,7 +6,7 @@ import { createProductTypeAction, saveProductAction } from "@/features/catalog/a
 import type { ProductDraft } from "@/features/catalog/types";
 import type { OptionDraft, VariantDraft } from "@/features/catalog/variants";
 import { discountPercent, priceFromDiscount } from "@/features/catalog/discount";
-import { cleanOptions, emptyVariant, previewVariantMatrixRegen, slugify, suggestSku, variantTitle } from "@/features/catalog/variants";
+import { cleanOptions, emptyVariant, initialSlugTouched, previewVariantMatrixRegen, productCanonicalPreview, slugify, suggestSku, variantTitle } from "@/features/catalog/variants";
 import { MAX_VARIANTS, OCCASIONS, OPTION_NAME_SUGGESTIONS, PRODUCT_STATUS_LABELS, PRODUCT_STATUSES, SIZE_PRESETS } from "@/features/catalog/constants";
 import { extraSpecs, groupTypesForPicker, setSpecValue, specValue, templateFor, type ProductTypeDef } from "@/features/catalog/product-types";
 import { Card } from "@/components/ui/layout";
@@ -45,6 +45,7 @@ export function ProductEditor({
   industryName,
   industry,
   mediaUrls = [],
+  storeOrigin,
 }: {
   initial: ProductDraft;
   categories: Opt[];
@@ -62,9 +63,12 @@ export function ProductEditor({
   industryName: string | null;
   /** Public URLs of existing gallery images (for Generate with AI). */
   mediaUrls?: string[];
+  /** Storefront origin for auto canonical preview (optional). */
+  storeOrigin?: string | null;
 }) {
   const [d, setD] = useState<ProductDraft>(initial);
-  const [slugTouched, setSlugTouched] = useState(Boolean(initial.id));
+  const [slugTouched, setSlugTouched] = useState(() => initialSlugTouched(initial));
+  const autoCanonical = productCanonicalPreview(d.slug, storeOrigin);
   const [collectionIds, setCollectionIds] = useState<string[]>(initialCollectionIds);
   const [dirty, setDirty] = useState(false);
   const [state, action, pending] = useActionState(saveProductAction, null);
@@ -567,8 +571,21 @@ export function ProductEditor({
               </div>
               <div>
                 <L htmlFor="p-seoc">Canonical URL (optional)</L>
-                <input id="p-seoc" className={input} value={d.seoCanonical} maxLength={300} placeholder="Leave blank to use this product's own URL" onChange={(e) => set({ seoCanonical: e.target.value })} />
-                <p className="mt-1 text-caption text-muted">Only set this when the same product is published at another URL you prefer search engines to index.</p>
+                <input
+                  id="p-seoc"
+                  className={input}
+                  value={d.seoCanonical}
+                  maxLength={300}
+                  placeholder="Leave blank = auto"
+                  onChange={(e) => set({ seoCanonical: e.target.value })}
+                />
+                {!d.seoCanonical.trim() ? (
+                  <p className="mt-1 text-caption text-muted">
+                    Auto: <span className="break-all font-mono text-[0.95em] text-foreground/80">{autoCanonical}</span>
+                  </p>
+                ) : (
+                  <p className="mt-1 text-caption text-muted">Only set this when the same product is published at another URL you prefer search engines to index.</p>
+                )}
               </div>
               <label className="flex items-center gap-2 text-small">
                 <input type="checkbox" checked={d.seoNoindex} onChange={(e) => set({ seoNoindex: e.target.checked })} />

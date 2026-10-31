@@ -8,10 +8,13 @@ import type { AccountPack, PageChrome } from "@/features/theme/sections/variants
  * section schema so themes saved before these fields keep the classic look.
  */
 
+export type PageProseSize = "sm" | "md" | "lg";
+
 export type PageContentSettings = {
   chrome: PageChrome;
   pack: AccountPack;
   imagePath: string;
+  proseSize: PageProseSize;
 };
 
 const defaults = (): PageContentSettings => SECTION_DEFINITIONS.PageContent.schema.parse({}) as PageContentSettings;
@@ -29,7 +32,12 @@ export function templatePageContent(theme: ThemeConfig, template: TemplateKey): 
   return pageContentSettings(pageContentMarker(theme.templates[template]));
 }
 
+/** CSS class for About / Contact / CMS body prose scale on the PageContent chrome wrapper. */
+export function pageProseClass(proseSize: PageProseSize): string {
+  return `sf-page-prose-${proseSize}`;
+}
+
 /** CSS class hooks for shop template body chrome (TemplateFrame + listing/PDP wrappers). */
-export function pageChromeClass(chrome: PageChrome): string {
-  return `sf-page-chrome sf-page-chrome-${chrome}`;
+export function pageChromeClass(chrome: PageChrome, proseSize: PageProseSize = "md"): string {
+  return `sf-page-chrome sf-page-chrome-${chrome} ${pageProseClass(proseSize)}`;
 }

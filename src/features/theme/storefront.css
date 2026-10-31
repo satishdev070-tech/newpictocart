@@ -2539,7 +2539,13 @@ a.sf-spot-add-square {
 }
 
 /* PageContent shop chrome (TemplateFrame / PageChrome wrappers; PAGE_CHROME_VARIANTS). */
-.sf-page-chrome { display: block; }
+.sf-page-chrome {
+  display: block;
+  /* Keep builder outlines / ⋮ menu from clipping against chrome descendants. */
+  overflow: visible;
+  --sf-page-prose: 1.02rem;
+  --sf-page-prose-lead: 1.75;
+}
 .sf-page-chrome-classic { /* default storefront rhythm */ }
 .sf-page-chrome-sidebar .sf-container {
   max-width: min(var(--sf-container), 86rem);
@@ -2568,6 +2574,42 @@ a.sf-spot-add-square {
 }
 .sf-page-chrome-dense .sf-container {
   max-width: min(var(--sf-container), 90rem);
+}
+
+/* PageContent body prose scale (About / Contact / CMS copy under TemplateFrame). */
+.sf-page-prose-sm {
+  --sf-page-prose: 0.9rem;
+  --sf-page-prose-lead: 1.65;
+}
+.sf-page-prose-md {
+  --sf-page-prose: 1.02rem;
+  --sf-page-prose-lead: 1.75;
+}
+.sf-page-prose-lg {
+  --sf-page-prose: 1.175rem;
+  --sf-page-prose-lead: 1.8;
+}
+.sf-page-chrome .sf-prose {
+  font-size: var(--sf-page-prose);
+  line-height: var(--sf-page-prose-lead);
+}
+.sf-page-chrome .sf-prose h2 {
+  font-size: calc(var(--sf-page-prose) * 1.72);
+}
+.sf-page-chrome .sf-prose h3 {
+  font-size: calc(var(--sf-page-prose) * 1.32);
+}
+.sf-page-chrome .sf-prose h4 {
+  font-size: calc(var(--sf-page-prose) * 1.08);
+}
+.sf-page-chrome .sf-prose blockquote {
+  font-size: calc(var(--sf-page-prose) * 1.23);
+}
+/* About fallback + contact intro body (outside .sf-prose). */
+.sf-page-chrome article.sf-section > p,
+.sf-page-chrome article.sf-section .leading-relaxed {
+  font-size: var(--sf-page-prose);
+  line-height: var(--sf-page-prose-lead);
 }
 
 /* Footer: statement wordmark */

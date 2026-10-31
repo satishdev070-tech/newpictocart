@@ -1146,6 +1146,8 @@ const featureBand = {
   ],
 } satisfies SectionDefinition;
 
+const PAGE_PROSE_SIZES = ["sm", "md", "lg"] as const;
+
 const pageContent = {
   type: "PageContent",
   label: "Page content",
@@ -1159,6 +1161,8 @@ const pageContent = {
     pack: variantSchema(ACCOUNT_PACK_VARIANTS),
     /** Optional account panel image; empty falls back to the home Hero slide. */
     imagePath: imagePath.default(""),
+    /** About / Contact / CMS body text scale (whole page body, not per CMS block). */
+    proseSize: z.enum(PAGE_PROSE_SIZES).default("md"),
   }),
   fields: [
     variantEditor("chrome", "Shop page layout", PAGE_CHROME_VARIANTS, {
@@ -1172,6 +1176,13 @@ const pageContent = {
       key: "imagePath",
       label: "Account panel image (optional)",
       help: "Shown on Login / Sign up / Reset. Leave empty to use the home page hero photo.",
+    },
+    {
+      kind: "select",
+      key: "proseSize",
+      label: "Body text size",
+      help: "Scales About, Contact and other page body copy. Per-block CMS typography stays in Content.",
+      options: opts(PAGE_PROSE_SIZES, { sm: "Small", md: "Medium", lg: "Large" }),
     },
   ],
 } satisfies SectionDefinition;

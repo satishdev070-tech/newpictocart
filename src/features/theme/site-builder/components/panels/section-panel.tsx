@@ -171,7 +171,7 @@ function SectionPanelBody({
         <div role="tabpanel" className="space-y-5">
           {isPageContent ? (
             <EmptyState title="Page content">
-              This is where the page&apos;s own content appears (product details, cart, account forms, blog posts…). Move it up or down in Layers. Use Change design for shop layouts and account packs, and Settings / Colours for spacing — same tabs as on the home page.
+              This is where the page&apos;s own content appears (product details, cart, account forms, About / Contact copy…). Move it up or down in Layers. Use Change design for shop layouts and account packs, and Settings for body text size and spacing.
             </EmptyState>
           ) : null}
           {list ? (

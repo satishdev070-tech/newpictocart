@@ -128,8 +128,8 @@ describe("Phase E ecommerce / members panel depth", () => {
     const tabs = sectionTabs(SECTION_DEFINITIONS.PageContent);
     expect(tabs.design.map((f) => f.key)).toEqual(["chrome", "pack"]);
     expect(tabs.edit.map((f) => f.key)).toEqual(["imagePath"]);
-    // Size/visibility/colours are panel chrome even when definition colour fields are empty.
-    expect(tabs.settings).toEqual([]);
+    // Body prose scale lives in Settings; colours stay panel-only until colour fields exist.
+    expect(tabs.settings.map((f) => f.key)).toEqual(["proseSize"]);
     expect(tabs.colors).toEqual([]);
   });
 });

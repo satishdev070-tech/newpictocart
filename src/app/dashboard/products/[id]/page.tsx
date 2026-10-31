@@ -45,6 +45,7 @@ export default async function EditProductPage({ params, searchParams }: PageProp
         canWriteInventory={can(ctx, "inventory.write")}
         stock={product.stock}
         mediaUrls={product.media.map((m) => m.url).filter((u): u is string => !!u)}
+        storeOrigin={storeOrigin(storeSubdomain(ctx.tenantSlug))}
       />
     </div>
   );
