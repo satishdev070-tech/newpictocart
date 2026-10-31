@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { BuilderProvider, useBuilder, type BuilderData } from "../context";
-import { TopBar, leaveGuard } from "./top-bar";
+import { TopBar } from "./top-bar";
 import { IconRail } from "./icon-rail";
 import { PanelHost } from "./panel-host";
 import { CanvasFrame } from "./canvas-frame";
@@ -32,7 +32,7 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 function Shell() {
-  const { undo, redo, canUndo, canRedo, dirty, panel } = useBuilder();
+  const { undo, redo, canUndo, canRedo, panel } = useBuilder();
 
   // Undo / redo shortcuts (not while typing in a field).
   useEffect(() => {
@@ -53,16 +53,7 @@ function Shell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [undo, redo, canUndo, canRedo]);
 
-  // Warn before closing / reloading the tab with unsaved changes.
-  useEffect(() => {
-    if (!dirty) return;
-    const onUnload = (e: BeforeUnloadEvent) => {
-      if (leaveGuard.bypass) return;
-      e.preventDefault();
-    };
-    window.addEventListener("beforeunload", onUnload);
-    return () => window.removeEventListener("beforeunload", onUnload);
-  }, [dirty]);
+  // Leave gate (beforeunload + ExitUnsavedDialog + popstate) lives in TopBar with flushDraft.
 
   return (
     <div className="fixed inset-0 z-[70] flex flex-col bg-background text-foreground">
