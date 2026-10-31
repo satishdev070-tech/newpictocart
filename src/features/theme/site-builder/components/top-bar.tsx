@@ -307,13 +307,17 @@ export function TopBar() {
     setNote("");
     setNotice({ tone: "pending", text: "Publishing…" });
     startPublish(async () => {
-      const fd = new FormData();
-      if (label) fd.set("label", label);
-      const r = await publishThemeAction(null, fd);
-      if (r.ok) {
-        setNotice({ tone: "ok", text: "Published. Your store is updated." });
-        router.refresh();
-      } else setNotice({ tone: "error", text: errorText(r.error) });
+      try {
+        const fd = new FormData();
+        if (label) fd.set("label", label);
+        const r = await publishThemeAction(null, fd);
+        if (r.ok) {
+          setNotice({ tone: "ok", text: "Published. Your store is updated." });
+          router.refresh();
+        } else setNotice({ tone: "error", text: errorText(r.error) });
+      } catch {
+        setNotice({ tone: "error", text: "Could not publish. Check your connection and try again." });
+      }
     });
   };
 
@@ -321,13 +325,17 @@ export function TopBar() {
     const lose = b.dirty ? " Your unsaved changes will be lost." : "";
     if (!confirm(`Restore v${version}? It goes live on your store and replaces your draft.${lose}`)) return;
     startRestore(async () => {
-      const fd = new FormData();
-      fd.set("versionId", id);
-      const r = await rollbackThemeAction(null, fd);
-      if (!r.ok) return setNotice({ tone: "error", text: errorText(r.error) });
-      // The draft was replaced on the server: reload the builder with it.
-      leaveGuard.bypass = true;
-      window.location.reload();
+      try {
+        const fd = new FormData();
+        fd.set("versionId", id);
+        const r = await rollbackThemeAction(null, fd);
+        if (!r.ok) return setNotice({ tone: "error", text: errorText(r.error) });
+        // The draft was replaced on the server: reload the builder with it.
+        leaveGuard.bypass = true;
+        window.location.reload();
+      } catch {
+        setNotice({ tone: "error", text: "Could not restore. Check your connection and try again." });
+      }
     });
   };
 
@@ -335,16 +343,21 @@ export function TopBar() {
     // Open the tab synchronously (popup blockers), then point it at a fresh preview entry URL.
     const tab = window.open("", "_blank");
     startPreview(async () => {
-      const r = await refreshPreviewUrlAction();
-      if (!r.ok) {
+      try {
+        const r = await refreshPreviewUrlAction();
+        if (!r.ok) {
+          tab?.close();
+          return setNotice({ tone: "error", text: errorText(r.error) });
+        }
+        const url = previewUrlFor(r.data.url, b.store.origin, b.page.path);
+        if (tab) {
+          tab.opener = null;
+          tab.location.href = url;
+        } else window.open(url, "_blank", "noopener");
+      } catch {
         tab?.close();
-        return setNotice({ tone: "error", text: errorText(r.error) });
+        setNotice({ tone: "error", text: "Could not open preview. Check your connection and try again." });
       }
-      const url = previewUrlFor(r.data.url, b.store.origin, b.page.path);
-      if (tab) {
-        tab.opener = null;
-        tab.location.href = url;
-      } else window.open(url, "_blank", "noopener");
     });
   };
 

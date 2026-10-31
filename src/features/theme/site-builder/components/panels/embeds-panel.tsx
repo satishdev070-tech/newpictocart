@@ -27,11 +27,15 @@ function WhatsappNumberForm({ current }: { current: string | null }) {
   const [pending, startTransition] = useTransition();
   const save = () =>
     startTransition(async () => {
-      const r = await saveWhatsappNumberAction({ whatsapp: value });
-      if (!r.ok) return setError(r.error.fieldErrors?.whatsapp?.[0] ?? r.error.message);
-      setError("");
-      router.refresh();
-      window.dispatchEvent(new Event(CANVAS_RELOAD_EVENT));
+      try {
+        const r = await saveWhatsappNumberAction({ whatsapp: value });
+        if (!r.ok) return setError(r.error.fieldErrors?.whatsapp?.[0] ?? r.error.message);
+        setError("");
+        router.refresh();
+        window.dispatchEvent(new Event(CANVAS_RELOAD_EVENT));
+      } catch {
+        setError("Could not save the number. Check your connection and try again.");
+      }
     });
   return (
     <form

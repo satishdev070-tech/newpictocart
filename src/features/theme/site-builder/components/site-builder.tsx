@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { BuilderProvider, useBuilder, type BuilderData } from "../context";
+import { BuilderErrorBoundary } from "./builder-error-boundary";
 import { TopBar } from "./top-bar";
 import { IconRail } from "./icon-rail";
 import { PanelHost } from "./panel-host";
@@ -62,11 +63,15 @@ function Shell() {
         <IconRail />
         {panel ? (
           <aside aria-label="Editor panel" className="relative z-10 w-80 shrink-0 border-r border-border bg-surface shadow-[4px_0_16px_-12px_rgba(0,0,0,0.2)]">
-            <PanelHost />
+            <BuilderErrorBoundary variant="region" label="panel">
+              <PanelHost />
+            </BuilderErrorBoundary>
           </aside>
         ) : null}
         <main data-tour="builder-canvas" className="min-w-0 flex-1">
-          <CanvasFrame />
+          <BuilderErrorBoundary variant="region" label="preview">
+            <CanvasFrame />
+          </BuilderErrorBoundary>
         </main>
       </div>
     </div>
