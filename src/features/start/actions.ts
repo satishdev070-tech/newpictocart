@@ -46,7 +46,7 @@ import { themeShot } from "@/features/marketing-site/theme-shots";
 import { themeStockThumbUrl } from "@/features/theme/layouts/imagery";
 import { isStartIntentId } from "./intents";
 import { buildSeedBrief } from "./brief";
-import { parseStartDraft, draftCategory, draftSiteMode, draftStoreName, type StartDraft } from "./draft/schema";
+import { parseStartDraft, draftCategory, draftSiteMode, draftStoreName, draftSubcategory, draftProductsServices, type StartDraft } from "./draft/schema";
 import { selectStartThemeOptions, type StartThemeOptions } from "./theme-options";
 
 function parseFactsJson(raw: unknown): VoiceFacts {
@@ -410,6 +410,8 @@ export async function finalizeStartDraftAction(
           tenantId,
           storeName: name,
           industry,
+          subcategory: draftSubcategory(draft),
+          niche: draftProductsServices(draft) || null,
           brief: buildSeedBrief(draft),
           locale: draft.locale,
           applyTheme: true,

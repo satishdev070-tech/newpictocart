@@ -19,6 +19,7 @@ import type { SectionInstance, SectionType } from "@/features/theme/sections/typ
 import type { IndustrySlug } from "@/features/stores/industries";
 import { fillEmptyThemeImages, seedCatalogueImages, type SeedImagePaths } from "./images";
 import type { ReadyStorePlan, SeedReadyStoreResult } from "./schemas";
+import { withSamplePrefix } from "./sample-title";
 
 type Ids = { categories: Record<string, string>; collections: Record<string, string>; products: string[] };
 
@@ -128,8 +129,9 @@ async function ensureProducts(
       continue;
     }
     const sku = `SEED-${String(i + 1).padStart(2, "0")}`;
+    const title = withSamplePrefix(p.title);
     const input = productInputSchema.parse({
-      title: p.title,
+      title,
       slug: p.slug,
       description: p.description || p.shortDescription,
       shortDescription: p.shortDescription,
@@ -144,7 +146,7 @@ async function ensureProducts(
       shippingInfo: null,
       returnInfo: null,
       hsnCode: p.hsnCode ?? null,
-      seoTitle: p.seoTitle ?? `${p.title} | ${storeName}`.slice(0, 120),
+      seoTitle: p.seoTitle ?? `${title} | ${storeName}`.slice(0, 120),
       seoDescription: p.seoDescription ?? (p.shortDescription || p.description).slice(0, 320),
       options: [],
       variants: [

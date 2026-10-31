@@ -124,6 +124,8 @@ export async function seedReadyStore(ctx: TenantContext, raw: Omit<SeedReadyStor
       plan = await generateReadyStorePlan({
         storeName: input.storeName,
         industry,
+        subcategory: input.subcategory,
+        niche: input.niche,
         brief: input.brief,
         locale: input.locale,
       });
@@ -162,6 +164,8 @@ export type SeedReadyStoreArgs = {
   tenantId: string;
   storeName: string;
   industry: IndustrySlug;
+  subcategory?: string | null;
+  niche?: string | null;
   brief?: string;
   locale?: string;
   applyTheme?: boolean;

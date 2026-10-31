@@ -34,19 +34,30 @@ function extractJson(text: string): unknown {
   throw new AppError("INTERNAL", { fieldErrors: { _form: ["The AI didn't return valid store data. Please try again."] }, context: { reason: "seed_json_parse" } });
 }
 
-function buildPrompt(args: { storeName: string; industry: IndustrySlug; brief?: string }): { system: string; user: string } {
+function buildPrompt(args: {
+  storeName: string;
+  industry: IndustrySlug;
+  subcategory?: string | null;
+  niche?: string | null;
+  brief?: string;
+}): { system: string; user: string } {
   const industry = industryName(args.industry);
   const { categories, products, blogs, testimonials } = READY_STORE_COUNTS;
+  const nicheHint = [args.subcategory?.trim(), args.niche?.trim()].filter(Boolean).join(" / ");
   const system = [
     "You are a catalogue writer for Indian D2C storefronts on Pictocart.",
     "Reply with a single JSON object only (no markdown). Prices must be integer paise (₹1 = 100).",
     "Use lowercase hyphenated slugs. Keep copy warm, concrete and India-relevant.",
-    `Exactly ${categories} categories, ${products} products (each categorySlug must match a category), 2–4 collections,`,
+    `Exactly ${categories} categories, exactly ${products} products (each categorySlug must match a category), 2–4 collections,`,
     `1–3 hero slides, ${blogs} blog posts, ${testimonials} testimonials.`,
+    "Product titles and categories MUST match the seller's niche/subcategory — never invent unrelated SKUs",
+    "(e.g. no ethnic juttis for activewear; bags stores get bags/wallets only).",
+    `Return exactly ${products} niche-aligned sample products (titles need not include the word Sample).`,
   ].join(" ");
   const user = [
     `Store name: ${args.storeName}`,
     `Industry: ${args.industry} (${industry})`,
+    nicheHint ? `Niche / subcategory: ${nicheHint}` : "Niche / subcategory: (none — stay within the industry)",
     args.brief ? `Seller brief: ${args.brief}` : "Seller brief: (none — invent a plausible brand story)",
     "",
     "JSON shape:",
@@ -148,11 +159,21 @@ function validateAiPlan(raw: unknown): ReadyStorePlan {
   return parsed.data;
 }
 
-async function fallbackPlan(args: { storeName: string; industry: IndustrySlug; brief?: string; locale?: string; reason: string }): Promise<ReadyStorePlan> {
+async function fallbackPlan(args: {
+  storeName: string;
+  industry: IndustrySlug;
+  subcategory?: string | null;
+  niche?: string | null;
+  brief?: string;
+  locale?: string;
+  reason: string;
+}): Promise<ReadyStorePlan> {
   logger.warn("onboarding.seed_plan_fallback", { industry: args.industry, reason: args.reason });
   const plan = buildFallbackReadyStorePlan({
     storeName: args.storeName,
     industry: args.industry,
+    subcategory: args.subcategory,
+    niche: args.niche,
     brief: args.brief,
   });
   return maybeLocalize(plan, args.locale);
@@ -166,6 +187,8 @@ async function fallbackPlan(args: { storeName: string; industry: IndustrySlug; b
 export async function generateReadyStorePlan(args: {
   storeName: string;
   industry: IndustrySlug;
+  subcategory?: string | null;
+  niche?: string | null;
   brief?: string;
   locale?: string;
 }): Promise<ReadyStorePlan> {
