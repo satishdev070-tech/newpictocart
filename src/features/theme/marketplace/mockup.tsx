@@ -1,7 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import { layoutSummary } from "../layouts/apply-layout";
 import { toUnsplashCategory } from "@/lib/unsplash-categories";
-import { curatedStock, sizedStockUrl, stockIndex } from "@/lib/unsplash-stock";
+import { curatedStock, sizedStockUrl, uniqueStockOffset } from "@/lib/unsplash-stock";
+import { stockPeerKeys } from "./stock-peers";
 import type { ThemePreset } from "./catalog";
 import type { MarketplaceTheme } from "./types";
 
@@ -76,10 +77,11 @@ export function InformativeThemeMockup({ theme, size = "card" }: { theme: Pick<M
 /** Same Unsplash hero URL ThemeMockup uses for a large desktop frame — for `<link rel="preload">`. */
 export function themeMockupHeroUrl(theme: Pick<MarketplaceTheme, "key" | "name" | "preset">, width = 640): string | null {
   const cat = toUnsplashCategory(theme.preset.family ?? "general");
-  const shift = stockIndex(theme.key ?? theme.name);
   const heroes = curatedStock(cat, "hero");
   if (!heroes.length) return null;
-  const item = heroes[shift % heroes.length]!;
+  const themeKey = theme.key ?? theme.name;
+  const shift = uniqueStockOffset(themeKey, stockPeerKeys(cat), heroes.length);
+  const item = heroes[shift]!;
   return sizedStockUrl(item.url, width);
 }
 
@@ -134,11 +136,17 @@ export function ThemeMockup({
   const center = phone || preset.headerLayout === "logo-center" || layout.headerStyle === "editorial";
   const cat = toUnsplashCategory(preset.family ?? "general");
   const w = large ? 640 : 360;
-  // Rotate the category's photos by theme key (fallback: name) so same-industry cards differ.
-  const shift = stockIndex(themeKey ?? name);
-  const rotate = <T,>(list: T[]) => list.map((_, i) => list[(i + shift) % list.length]!);
-  const hero = rotate(curatedStock(cat, "hero").map((i) => sizedStockUrl(i.url, w)));
-  const prod = rotate(curatedStock(cat, "products").map((i) => sizedStockUrl(i.url, large ? 320 : 200)));
+  // Exclusive offset among marketplace peers so same-category cards get distinct heroes.
+  const key = themeKey ?? name;
+  const peers = stockPeerKeys(cat);
+  const heroStock = curatedStock(cat, "hero");
+  const productStock = curatedStock(cat, "products");
+  const heroOffset = uniqueStockOffset(key, peers, heroStock.length);
+  // Products: heroOffset + 1 into the larger products pool.
+  const prodOffset = productStock.length ? (heroOffset + 1) % productStock.length : 0;
+  const rotate = <T,>(list: T[], offset: number) => (list.length ? list.map((_, i) => list[(i + offset) % list.length]!) : list);
+  const hero = rotate(heroStock.map((i) => sizedStockUrl(i.url, w)), heroOffset);
+  const prod = rotate(productStock.map((i) => sizedStockUrl(i.url, large ? 320 : 200)), prodOffset);
   const ratio = String(preset.productCard.imageRatio) === "tall" ? "3/4.4" : String(preset.productCard.imageRatio) === "square" ? "1/1" : "3/4";
   const footerBg = preset.footerTone === "dark" ? c.primary : preset.footerTone === "muted" ? c.border : c.background;
   const heroH = large ? 210 : phone ? 150 : 104;

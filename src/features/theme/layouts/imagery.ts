@@ -2,12 +2,13 @@ import {
   STOCK_SLOTS,
   curatedStockSet,
   sizedStockUrl,
-  stockIndex,
+  uniqueStockOffset,
   type StockImage,
   type StockSet,
   type StockSlot,
 } from "@/lib/unsplash-stock";
 import { layoutFamily } from "./personalities";
+import { stockPeerKeys } from "../marketplace/stock-peers";
 import type { MarketplaceTheme } from "../marketplace/types";
 
 /** Card-sized Unsplash URL shape used by marketing ThemeCard / onboarding thumbs. */
@@ -20,12 +21,23 @@ export type ThemeCardImage = {
 };
 
 /**
- * Stable seed for a marketplace theme's stock rotation. Themes in the same industry/layout family
- * share a photo pool but start at different offsets so marketplace cards, empty slots and
- * onboarding thumbs look distinct. PURE.
+ * Exclusive hero offset for a marketplace theme among peers in the same Unsplash category.
+ * Prefer this over hashing the key alone — hash modulo a small pool made fashion themes share
+ * ~3 heroes. PURE; pass `peerKeys` to avoid the catalogue (defaults to lightweight stock-peers).
  */
-export function themeImagerySeed(themeKey: string): number {
-  return stockIndex(themeKey);
+export function themeHeroOffset(
+  themeKey: string,
+  industry: string,
+  poolLen: number,
+  peerKeys?: readonly string[],
+): number {
+  const peers = peerKeys ?? stockPeerKeys(layoutFamily(industry));
+  return uniqueStockOffset(themeKey, peers, poolLen);
+}
+
+/** @deprecated Use themeHeroOffset — kept for callers that only need a stable numeric seed. */
+export function themeImagerySeed(themeKey: string, industry = "general", poolLen = 1): number {
+  return themeHeroOffset(themeKey, industry, Math.max(poolLen, 1));
 }
 
 /** Rotate a slot list by a non-negative offset (wraps). PURE. */
@@ -37,16 +49,22 @@ export function rotateStockSlot<T>(list: readonly T[], offset: number): T[] {
 }
 
 /**
- * Per-theme view of a category stock set: each slot is rotated by the theme key (plus a small
- * per-slot step) so two themes of the same industry rarely share a hero. PURE.
+ * Per-theme view of a category stock set: hero uses an exclusive offset among marketplace peers;
+ * other slots use `heroOffset + slotStep` over their (larger) pools to limit cross-theme repeats.
+ * PURE.
  */
-export function themeStockSet(theme: Pick<MarketplaceTheme, "key" | "industry">, base?: StockSet): StockSet {
+export function themeStockSet(
+  theme: Pick<MarketplaceTheme, "key" | "industry">,
+  base?: StockSet,
+  peerKeys?: readonly string[],
+): StockSet {
   const family = layoutFamily(theme.industry);
   const set = base ?? curatedStockSet(family);
-  const seed = themeImagerySeed(theme.key);
+  const peers = peerKeys ?? stockPeerKeys(family);
+  const heroOffset = themeHeroOffset(theme.key, theme.industry, set.hero.length, peers);
   const out = { category: set.category } as StockSet;
   STOCK_SLOTS.forEach((slot, i) => {
-    out[slot] = rotateStockSlot(set[slot], seed + i * 2);
+    out[slot] = rotateStockSlot(set[slot], heroOffset + i);
   });
   return out;
 }
@@ -57,7 +75,7 @@ export function themeStockSet(theme: Pick<MarketplaceTheme, "key" | "industry">,
  * synchronous (curated pool), for the Media Library and theme previews; the storefront may use a
  * fresher API result for the same queries (theme/server/imagery.ts getThemeUnsplashImages).
  *
- * Rotation is keyed by `theme.key` so themes that share a layout family still look different.
+ * Rotation uses exclusive peer offsets so themes that share a layout family stay distinct.
  */
 export function themeUnsplashImages(theme: Pick<MarketplaceTheme, "key" | "industry">): StockImage[] {
   const set = themeStockSet(theme);
@@ -70,7 +88,7 @@ export function themeHeroStock(theme: Pick<MarketplaceTheme, "key" | "industry">
 }
 
 /**
- * Per-theme card image (hero, rotated by theme key). Prefer this over a shared industry photo so
+ * Per-theme card image (exclusive hero among peers). Prefer this over a shared industry photo so
  * marketplace and onboarding cards in one category look different. PURE.
  */
 export function themeCardImage(theme: Pick<MarketplaceTheme, "key" | "industry">, width = 800): ThemeCardImage | null {
