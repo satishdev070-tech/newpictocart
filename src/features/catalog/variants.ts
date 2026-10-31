@@ -39,6 +39,27 @@ export function slugify(input: string, max = 120): string {
     .replace(/-+$/g, "");
 }
 
+/** True when the handle still matches `slugify(title)` — title edits should keep syncing the slug. */
+export function isSlugLinkedToTitle(slug: string, title: string): boolean {
+  return slug === slugify(title);
+}
+
+/**
+ * Initial "slug manually edited" flag for the product editor.
+ * New products stay linked. Existing products stay linked when the saved handle still matches the title.
+ */
+export function initialSlugTouched(product: { id?: string | null; slug: string; title: string }): boolean {
+  if (!product.id) return false;
+  return !isSlugLinkedToTitle(product.slug, product.title);
+}
+
+/** Auto canonical preview when SEO canonical is blank (store origin if known, else relative path). */
+export function productCanonicalPreview(slug: string, storeOrigin?: string | null): string {
+  const path = `/products/${slug || "…"}`;
+  if (!storeOrigin?.trim()) return path;
+  return `${storeOrigin.replace(/\/$/, "")}${path}`;
+}
+
 /** "S / Red" or "Default" — same rule as the SQL function. */
 export function variantTitle(v: Pick<VariantDraft, "option1" | "option2" | "option3">): string {
   const parts = [v.option1, v.option2, v.option3].filter((x): x is string => !!x);

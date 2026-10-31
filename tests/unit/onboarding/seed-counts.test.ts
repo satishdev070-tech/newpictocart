@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { buildFallbackReadyStorePlan } from "@/features/onboarding/seed/fallback";
+import { buildFallbackReadyStorePlan, catalogFor } from "@/features/onboarding/seed/fallback";
 import { READY_STORE_COUNTS } from "@/features/onboarding/seed/counts";
 import { readyStorePlanSchema } from "@/features/onboarding/seed/schemas";
+import { withSamplePrefix } from "@/features/onboarding/seed/sample-title";
 
 describe("ready-store seed counts", () => {
+  it("READY_STORE_COUNTS.products is 5", () => {
+    expect(READY_STORE_COUNTS.products).toBe(5);
+  });
+
   it("fallback plan for fashion with a brief validates with readyStorePlanSchema", () => {
     const plan = buildFallbackReadyStorePlan({
       storeName: "Loom & Thread",
       industry: "fashion",
+      subcategory: "ethnic",
       brief: "Handloom cotton kurtas sourced from weavers in Rajasthan.",
     });
     const parsed = readyStorePlanSchema.safeParse(plan);
@@ -19,11 +25,49 @@ describe("ready-store seed counts", () => {
     expect(plan.story).toContain("Rajasthan");
   });
 
+  it("fashion activewear fallback has 5 niche products, Sample titles, no Gold Thread jutti", () => {
+    const plan = buildFallbackReadyStorePlan({
+      storeName: "Move Studio",
+      industry: "fashion",
+      subcategory: "activewear",
+    });
+    expect(plan.products).toHaveLength(5);
+    expect(READY_STORE_COUNTS.products).toBe(5);
+    const titles = plan.products.map((p) => p.title);
+    expect(titles.some((t) => /jutti|gold thread/i.test(t))).toBe(false);
+    const prefixed = titles.map(withSamplePrefix);
+    expect(prefixed.every((t) => t.startsWith("Sample "))).toBe(true);
+    expect(prefixed).toEqual(titles.map((t) => (t.startsWith("Sample ") ? t : `Sample ${t}`)));
+    // Activewear catalogue itself has no footwear SKUs
+    const pack = catalogFor("fashion", "activewear");
+    expect(pack.products).toHaveLength(5);
+    expect(pack.products.some((p) => /jutti|gold thread/i.test(p.title))).toBe(false);
+  });
+
+  it("bags industry fallback only includes bag/wallet style products", () => {
+    const plan = buildFallbackReadyStorePlan({
+      storeName: "Carry Co",
+      industry: "bags",
+      subcategory: "handbags",
+    });
+    expect(plan.products).toHaveLength(5);
+    for (const p of plan.products) {
+      expect(/bag|wallet|trolley|pouch|backpack|organiser/i.test(p.title)).toBe(true);
+      expect(/jutti/i.test(p.title)).toBe(false);
+    }
+  });
+
+  it("withSamplePrefix is idempotent", () => {
+    expect(withSamplePrefix("Yoga Leggings")).toBe("Sample Yoga Leggings");
+    expect(withSamplePrefix("Sample Yoga Leggings")).toBe("Sample Yoga Leggings");
+  });
+
   it("keeps a long seller brief inside theme field limits", () => {
     const brief = "Handloom cotton from Rajasthan. ".repeat(80);
     const plan = buildFallbackReadyStorePlan({
       storeName: "Kia Garments",
       industry: "fashion",
+      subcategory: "ethnic",
       brief,
     });
     expect(readyStorePlanSchema.safeParse(plan).success).toBe(true);
@@ -38,6 +82,7 @@ describe("ready-store seed counts", () => {
     const plan = buildFallbackReadyStorePlan({
       storeName: "Loom & Thread",
       industry: "fashion",
+      subcategory: "western",
     });
     const catSlugs = new Set(plan.categories.map((c) => c.slug));
     for (const p of plan.products) {

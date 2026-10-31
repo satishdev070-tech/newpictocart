@@ -12,7 +12,9 @@ describe("assignSeedPhotos", () => {
 
   it("cycles product photos so neighbouring products are not the same shot", () => {
     const pool = curatedStock("food", "products");
-    const assigned = assignSeedPhotos("sweets", { products: pool.length + 1, categories: 5, collections: 2, blogs: 6 });
+    // Blogs walk hero then story; request past the hero pool so at least one story cover appears.
+    const heroCount = curatedStock("food", "hero").length;
+    const assigned = assignSeedPhotos("sweets", { products: pool.length + 1, categories: 5, collections: 2, blogs: heroCount + 1 });
     expect(assigned.category).toBe("food");
     expect(assigned.products).toHaveLength(pool.length + 1);
     expect(assigned.products[0]!.id).not.toBe(assigned.products[1]!.id);

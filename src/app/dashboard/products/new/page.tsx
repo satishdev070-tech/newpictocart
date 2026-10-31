@@ -7,6 +7,7 @@ import { defaultTypeForIndustry } from "@/features/catalog/product-types";
 import { ProductEditor } from "@/features/catalog/components/product-editor";
 import { productEditorOptions } from "../editor-data";
 import { getI18n } from "@/lib/i18n/server";
+import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
 
 export const metadata: Metadata = { title: "Add product" };
 
@@ -17,7 +18,14 @@ export default async function NewProductPage() {
   return (
     <div>
       <PageHeader title={t("pages.products.addTitle")} back={<Link href="/dashboard/products" className="text-muted hover:text-foreground">{t("pages.products.back")}</Link>} />
-      <ProductEditor initial={emptyProductDraft(defaultTypeForIndustry(opts.industry, opts.types))} {...opts} initialCollectionIds={[]} canWriteInventory={can(ctx, "inventory.write")} stock={{}} />
+      <ProductEditor
+        initial={emptyProductDraft(defaultTypeForIndustry(opts.industry, opts.types))}
+        {...opts}
+        initialCollectionIds={[]}
+        canWriteInventory={can(ctx, "inventory.write")}
+        stock={{}}
+        storeOrigin={storeOrigin(storeSubdomain(ctx.tenantSlug))}
+      />
     </div>
   );
 }

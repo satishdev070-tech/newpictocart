@@ -15,14 +15,15 @@ import {
 } from "@/features/theme/sections/variants";
 import { LAYOUT_PERSONALITIES, layoutFamily, signatureComposition } from "@/features/theme/layouts/personalities";
 import { layoutSummary, withLayout } from "@/features/theme/layouts/apply-layout";
-import { themeCardImage, themeUnsplashImages } from "@/features/theme/layouts/imagery";
+import { themeCardImage, themeHeroStock, themeUnsplashImages } from "@/features/theme/layouts/imagery";
 import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { allStockPeerKeys } from "@/features/theme/marketplace/stock-peers";
 import { applyThemePreset } from "@/features/theme/marketplace/apply";
 import type { ThemePreset } from "@/features/theme/marketplace/types";
 import type { EditorField } from "@/features/theme/sections/types";
 import { INDUSTRY_SLUGS } from "@/features/stores/industries";
-import { UNSPLASH_CATEGORIES } from "@/lib/unsplash-categories";
-import { STOCK_SLOTS, curatedStock, curatedStockSet, pickStock, stockCredits, stockIndex } from "@/lib/unsplash-stock";
+import { UNSPLASH_CATEGORIES, toUnsplashCategory } from "@/lib/unsplash-categories";
+import { STOCK_SLOTS, curatedStock, curatedStockSet, pickStock, stockCredits, stockIndex, uniqueStockOffset } from "@/lib/unsplash-stock";
 import imageLoader from "@/lib/images/loader";
 
 /** A home page saved before layout variants existed (no variant / layout / style keys anywhere). */
@@ -242,6 +243,38 @@ describe("theme stock imagery", () => {
     const a = MARKETPLACE_THEMES.find((t) => t.key === "iron-floor")!;
     const b = MARKETPLACE_THEMES.find((t) => t.key === "class-pulse")!;
     expect(themeUnsplashImages(a)[0]!.id).not.toBe(themeUnsplashImages(b)[0]!.id);
+  });
+
+  it("assigns exclusive hero offsets so peer themes get unique heroes when the pool is large enough", () => {
+    expect(uniqueStockOffset("b", ["a", "b", "c"], 3)).toBe(1);
+    expect(uniqueStockOffset("missing", ["a", "c"], 3)).toBe(2); // sorted a,c,missing → index 2
+
+    const peers = allStockPeerKeys();
+    for (const cat of UNSPLASH_CATEGORIES) {
+      const keys = peers[cat];
+      const heroes = curatedStock(cat, "hero");
+      if (!keys.length || !heroes.length) continue;
+      const urls = keys.map((key) => {
+        const theme = MARKETPLACE_THEMES.find((t) => t.key === key)!;
+        return themeHeroStock(theme)!.url;
+      });
+      const unique = new Set(urls).size;
+      if (heroes.length >= keys.length) {
+        expect(unique, `${cat}: pool ${heroes.length} themes ${keys.length}`).toBe(keys.length);
+      } else {
+        expect(unique, `${cat}: max uniqueness = pool size`).toBe(heroes.length);
+      }
+    }
+  });
+
+  it("keeps stock-peers in sync with MARKETPLACE_THEMES", () => {
+    const expected: Record<string, string[]> = Object.fromEntries(UNSPLASH_CATEGORIES.map((c) => [c, [] as string[]]));
+    for (const t of MARKETPLACE_THEMES) expected[toUnsplashCategory(t.industry)]!.push(t.key);
+    for (const c of UNSPLASH_CATEGORIES) expected[c]!.sort();
+    const peers = allStockPeerKeys();
+    for (const c of UNSPLASH_CATEGORIES) {
+      expect([...peers[c]], c).toEqual(expected[c]);
+    }
   });
 
   it("builds a per-theme card image from the rotated hero", () => {

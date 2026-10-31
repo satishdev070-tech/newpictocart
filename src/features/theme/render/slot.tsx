@@ -51,11 +51,11 @@ export function TemplateFrame({ template, ctx, children }: { template: TemplateK
   const list = ctx.sf.theme.templates[template];
   const [before, after] = splitAtPageContent(list);
   const marker = list.find((s) => s.type === "PageContent");
-  const { chrome } = pageContentSettings(marker);
+  const { chrome, proseSize } = pageContentSettings(marker);
   // PageContent is a marker, not a rendered section — hide the page body the same way SectionList
   // skips fully-hidden sections.
   const body = (
-    <div className={pageChromeClass(chrome)} data-pc-chrome={chrome}>
+    <div className={pageChromeClass(chrome, proseSize)} data-pc-chrome={chrome} data-pc-prose={proseSize}>
       {marker && isSectionHidden(marker) ? null : children}
     </div>
   );
@@ -78,9 +78,9 @@ export function TemplateFrame({ template, ctx, children }: { template: TemplateK
 
 /** Wrap a manually-split template body (collection / product pages) with the same chrome hooks. */
 export function PageChrome({ list, children }: { list: readonly SectionInstance[]; children: ReactNode }) {
-  const { chrome } = pageContentSettings(list.find((s) => s.type === "PageContent"));
+  const { chrome, proseSize } = pageContentSettings(list.find((s) => s.type === "PageContent"));
   return (
-    <div className={pageChromeClass(chrome)} data-pc-chrome={chrome}>
+    <div className={pageChromeClass(chrome, proseSize)} data-pc-chrome={chrome} data-pc-prose={proseSize}>
       {children}
     </div>
   );
