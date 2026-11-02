@@ -121,7 +121,16 @@ export const generateReviewsContentSchema = z.object({
 export const generateReviewsResultSchema = generateReviewsContentSchema.merge(generationMetaSchema);
 export type GenerateReviewsResult = z.infer<typeof generateReviewsResultSchema>;
 
-export const SELLER_AI_CREDIT_KINDS = ["generate_product", "generate_blog", "contact_reply", "business_coach", "store_agent", "store_setup", "generate_reviews"] as const;
+export const SELLER_AI_CREDIT_KINDS = [
+  "generate_product",
+  "generate_blog",
+  "contact_reply",
+  "business_coach",
+  "store_agent",
+  "store_setup",
+  "generate_reviews",
+  "generate_faq",
+] as const;
 export type SellerAiCreditKind = (typeof SELLER_AI_CREDIT_KINDS)[number];
 
 export const SELLER_AI_KIND_LABELS: Record<SellerAiCreditKind, string> = {
@@ -132,7 +141,11 @@ export const SELLER_AI_KIND_LABELS: Record<SellerAiCreditKind, string> = {
   store_agent: "Pica2 AI Assistant",
   store_setup: "Build your store from a prompt",
   generate_reviews: "Generate AI product reviews",
+  generate_faq: "Apply AI store FAQs",
 };
+
+/** Default Q&A count for FAQ proposals (generate → confirm Apply). */
+export const FAQ_PROPOSAL_COUNT = 5;
 
 // ---- Store agent chat ------------------------------------------------------------------------
 
@@ -164,6 +177,7 @@ export const AGENT_LINKS = {
   seo: "/dashboard/settings/seo",
   plan: "/dashboard/settings/plan",
   store_settings: "/dashboard/settings",
+  faqs: "/dashboard/content/faqs",
 } as const;
 export type AgentLinkKey = keyof typeof AGENT_LINKS;
 export const AGENT_LINK_KEYS = Object.keys(AGENT_LINKS) as AgentLinkKey[];
@@ -185,6 +199,51 @@ export const agentChatInputSchema = z.object({
 });
 export type AgentChatInput = z.infer<typeof agentChatInputSchema>;
 
+export const faqProposalItemSchema = z.object({
+  question: z.string().trim().min(1).max(300),
+  answer: z.string().trim().min(1).max(3000),
+});
+
+export const faqProposalSchema = z.object({
+  type: z.literal("faq"),
+  groupName: z.string().trim().min(1).max(60).catch("General").default("General"),
+  items: z.array(faqProposalItemSchema).min(3).max(8),
+});
+export type FaqProposal = z.infer<typeof faqProposalSchema>;
+
+/** Dedicated generate-FAQ content (always 5 Q&As). */
+export const generateFaqContentSchema = z.object({
+  groupName: z.string().trim().min(1).max(60).catch("General").default("General"),
+  items: z.array(faqProposalItemSchema).length(FAQ_PROPOSAL_COUNT),
+});
+export const generateFaqResultSchema = generateFaqContentSchema.merge(generationMetaSchema);
+export type GenerateFaqResult = z.infer<typeof generateFaqResultSchema>;
+
+export const generateFaqInputSchema = z.object({
+  hint: z.string().trim().max(500).optional(),
+});
+
+export const applyFaqProposalInputSchema = z.object({
+  groupName: z.string().trim().min(1).max(60).default("General"),
+  items: z.array(faqProposalItemSchema).min(1).max(8),
+});
+export type ApplyFaqProposalInput = z.infer<typeof applyFaqProposalInputSchema>;
+
+/** Soften optional agent FAQ proposal — bad shapes become null (never fail the whole answer). */
+const agentFaqProposalSchema = z
+  .object({
+    type: z.literal("faq").catch("faq"),
+    groupName: z.string().trim().min(1).max(60).catch("General").default("General"),
+    items: z.array(faqProposalItemSchema).min(3).max(8),
+  })
+  .nullable()
+  .optional()
+  .catch(null)
+  .transform((p): FaqProposal | null => {
+    if (!p?.items?.length) return null;
+    return { type: "faq", groupName: p.groupName || "General", items: p.items.slice(0, 8) };
+  });
+
 /** Model reply: unknown link keys are dropped (never fail the whole answer for a bad link). */
 export const agentReplyContentSchema = z.object({
   answer: z.string().trim().min(1).max(3000),
@@ -203,8 +262,13 @@ export const agentReplyContentSchema = z.object({
       }
       return out.slice(0, 4);
     }),
+  /** When the seller asks for store FAQs, the model may attach a structured proposal for confirm-Apply. */
+  proposal: agentFaqProposalSchema,
 });
-export const agentReplyResultSchema = agentReplyContentSchema.merge(generationMetaSchema);
+export const agentReplyResultSchema = agentReplyContentSchema.merge(generationMetaSchema).extend({
+  /** Credits that Apply will debit (from ai_credit_action_costs); attached by the server. */
+  applyCredits: z.number().int().min(0).max(10_000).optional(),
+});
 export type AgentReplyResult = z.infer<typeof agentReplyResultSchema>;
 
 // ---- Build your store from a prompt ----------------------------------------------------------

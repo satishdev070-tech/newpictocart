@@ -43,7 +43,13 @@ export async function runSellerAiGeneration<S extends z.ZodType>(args: {
   limit?: { key: string; perDay: number; message: string };
   /** Optional Edge Function fallback after in-process failure (e.g. merchant-assistant). */
   edgeFallback?: { name: SellerAiFunction; body: Record<string, unknown> };
+  /**
+   * When false, skip debit / refund / ai_generations log (preview-only). Caller must debit later
+   * on confirm-Apply (e.g. FAQ proposals). Defaults to true.
+   */
+  debit?: boolean;
 }): Promise<SellerAiOutcome<z.output<S> & { provider: AiProvider; model: string; tokens: number | null }>> {
+  const shouldDebit = args.debit !== false;
   const providers = await loadProviders(args.feature);
   if (!providers.length) {
     throw new AppError("VALIDATION", { fieldErrors: { _form: [SETUP_MESSAGE] }, context: { reason: "ai_not_configured" } });
@@ -54,7 +60,7 @@ export async function runSellerAiGeneration<S extends z.ZodType>(args: {
     if (err instanceof AppError && err.code === "RATE_LIMITED") throw new AppError("RATE_LIMITED", { fieldErrors: { _form: [args.limit?.message ?? LIMIT_MESSAGE] } });
     throw err;
   }
-  const charge = await debitAiCredit(args.tenantId, args.creditKind);
+  const charge = shouldDebit ? await debitAiCredit(args.tenantId, args.creditKind) : null;
   let generated: { data: z.output<S>; provider: AiProvider; model: string; tokens: number | null };
   try {
     const ordered = orderForImages(providers, !!args.prompt.images?.length);
@@ -101,20 +107,22 @@ export async function runSellerAiGeneration<S extends z.ZodType>(args: {
     model: generated.model,
     tokens: generated.tokens,
   } as z.output<S> & { provider: AiProvider; model: string; tokens: number | null };
-  const { error } = await createSupabaseAdminClient()
-    .from("ai_generations")
-    .insert({
-      tenant_id: args.tenantId,
-      kind: args.creditKind,
-      input: args.input as Json,
-      output: data as Json,
-      provider: generated.provider.slice(0, 40),
-      model: generated.model.slice(0, 100) || null,
-      tokens: generated.tokens == null ? null : Math.round(generated.tokens),
-      created_by: args.userId,
-    });
-  if (error) logger.warn("seller_ai.log_failed", { tenantId: args.tenantId, kind: args.creditKind, code: error.code });
-  logger.info("seller_ai.generated", { tenantId: args.tenantId, kind: args.creditKind, provider: generated.provider, model: generated.model });
+  if (shouldDebit) {
+    const { error } = await createSupabaseAdminClient()
+      .from("ai_generations")
+      .insert({
+        tenant_id: args.tenantId,
+        kind: args.creditKind,
+        input: args.input as Json,
+        output: data as Json,
+        provider: generated.provider.slice(0, 40),
+        model: generated.model.slice(0, 100) || null,
+        tokens: generated.tokens == null ? null : Math.round(generated.tokens),
+        created_by: args.userId,
+      });
+    if (error) logger.warn("seller_ai.log_failed", { tenantId: args.tenantId, kind: args.creditKind, code: error.code });
+  }
+  logger.info("seller_ai.generated", { tenantId: args.tenantId, kind: args.creditKind, provider: generated.provider, model: generated.model, debited: shouldDebit });
   return { data, charge, provider: generated.provider, model: generated.model, tokens: generated.tokens };
 }
 
