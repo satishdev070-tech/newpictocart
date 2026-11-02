@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/lib/errors";
 
 const auth = vi.hoisted(() => ({
-  requireTenant: vi.fn(),
-  assertPermission: vi.fn(),
-  can: vi.fn(() => false),
+  requireTenant: vi.fn(async () => ({})),
+  assertPermission: vi.fn((_ctx: unknown, _permission: string) => undefined),
+  can: vi.fn((_ctx: unknown, _permission: string) => false),
 }));
 const credits = vi.hoisted(() => ({
-  debit: vi.fn(async () => ({ ledgerId: "ledger-faq", balance: 20 })),
-  refund: vi.fn(async () => {}),
+  debit: vi.fn(async (_tenantId: string, _kind: string) => ({ ledgerId: "ledger-faq", balance: 20 })),
+  refund: vi.fn(async (_charge: unknown, _note: string) => undefined),
   catalog: vi.fn(async () => ({
     configurable: true,
     packs: [],
@@ -19,24 +19,24 @@ const credits = vi.hoisted(() => ({
 }));
 const inserted = vi.hoisted(() => ({ rows: [] as unknown[], error: null as { message: string; code?: string } | null }));
 const existingFaqs = vi.hoisted(() => ({ data: [] as { position: number }[], error: null as { message: string } | null }));
-const audit = vi.hoisted(() => vi.fn(async () => {}));
-const adminInsert = vi.hoisted(() => vi.fn(async () => ({ error: null })));
-const refresh = vi.hoisted(() => vi.fn());
+const audit = vi.hoisted(() => vi.fn(async (_input: unknown) => undefined));
+const adminInsert = vi.hoisted(() => vi.fn(async (_row: unknown) => ({ error: null })));
+const refresh = vi.hoisted(() => vi.fn(() => undefined));
 
 vi.mock("server-only", () => ({}));
-vi.mock("next/cache", () => ({ refresh: (...a: unknown[]) => refresh(...a) }));
+vi.mock("next/cache", () => ({ refresh: () => refresh() }));
 vi.mock("@/lib/tenant/membership", () => ({
   requireTenant: () => auth.requireTenant(),
-  assertPermission: (...a: unknown[]) => auth.assertPermission(...a),
-  can: (...a: unknown[]) => auth.can(...a),
+  assertPermission: (ctx: unknown, permission: string) => auth.assertPermission(ctx, permission),
+  can: (ctx: unknown, permission: string) => auth.can(ctx, permission),
 }));
 vi.mock("@/features/ai-credits/server", () => ({
-  debitAiCredit: (...a: unknown[]) => credits.debit(...a),
-  refundAiCredit: (...a: unknown[]) => credits.refund(...a),
+  debitAiCredit: (tenantId: string, kind: string) => credits.debit(tenantId, kind),
+  refundAiCredit: (charge: unknown, note: string) => credits.refund(charge, note),
   getAiCreditCatalog: () => credits.catalog(),
   getAiCreditBalance: () => credits.balance(),
 }));
-vi.mock("@/lib/audit", () => ({ audit: (...a: unknown[]) => audit(...a) }));
+vi.mock("@/lib/audit", () => ({ audit: (input: unknown) => audit(input) }));
 vi.mock("@/lib/observability/logger", () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() } }));
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => ({
@@ -102,8 +102,9 @@ describe("applyFaqsProposalAction", () => {
   beforeEach(() => {
     auth.requireTenant.mockReset();
     auth.assertPermission.mockReset();
-    auth.assertPermission.mockImplementation((ctx: { permissions: Set<string> }, p: string) => {
-      if (!ctx.permissions.has(p)) throw new AppError("FORBIDDEN", { context: { permission: p } });
+    auth.assertPermission.mockImplementation((ctx: unknown, p: string) => {
+      const permissions = (ctx as { permissions: Set<string> }).permissions;
+      if (!permissions.has(p)) throw new AppError("FORBIDDEN", { context: { permission: p } });
     });
     auth.requireTenant.mockResolvedValue(TENANT);
     credits.debit.mockClear();
