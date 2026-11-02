@@ -1493,10 +1493,10 @@ above and in `docs/THEME_BUILDER.md`):
 - **#14.2 / #15 "You don't have permission".** The canvas render is authorised by the 2 h preview cookie. A FORBIDDEN render
   now reports `code: "forbidden"`; the builder mints a new preview token and reloads the canvas, re-sending unsaved edits.
 - **#14.1 margin back to 0.** Spacing CSS handles 0 correctly (section-box.ts); the stale preview was the render backlog above.
-- **#0.5 Google sign-in shows `ugbjlpdhktrlkyuijkfc.supabase.co`.** Configuration, not code: Google names the domain that
-  handles the OAuth callback. Fix = Supabase **Custom Domain** add-on (e.g. `auth.pictocart.in`, Supabase Pro), then update
-  the Google OAuth client's authorised redirect URI and `NEXT_PUBLIC_SUPABASE_URL`. Also set the app name/logo/home page on
-  the Google OAuth consent screen (Google Cloud → APIs & Services → OAuth consent screen).
+- **#0.5 Google sign-in shows `ugbjlpdhktrlkyuijkfc.supabase.co` (storefront / redirect OAuth only).** Merchant login on
+  platform hosts uses GIS (`GOOGLE_IDENTITY_SIGNIN=on`); live smoke 2026-11-02 shows One Tap as **pictocart.in** /
+  **pictocartdev.in**. Alias PKCE mismatch (`?error=link`) fixed via `authRequestOrigin()` + Auth redirect URLs for both
+  hosts. Store sites still use redirect OAuth → Supabase project URL until Supabase **Custom Domain** (Pro).
 - **#4 (from PR #19) still open on the live DB:** the `free` plan has `trial_days = 90` on v2pictocart, so new stores open as
   trials. Migration `20261023003600_free_plan.sql` sets it to 0 and makes `create_tenant` open trial-less plans as active.
 - Tests: `tests/unit/bugs-2-0-builder.test.ts`, `tests/unit/site-builder-sections.test.ts` (changedLists).
@@ -1517,11 +1517,10 @@ above and in `docs/THEME_BUILDER.md`):
   `components/auth/email-code-flow.tsx` (platform + store tones).
 - **Onboarding quiz:** new first step "What are you building?" (Informative website / E-commerce store), saved as
   `onboarding_site_mode` and pre-selecting the site mode in the form and Tara voice paths (existing store setup unchanged).
-- **Google consent shows the Supabase URL:** `GoogleIdentityButton` (Google Identity Services + `signInWithIdToken`, nonce) makes the
-  merchant sign-in run on pictocartdev.in so Google shows that domain. Enable with `GOOGLE_IDENTITY_SIGNIN=on` after adding
-  `https://pictocartdev.in` to the OAuth client's *Authorised JavaScript origins* (client id auto-read from Supabase's authorize
-  redirect, or `NEXT_PUBLIC_GOOGLE_SIGNIN_CLIENT_ID`). Store sites keep the redirect flow (wildcard origins aren't allowed by Google);
-  for those the only full fix is the Supabase Custom Domain add-on.
+- **Google consent on merchant login:** `GoogleIdentityButton` + `GOOGLE_IDENTITY_SIGNIN=on` on `pictocart-u7pf`; JS origins
+  cover pictocart.in and pictocartdev.in (verified). `googleSignInAction` uses `authRequestOrigin()` so alias hosts keep
+  PKCE on the same host. Store sites keep redirect OAuth (wildcard JS origins aren't allowed by Google); full storefront
+  hostname fix still needs Supabase Custom Domain.
 - **Product form overflow:** `lg:grid-cols-[1fr_320px]` → `minmax(0,1fr)` (variants table scrolls inside its card); same fix on
   customers, returns, festive and shared dashboard forms.
 - **Builder:** green "Updating 45%" chip + green progress bar, "✓ Updated" on success, amber + warning toast after 6 s, error toast.
