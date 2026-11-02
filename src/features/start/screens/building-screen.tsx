@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { findTheme } from "@/features/marketing-site/themes";
 import { ThemeDevicePreview } from "@/features/marketing-site/components/theme-card";
-import { ThemeMockup } from "@/features/theme/marketplace/mockup";
 import { moodById } from "../moods";
 import { startCopy } from "../copy";
 import type { StartDraft } from "../draft/schema";
@@ -49,7 +48,7 @@ export function BuildingScreen({
 
   const theme = draft.theme ? findTheme(draft.theme) : undefined;
   const mood = moodById(draft.mood);
-  const accent = draft.accent || mood?.accentA || theme?.preset.colors.primary || "#F97316";
+  const accent = draft.accent || mood?.accentA || theme?.preset.tokens.colors.primary || "#F97316";
   const accentSoft = mood?.accentB || `${accent}33`;
   const storeLabel =
     draft.business.name.trim() ||
@@ -63,10 +62,11 @@ export function BuildingScreen({
 
   useEffect(() => {
     doneRef.current = false;
-    const start = Date.now();
+    let start = 0;
     let finish: number | undefined;
     const tick = window.setInterval(() => {
-      const elapsed = Date.now() - start;
+      if (!start) start = performance.now();
+      const elapsed = performance.now() - start;
       setStep(buildingStepIndex(elapsed, stepCount));
       const p = buildingProgressPct(elapsed, waitForFinalize);
       setPct(p);
@@ -180,28 +180,15 @@ export function BuildingScreen({
                 <ThemeDevicePreview theme={theme} size="large" eager />
               </div>
             ) : (
-              <div className="grid min-h-[280px] place-items-center bg-[#FFF7ED]/60 p-6 text-sm text-[#6B6275] sm:min-h-[360px]">
-                <div className="w-full max-w-sm overflow-hidden rounded-xl border border-[#2A2233]/08">
-                  <ThemeMockup
-                    preset={{
-                      colors: {
-                        primary: accent,
-                        secondary: mood?.accentB || "#FDBA74",
-                        background: mood?.bg || "#FFF4E8",
-                        foreground: "#2A2233",
-                        muted: "#6B6275",
-                        accent,
-                        border: "#2A223318",
-                      },
-                      fonts: { heading: "inherit", body: "inherit" },
-                      radius: "1rem",
-                      layout: { heroStyle: "full", productCard: "soft", nav: "simple" },
-                    }}
-                    name={storeLabel}
-                    tagline={draft.business.tagline.trim() || "Your storefront"}
-                    themeKey="building-fallback"
-                    size="card"
-                  />
+              <div
+                className="grid min-h-[280px] place-items-center p-8 text-center sm:min-h-[360px]"
+                style={{ background: `linear-gradient(160deg, ${accentSoft}, ${mood?.bg || "#FFF4E8"} 55%)` }}
+              >
+                <div>
+                  <p className="font-brand text-3xl font-normal text-[#2A2233]">{storeLabel}</p>
+                  <p className="mt-2 text-sm text-[#6B6275]">
+                    {draft.business.tagline.trim() || "Your storefront is taking shape"}
+                  </p>
                 </div>
               </div>
             )}

@@ -1,6 +1,21 @@
 # Implementation Status
 
-_Last updated: 2026-10-31 (Niche samples + theme imagery polish) · 2026-10-31 (Theme panel crash harden) · 2026-10-31 (Theme editor exit guard + Contact path + Footer settings) · 2026-10-30 (Grade A LCP + customizer preview lazy images) · 2026-10-30 (Marketing GTmetrix LCP/JS) · 2026-10-30 (Theme/store crash + 404 resilience) · 2026-10-30 (Marketing homepage perf P0–P1) · 2026-10-30 (Customizer speed model lock) · 2026-10-30 (Customizer UX fixes) · 2026-10-30 (Theme Customizer Master) · 2026-10-30 (Seller login harden) · 2026-10-29 (Theme pages + popups Phase E) · 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-11-02 (Seller onboarding AI polish) · 2026-10-31 (Niche samples + theme imagery polish) · 2026-10-31 (Theme panel crash harden) · 2026-10-31 (Theme editor exit guard + Contact path + Footer settings) · 2026-10-30 (Grade A LCP + customizer preview lazy images) · 2026-10-30 (Marketing GTmetrix LCP/JS) · 2026-10-30 (Theme/store crash + 404 resilience) · 2026-10-30 (Marketing homepage perf P0–P1) · 2026-10-30 (Customizer speed model lock) · 2026-10-30 (Customizer UX fixes) · 2026-10-30 (Theme Customizer Master) · 2026-10-30 (Seller login harden) · 2026-10-29 (Theme pages + popups Phase E) · 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Seller onboarding AI polish (2026-11-02, branch `cursor/seller-onboarding-ai-polish-c73e`)
+
+**Asks:** Hide Informative themes publicly; quiz category UX + building theme loader; hide prompt store-setup; 5 default Business Coach tips; Pica2 FAQ generate→confirm Apply + credit kind; seller shell speed.
+
+**Implemented:**
+- Informative filtered from marketing/marketplace/onboarding theme surfaces; site-type Informative soft-hidden (“Coming soon”); live informative tenants unchanged.
+- Start quiz: subcategory copy rename, smart search/Add, multi-select → seeded categories/products; building screen shows selected ThemeDevicePreview + engaging seed progress messages.
+- Dashboard home: `StoreSetupCard` not rendered (action/registry kept). Business Coach shows 5 free EN/HI tips immediately; Get tips/Refresh still uses `business_coach` credits.
+- Pica2: structured FAQ proposal preview + Apply/Dismiss; Apply debits `generate_faq` (Super Admin Actions catalog + migration seed); cost shown on Apply; requires `content.write`.
+- Seller shell: parallel layout fetches, idle nav prefetch, products + Neural Pulse loading skeletons.
+
+**Out of scope / known:** No delete of Informative theme data; no full local-first CRUD for Products/Orders; FAQ Apply is the confirm-pattern first (product/blog apply later).
+
+**Verification:** `pnpm check` (see PR).
 
 ## Niche samples + theme imagery polish (2026-10-31, branch `cursor/niche-samples-theme-polish-c73e`)
 
