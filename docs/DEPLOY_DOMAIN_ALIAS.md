@@ -1,0 +1,52 @@
+# Alias `www.pictocart.in` onto the staging Vercel project
+
+**Narrow cutover:** point `https://www.pictocart.in` at the same Next.js deploy as `https://www.pictocartdev.in`. Same Git, same Supabase (`v2pictocart`). **Do not** change the platform root or run `move-platform-root.sql`.
+
+For a full root promote later, see [DEPLOY_ROOT_PROMOTE.md](./DEPLOY_ROOT_PROMOTE.md).
+
+## Locked decisions
+
+| Item | Value |
+|---|---|
+| Target Vercel project | `pictocart-u7pf` (already serves `pictocartdev.in`) |
+| Platform root | Unchanged — `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN=pictocartdev.in` |
+| Store hosts | Stay `{slug}.pictocartdev.in` |
+| New platform hosts | `www.pictocart.in` + apex `pictocart.in` (redirect → www) via Domains + `PLATFORM_HOST_ALIASES` |
+
+Without `PLATFORM_HOST_ALIASES`, `www.pictocart.in` can be treated as a store host and 404.
+
+## Operator steps
+
+### 1. Move domains
+
+1. On the **old** project (static ~2.7 KB `www.pictocart.in`): remove `pictocart.in`, `www.pictocart.in`, `*.pictocart.in` if present.
+2. On **`pictocart-u7pf`**: add `www.pictocart.in`; add `pictocart.in` as **308 → www**.
+3. Keep all `pictocartdev.in` domains. Skip `*.pictocart.in` unless you need it later.
+
+### 2. Env + redeploy
+
+Production on `pictocart-u7pf`:
+
+| Variable | Value |
+|---|---|
+| `PLATFORM_HOST_ALIASES` | `pictocart.in,www.pictocart.in` |
+| `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` | leave `pictocartdev.in` |
+| Supabase / `APP_SECRET` | unchanged |
+
+Redeploy Production.
+
+### 3. Auth
+
+Supabase `v2pictocart` → Auth redirect URLs, add:
+
+- `https://www.pictocart.in/**`
+- `https://pictocart.in/**`
+
+Google GIS (if on): origins `https://www.pictocart.in`, `https://pictocart.in`.
+
+### 4. Verify
+
+- `https://www.pictocart.in` → same Next marketing app as staging (not static stub)
+- `https://pictocart.in` → redirects to www
+- `https://www.pictocartdev.in` → unchanged
+- Stores still on `*.pictocartdev.in`
