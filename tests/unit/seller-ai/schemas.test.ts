@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
+  agentReplyContentSchema,
+  applyFaqProposalInputSchema,
   businessCoachContentSchema,
   businessCoachResultSchema,
   contactReplyContentSchema,
   contactReplyResultSchema,
   generateBlogContentSchema,
   generateBlogResultSchema,
+  generateFaqContentSchema,
   generateProductContentSchema,
   generateProductInputSchema,
   generateProductResultSchema,
@@ -18,6 +21,7 @@ const MIGRATION = [
   readFileSync(new URL("../../../supabase/migrations/20261028004200_seller_ai_suite.sql", import.meta.url), "utf8"),
   readFileSync(new URL("../../../supabase/migrations/20261028004300_nvidia_provider_store_agent.sql", import.meta.url), "utf8"),
   readFileSync(new URL("../../../supabase/migrations/20261028004800_generate_reviews.sql", import.meta.url), "utf8"),
+  readFileSync(new URL("../../../supabase/migrations/20261029005400_generate_faq.sql", import.meta.url), "utf8"),
 ].join("\n");
 
 describe("seller AI schemas", () => {
@@ -82,6 +86,16 @@ describe("seller AI schemas", () => {
   it("seeds every seller AI credit kind in the migration", () => {
     for (const k of SELLER_AI_CREDIT_KINDS) expect(MIGRATION).toContain(`('${k}',`);
     expect(MIGRATION).toContain("generate_product");
+    expect(MIGRATION).toContain("generate_faq");
     expect(MIGRATION).toContain("catalog.write");
+  });
+
+  it("parses FAQ proposal content and softens agent proposal payloads", () => {
+    const items = Array.from({ length: 5 }, (_, i) => ({ question: `Q${i + 1}?`, answer: `A${i + 1}` }));
+    expect(generateFaqContentSchema.parse({ groupName: "Shipping", items }).items).toHaveLength(5);
+    expect(applyFaqProposalInputSchema.parse({ items: items.slice(0, 3) }).groupName).toBe("General");
+    expect(agentReplyContentSchema.parse({ answer: "Here are draft FAQs.", proposal: { type: "faq", items } }).proposal?.items).toHaveLength(5);
+    expect(agentReplyContentSchema.parse({ answer: "Sales look fine.", links: [] }).proposal).toBeNull();
+    expect(agentReplyContentSchema.parse({ answer: "Nope", proposal: { type: "faq", items: [{ question: "Only one", answer: "Bad" }] } }).proposal).toBeNull();
   });
 });

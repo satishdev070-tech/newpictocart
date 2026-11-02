@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blogWritePrompt, businessCoachPrompt, contactReplyPrompt, productGeneratePrompt } from "@/features/seller-ai/prompts";
+import { blogWritePrompt, businessCoachPrompt, contactReplyPrompt, generateFaqsPrompt, productGeneratePrompt, storeAgentPrompt } from "@/features/seller-ai/prompts";
 
 describe("seller AI prompts", () => {
   it("builds a product prompt with optional hint and images", () => {
@@ -38,5 +38,21 @@ describe("seller AI prompts", () => {
     expect(coach.user).toContain("<store_snapshot>");
     expect(coach.user).toContain("Add UPI");
     expect(coach.system).toContain("priority");
+  });
+
+  it("builds FAQ and store-agent prompts with proposal JSON shape", () => {
+    const faqs = generateFaqsPrompt({ storeName: "Aangan", hint: "shipping focus", categories: ["Kurtas"] });
+    expect(faqs.system).toContain("items");
+    expect(faqs.user).toContain("<seller_hint>");
+    expect(faqs.user).toContain("shipping focus");
+
+    const agent = storeAgentPrompt({
+      storeName: "Aangan",
+      snapshot: "Orders: 3",
+      messages: [{ role: "user", content: "Generate 5 FAQs for my store" }],
+    });
+    expect(agent.system).toContain('"type":"faq"');
+    expect(agent.system).toContain("proposal");
+    expect(agent.user).toContain("<question>");
   });
 });
