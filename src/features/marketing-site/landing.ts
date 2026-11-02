@@ -1,5 +1,15 @@
 import { z } from "zod";
-import { DEFAULT_FOOTER_SHARE, DEFAULT_MEGA_MENU, MENU_ICONS, MENU_TONES, SHARE_NETWORKS, SOCIAL_KEYS, type SocialKey } from "./chrome-content";
+import {
+  DEFAULT_FOOTER_SHARE,
+  DEFAULT_MEGA_MENU,
+  MENU_ICONS,
+  MENU_TONES,
+  SHARE_NETWORKS,
+  SOCIAL_KEYS,
+  normalizeMegaMenuItemHref,
+  type MegaMenu,
+  type SocialKey,
+} from "./chrome-content";
 
 /**
  * Landing page CMS (super admin → Landing page). The whole home page, header navigation and
@@ -570,6 +580,17 @@ export const DEFAULT_LANDING: LandingContent = {
 
 // ---- Parsing --------------------------------------------------------------------------
 
+function withNormalizedMegaMenuHrefs(header: LandingContent["header"]): LandingContent["header"] {
+  const megaMenu: MegaMenu = {
+    ...header.megaMenu,
+    columns: header.megaMenu.columns.map((col) => ({
+      ...col,
+      items: col.items.map((it) => ({ ...it, href: normalizeMegaMenuItemHref(it.title, it.href) })),
+    })),
+  };
+  return { ...header, megaMenu };
+}
+
 /** Reads a stored document, falling back to the default for each missing or invalid part. */
 export function parseLanding(value: unknown): LandingContent {
   const raw = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -582,14 +603,16 @@ export function parseLanding(value: unknown): LandingContent {
   // Sections missing from a stored order (e.g. added in a later release) are appended, hidden
   // only if their own `enabled` says so.
   out.order = order.success ? [...order.data, ...SECTION_KEYS.filter((k) => !order.data.includes(k))] : DEFAULT_LANDING.order;
-  return out as LandingContent;
+  const content = out as LandingContent;
+  content.header = withNormalizedMegaMenuHrefs(content.header);
+  return content;
 }
 
 /** Strict validation for saving: returns the cleaned document or field-path errors. */
 export function validateLanding(value: unknown): { ok: true; value: LandingContent } | { ok: false; errors: { path: string; message: string }[] } {
   const parsed = landingSchema.safeParse(value);
-  if (parsed.success) return { ok: true, value: parsed.data };
-  return { ok: false, errors: parsed.error.issues.slice(0, 20).map((i) => ({ path: i.path.join("."), message: i.message })) };
+  if (!parsed.success) return { ok: false, errors: parsed.error.issues.slice(0, 20).map((i) => ({ path: i.path.join("."), message: i.message })) };
+  return { ok: true, value: { ...parsed.data, header: withNormalizedMegaMenuHrefs(parsed.data.header) } };
 }
 
 // ---- Heading highlights ---------------------------------------------------------------

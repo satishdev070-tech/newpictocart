@@ -11,6 +11,7 @@ _Last updated: 2026-11-02 (Feature detail pages CMS) · 2026-11-02 (Marketing St
 **PR2 (`cursor/marketing-feature-pages-c73e`):**
 - Schema + 28 EN seeds in `feature-pages.ts` (`public.marketing.feature_pages`).
 - Routes `/features/[slug]` + CMS-driven hub; mega-menu default hrefs → `/features/{slug}` (Theme Marketplace → `/themes`).
+- `parseLanding` / `validateLanding` rewrite stale CMS hub-only `/features` mega-menu item hrefs to per-feature routes.
 - Admin `/admin/landing/features` editor + `saveFeaturePagesAction` / reset; sitemap includes published slugs.
 - Infographics reuse landing media upload. Docs: `BRAND.md`.
 

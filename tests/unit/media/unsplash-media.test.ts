@@ -3,6 +3,10 @@ import { curatedPhoto, fromApiPhoto, importedFilename, isDownloadLocation, isUns
 import { featuredUnsplashPhotos, resolveUnsplashPhoto, searchUnsplash, trackUnsplashDownload } from "@/features/media/unsplash/server";
 import { UNSPLASH_CATEGORIES, curatedUnsplashPhotos } from "@/lib/unsplash";
 
+vi.mock("@/features/platform-apps/server", () => ({
+  getAppCredential: vi.fn(async () => null),
+}));
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();

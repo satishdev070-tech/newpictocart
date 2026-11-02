@@ -2,6 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { INDUSTRY_SLUGS } from "@/features/stores/industries";
 import { UNSPLASH_CATEGORIES, fallbackCategoryImage, getCategoryImage, getCategoryImages, toUnsplashCategory } from "@/lib/unsplash";
 
+vi.mock("@/features/platform-apps/server", () => ({
+  getAppCredential: vi.fn(async () => null),
+}));
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
