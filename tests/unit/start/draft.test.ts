@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  draftSeedSubcategory,
   draftSubcategory,
   emptyStartDraft,
   parseStartDraft,
@@ -116,6 +117,14 @@ describe("start draft schema", () => {
     d.voice.facts.category = "fashion";
     d.voice.facts.subcategory = "western";
     expect(draftSubcategory(d)).toBe("western");
+  });
+
+  it("draftSeedSubcategory keeps custom product-type labels for seed", () => {
+    const d = emptyStartDraft();
+    d.business.category = "fashion";
+    d.business.subcategory = "Bandhani";
+    expect(draftSubcategory(d)).toBeNull();
+    expect(draftSeedSubcategory(d)).toBe("Bandhani");
   });
 
   it("loads the finished store on its own host", () => {

@@ -51,6 +51,27 @@ export function QuizScreen({
     facts.subcategory,
     facts.productsServices,
   );
+  const subQuery = customSub.trim().toLowerCase();
+  const filteredSubs = subQuery
+    ? subs.filter(
+        (s) =>
+          s.label.toLowerCase().includes(subQuery) ||
+          s.slug.includes(subQuery.replace(/\s+/g, "-")),
+      )
+    : subs;
+  // Keep already-selected chips visible even when search filters them out.
+  const visibleSubs = [
+    ...subs.filter((s) => selectedSubs.includes(s.slug)),
+    ...filteredSubs.filter((s) => !selectedSubs.includes(s.slug)),
+  ];
+  const subExactMatch = subQuery
+    ? subs.some(
+        (s) =>
+          s.label.toLowerCase() === subQuery ||
+          s.slug === subQuery.replace(/\s+/g, "-"),
+      ) || customSubs.some((x) => x.toLowerCase() === subQuery)
+    : false;
+  const showSubAddCta = Boolean(subQuery) && filteredSubs.length === 0 && !subExactMatch;
 
   function current(patch: Partial<VoiceFacts> = {}): VoiceFacts {
     return {
@@ -231,8 +252,39 @@ export function QuizScreen({
         ) : null}
         {step === 2 ? (
           <Question title={c.quiz.subcategoryTitle}>
+            <div className="flex gap-2">
+              <input
+                value={customSub}
+                onChange={(e) => setCustomSub(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCustomSub();
+                  }
+                }}
+                placeholder={c.quiz.customSubHint}
+                className="min-w-0 flex-1 rounded-xl border border-[#2A2233]/10 bg-white px-3 py-2.5 text-sm"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={addCustomSub}
+                disabled={!customSub.trim()}
+                className={cn(
+                  "shrink-0 rounded-xl px-5 py-3 text-base font-semibold transition disabled:opacity-40",
+                  showSubAddCta
+                    ? "bg-linear-to-br from-[#FB923C] to-[#F97316] text-white shadow-[0_10px_24px_-12px_rgba(249,115,22,0.7)]"
+                    : "border border-[#2A2233]/10 bg-white text-[#C2410C]",
+                )}
+              >
+                {c.quiz.customSubAdd}
+              </button>
+            </div>
+            {showSubAddCta ? (
+              <p className="text-sm text-[#6B6275]">{c.quiz.customSubNoMatch(customSub.trim())}</p>
+            ) : null}
             <div className="flex flex-wrap gap-1.5">
-              {subs.map((sub) => {
+              {visibleSubs.map((sub) => {
                 const active = selectedSubs.includes(sub.slug);
                 return (
                   <button
@@ -261,28 +313,6 @@ export function QuizScreen({
                   {label} ×
                 </button>
               ))}
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={customSub}
-                onChange={(e) => setCustomSub(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addCustomSub();
-                  }
-                }}
-                placeholder={c.quiz.customSubHint}
-                className="min-w-0 flex-1 rounded-xl border border-[#2A2233]/10 bg-white px-3 py-2.5 text-sm"
-              />
-              <button
-                type="button"
-                onClick={addCustomSub}
-                disabled={!customSub.trim()}
-                className="shrink-0 rounded-xl border border-[#2A2233]/10 bg-white px-3 py-2.5 text-sm font-medium text-[#C2410C] disabled:opacity-40"
-              >
-                {c.quiz.customSubAdd}
-              </button>
             </div>
           </Question>
         ) : null}

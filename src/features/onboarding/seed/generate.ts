@@ -5,7 +5,7 @@ import { isSarvamConfigured } from "@/lib/sarvam/client";
 import { industryName, type IndustrySlug } from "@/features/stores/industries";
 import { chatTurn, translateText } from "./sarvam";
 import { READY_STORE_COUNTS } from "./counts";
-import { buildFallbackReadyStorePlan } from "./fallback";
+import { buildFallbackReadyStorePlan, collectSelectionLabels } from "./fallback";
 import { readyStorePlanSchema, type ReadyStorePlan } from "./schemas";
 
 function extractJson(text: string): unknown {
@@ -43,7 +43,11 @@ function buildPrompt(args: {
 }): { system: string; user: string } {
   const industry = industryName(args.industry);
   const { categories, products, blogs, testimonials } = READY_STORE_COUNTS;
-  const nicheHint = [args.subcategory?.trim(), args.niche?.trim()].filter(Boolean).join(" / ");
+  const selectionLabels = collectSelectionLabels(args.industry, args.subcategory, args.niche);
+  const nicheHint =
+    selectionLabels.length > 0
+      ? selectionLabels.join(", ")
+      : [args.subcategory?.trim(), args.niche?.trim()].filter(Boolean).join(" / ");
   const system = [
     "You are a catalogue writer for Indian D2C storefronts on Pictocart.",
     "Reply with a single JSON object only (no markdown). Prices must be integer paise (₹1 = 100).",

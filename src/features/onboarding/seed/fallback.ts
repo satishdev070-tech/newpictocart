@@ -208,30 +208,86 @@ const FOOTWEAR_GENERAL: { categories: CategorySeed[]; products: ProductSeed[] } 
   ],
 };
 
-function resolveNicheLabel(industry: IndustrySlug, subcategory?: string | null, niche?: string | null): string {
+const SUB_EXTRAS_PREFIX = "sub:";
+
+/**
+ * Ordered unique product-type labels from quiz primary subcategory + `sub:` extras/customs.
+ * Caps at READY_STORE_COUNTS.categories so seed can map 1:1 into storefront categories.
+ */
+export function collectSelectionLabels(
+  industry: IndustrySlug,
+  subcategory?: string | null,
+  niche?: string | null,
+): string[] {
+  const labels: string[] = [];
+  const seen = new Set<string>();
+  const add = (raw: string) => {
+    const token = raw.trim();
+    if (!token) return;
+    const label = (subcategoryLabel(industry, token) ?? token).slice(0, 60);
+    const key = label.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    labels.push(label);
+  };
+
   const sub = subcategory?.trim();
-  if (sub) {
-    const label = subcategoryLabel(industry, sub);
-    if (label) return label;
-    if (!isSubcategory(industry, sub)) return sub.slice(0, 60);
-  }
+  if (sub) add(sub);
+
   const custom = niche?.trim();
   if (custom) {
-    // Quiz extras: `sub:slug2,Custom Niche`
-    if (custom.toLowerCase().startsWith("sub:")) {
-      const parts = custom
-        .slice(4)
-        .split(",")
-        .map((p) => p.trim())
-        .filter(Boolean);
-      const free = parts.find((p) => !isSubcategory(industry, p));
-      if (free) return free.slice(0, 60);
-      const first = parts[0];
-      if (first) return subcategoryLabel(industry, first) ?? first.slice(0, 60);
+    if (custom.toLowerCase().startsWith(SUB_EXTRAS_PREFIX)) {
+      for (const part of custom.slice(SUB_EXTRAS_PREFIX.length).split(",")) add(part);
+    } else {
+      add(custom);
     }
-    return custom.slice(0, 60);
   }
-  return industryShort(industry);
+  return labels.slice(0, READY_STORE_COUNTS.categories);
+}
+
+/** Display niche for taglines/SEO — joins multi-select labels when present. */
+export function resolveNicheLabel(
+  industry: IndustrySlug,
+  subcategory?: string | null,
+  niche?: string | null,
+): string {
+  const labels = collectSelectionLabels(industry, subcategory, niche);
+  if (labels.length === 0) return industryShort(industry);
+  if (labels.length === 1) return labels[0]!;
+  return labels.slice(0, 3).join(" · ");
+}
+
+function multiSelectCatalog(labels: string[]): { categories: CategorySeed[]; products: ProductSeed[] } {
+  const fillers = ["New Arrivals", "Bestsellers", "Premium Picks", "Everyday Value", "Seasonal Edit"];
+  const padded = [...labels];
+  for (const f of fillers) {
+    if (padded.length >= READY_STORE_COUNTS.categories) break;
+    if (!padded.some((l) => l.toLowerCase() === f.toLowerCase())) padded.push(f);
+  }
+  const categories = padded.slice(0, READY_STORE_COUNTS.categories).map((name) => ({
+    name,
+    description: `Curated ${name.toLowerCase()} picks customers expect on your storefront.`,
+  }));
+  const products: ProductSeed[] = categories.map((c, i) => {
+    const title =
+      i === 0
+        ? `Signature ${c.name}`
+        : i === 1
+          ? `Bestselling ${c.name}`
+          : i === 2
+            ? `Premium ${c.name}`
+            : i === 3
+              ? `Everyday ${c.name}`
+              : `${c.name} Classic`;
+    return {
+      title,
+      categoryIndex: i,
+      pricePaise: 79_900 + i * 12_500,
+      compareAtPaise: i % 3 === 0 ? 79_900 + i * 12_500 + 40_000 : null,
+      featured: i === 0 || i === 1,
+    };
+  });
+  return { categories, products };
 }
 
 function defaultCategories(industry: IndustrySlug, nicheLabel: string): CategorySeed[] {
@@ -293,11 +349,26 @@ function footwearCatalog(subcategory?: string | null): { categories: CategorySee
 export function catalogFor(
   industry: IndustrySlug,
   subcategory?: string | null,
+  niche?: string | null,
 ): { categories: CategorySeed[]; products: ProductSeed[] } {
+  const labels = collectSelectionLabels(industry, subcategory, niche);
+  // Multi-select (or several customs): each type becomes its own seeded category.
+  if (labels.length >= 2) return multiSelectCatalog(labels);
+
+  const primary = subcategory?.trim() || null;
+  const knownPrimary = Boolean(primary && isSubcategory(industry, primary));
+  // Single custom type (not a known slug) — niche-named categories/products.
+  if (labels.length === 1 && !knownPrimary) {
+    return {
+      categories: defaultCategories(industry, labels[0]!),
+      products: defaultProducts(labels[0]!),
+    };
+  }
+
   if (industry === "fashion") return fashionCatalog(subcategory);
   if (industry === "bags") return BAGS_CATALOG;
   if (industry === "footwear") return footwearCatalog(subcategory);
-  const nicheLabel = resolveNicheLabel(industry, subcategory, null);
+  const nicheLabel = resolveNicheLabel(industry, subcategory, niche);
   return { categories: defaultCategories(industry, nicheLabel), products: defaultProducts(nicheLabel) };
 }
 
@@ -316,15 +387,12 @@ export function buildFallbackReadyStorePlan(args: {
 }): ReadyStorePlan {
   const industryLabel = industryName(args.industry);
   const nicheLabel = resolveNicheLabel(args.industry, args.subcategory, args.niche);
-  const { categories: catSeeds, products: prodSeeds } = catalogFor(args.industry, args.subcategory);
-  // Prefer niche-aware defaults when industry has no specialised pack but a custom niche was given.
-  const useNicheDefaults =
-    args.industry !== "fashion" &&
-    args.industry !== "bags" &&
-    args.industry !== "footwear" &&
-    Boolean(args.niche?.trim() || args.subcategory?.trim());
-  const categoriesSource = useNicheDefaults ? defaultCategories(args.industry, nicheLabel) : catSeeds;
-  const productsSource = useNicheDefaults ? defaultProducts(nicheLabel) : prodSeeds;
+  // catalogFor already handles multi-select labels, specialised packs, and single customs.
+  const { categories: categoriesSource, products: productsSource } = catalogFor(
+    args.industry,
+    args.subcategory,
+    args.niche,
+  );
 
   const categorySlugs = uniqueSlugs(categoriesSource.map((c) => c.name));
 

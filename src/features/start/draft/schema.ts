@@ -225,6 +225,18 @@ export function draftSubcategory(draft: StartDraft): string | null {
   return null;
 }
 
+/**
+ * Primary product type for ready-store seed — known subcategory slug **or** a custom label
+ * the seller typed on the quiz (draftSubcategory skips customs).
+ */
+export function draftSeedSubcategory(draft: StartDraft): string | null {
+  const known = draftSubcategory(draft);
+  if (known) return known;
+  const fromBusiness = draft.business.subcategory?.trim() || null;
+  const fromVoice = draft.voice.facts.subcategory?.trim() || null;
+  return fromBusiness || fromVoice;
+}
+
 export function draftStoreName(draft: StartDraft): string {
   const n = draft.business.name.trim() || draft.voice.facts.name?.trim() || "";
   return n;
