@@ -30,6 +30,12 @@ with a 60-30-10 hierarchy:
 
 Indigo/purple are not marketing accents; leftover CMS tones map to charcoal / orange / green.
 
+### Landing Steps media (Super Admin)
+
+`/admin/landing` → **5 steps** accepts JPG/PNG/WebP/**GIF**/**MP4** via `uploadLandingAssetAction` into the
+`platform-branding` bucket (`landing/…`). GIF plays as an image; MP4 renders muted looping video with
+optional poster. Built-in CSS illustrations remain when the media URL is empty.
+
 ### Auth + onboarding (`.theme-brand` only)
 
 Shared indigo / peach / emerald tokens for seller login and onboarding — **unchanged** by the

@@ -102,6 +102,19 @@ export const SECTION_LABELS: Record<SectionKey, string> = {
 export const STEP_VISUALS = ["signup", "details", "category", "theme", "live", "none"] as const;
 export type StepVisual = (typeof STEP_VISUALS)[number];
 
+/** Media kind for step (and landing) assets uploaded via Super Admin. */
+export const STEP_MEDIA_KINDS = ["image", "gif", "video"] as const;
+export type StepMediaKind = (typeof STEP_MEDIA_KINDS)[number];
+
+/** Infer kind from a URL when CMS omits mediaKind (older documents). */
+export function inferStepMediaKind(url: string, explicit?: string | null): StepMediaKind {
+  if (explicit === "image" || explicit === "gif" || explicit === "video") return explicit;
+  const path = url.split("?")[0]?.toLowerCase() ?? "";
+  if (path.endsWith(".mp4") || path.endsWith(".webm") || path.endsWith(".m4v")) return "video";
+  if (path.endsWith(".gif")) return "gif";
+  return "image";
+}
+
 // ---- Field schemas --------------------------------------------------------------------
 
 const str = (max: number) => z.string().trim().max(max);
@@ -189,7 +202,20 @@ export const stepsSchema = z.object({
   badge: str(60),
   title: str(160),
   body: str(300),
-  items: z.array(z.object({ icon, title: str(60), body: str(240), visual: z.enum(STEP_VISUALS), imageUrl, imageAlt: str(120) })).max(8),
+  items: z
+    .array(
+      z.object({
+        icon,
+        title: str(60),
+        body: str(240),
+        visual: z.enum(STEP_VISUALS),
+        imageUrl,
+        imageAlt: str(120),
+        mediaKind: z.enum(STEP_MEDIA_KINDS).optional().default("image"),
+        posterUrl: imageUrl.optional().default(""),
+      }),
+    )
+    .max(8),
   cta: link,
   note: str(120),
   link,
@@ -413,11 +439,11 @@ export const DEFAULT_LANDING: LandingContent = {
     title: "From Sign-Up to First Sale — in {orange:5 Steps}",
     body: "Every screen you'll see, in the order you'll see them. No surprises, no setup calls, no developer needed.",
     items: [
-      { icon: "users", title: "Sign Up Free", body: "Create your account with email or Google. No credit card required.", visual: "signup", imageUrl: "", imageAlt: "" },
-      { icon: "store", title: "Tell Us About Your Store", body: "Pick a name and a free store web address. That's it — one minute, one screen.", visual: "details", imageUrl: "", imageAlt: "" },
-      { icon: "tag", title: "Choose Your Category", body: "Fashion, food, electronics, beauty, services… pick what you sell and we suggest the right themes.", visual: "category", imageUrl: "", imageAlt: "" },
-      { icon: "palette", title: "Pick a Beautiful Theme", body: "Choose a theme made for your category, then change colours, fonts and sections without code.", visual: "theme", imageUrl: "", imageAlt: "" },
-      { icon: "rocket", title: "Your Store Goes Live", body: "One tap publishes the store. Share it on WhatsApp, Instagram or Facebook.", visual: "live", imageUrl: "", imageAlt: "" },
+      { icon: "users", title: "Sign Up Free", body: "Create your account with email or Google. No credit card required.", visual: "signup", imageUrl: "", imageAlt: "", mediaKind: "image", posterUrl: "" },
+      { icon: "store", title: "Tell Us About Your Store", body: "Pick a name and a free store web address. That's it — one minute, one screen.", visual: "details", imageUrl: "", imageAlt: "", mediaKind: "image", posterUrl: "" },
+      { icon: "tag", title: "Choose Your Category", body: "Fashion, food, electronics, beauty, services… pick what you sell and we suggest the right themes.", visual: "category", imageUrl: "", imageAlt: "", mediaKind: "image", posterUrl: "" },
+      { icon: "palette", title: "Pick a Beautiful Theme", body: "Choose a theme made for your category, then change colours, fonts and sections without code.", visual: "theme", imageUrl: "", imageAlt: "", mediaKind: "image", posterUrl: "" },
+      { icon: "rocket", title: "Your Store Goes Live", body: "One tap publishes the store. Share it on WhatsApp, Instagram or Facebook.", visual: "live", imageUrl: "", imageAlt: "", mediaKind: "image", posterUrl: "" },
     ],
     cta: { label: "Start Your Journey — It's Free", href: "/start" },
     note: "No credit card · Free to start · 5-minute setup",

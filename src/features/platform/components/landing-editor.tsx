@@ -25,6 +25,7 @@ import {
 import { MENU_ICONS, MENU_TONES, SHARE_LABELS, SHARE_NETWORKS, SOCIAL_KEYS, SOCIAL_LABELS, type MenuIcon, type MenuTone } from "@/features/marketing-site/chrome-content";
 import { ACCENT, LandingIconView, tagColor } from "@/features/marketing-site/components/landing-icons";
 import { resetLandingAction, saveLandingAction } from "../actions";
+import { LandingMediaField } from "./landing-media-field";
 
 /**
  * Super-admin editor for the public landing page (/admin/landing). Edits one JSON document in
@@ -494,14 +495,23 @@ function StepsEditor({ value, onChange }: { value: LandingContent["steps"]; onCh
         items={value.items}
         max={8}
         onChange={(items) => onChange({ ...value, items })}
-        newItem={() => ({ icon: "sparkles" as LandingIcon, title: "New step", body: "", visual: "none" as const, imageUrl: "", imageAlt: "" })}
+        newItem={() => ({
+          icon: "sparkles" as LandingIcon,
+          title: "New step",
+          body: "",
+          visual: "none" as const,
+          imageUrl: "",
+          imageAlt: "",
+          mediaKind: "image" as const,
+          posterUrl: "",
+        })}
         itemTitle={(s) => s.title || "Step"}
         render={(s, update) => (
           <div className="grid gap-3 sm:grid-cols-2">
             <IconSelect value={s.icon} onChange={(icon) => update({ ...s, icon })} />
             <Text label="Title" value={s.title} onChange={(title) => update({ ...s, title })} />
             <Area label="Text" value={s.body} onChange={(body) => update({ ...s, body })} className="sm:col-span-2" />
-            <Field label="Illustration">
+            <Field label="Built-in illustration (when no media)">
               <select value={s.visual} onChange={(e) => update({ ...s, visual: e.target.value as typeof s.visual })} className={inputClassName}>
                 {STEP_VISUALS.map((v) => (
                   <option key={v} value={v}>
@@ -510,8 +520,15 @@ function StepsEditor({ value, onChange }: { value: LandingContent["steps"]; onCh
                 ))}
               </select>
             </Field>
-            <Text label="Or your own image (https:// link)" value={s.imageUrl} onChange={(imageUrl) => update({ ...s, imageUrl })} hint="Replaces the illustration. 4:3 works best." />
-            {s.imageUrl ? <Text label="Image description (alt text)" value={s.imageAlt} onChange={(imageAlt) => update({ ...s, imageAlt })} /> : null}
+            <LandingMediaField
+              value={{
+                imageUrl: s.imageUrl,
+                imageAlt: s.imageAlt,
+                mediaKind: s.mediaKind ?? "image",
+                posterUrl: s.posterUrl ?? "",
+              }}
+              onChange={(media) => update({ ...s, ...media })}
+            />
           </div>
         )}
       />

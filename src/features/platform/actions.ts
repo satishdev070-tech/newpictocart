@@ -47,6 +47,7 @@ import {
   updatePlatformUser,
 } from "./server/mutations";
 import { clearBrandImage, uploadBrandImage } from "./server/branding-images";
+import { uploadLandingAsset, type LandingAssetResult } from "./server/landing-media";
 import { FEATURE_FLAG_DEFAULTS_TAG } from "./server/entitlements";
 import { revalidatePublicConfig } from "./server/public-config";
 import { BRAND_SLOTS } from "./public-config";
@@ -292,6 +293,15 @@ export async function clearBrandImageAction(_prev: ActionResult | null, fd: Form
     await clearBrandImage(ctx, slot);
     revalidatePublicConfig();
     revalidatePath("/admin/branding");
+  });
+}
+
+/** Upload GIF/image/MP4 for landing Steps (and similar) media slots. Returns a public https URL. */
+export async function uploadLandingAssetAction(_prev: ActionResult<LandingAssetResult> | null, fd: FormData): Promise<ActionResult<LandingAssetResult>> {
+  return runAction("platform.landing.media_upload", async () => {
+    const ctx = await platformActor("platform.settings.manage");
+    await rateLimit("platform-landing-media", ctx.user.id, 30, 600);
+    return uploadLandingAsset(ctx, fd.get("file") as File);
   });
 }
 

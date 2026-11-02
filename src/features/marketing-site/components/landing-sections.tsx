@@ -17,6 +17,8 @@ import { themeMockupHeroUrl } from "@/features/theme/marketplace/mockup";
 import { themeShot } from "../theme-shots";
 import { ThemeCard, ThemeDevicePreview } from "./theme-card";
 import { WhenVisible } from "./when-visible";
+import { StepsStack, StepsStackCard } from "./steps-stack";
+import { inferStepMediaKind, type StepMediaKind } from "../landing";
 
 /** Below-fold pricing island — keep the client PricingTable out of the initial home JS. */
 const PricingTable = dynamic(() => import("./pricing-table").then((m) => ({ default: m.PricingTable })));
@@ -309,35 +311,42 @@ const STEP_BG = [
 ];
 
 export function Steps({ content }: { content: LandingContent["steps"] }) {
+  const total = content.items.length;
   return (
-    <section id="steps" aria-labelledby="steps-title" className="scroll-mt-20 bg-white py-20 sm:py-24">
+    <section id="steps" aria-labelledby="steps-title" className="scroll-mt-20 bg-brand-canvas py-20 sm:py-24">
       <Container>
         <Heading id="steps-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
-        <ol className="relative mt-16 space-y-16 lg:space-y-24">
-          <span aria-hidden className="absolute top-0 bottom-0 left-1/2 hidden w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-border to-transparent lg:block" />
-          {content.items.map((step, i) => {
-            const flip = i % 2 === 1;
-            return (
-              <li key={step.title} className="grid items-center gap-8 lg:grid-cols-2 lg:gap-16">
-                <div className={cn("max-w-md", flip && "lg:order-2 lg:ml-auto lg:text-right")}>
-                  <div className={cn("flex items-center gap-3", flip && "lg:flex-row-reverse")}>
-                    <span className={cn("grid size-10 place-items-center rounded-xl", STEP_TINT[i % STEP_TINT.length])}>
+        <StepsStack className="mx-auto mt-14 max-w-5xl">
+          {content.items.map((step, i) => (
+            <StepsStackCard key={`${step.title}-${i}`} index={i} total={total}>
+              <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-10">
+                <div className="max-w-md">
+                  <div className="flex items-center gap-3">
+                    <span className={cn("grid size-11 place-items-center rounded-2xl", STEP_TINT[i % STEP_TINT.length])}>
                       <LandingIconView name={step.icon} className="size-5" />
                     </span>
-                    <span className="font-mono text-xs font-semibold tracking-[0.16em] text-subtle">STEP {String(i + 1).padStart(2, "0")}</span>
+                    <span className="font-mono text-[11px] font-bold tracking-[0.18em] text-brand-orange uppercase">
+                      Step {String(i + 1).padStart(2, "0")}
+                      <span className="ml-2 font-medium tracking-normal text-subtle normal-case">of {String(total).padStart(2, "0")}</span>
+                    </span>
                   </div>
-                  <h3 className="mt-4 font-brand text-2xl font-extrabold tracking-tight text-brand-ink sm:text-3xl">{step.title}</h3>
+                  <h3 className="mt-5 font-brand text-2xl font-extrabold tracking-tight text-brand-ink sm:text-[1.75rem] sm:leading-tight">{step.title}</h3>
                   <p className="mt-3 text-base leading-relaxed text-muted">{step.body}</p>
                 </div>
-                <div className={cn(flip && "lg:order-1")}>
-                  <StepCard visual={step.visual} imageUrl={step.imageUrl} imageAlt={step.imageAlt} index={i} />
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+                <StepCard
+                  visual={step.visual}
+                  imageUrl={step.imageUrl}
+                  imageAlt={step.imageAlt}
+                  mediaKind={inferStepMediaKind(step.imageUrl, step.mediaKind)}
+                  posterUrl={step.posterUrl ?? ""}
+                  index={i}
+                />
+              </div>
+            </StepsStackCard>
+          ))}
+        </StepsStack>
         {content.cta.label ? (
-          <div className="mt-20 flex flex-col items-center gap-3 text-center">
+          <div className="mt-16 flex flex-col items-center gap-3 text-center">
             <ButtonLink href={content.cta.href || "/start"} variant="orange" size="lg" className="rounded-xl" track={{ id: "create_store", location: "steps" }}>
               {content.cta.label} <ArrowRight aria-hidden className="size-4" />
             </ButtonLink>
@@ -354,17 +363,44 @@ export function Steps({ content }: { content: LandingContent["steps"] }) {
   );
 }
 
-function StepCard({ visual, imageUrl, imageAlt, index }: { visual: StepVisual; imageUrl: string; imageAlt: string; index: number }) {
+function StepCard({
+  visual,
+  imageUrl,
+  imageAlt,
+  mediaKind,
+  posterUrl,
+  index,
+}: {
+  visual: StepVisual;
+  imageUrl: string;
+  imageAlt: string;
+  mediaKind: StepMediaKind;
+  posterUrl: string;
+  index: number;
+}) {
   if (imageUrl) {
     return (
-      <div className="overflow-hidden rounded-3xl shadow-[0_30px_60px_-30px_rgb(27_29_69/0.35)] ring-1 ring-border">
-        <img src={imageUrl} alt={imageAlt} loading="lazy" className="block aspect-[4/3] w-full object-cover" />
+      <div className="overflow-hidden rounded-2xl shadow-[0_24px_48px_-28px_rgb(0_0_0/0.45)] ring-1 ring-border">
+        {mediaKind === "video" ? (
+          <video
+            src={imageUrl}
+            poster={posterUrl || undefined}
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="block aspect-[4/3] w-full object-cover"
+            aria-label={imageAlt || undefined}
+          />
+        ) : (
+          <img src={imageUrl} alt={imageAlt} loading="lazy" className="block aspect-[4/3] w-full object-cover" />
+        )}
       </div>
     );
   }
-  if (visual === "none") return null;
+  if (visual === "none") return <div className="hidden lg:block" aria-hidden />;
   return (
-    <div aria-hidden className={cn("relative grid aspect-[4/3] place-items-center overflow-hidden rounded-3xl p-8 shadow-[0_30px_60px_-30px_rgb(27_29_69/0.35)] ring-1 ring-black/5", STEP_BG[index % STEP_BG.length])}>
+    <div aria-hidden className={cn("relative grid aspect-[4/3] place-items-center overflow-hidden rounded-2xl p-8 shadow-[0_24px_48px_-28px_rgb(0_0_0/0.35)] ring-1 ring-black/5", STEP_BG[index % STEP_BG.length])}>
       <StepIllustration visual={visual} />
     </div>
   );
