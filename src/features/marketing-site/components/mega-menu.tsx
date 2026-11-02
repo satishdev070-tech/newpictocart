@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { MegaMenu as MegaMenuContent } from "../chrome-content";
+import { normalizeMegaMenuItemHref, type MegaMenu as MegaMenuContent } from "../chrome-content";
 import { MenuIconView, MENU_TONE_CLASS } from "./chrome-icons";
 
 /**
@@ -105,24 +105,27 @@ export function MegaMenu({ label, href, menu }: { label: string; href: string; m
                   <p className={cn("text-[0.72rem] font-bold tracking-[0.14em] uppercase", tone.title)}>{col.title}</p>
                   {col.subtitle ? <p className="mt-1 text-[0.8rem] leading-snug text-brand-ink/50">{col.subtitle}</p> : null}
                   <ul className="mt-4 space-y-1">
-                    {col.items.map((it) => (
-                      <li key={it.title + it.href}>
-                        <Link
-                          href={it.href}
-                          prefetch
-                          onClick={() => setOpen(false)}
-                          className="group -mx-2 flex gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-brand-canvas focus-visible:bg-brand-canvas focus-visible:outline-2 focus-visible:outline-brand"
-                        >
-                          <span className={cn("mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg ring-1 transition-colors duration-150", tone.chip)}>
-                            <MenuIconView name={it.icon} className="size-4" />
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block text-[0.88rem] leading-snug font-semibold text-brand-ink">{it.title}</span>
-                            {it.body ? <span className="mt-0.5 line-clamp-2 block text-[0.78rem] leading-snug text-brand-ink/55">{it.body}</span> : null}
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
+                    {col.items.map((it) => {
+                      const itemHref = normalizeMegaMenuItemHref(it.title, it.href);
+                      return (
+                        <li key={it.title + itemHref}>
+                          <Link
+                            href={itemHref}
+                            prefetch
+                            onClick={() => setOpen(false)}
+                            className="group -mx-2 flex gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-brand-canvas focus-visible:bg-brand-canvas focus-visible:outline-2 focus-visible:outline-brand"
+                          >
+                            <span className={cn("mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg ring-1 transition-colors duration-150", tone.chip)}>
+                              <MenuIconView name={it.icon} className="size-4" />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-[0.88rem] leading-snug font-semibold text-brand-ink">{it.title}</span>
+                              {it.body ? <span className="mt-0.5 line-clamp-2 block text-[0.78rem] leading-snug text-brand-ink/55">{it.body}</span> : null}
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               );

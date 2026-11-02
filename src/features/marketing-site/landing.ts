@@ -7,6 +7,8 @@ import {
   SHARE_NETWORKS,
   SOCIAL_KEYS,
   normalizeMegaMenuItemHref,
+  normalizeSolutionsItemHref,
+  SOLUTIONS_FEATURE_HREFS,
   type MegaMenu,
   type SocialKey,
 } from "./chrome-content";
@@ -429,17 +431,17 @@ export const DEFAULT_LANDING: LandingContent = {
     title: "Now {purple:what to sell} and {green:where to sell} — we have a solution for both.",
     body: "From your storefront to GST invoices, we ship every tool a modern Indian seller needs.",
     items: [
-      { icon: "palette", title: "Theme Marketplace", tag: "Design", body: "Ready-made themes for every category, edited visually", linkLabel: "Explore this feature", href: "/themes", badge: "", color: "auto" },
-      { icon: "message-circle", title: "WhatsApp & Social", tag: "Channels", body: "Order updates on WhatsApp and a social media planner", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "link", title: "Custom Domain + SSL", tag: "Design", body: "yourbrand.in with an automatically issued certificate", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "credit-card", title: "Razorpay / UPI / COD", tag: "Operate", body: "All payment modes, paid straight to your account", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "truck", title: "Shipping", tag: "Operate", body: "Your own rates and PIN code rules, or Delhivery / Shiprocket", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "file-text", title: "GST-Ready Invoices", tag: "Operate", body: "A GST invoice for every order, ready for your CA", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "ticket", title: "Coupons & Discounts", tag: "Operate", body: "Usage caps, minimum order and expiry rules", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "star", title: "Reviews & Ratings", tag: "Operate", body: "1–5 star reviews you approve before they appear", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "search", title: "SEO Tools", tag: "Channels", body: "Page titles, descriptions and an automatic sitemap", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "palette", title: "Theme Marketplace", tag: "Design", body: "Ready-made themes for every category, edited visually", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["Theme Marketplace"]!, badge: "", color: "auto" },
+      { icon: "message-circle", title: "WhatsApp & Social", tag: "Channels", body: "Order updates on WhatsApp and a social media planner", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["WhatsApp & Social"]!, badge: "", color: "auto" },
+      { icon: "link", title: "Custom Domain + SSL", tag: "Design", body: "yourbrand.in with an automatically issued certificate", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["Custom Domain + SSL"]!, badge: "", color: "auto" },
+      { icon: "credit-card", title: "Razorpay / UPI / COD", tag: "Operate", body: "All payment modes, paid straight to your account", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["Razorpay / UPI / COD"]!, badge: "", color: "auto" },
+      { icon: "truck", title: "Shipping", tag: "Operate", body: "Your own rates and PIN code rules, or Delhivery / Shiprocket", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS.Shipping!, badge: "", color: "auto" },
+      { icon: "file-text", title: "GST-Ready Invoices", tag: "Operate", body: "A GST invoice for every order, ready for your CA", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["GST-Ready Invoices"]!, badge: "", color: "auto" },
+      { icon: "ticket", title: "Coupons & Discounts", tag: "Operate", body: "Usage caps, minimum order and expiry rules", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["Coupons & Discounts"]!, badge: "", color: "auto" },
+      { icon: "star", title: "Reviews & Ratings", tag: "Operate", body: "1–5 star reviews you approve before they appear", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["Reviews & Ratings"]!, badge: "", color: "auto" },
+      { icon: "search", title: "SEO Tools", tag: "Channels", body: "Page titles, descriptions and an automatic sitemap", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["SEO Tools"]!, badge: "", color: "auto" },
       { icon: "image", title: "Creative Studio", tag: "Grow", body: "Turn product photos into ready-to-post creatives", linkLabel: "Explore this feature", href: "/features", badge: "New", color: "auto" },
-      { icon: "bar-chart", title: "Analytics", tag: "Grow", body: "Visitors, orders, sales and conversion over time", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "bar-chart", title: "Analytics", tag: "Grow", body: "Visitors, orders, sales and conversion over time", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS.Analytics!, badge: "", color: "auto" },
       { icon: "users", title: "Team Access", tag: "Operate", body: "Invite staff with owner, manager or viewer roles", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
     ],
   },
@@ -591,6 +593,21 @@ function withNormalizedMegaMenuHrefs(header: LandingContent["header"]): LandingC
   return { ...header, megaMenu };
 }
 
+function withNormalizedSolutionsHrefs(solutions: LandingContent["solutions"]): LandingContent["solutions"] {
+  return {
+    ...solutions,
+    items: solutions.items.map((it) => ({ ...it, href: normalizeSolutionsItemHref(it.title, it.href) })),
+  };
+}
+
+function withNormalizedLandingHrefs(content: LandingContent): LandingContent {
+  return {
+    ...content,
+    header: withNormalizedMegaMenuHrefs(content.header),
+    solutions: withNormalizedSolutionsHrefs(content.solutions),
+  };
+}
+
 /** Reads a stored document, falling back to the default for each missing or invalid part. */
 export function parseLanding(value: unknown): LandingContent {
   const raw = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -603,16 +620,14 @@ export function parseLanding(value: unknown): LandingContent {
   // Sections missing from a stored order (e.g. added in a later release) are appended, hidden
   // only if their own `enabled` says so.
   out.order = order.success ? [...order.data, ...SECTION_KEYS.filter((k) => !order.data.includes(k))] : DEFAULT_LANDING.order;
-  const content = out as LandingContent;
-  content.header = withNormalizedMegaMenuHrefs(content.header);
-  return content;
+  return withNormalizedLandingHrefs(out as LandingContent);
 }
 
 /** Strict validation for saving: returns the cleaned document or field-path errors. */
 export function validateLanding(value: unknown): { ok: true; value: LandingContent } | { ok: false; errors: { path: string; message: string }[] } {
   const parsed = landingSchema.safeParse(value);
   if (!parsed.success) return { ok: false, errors: parsed.error.issues.slice(0, 20).map((i) => ({ path: i.path.join("."), message: i.message })) };
-  return { ok: true, value: { ...parsed.data, header: withNormalizedMegaMenuHrefs(parsed.data.header) } };
+  return { ok: true, value: withNormalizedLandingHrefs(parsed.data) };
 }
 
 // ---- Heading highlights ---------------------------------------------------------------
