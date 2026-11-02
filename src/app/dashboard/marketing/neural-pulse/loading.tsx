@@ -1,1 +1,1 @@
-export { FormPageSkeleton as default } from "@/components/app-shell/skeletons";\n
+export { FormPageSkeleton as default } from "@/components/app-shell/skeletons";
