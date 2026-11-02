@@ -1,6 +1,7 @@
 "use server";
 
 import { getPublicPlatformConfig } from "@/features/platform/server/public-config";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -14,7 +15,7 @@ import { publicEnv } from "@/lib/env/public";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { logger } from "@/lib/observability/logger";
 import { clientIpKey, rateLimit } from "@/lib/rate-limit";
-import { platformOrigin } from "@/lib/platform/urls";
+import { authRequestOrigin, platformOrigin } from "@/lib/platform/urls";
 import { LOGIN_PATH, landingPathFor } from "@/lib/auth/landing";
 import { isSarvamLocaleCode } from "@/lib/sarvam/locales";
 import { isStartIntentId } from "@/features/start/intents";
@@ -336,10 +337,13 @@ export async function googleSignInAction(fd: FormData): Promise<void> {
   const next = safeRedirectPath(typeof fd.get("next") === "string" ? (fd.get("next") as string) : "", "");
   await rateLimit("login:ip", await clientIpKey(), 20, 600);
   if (!(await getPublicPlatformConfig()).googleForSellers) redirect(`${LOGIN_PATH}?error=google`);
+  const h = await headers();
+  const origin = authRequestOrigin(h.get("x-forwarded-host") ?? h.get("host"));
+  const redirectTo = next ? `${origin}/auth/callback?next=${encodeURIComponent(next)}` : `${origin}/auth/callback`;
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: next ? `${platformOrigin()}/auth/callback?next=${encodeURIComponent(next)}` : `${platformOrigin()}/auth/callback`, queryParams: { prompt: "select_account" } },
+    options: { redirectTo, queryParams: { prompt: "select_account" } },
   });
   if (error || !data.url) redirect(`${LOGIN_PATH}?error=google`);
   redirect(data.url);
