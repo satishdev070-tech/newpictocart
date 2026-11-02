@@ -100,10 +100,10 @@ export function LandingIconView({ name, className }: { name: LandingIcon; classN
 }
 
 export const HIGHLIGHT_CLASS: Record<HighlightColor, string> = {
-  purple: "text-brand-purple",
-  green: "text-brand-cta",
-  orange: "text-brand-accent",
-  indigo: "text-brand",
+  purple: "text-brand-ink",
+  green: "text-brand-success",
+  orange: "text-brand-orange",
+  indigo: "text-brand-ink",
 };
 
 /** Renders "{green:text}" highlights from CMS headings. `onDark` uses lighter tints. */
@@ -124,10 +124,10 @@ export function Highlighted({ text, onDark = false }: { text: string; onDark?: b
 }
 
 const DARK_HIGHLIGHT: Record<HighlightColor, string> = {
-  purple: "text-[#c4b5fd]",
-  green: "text-[#34d399]",
+  purple: "text-white",
+  green: "text-[#86efac]",
   orange: "text-[#fdba74]",
-  indigo: "text-[#a5b4fc]",
+  indigo: "text-white/90",
 };
 
 // ---- Brand marks (lucide v1 ships no brand icons) -------------------------------------
@@ -176,20 +176,20 @@ export const SocialIcons = {
  * hover · glow: soft blurred halo · swatch: editor colour picker.
  */
 export const ACCENT: Record<AccentColor, { chip: string; text: string; solid: string; ring: string; glow: string; swatch: string }> = {
-  purple: { chip: "bg-[#f3eefe] text-[#7c3aed]", text: "text-[#7c3aed]", solid: "from-[#a78bfa] to-[#7c3aed]", ring: "from-[#c4b5fd] via-[#a78bfa] to-[#7c3aed]", glow: "bg-[#a78bfa]/30", swatch: "bg-[#7c3aed]" },
-  green: { chip: "bg-[#e7f8ef] text-[#059669]", text: "text-[#059669]", solid: "from-[#34d399] to-[#059669]", ring: "from-[#a7f3d0] via-[#34d399] to-[#059669]", glow: "bg-[#34d399]/30", swatch: "bg-[#059669]" },
-  orange: { chip: "bg-[#fff1e6] text-[#ea580c]", text: "text-[#ea580c]", solid: "from-[#fb923c] to-[#ea580c]", ring: "from-[#fed7aa] via-[#fb923c] to-[#ea580c]", glow: "bg-[#fb923c]/30", swatch: "bg-[#ea580c]" },
-  indigo: { chip: "bg-[#eef0ff] text-[#4f46e5]", text: "text-[#4f46e5]", solid: "from-[#818cf8] to-[#4f46e5]", ring: "from-[#c7d2fe] via-[#818cf8] to-[#4f46e5]", glow: "bg-[#818cf8]/30", swatch: "bg-[#4f46e5]" },
-  pink: { chip: "bg-[#fdeef8] text-[#db2777]", text: "text-[#db2777]", solid: "from-[#f472b6] to-[#db2777]", ring: "from-[#fbcfe8] via-[#f472b6] to-[#db2777]", glow: "bg-[#f472b6]/30", swatch: "bg-[#db2777]" },
-  teal: { chip: "bg-[#e6f8f7] text-[#0d9488]", text: "text-[#0d9488]", solid: "from-[#2dd4bf] to-[#0d9488]", ring: "from-[#99f6e4] via-[#2dd4bf] to-[#0d9488]", glow: "bg-[#2dd4bf]/30", swatch: "bg-[#0d9488]" },
-  blue: { chip: "bg-[#e8f1fe] text-[#2563eb]", text: "text-[#2563eb]", solid: "from-[#60a5fa] to-[#2563eb]", ring: "from-[#bfdbfe] via-[#60a5fa] to-[#2563eb]", glow: "bg-[#60a5fa]/30", swatch: "bg-[#2563eb]" },
-  amber: { chip: "bg-[#fef5e2] text-[#b45309]", text: "text-[#b45309]", solid: "from-[#fbbf24] to-[#d97706]", ring: "from-[#fde68a] via-[#fbbf24] to-[#d97706]", glow: "bg-[#fbbf24]/30", swatch: "bg-[#d97706]" },
-  rose: { chip: "bg-[#ffeef0] text-[#e11d48]", text: "text-[#e11d48]", solid: "from-[#fb7185] to-[#e11d48]", ring: "from-[#fecdd3] via-[#fb7185] to-[#e11d48]", glow: "bg-[#fb7185]/30", swatch: "bg-[#e11d48]" },
+  purple: { chip: "bg-brand-soft text-brand-ink", text: "text-brand-ink", solid: "from-neutral-500 to-black", ring: "from-neutral-300 via-neutral-500 to-black", glow: "bg-black/20", swatch: "bg-brand-ink" },
+  green: { chip: "bg-brand-mint text-brand-success", text: "text-brand-success", solid: "from-[#34d399] to-[#15803d]", ring: "from-[#a7f3d0] via-[#34d399] to-[#15803d]", glow: "bg-brand-success/25", swatch: "bg-brand-success" },
+  orange: { chip: "bg-brand-accent-soft text-brand-orange", text: "text-brand-orange", solid: "from-[#fb923c] to-[#ea580c]", ring: "from-[#fed7aa] via-[#fb923c] to-[#ea580c]", glow: "bg-brand-orange/30", swatch: "bg-brand-orange" },
+  indigo: { chip: "bg-brand-soft text-brand-ink", text: "text-brand-ink", solid: "from-neutral-600 to-black", ring: "from-neutral-300 via-neutral-600 to-black", glow: "bg-black/20", swatch: "bg-brand-ink" },
+  pink: { chip: "bg-brand-accent-soft text-brand-orange-hover", text: "text-brand-orange-hover", solid: "from-[#fb923c] to-[#c2410c]", ring: "from-[#fed7aa] via-[#fb923c] to-[#c2410c]", glow: "bg-brand-orange/25", swatch: "bg-brand-orange-hover" },
+  teal: { chip: "bg-brand-mint text-brand-success-hover", text: "text-brand-success-hover", solid: "from-[#34d399] to-[#166534]", ring: "from-[#a7f3d0] via-[#34d399] to-[#166534]", glow: "bg-brand-success/20", swatch: "bg-brand-success-hover" },
+  blue: { chip: "bg-brand-soft text-brand-ink", text: "text-brand-ink", solid: "from-neutral-500 to-[#111111]", ring: "from-neutral-300 via-neutral-500 to-black", glow: "bg-black/15", swatch: "bg-brand-ink" },
+  amber: { chip: "bg-brand-accent-soft text-brand-orange-hover", text: "text-brand-orange-hover", solid: "from-[#fb923c] to-[#ea580c]", ring: "from-[#fed7aa] via-[#fb923c] to-[#ea580c]", glow: "bg-brand-orange/25", swatch: "bg-brand-orange" },
+  rose: { chip: "bg-brand-accent-soft text-brand-orange", text: "text-brand-orange", solid: "from-[#fb923c] to-[#c2410c]", ring: "from-[#fed7aa] via-[#fb923c] to-[#c2410c]", glow: "bg-brand-orange/25", swatch: "bg-brand-orange-hover" },
 };
 
 /** Colour for a feature card's category eyebrow (Source, Sell, Design, Channels, Operate, Grow). */
-const TAG_COLORS: Record<string, AccentColor> = { source: "teal", sell: "green", design: "purple", channels: "pink", operate: "indigo", grow: "orange" };
+const TAG_COLORS: Record<string, AccentColor> = { source: "teal", sell: "green", design: "indigo", channels: "orange", operate: "indigo", grow: "orange" };
 export function tagColor(tag: string, fallbackIndex = 0): AccentColor {
-  const order: AccentColor[] = ["indigo", "purple", "teal", "pink", "orange", "blue", "green", "amber", "rose"];
+  const order: AccentColor[] = ["orange", "green", "indigo", "teal", "amber", "orange", "green", "indigo", "teal"];
   return TAG_COLORS[tag.trim().toLowerCase()] ?? order[fallbackIndex % order.length]!;
 }

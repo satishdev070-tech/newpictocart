@@ -145,7 +145,7 @@ export function HeroSlideshow({ slides, captions, interval, autoplay, label, cla
                 className="grid h-6 place-items-center rounded-full px-0.5 focus-visible:outline-2 focus-visible:outline-white"
               >
                 <span className={cn("relative block h-1.5 overflow-hidden rounded-full bg-white/25 transition-[width,background-color] duration-300", i === index ? "w-7" : "w-1.5 hover:bg-white/50")}>
-                  {i === index ? <span ref={bar} className="absolute inset-0 origin-left rounded-full bg-[#34d399]" style={{ transform: playing ? "scaleX(0)" : "none" }} /> : null}
+                  {i === index ? <span ref={bar} className="absolute inset-0 origin-left rounded-full bg-brand-orange" style={{ transform: playing ? "scaleX(0)" : "none" }} /> : null}
                 </span>
               </button>
             ))}
