@@ -1,5 +1,6 @@
 import { platformHostAliases } from "./hosts";
 import { publicEnv } from "@/lib/env/public";
+import { classifyHost, normalizeHost } from "@/lib/tenant/host";
 
 /** Origin of the platform app (seller dashboard, auth emails). */
 export function platformOrigin(): string {
@@ -7,6 +8,28 @@ export function platformOrigin(): string {
   if (env.NEXT_PUBLIC_PLATFORM_URL) return env.NEXT_PUBLIC_PLATFORM_URL.replace(/\/$/, "");
   const root = env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN;
   return root === "localhost" ? "http://localhost:3000" : `https://${root}`;
+}
+
+/**
+ * Origin for browser-started auth redirects (Google OAuth / PKCE callbacks) when the request
+ * Host is the platform root, www, or a PLATFORM_HOST_ALIASES entry. Keeps start host === callback
+ * host so the PKCE verifier cookie is readable. Unknown hosts fall back to {@link platformOrigin}
+ * (emails/webhooks must keep using that canonical origin).
+ */
+export function authRequestOrigin(rawHost: string | null | undefined, envSource: Record<string, string | undefined> = process.env): string {
+  const host = normalizeHost(rawHost);
+  const root = normalizeHost(envSource.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN) ?? "";
+  const aliases = platformHostAliases(envSource);
+  if (host && classifyHost(host, root, aliases).kind === "platform") {
+    return storeOrigin(host, envSource.NEXT_PUBLIC_PLATFORM_URL ?? null);
+  }
+  // Fall back without reading process.env again when a custom envSource was passed in tests.
+  if (envSource !== process.env) {
+    if (envSource.NEXT_PUBLIC_PLATFORM_URL) return envSource.NEXT_PUBLIC_PLATFORM_URL.replace(/\/$/, "");
+    const r = envSource.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN ?? "localhost";
+    return r === "localhost" ? "http://localhost:3000" : `https://${r}`;
+  }
+  return platformOrigin();
 }
 
 /** Public URL of a storefront host (http for *.localhost in development). */

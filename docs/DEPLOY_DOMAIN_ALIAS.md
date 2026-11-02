@@ -35,14 +35,20 @@ Production on `pictocart-u7pf`:
 
 Redeploy Production.
 
-### 3. Auth
+### 3. Auth + Google
 
 Supabase `v2pictocart` → Auth redirect URLs, add:
 
 - `https://www.pictocart.in/**`
 - `https://pictocart.in/**`
 
-Google GIS (if on): origins `https://www.pictocart.in`, `https://pictocart.in`.
+Vercel: `GOOGLE_IDENTITY_SIGNIN=on` (so seller Google consent shows your domain, not `*.supabase.co`).
+
+Google Cloud OAuth client → Authorised JavaScript origins: both `pictocart.in` / `www` and
+`pictocartdev.in` / `www`. Consent screen application name: **Pictocart**.
+
+Merchant OAuth `redirectTo` follows the browser host via `authRequestOrigin()` (see
+[GOOGLE_LOGIN.md](./GOOGLE_LOGIN.md)) so PKCE does not break across the alias.
 
 ### 4. Verify
 
@@ -50,3 +56,4 @@ Google GIS (if on): origins `https://www.pictocart.in`, `https://pictocart.in`.
 - `https://pictocart.in` → redirects to www
 - `https://www.pictocartdev.in` → unchanged
 - Stores still on `*.pictocartdev.in`
+- `/seller/login` on both hosts: Google completes without `?error=link`; GIS chooser shows the site host
