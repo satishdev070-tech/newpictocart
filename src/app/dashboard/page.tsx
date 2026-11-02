@@ -17,7 +17,6 @@ import { CopyButton } from "@/features/domains/components/domain-controls";
 import { getI18n } from "@/lib/i18n/server";
 import { BusinessCoachCard } from "@/features/seller-ai/components/business-coach-card";
 import { AiWalletCard } from "@/features/seller-ai/components/ai-wallet-card";
-import { StoreSetupCard } from "@/features/seller-ai/components/store-setup-card";
 import { getAiWalletSummary } from "@/features/seller-ai/server";
 
 export const metadata: Metadata = { title: "Home" };
@@ -143,7 +142,6 @@ export default async function DashboardHome() {
 
       <SetupChecklist steps={home.setup} />
 
-      {can(ctx, "catalog.write") ? <StoreSetupCard text={m.ai.setup} /> : null}
 
       <KpiStrip kpis={home.sales?.kpis ?? null} customers={home.counts.customers} products={home.counts.activeProducts} allProducts={home.counts.allProducts} />
 

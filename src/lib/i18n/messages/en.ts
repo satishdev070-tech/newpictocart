@@ -235,7 +235,7 @@ export const en = {
   ai: {
     coach: {
       title: "AI Business Coach",
-      description: "Personalised checklist to grow your sales, from your store's own numbers. Uses AI credits.",
+      description: "Starter growth checklist below (free). Refresh for tips from your store's numbers — that uses AI credits.",
       empty: "Get a short checklist of next steps based on your sales, products and setup.",
       get: "Get tips",
       refresh: "Refresh",
@@ -243,6 +243,37 @@ export const en = {
       high: "High",
       medium: "Medium",
       low: "Low",
+      defaults: {
+        headline: "Grow your store this week",
+        focus: "Five free starter moves every seller can take — refresh anytime for tips from your live numbers.",
+        tips: [
+          {
+            title: "Finish store setup",
+            detail: "Turn on payments and shipping, then publish so shoppers can place real orders.",
+            priority: "high" as const,
+          },
+          {
+            title: "Add clear product photos",
+            detail: "Upload sharp photos and short descriptions so buyers trust what they see.",
+            priority: "high" as const,
+          },
+          {
+            title: "Share your store link",
+            detail: "Post your store URL on WhatsApp, Instagram and stories to bring in the first visitors.",
+            priority: "medium" as const,
+          },
+          {
+            title: "Watch low stock",
+            detail: "Restock bestsellers before they sell out so you do not lose orders.",
+            priority: "medium" as const,
+          },
+          {
+            title: "Ask for early reviews",
+            detail: "Invite happy buyers to leave a short review — social proof lifts conversion.",
+            priority: "low" as const,
+          },
+        ],
+      },
     },
     wallet: {
       label: "AI credits wallet",
