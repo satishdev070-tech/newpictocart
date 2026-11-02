@@ -3,6 +3,25 @@
  * footerSchema). PURE (no I/O, no imports from landing.ts, so landing.ts can import this).
  */
 
+/** Default mega-menu / hub card href for a feature title (Theme Marketplace → /themes). */
+export function featureMenuHref(title: string): string {
+  if (/theme marketplace/i.test(title)) return "/themes";
+  const slug = title
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return `/features/${slug}`;
+}
+
+/** Rewrite stale hub-only `/features` item links to per-feature routes without clobbering custom URLs. */
+export function normalizeMegaMenuItemHref(title: string, href: string): string {
+  const trimmed = href.trim();
+  if (!trimmed || trimmed === "/features" || trimmed === "/features/") return featureMenuHref(title);
+  return trimmed;
+}
+
 /** Icons offered for mega menu items (lucide names, mapped in components/chrome-icons). */
 export const MENU_ICONS = [
   "sparkles",
@@ -119,8 +138,7 @@ export type MegaMenu = {
   footerLink: { label: string; href: string };
 };
 
-const F = "/features";
-const item = (icon: MenuIcon, title: string, body: string, href = F): MegaMenuItem => ({ icon, title, body, href });
+const item = (icon: MenuIcon, title: string, body: string, href = featureMenuHref(title)): MegaMenuItem => ({ icon, title, body, href });
 
 export const DEFAULT_MEGA_MENU: MegaMenu = {
   enabled: true,

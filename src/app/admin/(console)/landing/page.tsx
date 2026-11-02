@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requirePlatform } from "@/lib/platform/access";
 import { loadLandingForAdmin } from "@/features/marketing-site/server/landing";
 import { DEFAULT_LANDING } from "@/features/marketing-site/landing";
@@ -21,6 +22,13 @@ export default async function LandingPageAdmin() {
             : "The home page is showing the built-in content. Edit any section and select Save & publish to make it yours. Every save is audited."
         }
       />
+      <p className="text-small text-muted">
+        Also edit{" "}
+        <Link href="/admin/landing/features" className="font-medium text-accent hover:underline">
+          Feature pages
+        </Link>{" "}
+        (28 mega-menu detail pages).
+      </p>
       <LandingEditor initial={content} defaults={DEFAULT_LANDING} />
     </div>
   );

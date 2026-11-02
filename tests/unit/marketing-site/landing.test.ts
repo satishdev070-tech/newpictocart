@@ -92,9 +92,22 @@ describe("header mega menu and footer (CMS)", () => {
     expect(menu.trigger).toBe("Features");
     expect(menu.columns.map((c) => c.title)).toEqual(["Sell", "Source", "Design", "Channels", "Operate", "Grow"]);
     expect(menu.columns.every((c) => c.items.length > 0)).toBe(true);
+    expect(menu.columns[0]?.items[0]).toMatchObject({ title: "Snap-to-Product AI", href: "/features/snap-to-product-ai" });
     expect(DEFAULT_LANDING.footer.groups.map((g) => g.title)).toEqual(["Product", "Company", "Resources", "Legal"]);
     expect(DEFAULT_LANDING.footer.groups.flatMap((g) => g.links).filter((l) => l.highlight).map((l) => l.label)).toEqual(["Investors"]);
     expect(DEFAULT_LANDING.footer.share.networks).toEqual([...SHARE_NETWORKS]);
+  });
+
+  it("rewrites stale mega-menu /features hub links to per-feature routes", () => {
+    const stale = structuredClone(DEFAULT_LANDING.header.megaMenu);
+    for (const col of stale.columns) for (const it of col.items) it.href = "/features";
+    const parsed = parseLanding({ header: { ...DEFAULT_LANDING.header, megaMenu: stale } });
+    expect(parsed.header.megaMenu.columns[0]?.items[0]?.href).toBe("/features/snap-to-product-ai");
+    expect(parsed.header.megaMenu.columns[2]?.items.find((i) => i.title === "Theme Marketplace")?.href).toBe("/themes");
+    expect(parsed.header.megaMenu.columns[2]?.items.find((i) => i.title === "Custom Domain + SSL")?.href).toBe("/features/custom-domain-ssl");
+    const saved = validateLanding({ ...DEFAULT_LANDING, header: { ...DEFAULT_LANDING.header, megaMenu: stale } });
+    expect(saved.ok).toBe(true);
+    if (saved.ok) expect(saved.value.header.megaMenu.columns[0]?.items[0]?.href).toBe("/features/snap-to-product-ai");
   });
 
   it("keeps an old header and footer and fills the new fields with defaults", () => {

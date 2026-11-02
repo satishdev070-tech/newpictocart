@@ -1,5 +1,4 @@
 import "server-only";
-import { cache } from "react";
 import { logger } from "@/lib/observability/logger";
 import { getAppCredential } from "@/features/platform-apps/server";
 
@@ -8,15 +7,19 @@ import { getAppCredential } from "@/features/platform-apps/server";
  * platform_app_credentials) wins, UNSPLASH_ACCESS_KEY is the fallback. Server only; the key is
  * sent to api.unsplash.com in the Authorization header and never reaches the browser.
  * Never throws: any failure to read the saved key falls back to the env var.
+ *
+ * Not wrapped in React `cache()`: vitest runs with module reuse across files, and env stubs
+ * must take effect per call. `getAppCredential` already dedupes within a request.
  */
-export const getUnsplashAccessKey = cache(async (): Promise<string | null> => {
+export async function getUnsplashAccessKey(): Promise<string | null> {
   try {
-    return (await getAppCredential("unsplash"))?.secret?.trim() || null;
+    const saved = (await getAppCredential("unsplash"))?.secret?.trim();
+    if (saved) return saved;
   } catch (error) {
     logger.warn("unsplash.key_read_failed", { error: error instanceof Error ? error.message : "unknown" });
-    return process.env.UNSPLASH_ACCESS_KEY?.trim() || null;
   }
-});
+  return process.env.UNSPLASH_ACCESS_KEY?.trim() || null;
+}
 
 export type UnsplashKeyTest =
   | { ok: true; mode: "demo" | "production" | "unknown"; limit: number | null; remaining: number | null }

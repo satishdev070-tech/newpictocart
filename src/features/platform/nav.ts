@@ -71,6 +71,7 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
       { href: "/admin/users", label: "Users", permission: "platform.users.manage", icon: "users" },
       { href: "/admin/platform-users", label: "Platform staff", permission: "platform.users.manage", icon: "accounts" },
       { href: "/admin/landing", label: "Landing page", permission: "platform.settings.manage", icon: "pages" },
+      { href: "/admin/landing/features", label: "Feature pages", permission: "platform.settings.manage", icon: "pages" },
       { href: "/admin/themes", label: "Themes", permission: "platform.settings.manage", icon: "themes" },
       { href: "/admin/product-types", label: "Product types", permission: "platform.settings.manage", icon: "products" },
       { href: "/admin/media", label: "Media library", permission: "platform.settings.manage", icon: "media" },
@@ -91,5 +92,7 @@ export function isAdminNavActive(pathname: string, href: string): boolean {
   if (href === "/admin") return pathname === "/admin";
   // Store detail pages live under /admin/tenants/{id}.
   if (href === "/admin/stores" && pathname.startsWith("/admin/tenants")) return true;
+  // Landing CMS vs Feature pages CMS share the /admin/landing prefix.
+  if (href === "/admin/landing") return pathname === "/admin/landing";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
