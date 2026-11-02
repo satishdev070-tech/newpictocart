@@ -10,7 +10,6 @@ import { saveSiteModeAction } from "../actions";
 export function SiteModeForm({ value }: { value: SiteMode }) {
   const [state, action] = useActionState(saveSiteModeAction, null);
   const informativeEnabled = informativeSitesEnabled();
-  const modes = informativeEnabled ? (["informative", "ecommerce"] as const) : (["ecommerce"] as const);
   const legacyInformative = !informativeEnabled && value === "informative";
 
   return (
@@ -25,25 +24,35 @@ export function SiteModeForm({ value }: { value: SiteMode }) {
       <fieldset>
         <legend className="sr-only">Website type</legend>
         <div className="grid gap-3 sm:grid-cols-2">
-          {modes.map((mode) => {
-            const option = SITE_MODE_LABELS[mode];
-            return (
-              <label
-                key={mode}
-                className="cursor-pointer rounded-lg border border-border bg-surface p-4 has-[:checked]:border-accent has-[:checked]:ring-2 has-[:checked]:ring-accent/30"
-              >
-                <input
-                  type="radio"
-                  name="siteMode"
-                  value={mode}
-                  defaultChecked={value === mode || (legacyInformative && mode === "ecommerce")}
-                  className="sr-only"
-                />
-                <span className="block text-small font-semibold">{option.title}</span>
-                <span className="mt-1 block text-caption leading-relaxed text-muted">{option.description}</span>
-              </label>
-            );
-          })}
+          <label className="cursor-pointer rounded-lg border border-border bg-surface p-4 has-[:checked]:border-accent has-[:checked]:ring-2 has-[:checked]:ring-accent/30">
+            <input
+              type="radio"
+              name="siteMode"
+              value="ecommerce"
+              defaultChecked={value === "ecommerce" || legacyInformative}
+              className="sr-only"
+            />
+            <span className="block text-small font-semibold">{SITE_MODE_LABELS.ecommerce.title}</span>
+            <span className="mt-1 block text-caption leading-relaxed text-muted">{SITE_MODE_LABELS.ecommerce.description}</span>
+          </label>
+          {informativeEnabled ? (
+            <label className="cursor-pointer rounded-lg border border-border bg-surface p-4 has-[:checked]:border-accent has-[:checked]:ring-2 has-[:checked]:ring-accent/30">
+              <input type="radio" name="siteMode" value="informative" defaultChecked={value === "informative"} className="sr-only" />
+              <span className="block text-small font-semibold">{SITE_MODE_LABELS.informative.title}</span>
+              <span className="mt-1 block text-caption leading-relaxed text-muted">{SITE_MODE_LABELS.informative.description}</span>
+            </label>
+          ) : (
+            <div
+              aria-disabled
+              className="rounded-lg border border-dashed border-border bg-surface-secondary/40 p-4 opacity-70"
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="block text-small font-semibold">{SITE_MODE_LABELS.informative.title}</span>
+                <span className="rounded-full bg-surface-secondary px-2 py-0.5 text-caption font-medium text-muted">Coming soon</span>
+              </span>
+              <span className="mt-1 block text-caption leading-relaxed text-muted">{SITE_MODE_LABELS.informative.description}</span>
+            </div>
+          )}
         </div>
       </fieldset>
       <p className="text-caption text-muted">

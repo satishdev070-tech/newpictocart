@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/layout";
 import { getEntitlements } from "@/features/platform";
 import { getThemeKeys } from "@/features/theme/server/queries";
 import { DEFAULT_THEME_KEY } from "@/features/theme/default-theme";
+import { ecommerceMarketplaceThemes } from "@/features/theme/marketplace/catalog";
 import { getMarketplaceThemes } from "@/features/theme/marketplace/registry";
 import { INDUSTRIES, isIndustry, industryShort } from "@/features/stores/industries";
 import { CurrentThemeCard, MarketplaceBrowser, type MarketplaceCard } from "@/features/theme/marketplace/components/marketplace-browser";
@@ -109,18 +110,23 @@ export default async function ThemesPage({ searchParams }: PageProps<"/dashboard
   const { t } = await getI18n();
   const sp = await searchParams;
   // Catalogue + tenant reads first so the page can stream; open demos load under Suspense.
-  const [themes, keys, ent, own] = await Promise.all([
+  const [allThemes, keys, ent, own] = await Promise.all([
     getMarketplaceThemes(),
     getThemeKeys(ctx.tenantId),
     getEntitlements(ctx.tenantId),
     getStoreIndustry(ctx.tenantId),
   ]);
+  // Hide informative from browse; keep the store's live/draft theme so Current theme still works.
+  const themes = allThemes.filter(
+    (theme) => themeSiteType(theme) !== "informative" || theme.key === keys.published || theme.key === keys.draft,
+  );
+  const browseThemes = ecommerceMarketplaceThemes(themes);
   const enabled = ent.isEnabled("theme_marketplace");
   const asked = typeof sp.industry === "string" && isIndustry(sp.industry) ? sp.industry : "";
 
   const counts = new Map<string, number>();
   // Counts match the catalogue below, which leaves out the live theme (shown in "Current theme").
-  for (const theme of themes) if (theme.key !== keys.published) counts.set(theme.industry, (counts.get(theme.industry) ?? 0) + 1);
+  for (const theme of browseThemes) if (theme.key !== keys.published) counts.set(theme.industry, (counts.get(theme.industry) ?? 0) + 1);
   const industries = INDUSTRIES.filter((i) => counts.has(i.slug)).map((i) => ({ slug: i.slug, label: i.short, count: counts.get(i.slug)! }));
 
   const demos: Record<string, string | null> = {};
@@ -156,7 +162,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/dashboard
     <div className="space-y-6">
       <PageHeader
         title={t("pages.themes.title")}
-        description={`${themes.length} themes across ${industries.length} industries. Live Preview opens a demo store in the theme; applying one creates a draft with your own text, images and products, and your live store only changes when you publish.`}
+        description={`${browseThemes.length} themes across ${industries.length} industries. Live Preview opens a demo store in the theme; applying one creates a draft with your own text, images and products, and your live store only changes when you publish.`}
         actions={
           <Link href="/dashboard/theme" className="inline-flex h-9 items-center rounded-md border border-border bg-surface px-3 text-small font-medium hover:bg-surface-secondary">
             Customize current theme
