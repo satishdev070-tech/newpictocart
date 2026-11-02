@@ -4,22 +4,25 @@ import { cn } from "@/lib/cn";
 import { analyticsAttributes, type AnalyticsEvent } from "../analytics";
 
 /**
- * Shared marketing primitives (buttons, sections, headings). Colours come from the .theme-brand
- * tokens in globals.css; nothing here hard-codes a hex value.
+ * Shared marketing primitives. Colours come from `.theme-brand` + `.theme-marketing` tokens
+ * (black chrome, orange money CTAs, green success chips only).
  */
 
 const base =
   "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60";
 const sizes = { md: "h-11 px-6 text-sm", lg: "h-12 px-7 text-[0.95rem]", sm: "h-9 px-4 text-sm" } as const;
 const variants = {
+  /** Charcoal chrome — secondary actions / nav emphasis */
   primary: "bg-brand text-white hover:bg-brand-hover",
-  secondary: "border border-border-strong bg-white text-brand-ink hover:border-brand hover:text-brand",
+  secondary: "border border-border-strong bg-white text-brand-ink hover:border-brand-orange hover:text-brand-orange",
   light: "bg-white text-brand-ink hover:bg-brand-soft",
   ghostLight: "border border-white/40 text-white hover:bg-white/10",
-  cta: "bg-brand-cta font-bold text-white shadow-[0_10px_30px_-10px_rgb(5_150_105/0.7)] hover:bg-brand-cta-hover",
+  /** Orange money CTAs (Start free / Create store) */
+  cta: "bg-brand-orange font-bold text-white shadow-[0_10px_30px_-10px_rgb(234_88_12/0.7)] hover:bg-brand-orange-hover",
   orange: "bg-brand-orange font-bold text-white shadow-[0_10px_30px_-10px_rgb(234_88_12/0.7)] hover:bg-brand-orange-hover",
   night: "bg-brand-ink text-white hover:bg-brand-ink/90",
-  indigo: "bg-brand text-white shadow-[0_10px_30px_-10px_rgb(79_70_229/0.7)] hover:bg-brand-hover",
+  /** Legacy name → charcoal chrome (no indigo) */
+  indigo: "bg-brand text-white shadow-[0_10px_30px_-10px_rgb(0_0_0/0.35)] hover:bg-brand-hover",
 } as const;
 
 export function buttonClass(variant: keyof typeof variants = "primary", size: keyof typeof sizes = "md", extra?: string) {

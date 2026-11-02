@@ -86,17 +86,20 @@ Checklist: [DEPLOY_DOMAIN_ALIAS.md](./DEPLOY_DOMAIN_ALIAS.md).
 
 ### Switching the root domain (e.g. to `pictocart.in`)
 
+Full checklist: [DEPLOY_ROOT_PROMOTE.md](./DEPLOY_ROOT_PROMOTE.md). Summary:
+
 1. Vercel → Settings → Domains: add `pictocart.in`, `www.pictocart.in` and
    `*.pictocart.in` (wildcard needs Vercel nameservers, see step 2 above).
 2. Environment variables (Production), then **redeploy** (`NEXT_PUBLIC_*` are baked in at build):
    - `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN=pictocart.in` (bare hostname; a pasted
      `https://www.pictocart.in/` is reduced to `pictocart.in`, but ports are rejected)
    - `NEXT_PUBLIC_PLATFORM_URL=https://www.pictocart.in`
+   - `PLATFORM_HOST_ALIASES=pictocartdev.in,www.pictocartdev.in` (keep staging as platform aliases)
 3. Run `supabase/dev/move-platform-root.sql` once in the Supabase SQL editor (set `new_root` at
    the top). It adds a verified `{slug}.pictocart.in` row for every store and makes it the
    canonical host unless the store's primary is a custom domain. Old rows stay; nothing is deleted.
 4. Supabase Auth → URL Configuration: Site URL `https://www.pictocart.in`, redirect URLs
-   `https://www.pictocart.in/**` and `https://*.pictocart.in/**`.
+   `https://www.pictocart.in/**` and `https://*.pictocart.in/**` (keep pictocartdev URLs while aliased).
 
 Stores live at `{slug}.pictocart.in` (one level). `www.{slug}.pictocart.in` is not a store
 address: the `*.pictocart.in` certificate does not cover two-level names, and the proxy 404s them.
