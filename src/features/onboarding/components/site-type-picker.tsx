@@ -5,11 +5,12 @@ import { useActionState, useEffect, useState, useTransition } from "react";
 import { Globe, ShoppingBag, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { FormMessage, SubmitButton } from "@/components/ui/form";
+import { informativeSitesEnabled } from "@/features/stores/informative-flag";
 import { SITE_MODE_LABELS, type SiteMode } from "@/features/stores/site-mode";
 import { saveOnboardingSiteModeAction } from "../voice/actions";
 import { onboardingHref } from "../steps";
 
-const OPTIONS: { mode: SiteMode; icon: typeof Globe; points: string[] }[] = [
+const ALL_OPTIONS: { mode: SiteMode; icon: typeof Globe; points: string[] }[] = [
   { mode: "informative", icon: Globe, points: ["About, services and gallery pages", "Contact form and WhatsApp", "No cart or checkout"] },
   { mode: "ecommerce", icon: ShoppingBag, points: ["Products, cart and checkout", "UPI, cards and cash on delivery", "Orders, stock and GST invoices"] },
 ];
@@ -17,10 +18,15 @@ const OPTIONS: { mode: SiteMode; icon: typeof Globe; points: string[] }[] = [
 /**
  * First onboarding question ("What are you building?"). The answer is saved on the account and
  * pre-selects the site mode in the form and voice paths, so the existing store setup runs as before.
+ * Informative is hidden while `NEXT_PUBLIC_INFORMATIVE_SITES_ENABLED` is off (defaults ecommerce).
  */
 export function SiteTypePicker({ selected, plan, theme }: { selected: SiteMode | null; plan: string | null; theme: string | null }) {
   const router = useRouter();
-  const [mode, setMode] = useState<SiteMode | null>(selected);
+  const options = informativeSitesEnabled() ? ALL_OPTIONS : ALL_OPTIONS.filter((o) => o.mode === "ecommerce");
+  const [mode, setMode] = useState<SiteMode | null>(() => {
+    if (selected === "informative" && !informativeSitesEnabled()) return "ecommerce";
+    return selected ?? (informativeSitesEnabled() ? null : "ecommerce");
+  });
   const [state, action] = useActionState(saveOnboardingSiteModeAction, null as Awaited<ReturnType<typeof saveOnboardingSiteModeAction>> | null);
   const [, startTransition] = useTransition();
 
@@ -37,8 +43,8 @@ export function SiteTypePicker({ selected, plan, theme }: { selected: SiteMode |
     <form action={action} className="space-y-5">
       <input type="hidden" name="siteMode" value={mode ?? ""} />
       <FormMessage state={state} />
-      <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="What are you building?">
-        {OPTIONS.map(({ mode: m, icon: Icon, points }) => {
+      <div className={cn("grid gap-3", options.length > 1 && "sm:grid-cols-2")} role="radiogroup" aria-label="What are you building?">
+        {options.map(({ mode: m, icon: Icon, points }) => {
           const active = mode === m;
           const label = SITE_MODE_LABELS[m];
           return (

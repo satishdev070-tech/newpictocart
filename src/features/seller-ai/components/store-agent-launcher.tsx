@@ -9,12 +9,20 @@ import type { StoreAgentText } from "./store-agent-panel";
 const StoreAgentPanel = dynamic(() => import("./store-agent-panel").then((m) => m.StoreAgentPanel), { ssr: false });
 
 /** Floating Pica2 AI Assistant button for the seller dashboard. */
-export function StoreAgentLauncher({ text }: { text: StoreAgentText }) {
+export function StoreAgentLauncher({
+  text,
+  canApplyFaqs = false,
+  faqApplyCredits = 5,
+}: {
+  text: StoreAgentText;
+  canApplyFaqs?: boolean;
+  faqApplyCredits?: number;
+}) {
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   return (
     <>
-      {loaded ? <StoreAgentPanel text={text} open={open} onClose={() => setOpen(false)} /> : null}
+      {loaded ? <StoreAgentPanel text={text} open={open} onClose={() => setOpen(false)} canApplyFaqs={canApplyFaqs} faqApplyCredits={faqApplyCredits} /> : null}
       {!open ? (
         <button
           type="button"

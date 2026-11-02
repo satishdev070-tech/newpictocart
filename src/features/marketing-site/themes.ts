@@ -1,4 +1,4 @@
-import { MARKETPLACE_THEMES, type MarketplaceTheme } from "@/features/theme/marketplace/catalog";
+import { ecommerceMarketplaceThemes, MARKETPLACE_THEMES, type MarketplaceTheme } from "@/features/theme/marketplace/catalog";
 import { themeSiteType, type ThemeSiteType } from "@/features/theme/marketplace/types";
 import { INDUSTRIES, isIndustry, industryShort, type IndustrySlug } from "@/features/stores/industries";
 import { INDUSTRY_SHOWCASE, SHOWCASE_STORES } from "@/features/theme/marketplace/showcase";
@@ -7,6 +7,9 @@ import { INDUSTRY_SHOWCASE, SHOWCASE_STORES } from "@/features/theme/marketplace
  * Public view of the theme marketplace catalogue (pure, unit tested). The catalogue is code, not
  * merchant data, so listing it never touches a store. Premium/free labels are deliberately absent:
  * the catalogue has no per-theme entitlement, only the plan-level `theme_marketplace` flag.
+ *
+ * Discovery defaults to ecommerce themes only (informative temporarily hidden). `findTheme` still
+ * resolves any built-in key so deep links / apply paths keep working.
  */
 
 export const THEMES_PER_PAGE = 24;
@@ -14,14 +17,19 @@ export const THEMES_PER_PAGE = 24;
 /** `siteType` is optional for compatibility with internal callers created before this filter. */
 export type ThemeQuery = { q: string; industry: IndustrySlug | ""; siteType?: ThemeSiteType | ""; page: number };
 
-/** Normalises untrusted search params. */
+/** Normalises untrusted search params. Informative filter is ignored while that mode is hidden. */
 export function parseThemeQuery(sp: Record<string, string | string[] | undefined>): ThemeQuery {
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");
   const q = one(sp.q).trim().slice(0, 60);
   const industry = one(sp.industry);
   const siteType = one(sp.type);
   const page = Number.parseInt(one(sp.page), 10);
-  return { q, industry: isIndustry(industry) ? industry : "", siteType: siteType === "informative" || siteType === "ecommerce" ? siteType : "", page: Number.isFinite(page) && page > 0 ? Math.min(page, 50) : 1 };
+  return {
+    q,
+    industry: isIndustry(industry) ? industry : "",
+    siteType: siteType === "ecommerce" ? "ecommerce" : "",
+    page: Number.isFinite(page) && page > 0 ? Math.min(page, 50) : 1,
+  };
 }
 
 function matches(t: MarketplaceTheme, q: string): boolean {
@@ -30,7 +38,7 @@ function matches(t: MarketplaceTheme, q: string): boolean {
   return [t.name, t.tagline, t.description, industryShort(t.industry), t.style, ...t.bestFor].some((s) => s.toLowerCase().includes(needle));
 }
 
-export function filterThemes(query: ThemeQuery, themes: readonly MarketplaceTheme[] = MARKETPLACE_THEMES) {
+export function filterThemes(query: ThemeQuery, themes: readonly MarketplaceTheme[] = ecommerceMarketplaceThemes()) {
   const all = themes.filter((t) => (!query.industry || t.industry === query.industry) && (!query.siteType || themeSiteType(t) === query.siteType) && matches(t, query.q));
   const pages = Math.max(1, Math.ceil(all.length / THEMES_PER_PAGE));
   const page = Math.min(query.page, pages);
@@ -38,7 +46,7 @@ export function filterThemes(query: ThemeQuery, themes: readonly MarketplaceThem
 }
 
 /** Industries that have at least one theme, with counts, in INDUSTRIES order. */
-export function themeIndustries(themes: readonly MarketplaceTheme[] = MARKETPLACE_THEMES, siteType: ThemeSiteType | "" = "") {
+export function themeIndustries(themes: readonly MarketplaceTheme[] = ecommerceMarketplaceThemes(), siteType: ThemeSiteType | "" = "") {
   const counts = new Map<string, number>();
   for (const t of themes) if (!siteType || themeSiteType(t) === siteType) counts.set(t.industry, (counts.get(t.industry) ?? 0) + 1);
   return INDUSTRIES.filter((i) => counts.has(i.slug)).map((i) => ({ slug: i.slug, label: i.short, count: counts.get(i.slug)! }));
@@ -53,7 +61,7 @@ export function isThemeKey(key: string | null | undefined): key is string {
 }
 
 /** First theme of each listed industry, for the home page showcase (varied, deterministic). */
-export function showcaseThemes(industries: readonly string[], themes: readonly MarketplaceTheme[] = MARKETPLACE_THEMES): MarketplaceTheme[] {
+export function showcaseThemes(industries: readonly string[], themes: readonly MarketplaceTheme[] = ecommerceMarketplaceThemes()): MarketplaceTheme[] {
   return industries.flatMap((slug) => {
     const t = themes.find((x) => x.industry === slug);
     return t ? [t] : [];
@@ -61,12 +69,12 @@ export function showcaseThemes(industries: readonly string[], themes: readonly M
 }
 
 /** A representative theme for a business category card. */
-export function themeForIndustry(slug: string, themes: readonly MarketplaceTheme[] = MARKETPLACE_THEMES): MarketplaceTheme | undefined {
+export function themeForIndustry(slug: string, themes: readonly MarketplaceTheme[] = ecommerceMarketplaceThemes()): MarketplaceTheme | undefined {
   // Prefer a theme with a demo store, so the category card can show it live.
   return themes.find((t) => t.industry === slug && t.demo) ?? themes.find((t) => t.industry === slug);
 }
 
-export function themeCountFor(slug: string, themes: readonly MarketplaceTheme[] = MARKETPLACE_THEMES): number {
+export function themeCountFor(slug: string, themes: readonly MarketplaceTheme[] = ecommerceMarketplaceThemes()): number {
   return themes.filter((t) => t.industry === slug).length;
 }
 

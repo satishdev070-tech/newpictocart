@@ -171,7 +171,7 @@ export function MarketplaceBrowser({
         <nav aria-label="Website type">
           <p className="px-1 text-caption font-semibold uppercase tracking-wide text-muted">Website type</p>
           <div className="mt-2 flex gap-2 overflow-x-auto pb-1 xl:block xl:space-y-1 xl:overflow-visible">
-            {([ ["", "All templates"], ["informative", "Informative website"], ["ecommerce", "Online store"] ] as const).map(([type, label]) => (
+            {([ ["", "All templates"], ["ecommerce", "Online store"] ] as const).map(([type, label]) => (
               <button key={type || "all"} type="button" aria-pressed={siteType === type} onClick={() => { setSiteType(type); setIndustry(""); setStyle(""); }} className={`flex h-9 shrink-0 items-center justify-between gap-3 rounded-md px-3 text-small xl:w-full ${siteType === type ? "bg-primary text-primary-foreground" : "hover:bg-surface-secondary"}`}>
                 {label}<span className="text-caption opacity-70">{type ? themes.filter((t) => themeSiteType(t) === type).length : themes.length}</span>
               </button>

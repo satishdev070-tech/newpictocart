@@ -7,7 +7,7 @@ import { CheckCircle2, CreditCard, Eye, Package, Palette, Rocket, Truck } from "
 import { requireUser } from "@/lib/auth/session";
 import { publicEnv } from "@/lib/env/public";
 import { INDUSTRIES, industryName } from "@/features/stores/industries";
-import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { ecommerceMarketplaceThemes } from "@/features/theme/marketplace/catalog";
 import { findTheme } from "@/features/marketing-site/themes";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { findPlan, planHighlights, planPriceView } from "@/features/marketing-site/plans";
@@ -150,11 +150,13 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
   return <Ready store={store} choice={choice} />;
 }
 
-/** Themes for the store's category (requested theme first), else a varied starter set. */
+/** Themes for the store's category (requested theme first), else a varied starter set. Ecommerce only. */
 function themeOptions(store: OnboardingStore, requested: string | null): ThemeOption[] {
-  const pick = store.category ? MARKETPLACE_THEMES.filter((t) => t.industry === store.category) : [];
-  const base = pick.length ? pick : ["fashion", "jewellery", "beauty", "furniture", "gourmet", "general"].flatMap((i) => MARKETPLACE_THEMES.find((t) => t.industry === i) ?? []);
-  const req = requested ? findTheme(requested) : undefined;
+  const catalog = ecommerceMarketplaceThemes();
+  const pick = store.category ? catalog.filter((t) => t.industry === store.category) : [];
+  const base = pick.length ? pick : ["fashion", "jewellery", "beauty", "furniture", "gourmet", "general"].flatMap((i) => catalog.find((t) => t.industry === i) ?? []);
+  // Ignore informative / unknown request keys so onboarding never offers brochure presets.
+  const req = requested ? catalog.find((t) => t.key === requested) : undefined;
   const list = req ? [req, ...base.filter((t) => t.key !== req.key)] : base;
   return list.slice(0, 9).map((t) => ({ key: t.key, name: t.name, tagline: t.tagline, preset: t.preset }));
 }

@@ -27,6 +27,7 @@ import { accountAccessFor } from "@/lib/auth/landing";
 import { canSwitchPanels } from "@/lib/auth/role-routing";
 import { SUPPORT_LOGIN_COOKIE, readSupportLogin } from "@/features/platform/server/store-admin";
 import { endSupportLoginAction } from "@/features/platform/store-admin-actions";
+import { getAiCreditCatalog } from "@/features/ai-credits/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: { default: "Dashboard", template: "%s · Dashboard" }, robots: { index: false, follow: false }, ...(await platformIconMetadata()) };
@@ -41,14 +42,14 @@ function Monogram({ name, className = "size-7" }: { name: string; className?: st
 }
 
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
-  const ctx = await requireTenant();
+  // cookies + i18n do not need the tenant — start them with requireTenant so the shell waits less.
+  const [ctx, cookieStore, { locale, m, t }] = await Promise.all([requireTenant(), cookies(), getI18n()]);
   const storeUrl = storeOrigin(storeSubdomain(ctx.tenantSlug));
-  // Shell-critical only — bell / alerts / trial / credits stream under Suspense so child routes paint earlier.
-  const [cookieStore, siteMode, { locale, m, t }, access] = await Promise.all([
-    cookies(),
+  // Shell-critical tenant reads — bell / alerts / trial / credits still stream under Suspense.
+  const [siteMode, access, creditCatalog] = await Promise.all([
     getStoreSiteMode(ctx.tenantId),
-    getI18n(),
     accountAccessFor(ctx.user.id),
+    ctx.permissions.has("analytics.read") ? getAiCreditCatalog().catch(() => null) : Promise.resolve(null),
   ]);
   const showAdminSwitch = access ? canSwitchPanels(access) : false;
   const groups = localizeNav(
@@ -223,7 +224,13 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   return (
     <AppShell groups={groups} homeHref="/dashboard" brand={brand} brandMark={brandMark} sidebarFooter={sidebarFooter} topbarEnd={topbarEnd} banner={banner} storageKey="paliya-seller-sidebar" lang={locale} text={shellText}>
       {children}
-      {ctx.permissions.has("analytics.read") ? <StoreAgentLauncher text={m.ai.agent} /> : null}
+      {ctx.permissions.has("analytics.read") ? (
+        <StoreAgentLauncher
+          text={m.ai.agent}
+          canApplyFaqs={ctx.permissions.has("content.write")}
+          faqApplyCredits={creditCatalog?.costs.find((c) => c.kind === "generate_faq")?.credits ?? 5}
+        />
+      ) : null}
     </AppShell>
   );
 }

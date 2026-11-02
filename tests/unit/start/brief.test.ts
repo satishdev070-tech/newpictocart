@@ -17,7 +17,7 @@ describe("buildSeedBrief", () => {
     expect(brief).toContain("Bandhani stole");
     expect(brief).toContain("kamal");
     expect(brief).toContain("#EC4899");
-    expect(brief).toContain("Subcategory: Ethnic wear");
+    expect(brief).toContain("Product types: Ethnic wear, Bandhani stoles and sarees");
     expect(brief).toContain("Products / services: Bandhani stoles and sarees");
   });
 });

@@ -21,7 +21,12 @@ export {
 export { generateReadyStorePlan, parseReadyStorePlan } from "./generate";
 export { persistReadyStore } from "./persist";
 export { READY_STORE_COUNTS } from "./counts";
-export { buildFallbackReadyStorePlan, catalogFor } from "./fallback";
+export {
+  buildFallbackReadyStorePlan,
+  catalogFor,
+  collectSelectionLabels,
+  resolveNicheLabel,
+} from "./fallback";
 export { withSamplePrefix } from "./sample-title";
 export {
   seedReadyStoreInputSchema,

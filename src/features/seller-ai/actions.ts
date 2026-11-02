@@ -17,11 +17,22 @@ import { audit } from "@/lib/audit";
 import { listCategoryFilterOptions } from "@/features/catalog/server/categories";
 import { getTenantTypeCatalogue } from "@/features/catalog/server/product-types";
 import { productListQuerySchema } from "@/features/catalog/schemas";
-import { getAiCreditBalance, refundAiCredit } from "@/features/ai-credits/server";
+import { debitAiCredit, getAiCreditBalance, getAiCreditCatalog, refundAiCredit } from "@/features/ai-credits/server";
 import { assertProductCapacity, listProducts } from "@/features/catalog/server/products";
 import { INDUSTRY_SLUGS, isIndustry } from "@/features/stores/industries";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { Json } from "@/lib/supabase/database.types";
 import { fetchHttpsImages, fileToImagePayload, runSellerAiGeneration } from "./server";
-import { blogWritePrompt, businessCoachPrompt, contactReplyPrompt, generateReviewsPrompt, productGeneratePrompt, storeAgentPrompt, storeSetupPrompt } from "./prompts";
+import {
+  blogWritePrompt,
+  businessCoachPrompt,
+  contactReplyPrompt,
+  generateFaqsPrompt,
+  generateReviewsPrompt,
+  productGeneratePrompt,
+  storeAgentPrompt,
+  storeSetupPrompt,
+} from "./prompts";
 import { buildStoreSnapshot, coachMetrics, lowStockLines, topProductLines } from "./snapshot";
 import { persistStoreSetup } from "./store-setup";
 import {
@@ -29,11 +40,13 @@ import {
   agentChatInputSchema,
   agentReplyContentSchema,
   agentReplyResultSchema,
+  applyFaqProposalInputSchema,
   storeSetupContentSchema,
   storeSetupInputSchema,
   STORE_SETUP_MAX_PRODUCTS,
   type AgentChatInput,
   type AgentReplyResult,
+  type ApplyFaqProposalInput,
   type StoreSetupResult,
   businessCoachContentSchema,
   businessCoachResultSchema,
@@ -43,6 +56,9 @@ import {
   generateBlogContentSchema,
   generateBlogInputSchema,
   generateBlogResultSchema,
+  generateFaqContentSchema,
+  generateFaqInputSchema,
+  generateFaqResultSchema,
   generateProductContentSchema,
   generateProductInputSchema,
   generateProductResultSchema,
@@ -52,9 +68,20 @@ import {
   toContentBlocks,
   type BusinessCoachResult,
   type ContactReplyResult,
+  type FaqProposal,
   type GenerateBlogResult,
+  type GenerateFaqResult,
   type GenerateProductResult,
 } from "./schemas";
+
+const FAQ_APPLY_FALLBACK_CREDITS = 5;
+const FAQ_GENERATE_DAILY_LIMIT = 15;
+
+/** Credits configured for generate_faq in Super Admin → Credits economy → Actions (fallback 5). */
+async function generateFaqApplyCredits(): Promise<number> {
+  const catalog = await getAiCreditCatalog();
+  return catalog.costs.find((c) => c.kind === "generate_faq")?.credits ?? FAQ_APPLY_FALLBACK_CREDITS;
+}
 
 function filesFromForm(fd: FormData, key = "images"): File[] {
   const all = fd.getAll(key);
@@ -347,8 +374,139 @@ export async function askStoreAgentAction(input: AgentChatInput): Promise<Action
         body: { storeName: ctx.tenantName, language, snapshot, messages: v.messages },
       },
     });
-    return agentReplyResultSchema.parse(r.data);
+    const reply = agentReplyResultSchema.parse(r.data);
+    if (reply.proposal?.type === "faq") {
+      return { ...reply, applyCredits: await generateFaqApplyCredits() };
+    }
+    return reply;
   });
+}
+
+/**
+ * Preview-only FAQ generation for Pica2 / seller-ai. Does not write FAQs and does not debit —
+ * Apply (`applyFaqsProposalAction`) confirms the write and charges `generate_faq`.
+ */
+export async function generateFaqsProposalAction(input?: {
+  hint?: string;
+}): Promise<ActionResult<{ proposal: FaqProposal; applyCredits: number } & Pick<GenerateFaqResult, "provider" | "model" | "tokens">>> {
+  return runAction("sellerAi.generateFaqs", async () => {
+    const v = parseInput(generateFaqInputSchema, input ?? {});
+    const ctx = await requireTenant();
+    assertPermission(ctx, "content.write");
+    const [language, balance, categories, home] = await Promise.all([
+      getLocale(),
+      getAiCreditBalance(ctx.tenantId),
+      listCategoryFilterOptions(ctx.tenantId)
+        .then((rows) => rows.map((c) => c.name).filter(Boolean).slice(0, 20))
+        .catch(() => [] as string[]),
+      getDashboardHome(ctx).catch(() => null),
+    ]);
+    const snapshot = home
+      ? buildStoreSnapshot({
+          storeName: ctx.tenantName,
+          storeStatus: ctx.tenantStatus,
+          storeUrl: storeOrigin(storeSubdomain(ctx.tenantSlug)),
+          home,
+          products: [],
+          creditBalance: balance,
+          categories,
+          plan: { planName: null, status: null, trialEndsAt: null },
+        })
+      : null;
+    const prompt = generateFaqsPrompt({
+      storeName: ctx.tenantName,
+      language,
+      snapshot,
+      hint: v.hint,
+      categories,
+    });
+    const r = await runSellerAiGeneration({
+      tenantId: ctx.tenantId,
+      userId: ctx.user.id,
+      feature: "generate_faq",
+      creditKind: "generate_faq",
+      input: { hint: v.hint ?? null, preview: true },
+      prompt,
+      schema: generateFaqContentSchema,
+      limit: {
+        key: "seller-faq-preview",
+        perDay: FAQ_GENERATE_DAILY_LIMIT,
+        message: `You've generated FAQ drafts ${FAQ_GENERATE_DAILY_LIMIT} times today. Try again tomorrow.`,
+      },
+      debit: false,
+    });
+    const data = generateFaqResultSchema.parse(r.data);
+    return {
+      proposal: { type: "faq" as const, groupName: data.groupName, items: data.items },
+      applyCredits: await generateFaqApplyCredits(),
+      provider: data.provider,
+      model: data.model,
+      tokens: data.tokens,
+    };
+  });
+}
+
+/**
+ * Confirm-Apply for an FAQ proposal: debits `generate_faq`, inserts into `faqs`, audits.
+ * Never called implicitly from generate — the seller must confirm in the panel.
+ */
+export async function applyFaqsProposalAction(input: ApplyFaqProposalInput): Promise<ActionResult<{ inserted: number; credits: number }>> {
+  const result = await runAction("sellerAi.applyFaqs", async () => {
+    const v = parseInput(applyFaqProposalInputSchema, input);
+    const ctx = await requireTenant();
+    assertPermission(ctx, "content.write");
+    const charge = await debitAiCredit(ctx.tenantId, "generate_faq");
+    const supabase = await createSupabaseServerClient();
+    const { data: existing, error: existingError } = await supabase
+      .from("faqs")
+      .select("position")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("group_name", v.groupName)
+      .order("position", { ascending: false })
+      .limit(1);
+    if (existingError) {
+      await refundAiCredit(charge, existingError.message || "faq position read failed");
+      throw mapDbError(existingError);
+    }
+    const start = (existing?.[0]?.position ?? -1) + 1;
+    const rows = v.items.map((item, i) => ({
+      tenant_id: ctx.tenantId,
+      question: item.question.slice(0, 300),
+      answer: item.answer.slice(0, 3000),
+      group_name: v.groupName,
+      position: start + i,
+      status: "published" as const,
+    }));
+    const { data: inserted, error } = await supabase.from("faqs").insert(rows).select("id");
+    if (error) {
+      await refundAiCredit(charge, error.message || "faq insert failed");
+      throw mapDbError(error);
+    }
+    const count = inserted?.length ?? 0;
+    const credits = await generateFaqApplyCredits();
+    const { error: logError } = await createSupabaseAdminClient().from("ai_generations").insert({
+      tenant_id: ctx.tenantId,
+      kind: "generate_faq",
+      input: { groupName: v.groupName, count: v.items.length } as Json,
+      output: { inserted: count, items: v.items } as Json,
+      provider: "apply",
+      model: null,
+      tokens: null,
+      created_by: ctx.user.id,
+    });
+    if (logError) logger.warn("seller_ai.faq_apply_log_failed", { tenantId: ctx.tenantId, code: logError.code });
+    await audit({
+      tenantId: ctx.tenantId,
+      actorUserId: ctx.user.id,
+      action: "faq.ai_applied",
+      entityType: "faq",
+      entityId: inserted?.[0]?.id,
+      metadata: { count, groupName: v.groupName, credits },
+    });
+    return { inserted: count, credits };
+  });
+  if (result.ok) refresh();
+  return result;
 }
 
 /**

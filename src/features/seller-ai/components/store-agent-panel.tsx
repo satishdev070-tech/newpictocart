@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowRight, Bot, RotateCcw, Send, X } from "lucide-react";
-import { askStoreAgentAction } from "@/features/seller-ai/actions";
-import { AGENT_MAX_TURNS, type AgentReplyResult } from "@/features/seller-ai/schemas";
+import { askStoreAgentAction, applyFaqsProposalAction } from "@/features/seller-ai/actions";
+import { AGENT_MAX_TURNS, type AgentReplyResult, type FaqProposal } from "@/features/seller-ai/schemas";
+import { useToast } from "@/components/ui/toast";
 
 export type StoreAgentText = {
   open: string;
@@ -21,24 +22,61 @@ export type StoreAgentText = {
   s3: string;
   cost: string;
   error: string;
+  faqTitle: string;
+  faqApply: string;
+  faqApplyCost: string;
+  faqDismiss: string;
+  faqApplying: string;
+  faqApplied: string;
+  faqApplyFailed: string;
+  faqNeedWrite: string;
 };
 
-type Message = { role: "user" | "assistant"; content: string; links?: AgentReplyResult["links"]; error?: boolean };
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+  links?: AgentReplyResult["links"];
+  proposal?: FaqProposal | null;
+  applyCredits?: number;
+  proposalStatus?: "open" | "applied" | "dismissed";
+  error?: boolean;
+};
+
+function applyLabel(text: StoreAgentText, credits: number | undefined) {
+  if (credits == null || credits < 0) return text.faqApply;
+  return text.faqApplyCost.replace("{credits}", String(credits));
+}
 
 /** Chat panel (lazy chunk). History lives in this component only; the server re-reads store data each turn. */
-export function StoreAgentPanel({ text, open, onClose }: { text: StoreAgentText; open: boolean; onClose: () => void }) {
+export function StoreAgentPanel({
+  text,
+  open,
+  onClose,
+  canApplyFaqs = false,
+  faqApplyCredits = 5,
+}: {
+  text: StoreAgentText;
+  open: boolean;
+  onClose: () => void;
+  /** Seller must have content.write to confirm-Apply FAQ proposals. */
+  canApplyFaqs?: boolean;
+  /** Fallback cost shown before the server attaches applyCredits on a proposal. */
+  faqApplyCredits?: number;
+}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [pending, start] = useTransition();
+  const [applyingIdx, setApplyingIdx] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { show } = useToast();
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, pending]);
+  }, [messages, pending, applyingIdx]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -58,7 +96,45 @@ export function StoreAgentPanel({ text, open, onClose }: { text: StoreAgentText;
         setMessages((m) => [...m, { role: "assistant", content: r.error.fieldErrors?._form?.[0] ?? r.error.message ?? text.error, error: true }]);
         return;
       }
-      setMessages((m) => [...m, { role: "assistant", content: r.data.answer, links: r.data.links }]);
+      const proposal = r.data.proposal?.type === "faq" ? r.data.proposal : null;
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          content: r.data.answer,
+          links: r.data.links,
+          proposal,
+          applyCredits: r.data.applyCredits ?? faqApplyCredits,
+          proposalStatus: proposal ? "open" : undefined,
+        },
+      ]);
+    });
+  };
+
+  const dismissProposal = (index: number) => {
+    setMessages((m) => m.map((msg, i) => (i === index ? { ...msg, proposalStatus: "dismissed" as const } : msg)));
+  };
+
+  const applyProposal = (index: number) => {
+    const msg = messages[index];
+    if (!msg?.proposal || msg.proposalStatus !== "open" || applyingIdx != null) return;
+    if (!canApplyFaqs) {
+      show({ tone: "warning", message: text.faqNeedWrite });
+      return;
+    }
+    setApplyingIdx(index);
+    start(async () => {
+      const r = await applyFaqsProposalAction({
+        groupName: msg.proposal!.groupName,
+        items: msg.proposal!.items,
+      });
+      setApplyingIdx(null);
+      if (!r.ok) {
+        show({ tone: "error", message: r.error.fieldErrors?._form?.[0] ?? r.error.message ?? text.faqApplyFailed });
+        return;
+      }
+      setMessages((m) => m.map((row, i) => (i === index ? { ...row, proposalStatus: "applied" as const } : row)));
+      show({ tone: "success", message: text.faqApplied.replace("{count}", String(r.data.inserted)) });
     });
   };
 
@@ -108,10 +184,41 @@ export function StoreAgentPanel({ text, open, onClose }: { text: StoreAgentText;
                   ))}
                 </div>
               ) : null}
+              {m.proposal?.type === "faq" && m.proposalStatus === "open" ? (
+                <div className="mt-3 space-y-2 rounded-lg border border-border bg-surface p-3">
+                  <p className="text-caption font-semibold text-foreground">{text.faqTitle}</p>
+                  <ol className="space-y-2">
+                    {m.proposal.items.map((item, qi) => (
+                      <li key={qi} className="text-caption">
+                        <p className="font-medium text-foreground">
+                          {qi + 1}. {item.question}
+                        </p>
+                        <p className="mt-0.5 text-muted">{item.answer}</p>
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={applyingIdx != null || pending}
+                      onClick={() => applyProposal(i)}
+                      className="rounded-md bg-[#7c3aed] px-3 py-1.5 text-caption font-semibold text-white disabled:opacity-50"
+                    >
+                      {applyingIdx === i ? text.faqApplying : applyLabel(text, m.applyCredits ?? faqApplyCredits)}
+                    </button>
+                    <button type="button" disabled={applyingIdx != null} onClick={() => dismissProposal(i)} className="rounded-md border border-border px-3 py-1.5 text-caption font-medium hover:bg-surface-secondary disabled:opacity-50">
+                      {text.faqDismiss}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {m.proposal?.type === "faq" && m.proposalStatus === "applied" ? (
+                <p className="mt-2 text-caption font-medium text-success">{text.faqApplied.replace("{count}", String(m.proposal.items.length))}</p>
+              ) : null}
             </div>
           ),
         )}
-        {pending ? <p className="w-fit animate-pulse rounded-xl bg-surface-secondary px-3 py-2 text-small text-muted">{text.thinking}</p> : null}
+        {pending && applyingIdx == null ? <p className="w-fit animate-pulse rounded-xl bg-surface-secondary px-3 py-2 text-small text-muted">{text.thinking}</p> : null}
       </div>
       <form
         className="border-t border-border p-3"

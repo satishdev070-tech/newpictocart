@@ -18,6 +18,7 @@ const ROUTES_MIGRATION = [
   readFileSync(new URL("../../../supabase/migrations/20261028004700_nvidia_seller_ai_default_routes.sql", import.meta.url), "utf8"),
   readFileSync(new URL("../../../supabase/migrations/20261028004800_generate_reviews.sql", import.meta.url), "utf8"),
   readFileSync(new URL("../../../supabase/migrations/20261028005100_reviews_insert_groq_model.sql", import.meta.url), "utf8"),
+  readFileSync(new URL("../../../supabase/migrations/20261029005400_generate_faq.sql", import.meta.url), "utf8"),
 ].join("\n");
 
 describe("NVIDIA NIM provider", () => {
@@ -121,7 +122,7 @@ describe("NVIDIA NIM provider", () => {
   });
 
   it("seeds seller AI Health routes to Nemotron Omni when unset", () => {
-    expect([...SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS]).toEqual(["generate_product", "generate_blog", "store_agent", "contact_reply", "business_coach", "generate_reviews"]);
+    expect([...SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS]).toEqual(["generate_product", "generate_blog", "store_agent", "contact_reply", "business_coach", "generate_reviews", "generate_faq"]);
     for (const key of SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS) {
       expect(ROUTES_MIGRATION).toContain(`('${key}', 'nvidia', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'`);
     }

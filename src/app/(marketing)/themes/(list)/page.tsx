@@ -7,16 +7,16 @@ import { siteOrigin } from "@/features/marketing-site/site";
 import { filterThemes, parseThemeQuery, themeIndustries, themesHref } from "@/features/marketing-site/themes";
 import { ThemeCard } from "@/features/marketing-site/components/theme-card";
 import { ButtonLink, Container } from "@/features/marketing-site/components/ui";
-import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { ecommerceMarketplaceThemes } from "@/features/theme/marketplace/catalog";
 import { themeCardImage } from "@/features/theme/layouts/imagery";
-import { themeSiteType } from "@/features/theme/marketplace/types";
 import { industryName } from "@/features/stores/industries";
 
 export async function generateMetadata({ searchParams }: PageProps<"/themes">): Promise<Metadata> {
   const q = parseThemeQuery(await searchParams);
+  const catalog = ecommerceMarketplaceThemes();
   const meta = buildMarketingMetadata({
     title: q.industry ? `${industryName(q.industry)} themes` : "Themes",
-    description: `Browse ${MARKETPLACE_THEMES.length} store themes for fashion, jewellery, beauty, home, food, electronics and more. Preview each on a demo store, then use it for yours.`,
+    description: `Browse ${catalog.length} store themes for fashion, jewellery, beauty, home, food, electronics and more. Preview each on a demo store, then use it for yours.`,
     path: q.industry ? `/themes?industry=${q.industry}` : "/themes",
     origin: siteOrigin(),
   });
@@ -26,8 +26,9 @@ export async function generateMetadata({ searchParams }: PageProps<"/themes">): 
 
 export default async function ThemesPage({ searchParams }: PageProps<"/themes">) {
   const query = parseThemeQuery(await searchParams);
-  const industries = themeIndustries(MARKETPLACE_THEMES, query.siteType);
-  const result = filterThemes(query);
+  const catalog = ecommerceMarketplaceThemes();
+  const industries = themeIndustries(catalog, query.siteType);
+  const result = filterThemes(query, catalog);
   // Per-theme hero (rotated stock), shown when the theme has no captured screenshot.
   const images = new Map(result.items.map((t) => [t.key, themeCardImage(t)] as const));
 
@@ -41,7 +42,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
               Find a theme for your store
             </h1>
             <p className="mt-4 text-lg text-muted">
-              {MARKETPLACE_THEMES.length} themes across {industries.length} business categories. Preview any theme on a demo store; previews never change a real store.
+              {catalog.length} themes across {industries.length} business categories. Preview any theme on a demo store; previews never change a real store.
             </p>
           </div>
           <form role="search" action="/themes" method="get" className="mt-8 flex max-w-xl gap-2">
@@ -75,9 +76,8 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Website type</p>
               <ul className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible">
                 {[
-                  { value: "", label: "All templates", count: MARKETPLACE_THEMES.length },
-                  { value: "informative", label: "Informative website", count: MARKETPLACE_THEMES.filter((t) => themeSiteType(t) === "informative").length },
-                  { value: "ecommerce", label: "Online store", count: MARKETPLACE_THEMES.filter((t) => themeSiteType(t) === "ecommerce").length },
+                  { value: "", label: "All templates", count: catalog.length },
+                  { value: "ecommerce", label: "Online store", count: catalog.length },
                 ].map((type) => (
                   <li key={type.value || "all"}>
                     <Link href={themesHref({ q: query.q, siteType: type.value as typeof query.siteType })} aria-current={query.siteType === type.value ? "page" : undefined} className={sidebarLink(query.siteType === type.value)}>
@@ -92,7 +92,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
               <ul className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible">
                 <li>
                   <Link href={themesHref({ q: query.q, siteType: query.siteType })} aria-current={!query.industry ? "page" : undefined} className={sidebarLink(!query.industry)}>
-                    <span>All categories</span><span className="text-xs opacity-65">{query.siteType ? MARKETPLACE_THEMES.filter((t) => themeSiteType(t) === query.siteType).length : MARKETPLACE_THEMES.length}</span>
+                    <span>All categories</span><span className="text-xs opacity-65">{catalog.length}</span>
                   </Link>
                 </li>
                 {industries.map((i) => (

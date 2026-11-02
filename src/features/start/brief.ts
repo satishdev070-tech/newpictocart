@@ -3,11 +3,12 @@ import type { StartDraft } from "./draft/schema";
 import {
   draftCategory,
   draftProductsServices,
+  draftSeedSubcategory,
   draftSiteMode,
   draftStoreName,
-  draftSubcategory,
 } from "./draft/schema";
 import { subcategoryLabel } from "@/features/stores/subcategories";
+import { collectSelectionLabels } from "@/features/onboarding/seed/fallback";
 import { START_INTENTS } from "./intents";
 
 /** Rich text brief for seedReadyStore curation. */
@@ -19,13 +20,18 @@ export function buildSeedBrief(draft: StartDraft): string {
   if (tagline) lines.push(`Tagline: ${tagline}`);
   const cat = draftCategory(draft);
   if (cat) lines.push(`Industry/category: ${cat}`);
-  const sub = draftSubcategory(draft);
-  if (sub) {
+  const sub = draftSeedSubcategory(draft);
+  const niche = draftProductsServices(draft) || null;
+  if (cat && (sub || niche)) {
+    const labels = collectSelectionLabels(cat, sub, niche);
+    if (labels.length > 0) lines.push(`Product types: ${labels.join(", ")}`);
+  } else if (sub) {
     const label = cat ? subcategoryLabel(cat, sub) : null;
     lines.push(`Subcategory: ${label ?? sub}`);
   }
-  const productsServices = draftProductsServices(draft);
-  if (productsServices) lines.push(`Products / services: ${productsServices}`);
+  if (niche && !niche.toLowerCase().startsWith("sub:")) {
+    lines.push(`Products / services: ${niche}`);
+  }
   const city = draft.business.city.trim() || draft.voice.facts.city?.trim();
   if (city) lines.push(`City: ${city}`);
   if (draft.business.whatsapp.trim()) lines.push(`WhatsApp: ${draft.business.whatsapp.trim()}`);

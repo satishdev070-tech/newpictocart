@@ -76,6 +76,8 @@ export type StartCopy = {
     customSubHint: string;
     customSubAdd: string;
     customSubRemove: string;
+    /** Shown when search filters out every chip; `{q}` is the typed query. */
+    customSubNoMatch: (q: string) => string;
     more: string;
     less: string;
     siteTitle: string;
@@ -132,7 +134,12 @@ export type StartCopy = {
     shipCourier: string;
     next: string;
   };
-  building: { title: string; steps: string[] };
+  building: {
+    title: string;
+    steps: string[];
+    finishing: string;
+    themeFallback: string;
+  };
   account: {
     /** Eyebrow above the main headline (e.g. Create Account). */
     eyebrow: string;
@@ -284,10 +291,11 @@ const EN: StartCopy = {
     nameHint: "e.g. Kia Garments",
     categoryTitle: "What do you sell?",
     categorySearch: "Search categories…",
-    subcategoryTitle: "Which type fits best?",
-    customSubHint: "Enter keyword / custom",
+    subcategoryTitle: "Select Products Category For Your Store?",
+    customSubHint: "Add more type of products.",
     customSubAdd: "Add",
     customSubRemove: "Remove",
+    customSubNoMatch: (q) => `No match — tap Add to create “${q}”`,
     more: "More categories",
     less: "Fewer categories",
     siteTitle: "What should we build?",
@@ -353,12 +361,15 @@ const EN: StartCopy = {
   building: {
     title: "Your store is being built…",
     steps: [
-      "Saving your information",
-      "Creating your store page",
-      "Connecting payments",
-      "Going live",
-      "Finishing touches",
+      "Applying your theme…",
+      "Setting up categories…",
+      "Adding sample products…",
+      "Writing blog posts…",
+      "Collecting sample reviews…",
+      "Your store is ready!",
     ],
+    finishing: "Finishing your store…",
+    themeFallback: "Your storefront",
   },
   account: {
     eyebrow: "Create Account",
@@ -514,10 +525,11 @@ const HI: StartCopy = {
     nameHint: "जैसे Kia Garments",
     categoryTitle: "आप क्या बेचते हैं?",
     categorySearch: "कैटेगरी खोजें…",
-    subcategoryTitle: "कौन सा प्रकार सबसे ठीक है?",
-    customSubHint: "कीवर्ड / कस्टम लिखें",
+    subcategoryTitle: "Select Products Category For Your Store?",
+    customSubHint: "Add more type of products.",
     customSubAdd: "जोड़ें",
     customSubRemove: "हटाएँ",
+    customSubNoMatch: (q) => `कोई मैच नहीं — “${q}” जोड़ने के लिए Add दबाएँ`,
     more: "और कैटेगरी",
     less: "कम कैटेगरी",
     siteTitle: "हम क्या बनाएँ?",
@@ -583,12 +595,15 @@ const HI: StartCopy = {
   building: {
     title: "आपकी दुकान बन रही है…",
     steps: [
-      "आपकी जानकारी सेव हो रही है",
-      "दुकान का पेज बन रहा है",
-      "पेमेंट कनेक्ट हो रहा है",
-      "लाइव हो रहा है",
-      "आखिरी सुधार",
+      "आपकी थीम लग रही है…",
+      "कैटेगरी सेट हो रही हैं…",
+      "सैंपल प्रोडक्ट जुड़ रहे हैं…",
+      "ब्लॉग पोस्ट लिखे जा रहे हैं…",
+      "सैंपल रिव्यू जुड़ रहे हैं…",
+      "आपकी दुकान तैयार है!",
     ],
+    finishing: "दुकान फ़ाइनल हो रही है…",
+    themeFallback: "आपकी दुकान",
   },
   account: {
     eyebrow: "अकाउंट बनाएँ",

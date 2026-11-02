@@ -55,13 +55,13 @@ describe("theme preview demo store", () => {
 });
 
 describe("informative theme marketplace", () => {
-  it("filters the service-site catalogue separately from online-store themes", () => {
+  it("ignores Informative type filter while service themes stay hidden from ecommerce surfaces", () => {
+    // Temporary product hide: parseThemeQuery only accepts ecommerce; Informative chips are gone.
     const query = parseThemeQuery({ type: "informative" });
-    expect(query.siteType).toBe("informative");
+    expect(query.siteType).toBe("");
     const result = filterThemes(query);
-    expect(result.total).toBeGreaterThanOrEqual(10);
-    expect(result.items.every((theme) => theme.siteType === "informative")).toBe(true);
-    expect(result.items.map((theme) => theme.key)).toContain("global-vision");
+    expect(result.items.every((theme) => theme.siteType !== "informative")).toBe(true);
+    expect(result.items.map((theme) => theme.key)).not.toContain("global-vision");
   });
 });
 

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { siteOrigin } from "@/features/marketing-site/site";
-import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { ecommerceMarketplaceThemes } from "@/features/theme/marketplace/catalog";
 
 /**
  * Platform sitemap (public marketing pages only; sign-in, sign-up and onboarding are excluded).
@@ -21,6 +21,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ];
   return [
     ...pages.map((p) => ({ url: `${origin}${p.path}`, changeFrequency: "weekly" as const, priority: p.priority })),
-    ...MARKETPLACE_THEMES.map((t) => ({ url: `${origin}/themes/${t.key}`, changeFrequency: "monthly" as const, priority: 0.5 })),
+    ...ecommerceMarketplaceThemes().map((t) => ({ url: `${origin}/themes/${t.key}`, changeFrequency: "monthly" as const, priority: 0.5 })),
   ];
 }

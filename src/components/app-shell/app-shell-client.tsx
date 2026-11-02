@@ -597,8 +597,12 @@ function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
 
 /* ------------------------------------------------------------------ shell */
 
+/** Heavy seller routes that benefit from an idle warm of the App Router cache. */
+const HEAVY_SELLER_HREFS = ["/dashboard/products", "/dashboard/media", "/dashboard/marketing/neural-pulse", "/dashboard/orders"] as const;
+
 export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFooter, topbarStart, topbarEnd, banner, storageKey, panel, initialCollapsed, text = EN_TEXT, lang, children }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const drawer = useRef<HTMLDialogElement>(null);
   const crumbs = useMemo(() => breadcrumbsFor(pathname, groups, homeHref, text.segments), [pathname, groups, homeHref, text.segments]);
@@ -608,6 +612,22 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
   useEffect(() => {
     drawer.current?.close();
   }, [pathname]);
+
+  // After first paint, prefetch nav destinations (heavy routes first) so clicks feel instant.
+  useEffect(() => {
+    const hrefs = [...new Set([...HEAVY_SELLER_HREFS, ...groups.flatMap((g) => g.items.map((i) => i.href))])];
+    const warm = () => {
+      for (const href of hrefs) router.prefetch(href);
+    };
+    const ric = window.requestIdleCallback?.bind(window);
+    if (ric) {
+      const id = ric(warm, { timeout: 2500 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const t = window.setTimeout(warm, 400);
+    return () => window.clearTimeout(t);
+  }, [groups, router]);
+
   const toggle = () => {
     const next = !collapsed;
     tip.hide();
