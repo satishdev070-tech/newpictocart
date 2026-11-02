@@ -76,6 +76,14 @@ a **wildcard domain** on the Vercel project:
 The proxy (`src/proxy.ts`) reads the `Host` header, classifies it and rewrites store hosts to
 `/store/[host]`. A store subdomain resolves only through the `domains` table (`status = 'verified'`).
 
+### Alias only: attach `www.pictocart.in` without changing the root
+
+To serve `https://www.pictocart.in` from the **same** Vercel project as staging
+(`pictocartdev.in`) without switching store subdomains: add the domain on that project, set
+`PLATFORM_HOST_ALIASES=pictocart.in,www.pictocart.in`, redeploy, and add Auth redirect URLs.
+Do **not** change `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` and do **not** run `move-platform-root.sql`.
+Checklist: [DEPLOY_DOMAIN_ALIAS.md](./DEPLOY_DOMAIN_ALIAS.md).
+
 ### Switching the root domain (e.g. to `pictocart.in`)
 
 1. Vercel → Settings → Domains: add `pictocart.in`, `www.pictocart.in` and
