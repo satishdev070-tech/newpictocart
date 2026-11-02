@@ -296,6 +296,50 @@
   color: var(--foreground);
 }
 
+/*
+ * Marketing landing only (paired with .theme-brand on (marketing)/layout).
+ * Black / White / Orange / Green — 60% white canvas, 30% charcoal chrome, 10% orange CTAs;
+ * green reserved for success/trust chips. Auth + onboarding keep base .theme-brand (indigo).
+ * White on --brand-orange / --brand-cta: bold button labels (AA large text).
+ */
+.theme-marketing {
+  --brand-primary: #111111;
+  --brand-primary-hover: #000000;
+  --brand-primary-soft: #f3f3f2;
+  --brand-ink: #111111;
+  --brand-accent: #ea580c;
+  --brand-accent-soft: #fff4eb;
+  --brand-mint: #e8f6ee;
+  --brand-canvas: #f7f7f5;
+  --brand-cta: #ea580c;
+  --brand-cta-hover: #c2410c;
+  --brand-orange: #ea580c;
+  --brand-orange-hover: #c2410c;
+  --brand-purple: #292524;
+  --brand-night: #0a0a0a;
+  --brand-success: #15803d;
+  --brand-success-hover: #166534;
+
+  --background: #ffffff;
+  --surface: #ffffff;
+  --surface-secondary: var(--brand-canvas);
+  --surface-elevated: #ffffff;
+  --foreground: #111111;
+  --muted: #525252;
+  --subtle: #737373;
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+  --primary: var(--brand-primary);
+  --primary-foreground: #ffffff;
+  --accent: var(--brand-orange);
+  --accent-foreground: #ffffff;
+  --accent-soft: var(--brand-accent-soft);
+  --focus: var(--brand-orange);
+
+  --brand-shadow-card: 0 1px 2px rgb(0 0 0 / 0.05), 0 8px 24px -12px rgb(0 0 0 / 0.12);
+  --brand-shadow-float: 0 24px 60px -24px rgb(0 0 0 / 0.4);
+}
+
 @theme inline {
   --color-brand: var(--brand-primary);
   --color-brand-hover: var(--brand-primary-hover);
@@ -311,6 +355,8 @@
   --color-brand-orange-hover: var(--brand-orange-hover);
   --color-brand-purple: var(--brand-purple);
   --color-brand-night: var(--brand-night);
+  --color-brand-success: var(--brand-success, #15803d);
+  --color-brand-success-hover: var(--brand-success-hover, #166534);
   --radius-brand-sm: var(--brand-radius-sm);
   --radius-brand-md: var(--brand-radius-md);
   --radius-brand-lg: var(--brand-radius-lg);
