@@ -110,6 +110,25 @@ describe("header mega menu and footer (CMS)", () => {
     if (saved.ok) expect(saved.value.header.megaMenu.columns[0]?.items[0]?.href).toBe("/features/snap-to-product-ai");
   });
 
+  it("rewrites absolute Features hub URLs on mega-menu items", () => {
+    const stale = structuredClone(DEFAULT_LANDING.header.megaMenu);
+    stale.columns[0]!.items[0]!.href = "https://www.pictocart.in/features";
+    stale.columns[0]!.items[1]!.href = "https://www.pictocart.in/features/";
+    const parsed = parseLanding({ header: { ...DEFAULT_LANDING.header, megaMenu: stale } });
+    expect(parsed.header.megaMenu.columns[0]?.items[0]?.href).toBe("/features/snap-to-product-ai");
+    expect(parsed.header.megaMenu.columns[0]?.items[1]?.href).toBe("/features/product-variants");
+  });
+
+  it("maps Solutions Explore links to feature detail pages", () => {
+    const staleItems = DEFAULT_LANDING.solutions.items.map((it) => ({ ...it, href: "/features" }));
+    const parsed = parseLanding({ solutions: { ...DEFAULT_LANDING.solutions, items: staleItems } });
+    expect(parsed.solutions.items.find((i) => i.title === "Custom Domain + SSL")?.href).toBe("/features/custom-domain-ssl");
+    expect(parsed.solutions.items.find((i) => i.title === "Theme Marketplace")?.href).toBe("/themes");
+    expect(parsed.solutions.items.find((i) => i.title === "Creative Studio")?.href).toBe("/features");
+    expect(DEFAULT_LANDING.solutions.items.find((i) => i.title === "Drag-and-Drop Builder")).toBeUndefined();
+    expect(parsed.solutions.items.find((i) => i.title === "Analytics")?.href).toBe("/features/analytics-dashboard");
+  });
+
   it("keeps an old header and footer and fills the new fields with defaults", () => {
     const parsed = parseLanding({ header: legacyHeader, footer: legacyFooter });
     expect(parsed.header.nav).toEqual(legacyHeader.nav);

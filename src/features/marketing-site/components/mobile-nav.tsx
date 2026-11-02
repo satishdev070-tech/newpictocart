@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 import { buttonClass } from "./ui";
 import { MenuIconView, MENU_TONE_CLASS } from "./chrome-icons";
 import type { NavLink } from "../content";
-import type { MegaMenu } from "../chrome-content";
+import { normalizeMegaMenuItemHref, type MegaMenu } from "../chrome-content";
 
 /**
  * Mobile menu (below lg). A disclosure button controls a panel: Escape or a link closes it and
@@ -91,16 +91,19 @@ export function MobileNav({
                       <div key={col.title}>
                         <p className={cn("text-[0.7rem] font-bold tracking-[0.14em] uppercase", MENU_TONE_CLASS[col.tone].title)}>{col.title}</p>
                         <ul className="mt-2 grid gap-1 sm:grid-cols-2">
-                          {col.items.map((it) => (
-                            <li key={it.title + it.href}>
-                              <Link href={it.href} prefetch onClick={() => setOpen(false)} className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-white">
+                          {col.items.map((it) => {
+                            const itemHref = normalizeMegaMenuItemHref(it.title, it.href);
+                            return (
+                            <li key={it.title + itemHref}>
+                              <Link href={itemHref} prefetch onClick={() => setOpen(false)} className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-white">
                                 <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg ring-1", MENU_TONE_CLASS[col.tone].chip)}>
                                   <MenuIconView name={it.icon} className="size-4" />
                                 </span>
                                 <span className="text-[0.95rem] font-medium text-brand-ink">{it.title}</span>
                               </Link>
                             </li>
-                          ))}
+                            );
+                          })}
                         </ul>
                       </div>
                     ))}
