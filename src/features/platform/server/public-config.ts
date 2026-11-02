@@ -8,6 +8,7 @@ import { logger } from "@/lib/observability/logger";
 import { PLATFORM_ICON } from "@/config/platform";
 import { cachedPublic, revalidatePublicTags } from "@/lib/cache/public-cache";
 import { LANDING_KEY } from "@/features/marketing-site/landing";
+import { FEATURE_PAGES_KEY } from "@/features/marketing-site/feature-pages";
 import { DEFAULT_PUBLIC_CONFIG, brandImageUrl, parsePublicConfig, type BrandImage, type PublicPlatformConfig } from "../public-config";
 
 export const PUBLIC_CONFIG_TAG = "platform-public-config";
@@ -16,7 +17,14 @@ class PublicConfigUnavailable extends Error {}
 
 async function load(): Promise<PublicPlatformConfig> {
   // Anon client + RLS (platform_settings_public_select): only `public.*` keys are visible.
-  const { data, error } = await createSupabasePublicClient().from("platform_settings").select("key, value").like("key", "public.%").neq("key", LANDING_KEY).limit(100);
+  // Skip large CMS blobs (landing + feature pages) — they have dedicated loaders.
+  const { data, error } = await createSupabasePublicClient()
+    .from("platform_settings")
+    .select("key, value")
+    .like("key", "public.%")
+    .neq("key", LANDING_KEY)
+    .neq("key", FEATURE_PAGES_KEY)
+    .limit(100);
   if (error) {
     logger.warn("platform.public_config_unavailable", { code: error.code });
     throw new PublicConfigUnavailable(); // not cached; defaults are used below

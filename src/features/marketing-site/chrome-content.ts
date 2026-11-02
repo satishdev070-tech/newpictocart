@@ -3,6 +3,17 @@
  * footerSchema). PURE (no I/O, no imports from landing.ts, so landing.ts can import this).
  */
 
+function featureHref(title: string): string {
+  if (/theme marketplace/i.test(title)) return "/themes";
+  const slug = title
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return `/features/${slug}`;
+}
+
 /** Icons offered for mega menu items (lucide names, mapped in components/chrome-icons). */
 export const MENU_ICONS = [
   "sparkles",
@@ -119,8 +130,7 @@ export type MegaMenu = {
   footerLink: { label: string; href: string };
 };
 
-const F = "/features";
-const item = (icon: MenuIcon, title: string, body: string, href = F): MegaMenuItem => ({ icon, title, body, href });
+const item = (icon: MenuIcon, title: string, body: string, href = featureHref(title)): MegaMenuItem => ({ icon, title, body, href });
 
 export const DEFAULT_MEGA_MENU: MegaMenu = {
   enabled: true,

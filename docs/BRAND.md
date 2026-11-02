@@ -36,6 +36,12 @@ Indigo/purple are not marketing accents; leftover CMS tones map to charcoal / or
 `platform-branding` bucket (`landing/…`). GIF plays as an image; MP4 renders muted looping video with
 optional poster. Built-in CSS illustrations remain when the media URL is empty.
 
+### Feature detail pages (Super Admin)
+
+`/admin/landing/features` edits the 28 `/features/{slug}` pages (key `public.marketing.feature_pages`).
+Infographics reuse the same landing media upload (image/GIF/MP4). Mega-menu items link to these
+pages; Theme Marketplace stays `/themes`.
+
 ### Auth + onboarding (`.theme-brand` only)
 
 Shared indigo / peach / emerald tokens for seller login and onboarding — **unchanged** by the

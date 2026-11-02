@@ -52,6 +52,7 @@ import { FEATURE_FLAG_DEFAULTS_TAG } from "./server/entitlements";
 import { revalidatePublicConfig } from "./server/public-config";
 import { BRAND_SLOTS } from "./public-config";
 import { resetLandingContent, revalidateLanding, saveLandingContent } from "@/features/marketing-site/server/landing";
+import { resetFeaturePagesContent, revalidateFeaturePages, saveFeaturePagesContent } from "@/features/marketing-site/server/feature-pages";
 
 /**
  * Super-admin server actions: validate (zod) → authenticate + authorize (platform role
@@ -334,6 +335,40 @@ export async function resetLandingAction(_prev: ActionResult | null, _fd: FormDa
     await resetLandingContent(ctx);
     revalidateLanding();
     revalidatePath("/admin/landing");
+  });
+}
+
+// ---- Feature pages CMS --------------------------------------------------------------
+
+/** ~28 pages with body copy; leave headroom for infographic URLs and SEO fields. */
+const MAX_FEATURE_PAGES_BYTES = 500_000;
+
+export async function saveFeaturePagesAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  return runAction("platform.feature_pages.save", async () => {
+    const raw = fd.get("content");
+    if (typeof raw !== "string" || raw.length > MAX_FEATURE_PAGES_BYTES) {
+      throw new AppError("VALIDATION", { fieldErrors: { _form: ["The feature pages content is missing or too large"] } });
+    }
+    let value: unknown;
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      throw new AppError("VALIDATION", { fieldErrors: { _form: ["The feature pages content couldn't be read. Reload the page and try again."] } });
+    }
+    const ctx = await platformActor("platform.settings.manage");
+    await rateLimit("platform-feature-pages", ctx.user.id, 30, 600);
+    await saveFeaturePagesContent(ctx, value);
+    revalidateFeaturePages();
+    revalidatePath("/admin/landing/features");
+  });
+}
+
+export async function resetFeaturePagesAction(_prev: ActionResult | null, _fd: FormData): Promise<ActionResult> {
+  return runAction("platform.feature_pages.reset", async () => {
+    const ctx = await platformActor("platform.settings.manage");
+    await resetFeaturePagesContent(ctx);
+    revalidateFeaturePages();
+    revalidatePath("/admin/landing/features");
   });
 }
 
