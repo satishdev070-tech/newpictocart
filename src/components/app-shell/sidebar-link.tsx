@@ -7,6 +7,7 @@ export function SidebarLink({ href, icon, children, tone = "default" }: { href: 
   return (
     <Link
       href={href}
+      prefetch={false}
       className={cn(
         "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-small transition-colors [&_svg]:size-[18px]",
         tone === "admin" ? "font-medium text-error hover:bg-error/10" : "text-foreground hover:bg-surface-secondary",
