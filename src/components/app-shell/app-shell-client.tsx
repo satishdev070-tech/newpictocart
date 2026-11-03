@@ -9,6 +9,7 @@ import type { NavGroup, NavItem } from "@/components/dashboard/nav";
 import { NAV_ICONS, NAV_ICON_STROKE } from "./icons";
 import { activeGroupFor, activeHrefFor, breadcrumbsFor, flyoutTop, isSubmenu, submenuId, type Crumb } from "./nav-tree";
 import { sidebarCookie, type SidebarPanel } from "./sidebar-cookie";
+import { idlePrefetchHrefs, runPrefetchQueue, shouldSkipIdlePrefetch } from "./prefetch";
 
 /** Shell chrome labels (the seller panel passes translations; the admin panel uses English). */
 export type ShellText = {
@@ -597,9 +598,6 @@ function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
 
 /* ------------------------------------------------------------------ shell */
 
-/** Heavy seller routes that benefit from an idle warm of the App Router cache. */
-const HEAVY_SELLER_HREFS = ["/dashboard/products", "/dashboard/media", "/dashboard/marketing/neural-pulse", "/dashboard/orders"] as const;
-
 export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFooter, topbarStart, topbarEnd, banner, storageKey, panel, initialCollapsed, text = EN_TEXT, lang, children }: Props) {
   const pathname = usePathname();
   const router = useRouter();
@@ -608,25 +606,48 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
   const crumbs = useMemo(() => breadcrumbsFor(pathname, groups, homeHref, text.segments), [pathname, groups, homeHref, text.segments]);
   const { active, onNavigate } = useActiveHref(groups, homeHref);
   const tip = useRailTip();
+  // Stable key so idle warm does not re-fire from a new `groups` array identity each layout render.
+  const idleHrefsKey = useMemo(() => idlePrefetchHrefs(panel).join("\0"), [panel]);
 
   useEffect(() => {
     drawer.current?.close();
   }, [pathname]);
 
-  // After first paint, prefetch nav destinations (heavy routes first) so clicks feel instant.
+  // After first paint, warm only a small allowlist (hover still warms open submenus).
   useEffect(() => {
-    const hrefs = [...new Set([...HEAVY_SELLER_HREFS, ...groups.flatMap((g) => g.items.map((i) => i.href))])];
+    const hrefs = idleHrefsKey ? idleHrefsKey.split("\0") : [];
+    let cancelled = false;
     const warm = () => {
-      for (const href of hrefs) router.prefetch(href);
+      if (cancelled) return;
+      const conn = typeof navigator !== "undefined" ? (navigator as Navigator & { connection?: { saveData?: boolean } }).connection : undefined;
+      if (
+        shouldSkipIdlePrefetch({
+          hidden: typeof document !== "undefined" ? document.hidden : false,
+          saveData: conn?.saveData,
+          onLine: typeof navigator !== "undefined" ? navigator.onLine : true,
+        })
+      ) {
+        return;
+      }
+      void runPrefetchQueue(hrefs, (href) => router.prefetch(href), {
+        concurrency: 2,
+        isCancelled: () => cancelled,
+      });
     };
     const ric = window.requestIdleCallback?.bind(window);
     if (ric) {
       const id = ric(warm, { timeout: 2500 });
-      return () => window.cancelIdleCallback?.(id);
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback?.(id);
+      };
     }
     const t = window.setTimeout(warm, 400);
-    return () => window.clearTimeout(t);
-  }, [groups, router]);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [idleHrefsKey, router]);
 
   const toggle = () => {
     const next = !collapsed;

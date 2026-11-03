@@ -69,12 +69,17 @@ export async function NotificationsPage({ audience, sp, basePath, can, descripti
     );
   }
 
-  const { items, total } = await listNotifications(audience, { status, group, page, pageSize: PAGE_SIZE });
+  const { items, total, error: listError } = await listNotifications(audience, { status, group, page, pageSize: PAGE_SIZE });
   const chip = (active: boolean) => cn("inline-flex h-8 items-center rounded-full border px-3 text-small font-medium transition-colors", active ? "border-accent/30 bg-accent-soft text-accent" : "border-border bg-surface text-muted hover:text-foreground");
 
   return (
     <div className="space-y-6">
       {header}
+      {listError ? (
+        <p role="alert" className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-small text-foreground">
+          {listError}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <nav aria-label="Filter notifications" className="flex flex-wrap gap-2">
           <Link href={href({ status: "all" })} className={chip(status === "all")} aria-current={status === "all" ? "page" : undefined}>

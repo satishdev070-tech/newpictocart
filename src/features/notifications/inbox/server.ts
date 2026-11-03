@@ -52,15 +52,23 @@ export function getBellData(a: InboxAudience, limit = 8): Promise<BellData> {
 
 export type ListFilter = { status: "all" | "unread"; group: NotificationGroup | null; page: number; pageSize: number };
 
-export async function listNotifications(a: InboxAudience, f: ListFilter): Promise<{ items: NotificationItem[]; total: number }> {
-  const supabase = await createSupabaseServerClient();
-  let q = scoped(supabase.from("notifications").select(COLUMNS, { count: "exact" }), a);
-  if (f.status === "unread") q = q.is("read_at", null);
-  if (f.group) q = q.in("type", typesInGroup(f.group));
-  const from = (f.page - 1) * f.pageSize;
-  const { data, count, error } = await q.order("created_at", { ascending: false }).range(from, from + f.pageSize - 1);
-  if (error) throw new AppError("INTERNAL", { context: { op: "notifications.list", code: error.code } });
-  return { items: (data ?? []).map(toItem), total: count ?? 0 };
+export async function listNotifications(a: InboxAudience, f: ListFilter): Promise<{ items: NotificationItem[]; total: number; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    let q = scoped(supabase.from("notifications").select(COLUMNS, { count: "exact" }), a);
+    if (f.status === "unread") q = q.is("read_at", null);
+    if (f.group) q = q.in("type", typesInGroup(f.group));
+    const from = (f.page - 1) * f.pageSize;
+    const { data, count, error } = await q.order("created_at", { ascending: false }).range(from, from + f.pageSize - 1);
+    if (error) {
+      logger.warn("notifications.list_failed", { scope: a.scope, code: error.code });
+      return { items: [], total: 0, error: "We couldn't load notifications right now. Please try again in a moment." };
+    }
+    return { items: (data ?? []).map(toItem), total: count ?? 0 };
+  } catch (err) {
+    logger.warn("notifications.list_failed", { scope: a.scope, error: err });
+    return { items: [], total: 0, error: "We couldn't load notifications right now. Please try again in a moment." };
+  }
 }
 
 /** Marks some (ids) or all unread notifications of this audience as read. Returns rows changed. */
