@@ -212,6 +212,7 @@ function NavRow({ item, active, nested, onClick }: { item: NavItem; active: bool
     <li>
       <Link
         href={item.href}
+        prefetch={false}
         onClick={onClick}
         aria-current={active ? "page" : undefined}
         className={cn(
@@ -344,7 +345,7 @@ function RailNav({ groups, active, storageKey, onNavigate, tip }: RailNavProps) 
             const item = g.items[0]!;
             return (
               <li key={g.label}>
-                <Link href={item.href} aria-current={item.href === active ? "page" : undefined} onClick={(e) => onNavigate(item.href, e)} className={iconClass(on)} {...tip.bind(item.label)}>
+                <Link href={item.href} prefetch={false} aria-current={item.href === active ? "page" : undefined} onClick={(e) => onNavigate(item.href, e)} className={iconClass(on)} {...tip.bind(item.label)}>
                   <Icon aria-hidden strokeWidth={NAV_ICON_STROKE} className="size-5" />
                   <span className="sr-only">{item.label}</span>
                 </Link>
@@ -433,6 +434,7 @@ function RailNav({ groups, active, storageKey, onNavigate, tip }: RailNavProps) 
                   <Link
                     role="menuitem"
                     href={item.href}
+                    prefetch={false}
                     aria-current={isActive ? "page" : undefined}
                     onClick={(e) => {
                       onNavigate(item.href, e);

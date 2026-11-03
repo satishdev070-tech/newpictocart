@@ -7,6 +7,7 @@ import { CircleHelp } from "lucide-react";
 import type { Locale } from "@/lib/i18n/config";
 import { markTourDone, tourDone, tourForPath, type TourId } from "./routes";
 import type { TourLabels } from "./tour-overlay";
+import { TourErrorBoundary } from "./tour-error-boundary";
 
 // The overlay, the steps and their text are a separate chunk, fetched only when a tour runs.
 const TourOverlay = dynamic(() => import("./tour-overlay"), { ssr: false });
@@ -29,8 +30,10 @@ export function TourLauncher({ locale, labels, takeLabel, autoStart = true }: { 
 
   const runningId = running?.id;
   const onClose = useCallback(
-    (seen: boolean) => {
-      if (runningId && seen) markTourDone(runningId);
+    (_seen: boolean) => {
+      // Always remember this tour as done on close (including auto-start with no targets) so a
+      // soft navigation cannot remount the overlay in a tight loop (React #185).
+      if (runningId) markTourDone(runningId);
       setRunning(null);
     },
     [runningId],
@@ -52,7 +55,11 @@ export function TourLauncher({ locale, labels, takeLabel, autoStart = true }: { 
       >
         <CircleHelp aria-hidden className="size-[18px]" strokeWidth={1.75} />
       </button>
-      {active ? <TourOverlay key={`${active.id}-${active.auto}`} tour={active.id} locale={locale} labels={labels} auto={active.auto} onClose={onClose} /> : null}
+      {active ? (
+        <TourErrorBoundary>
+          <TourOverlay key={`${active.id}-${active.auto}`} tour={active.id} locale={locale} labels={labels} auto={active.auto} onClose={onClose} />
+        </TourErrorBoundary>
+      ) : null}
     </>
   );
 }

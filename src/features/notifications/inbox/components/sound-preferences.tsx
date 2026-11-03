@@ -4,16 +4,14 @@ import { useSyncExternalStore } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NOTIFICATION_TYPES } from "../catalog";
-import { DEFAULT_BEEP_TYPES, DEFAULT_SOUND_PREFS, NOTIFICATION_TONES, type NotificationSoundPrefs, type NotificationToneId } from "../sound-prefs";
-import { playNotificationTone, readSoundPrefs, subscribeSoundPrefs, unlockNotificationAudio, writeSoundPrefs } from "../notification-sound";
+import { DEFAULT_BEEP_TYPES, NOTIFICATION_TONES, type NotificationSoundPrefs, type NotificationToneId } from "../sound-prefs";
+import { getServerSoundPrefs, playNotificationTone, readSoundPrefs, subscribeSoundPrefs, unlockNotificationAudio, writeSoundPrefs } from "../notification-sound";
 
 const BEEP_LABELS = DEFAULT_BEEP_TYPES.map((t) => NOTIFICATION_TYPES[t].label);
 
-function getServerSoundPrefs(): NotificationSoundPrefs {
-  return { ...DEFAULT_SOUND_PREFS };
-}
-
 export function SoundPreferences() {
+  // readSoundPrefs / getServerSoundPrefs return cached references — a fresh object each call
+  // would trip React #185 (maximum update depth) via useSyncExternalStore.
   const prefs = useSyncExternalStore(subscribeSoundPrefs, readSoundPrefs, getServerSoundPrefs);
 
   const save = (next: NotificationSoundPrefs) => {

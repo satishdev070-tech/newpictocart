@@ -92,9 +92,12 @@ export default function TourOverlay({ tour, locale, labels, auto, onClose }: Pro
   const measure = useCallback(() => {
     const vp = { width: window.innerWidth, height: window.innerHeight };
     const r = rectOf(target.current);
-    setRect(r);
     const box = pop.current?.getBoundingClientRect();
-    setPlace(placePopover(r, { width: box?.width ?? 340, height: box?.height ?? 180 }, vp));
+    const nextPlace = placePopover(r, { width: box?.width ?? 340, height: box?.height ?? 180 }, vp);
+    // Only update when geometry actually changes — scrollIntoView can fire scroll synchronously
+    // inside useLayoutEffect; a fresh object every measure() would nest updates into React #185.
+    setRect((prev) => (prev && r && prev.top === r.top && prev.left === r.left && prev.width === r.width && prev.height === r.height ? prev : r));
+    setPlace((prev) => (prev && prev.top === nextPlace.top && prev.left === nextPlace.left && prev.side === nextPlace.side ? prev : nextPlace));
   }, []);
 
   // Move to the step's element, then keep the ring on it while the page scrolls or resizes.
