@@ -82,13 +82,23 @@ async function ActionsTab({ ctx }: { ctx: Ctx }) {
 
 async function PaymentsTab({ ctx }: { ctx: Ctx }) {
   const origin = platformOrigin();
-  const [status, rz, cf] = await Promise.all([getPlatformGatewayStatus(), getAppCredentialStatus(ctx, "razorpay"), getAppCredentialStatus(ctx, "cashfree")]);
+  const [status, rz, cf, pu] = await Promise.all([
+    getPlatformGatewayStatus(),
+    getAppCredentialStatus(ctx, "razorpay"),
+    getAppCredentialStatus(ctx, "cashfree"),
+    getAppCredentialStatus(ctx, "payu"),
+  ]);
   return (
     <PlatformPaymentsPanel
       status={status}
       razorpaySavedInDb={rz.savedInDb}
       cashfreeSavedInDb={cf.savedInDb}
-      webhookUrls={{ razorpay: `${origin}/api/webhooks/platform/razorpay`, cashfree: `${origin}/api/webhooks/platform/cashfree` }}
+      payuSavedInDb={pu.savedInDb}
+      webhookUrls={{
+        razorpay: `${origin}/api/webhooks/platform/razorpay`,
+        cashfree: `${origin}/api/webhooks/platform/cashfree`,
+        payu: `${origin}/api/webhooks/platform/payu`,
+      }}
     />
   );
 }

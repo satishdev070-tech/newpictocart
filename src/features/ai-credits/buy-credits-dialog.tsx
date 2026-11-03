@@ -32,6 +32,21 @@ function loadExternal(src: string, ready: () => boolean): Promise<boolean> {
 }
 
 async function openCheckout(checkout: NonNullable<AiCreditPurchaseResult["checkout"]>, meta: { storeName: string; amountMinor: number; description: string }) {
+  if (checkout.kind === "payu") {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = checkout.action;
+    for (const [k, v] of Object.entries(checkout.fields)) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = k;
+      input.value = v;
+      form.appendChild(input);
+    }
+    document.body.appendChild(form);
+    form.submit();
+    return;
+  }
   if (checkout.kind === "cashfree") {
     if (!(await loadExternal("https://sdk.cashfree.com/js/v3/cashfree.js", () => Boolean(window.Cashfree))) || !window.Cashfree) {
       throw new Error("Couldn't load Cashfree. Check your connection and try again.");
@@ -62,7 +77,7 @@ async function openCheckout(checkout: NonNullable<AiCreditPurchaseResult["checko
 }
 
 /**
- * Buy-credits dialog: records the purchase request, then opens platform Razorpay/Cashfree
+ * Buy-credits dialog: records the purchase request, then opens platform Razorpay/Cashfree/PayU
  * checkout when configured; otherwise leaves the request for admin review.
  */
 export function BuyCreditsDialog({
@@ -118,6 +133,8 @@ export function BuyCreditsDialog({
           description: `AI credits · ${packLabel}`,
         });
         if (cancelled) return;
+        // PayU navigates away via form POST; Cashfree may also redirect.
+        if (checkout.kind === "payu") return;
         ref.current?.close();
         formRef.current?.reset();
         show({ tone: "success", message: "Payment submitted. Credits appear once the payment is confirmed." });

@@ -20,7 +20,7 @@ import type { ProductDraft, ProductMedia } from "../types";
 type Supabase = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
 const PRODUCT_COLUMNS =
-  "id, updated_at, title, slug, description, short_description, product_type, brand, category_id, size_chart_id, status, featured, tags, attributes, care_instructions, shipping_info, return_info, hsn_code, seo";
+  "id, updated_at, title, slug, description, short_description, product_type, brand, category_id, size_chart_id, status, featured, tags, attributes, care_instructions, shipping_info, return_info, hsn_code, country_of_origin, seo";
 const VARIANT_COLUMNS =
   "id, product_id, option1, option2, option3, sku, barcode, price, compare_at_price, cost_price, weight_grams, track_inventory, allow_backorder, low_stock_threshold, status, position";
 

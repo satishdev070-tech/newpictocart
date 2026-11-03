@@ -110,7 +110,7 @@ export async function saveAppCredential(ctx: PlatformContext, input: SaveAppCred
   const clientId = needsClientId(p) ? input.clientId : undefined;
   const from = p === "resend" ? input.from : undefined;
   const webhookSecret = p === "razorpay" ? input.webhookSecret : undefined;
-  const environment = p === "cashfree" ? input.environment : undefined;
+  const environment = p === "cashfree" || p === "payu" ? input.environment : undefined;
   if (!clientId && !input.secret && !from && !webhookSecret && !environment) throw new AppError("VALIDATION", { fieldErrors: { _form: ["Enter at least one value to save."] } });
   const before = await freshRow(p);
   const extra = { ...cleanExtra(p, before?.extra) };

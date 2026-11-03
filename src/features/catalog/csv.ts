@@ -74,6 +74,7 @@ export const PRODUCT_CSV_COLUMNS = [
   "short_description",
   "description",
   "hsn_code",
+  "country_of_origin",
   "featured",
   "fabric",
   "occasion",
@@ -139,6 +140,7 @@ export const importRowSchema = z.object({
   short_description: optStr(500),
   description: optStr(20000),
   hsn_code: z.preprocess(blank, z.string().trim().regex(/^[0-9]{4,8}$/, "4–8 digits").optional()),
+  country_of_origin: optStr(80),
   featured: bool,
   fabric: optStr(80),
   occasion: optStr(400),
@@ -251,6 +253,7 @@ export function mergeImportIntoDraft(
   d.shortDescription = first("short_description") ?? d.shortDescription;
   d.description = first("description") ?? d.description;
   d.hsnCode = first("hsn_code") ?? d.hsnCode;
+  d.countryOfOrigin = first("country_of_origin") ?? d.countryOfOrigin;
   const featured = first("featured");
   if (featured !== undefined) d.featured = featured;
   d.attributes.fabric = first("fabric") ?? d.attributes.fabric;
@@ -360,6 +363,7 @@ export function productToCsvRows(
       short_description: first ? p.shortDescription : "",
       description: first ? p.description : "",
       hsn_code: first ? p.hsnCode : "",
+      country_of_origin: first ? p.countryOfOrigin : "",
       featured: first ? String(p.featured) : "",
       fabric: first ? p.attributes.fabric : "",
       occasion: first ? p.attributes.occasion.join("; ") : "",

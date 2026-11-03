@@ -77,6 +77,7 @@ describe("product size chart choice round trip", () => {
     shipping_info: null,
     return_info: null,
     hsn_code: null,
+    country_of_origin: null,
     seo: {},
   });
 

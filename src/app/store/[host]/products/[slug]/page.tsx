@@ -135,8 +135,8 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
           }
           panels={[
             ...(p.description || p.shortDescription ? [{ key: "desc", title: "Product Description", icon: "description" as const, open: true, content: <RichText text={(p.description || p.shortDescription)!} /> }] : []),
-            // "Other" is the catch-all for non-apparel catalogues: not worth a row.
-            ...(p.productType !== "other" || p.attributes.length ? [{
+            // "Other" is the catch-all for non-apparel catalogues: not worth a row on its own.
+            ...(p.productType !== "other" || p.attributes.length || p.countryOfOrigin ? [{
               key: "details",
               title: "Product Details",
               icon: "details" as const,
@@ -154,6 +154,12 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
                       <dd>{a.value}</dd>
                     </div>
                   ))}
+                  {p.countryOfOrigin ? (
+                    <div className="contents">
+                      <dt className="sf-muted">Country of origin</dt>
+                      <dd>{p.countryOfOrigin}</dd>
+                    </div>
+                  ) : null}
                 </dl>
               ),
             }] : []),

@@ -29,6 +29,7 @@ export type DbProduct = {
   shipping_info: string | null;
   return_info: string | null;
   hsn_code: string | null;
+  country_of_origin: string | null;
   seo: unknown;
 };
 export type DbOption = { id: string; product_id: string; position: number; name: string };
@@ -135,6 +136,7 @@ export function dbToDraft(p: DbProduct, options: DbOption[], values: DbOptionVal
     shippingInfo: p.shipping_info ?? "",
     returnInfo: p.return_info ?? "",
     hsnCode: p.hsn_code ?? "",
+    countryOfOrigin: p.country_of_origin ?? "",
     seoTitle: str(seo.title),
     seoDescription: str(seo.description),
     seoCanonical: str(seo.canonical),

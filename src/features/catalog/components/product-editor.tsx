@@ -128,7 +128,7 @@ export function ProductEditor({
   });
   const formErrors = fieldMsgs("_form");
   const otherErrorList = Object.entries(errors).flatMap(([k, v]) => {
-    if (k === "_form" || k === "options" || k === "variants" || k.startsWith("options.") || k.startsWith("variants.")) return [];
+    if (k === "_form" || k === "options" || k === "variants" || k === "countryOfOrigin" || k.startsWith("options.") || k.startsWith("variants.")) return [];
     return v.map((m) => (k === "status" ? m : `${k}: ${m}`));
   });
   const hasNewVariants = d.variants.some((v) => !v.id);
@@ -788,6 +788,20 @@ export function ProductEditor({
               <div>
                 <L htmlFor="p-hsn">HSN code</L>
                 <input id="p-hsn" inputMode="numeric" className={input} value={d.hsnCode} onChange={(e) => set({ hsnCode: e.target.value })} />
+              </div>
+              <div>
+                <L htmlFor="p-origin">Country of origin{d.status === "active" ? " *" : ""}</L>
+                <input
+                  id="p-origin"
+                  className={input}
+                  value={d.countryOfOrigin}
+                  onChange={(e) => set({ countryOfOrigin: e.target.value })}
+                  placeholder="e.g. India"
+                  maxLength={80}
+                  aria-invalid={fieldMsgs("countryOfOrigin")[0] ? true : undefined}
+                />
+                {fieldMsgs("countryOfOrigin")[0] ? <p className="mt-1 text-xs text-error">{fieldMsgs("countryOfOrigin")[0]}</p> : null}
+                <p className="mt-1 text-xs text-muted">Shown on the product page. Required when the product is active.</p>
               </div>
             </div>
           </Card>

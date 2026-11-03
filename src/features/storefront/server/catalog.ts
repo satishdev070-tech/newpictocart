@@ -311,6 +311,7 @@ export type ProductDetail = {
   shortDescription: string | null;
   productType: string;
   brand: string | null;
+  countryOfOrigin: string | null;
   tags: string[];
   attributes: { label: string; value: string }[];
   fabric: string | null;
@@ -331,7 +332,7 @@ export type ProductDetail = {
 };
 
 const PRODUCT_SELECT =
-  "id, slug, title, description, short_description, product_type, brand, tags, attributes, care_instructions, shipping_info, return_info, seo, published_at, updated_at, rating_avg, rating_count, category_id, size_chart_id, " +
+  "id, slug, title, description, short_description, product_type, brand, country_of_origin, tags, attributes, care_instructions, shipping_info, return_info, seo, published_at, updated_at, rating_avg, rating_count, category_id, size_chart_id, " +
   "size_charts(name, unit, chart), " +
   "product_options(position, name, product_option_values(value, swatch, position)), " +
   "product_variants(id, title, sku, option1, option2, option3, price, compare_at_price, position, status), " +
@@ -345,6 +346,7 @@ type ProductRow = {
   short_description: string | null;
   product_type: string;
   brand: string | null;
+  country_of_origin: string | null;
   tags: string[];
   attributes: unknown;
   care_instructions: string | null;
@@ -473,6 +475,7 @@ export const getProductBySlug = cache(async (tenantId: string, slug: string): Pr
     shortDescription: data.short_description,
     productType: effectiveProductType(data.product_type, data.attributes),
     brand: data.brand,
+    countryOfOrigin: data.country_of_origin?.trim() || null,
     tags: data.tags,
     attributes: readAttributes(data.attributes),
     fabric: typeof attrs.fabric === "string" ? attrs.fabric : null,

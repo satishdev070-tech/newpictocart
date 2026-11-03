@@ -7,10 +7,27 @@ const note = z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? und
 export const BILLING_CYCLES = ["monthly", "yearly"] as const;
 export type BillingCycle = (typeof BILLING_CYCLES)[number];
 
+const couponCode = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? undefined : typeof v === "string" ? v.trim().toUpperCase() : v),
+  z.string().trim().min(1).max(40).regex(/^[A-Z0-9_-]+$/i, "Use letters, numbers, hyphens or underscores only").optional(),
+);
+
 export const requestPlanSchema = z.object({
   planId: z.uuid({ error: "Choose a plan" }),
   cycle: z.enum(BILLING_CYCLES).default("monthly"),
   note,
+  couponCode,
+  /** When "pay", start platform gateway checkout if configured; otherwise offline request. */
+  intent: z.enum(["request", "pay"]).default("request"),
+});
+
+export const previewPlanCouponSchema = z.object({
+  planId: z.uuid({ error: "Choose a plan" }),
+  cycle: z.enum(BILLING_CYCLES).default("monthly"),
+  couponCode: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim().toUpperCase() : v),
+    z.string({ error: "Enter a coupon code" }).trim().min(1, "Enter a coupon code").max(40).regex(/^[A-Z0-9_-]+$/i, "Use letters, numbers, hyphens or underscores only"),
+  ),
 });
 
 export const cancelPlanRequestSchema = z.object({ requestId: z.uuid() });
