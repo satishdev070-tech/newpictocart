@@ -107,3 +107,13 @@ export function validateCategoryParent<T extends CategoryLike>(rows: T[], id: st
 export function categoryLabel<T extends CategoryLike>(flat: FlatCategory<T>): string {
   return [...flat.path, flat.name].join(" › ");
 }
+
+/** Human title from a URL handle ("signature-bags" → "Signature Bags"). Used when CSV import auto-creates a category. */
+export function categoryTitleFromSlug(slug: string): string {
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ")
+    .slice(0, 120);
+}

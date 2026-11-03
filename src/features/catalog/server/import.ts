@@ -3,15 +3,18 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mapDbError } from "@/lib/supabase/errors";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/observability/logger";
-import { groupByHandle, mergeImportIntoDraft, parseProductCsv, type RowError } from "../csv";
+import { groupByHandle, mergeImportIntoDraft, parseProductCsv, skippedImportItems, type ImportSkippedItem, type RowError } from "../csv";
 import { productInputSchema, toSaveProductPayload } from "../schemas";
 import { comboKey } from "../variants";
 import type { ProductDraft } from "../types";
 import type { DbProduct } from "../draft";
 import { callSaveProduct, countProducts, loadDrafts, PRODUCT_COLUMNS, productLimit } from "./products";
 import { catalogDbError } from "./db-errors";
+import { ensureCategoriesBySlug } from "./categories";
 
 export const MAX_IMPORT_BYTES = 900_000;
+
+export type { ImportSkippedItem };
 
 export type ImportPlanItem = {
   handle: string;
@@ -31,6 +34,10 @@ export type ImportPlan = {
   updates: number;
   /** products that will be skipped because of errors */
   invalid: number;
+  /** Per-product skip reasons (same products as `invalid`). */
+  skippedItems: ImportSkippedItem[];
+  /** Category slugs auto-created so the import can resolve category handles. */
+  categoriesCreated: string[];
   limit: number | null;
   current: number;
 };
@@ -39,11 +46,12 @@ type PreparedItem = ImportPlanItem & { draft: ProductDraft; stock: { key: { sku:
 
 /**
  * Parses and validates a product CSV against the tenant's current catalog. Nothing is
- * written. Row errors carry 1-based spreadsheet row numbers.
+ * written except missing categories (auto-created so valid CSVs with new handles succeed).
+ * Row errors carry 1-based spreadsheet row numbers.
  */
-async function prepare(tenantId: string, text: string): Promise<{ plan: ImportPlan; prepared: PreparedItem[] }> {
+async function prepare(tenantId: string, text: string, opts: { createMissingCategories: boolean }): Promise<{ plan: ImportPlan; prepared: PreparedItem[] }> {
   const parsed = parseProductCsv(text);
-  const empty: ImportPlan = { items: [], rowErrors: [], creates: 0, updates: 0, invalid: 0, limit: null, current: 0 };
+  const empty: ImportPlan = { items: [], rowErrors: [], creates: 0, updates: 0, invalid: 0, skippedItems: [], categoriesCreated: [], limit: null, current: 0 };
   if (parsed.fatal) return { plan: { ...empty, fatal: parsed.fatal }, prepared: [] };
 
   const supabase = await createSupabaseServerClient();
@@ -57,9 +65,22 @@ async function prepare(tenantId: string, text: string): Promise<{ plan: ImportPl
   }
   const bySlug = new Map(existing.map((p) => [p.slug, p]));
   const drafts = await loadDrafts(supabase, tenantId, existing);
-  const { data: cats, error: cErr } = await supabase.from("categories").select("id, slug").eq("tenant_id", tenantId);
-  if (cErr) throw mapDbError(cErr);
-  const catBySlug = new Map((cats ?? []).map((c) => [c.slug, c.id]));
+
+  const neededCats = [...new Set(parsed.rows.map((r) => r.category).filter((c): c is string => Boolean(c)))];
+  let catBySlug = new Map<string, string>();
+  let categoriesCreated: string[] = [];
+  if (opts.createMissingCategories && neededCats.length) {
+    const ensured = await ensureCategoriesBySlug(tenantId, neededCats);
+    catBySlug = ensured.bySlug;
+    categoriesCreated = ensured.created;
+    if (categoriesCreated.length) {
+      logger.info("catalog.import_categories_created", { tenantId, slugs: categoriesCreated });
+    }
+  } else {
+    const { data: cats, error: cErr } = await supabase.from("categories").select("id, slug").eq("tenant_id", tenantId);
+    if (cErr) throw mapDbError(cErr);
+    catBySlug = new Map((cats ?? []).map((c) => [c.slug, c.id]));
+  }
 
   const prepared: PreparedItem[] = [];
   for (const [handle, rows] of groups) {
@@ -101,6 +122,7 @@ async function prepare(tenantId: string, text: string): Promise<{ plan: ImportPl
   }
 
   const items = prepared.map(({ draft: _d, stock: _s, ...rest }) => rest);
+  const skippedItems = skippedImportItems(items);
   return {
     prepared,
     plan: {
@@ -108,7 +130,9 @@ async function prepare(tenantId: string, text: string): Promise<{ plan: ImportPl
       rowErrors: parsed.errors,
       creates: items.filter((i) => i.action === "create" && !i.errors.length).length,
       updates: items.filter((i) => i.action === "update" && !i.errors.length).length,
-      invalid: items.filter((i) => i.errors.length).length,
+      invalid: skippedItems.length,
+      skippedItems,
+      categoriesCreated,
       limit,
       current: currentCount,
     },
@@ -122,7 +146,8 @@ function friendlyPath(path: PropertyKey[]): string {
 }
 
 export async function previewImport(tenantId: string, text: string): Promise<ImportPlan> {
-  return (await prepare(tenantId, text)).plan;
+  // Preview also auto-creates missing categories so the plan matches what apply will do.
+  return (await prepare(tenantId, text, { createMissingCategories: true })).plan;
 }
 
 export type ImportResult = {
@@ -131,6 +156,8 @@ export type ImportResult = {
   stockSet: number;
   failed: { handle: string; message: string }[];
   skipped: number;
+  skippedItems: ImportSkippedItem[];
+  categoriesCreated: string[];
   rowErrors: RowError[];
   productIds: string[];
 };
@@ -141,7 +168,7 @@ export type ImportResult = {
  * then set with public.set_inventory() (needs inventory.write). Runs 4 products at a time.
  */
 export async function applyImport(tenantId: string, text: string, opts: { canWriteInventory: boolean }): Promise<ImportResult> {
-  const { plan, prepared } = await prepare(tenantId, text);
+  const { plan, prepared } = await prepare(tenantId, text, { createMissingCategories: true });
   if (plan.fatal) throw new AppError("VALIDATION", { fieldErrors: { file: [plan.fatal] } });
   const supabase = await createSupabaseServerClient();
   const valid = prepared.filter((p) => !p.errors.length);
@@ -198,5 +225,15 @@ export async function applyImport(tenantId: string, text: string, opts: { canWri
     if (o.action === "create") created++;
     else updated++;
   }
-  return { created, updated, stockSet, failed, skipped: prepared.length - valid.length, rowErrors: plan.rowErrors, productIds };
+  return {
+    created,
+    updated,
+    stockSet,
+    failed,
+    skipped: plan.skippedItems.length,
+    skippedItems: plan.skippedItems,
+    categoriesCreated: plan.categoriesCreated,
+    rowErrors: plan.rowErrors,
+    productIds,
+  };
 }

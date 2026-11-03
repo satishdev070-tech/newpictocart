@@ -156,6 +156,14 @@ export async function listProducts(tenantId: string, f: ProductListQuery, pageSi
   };
 }
 
+/** Distinct product_type keys in use on this tenant's products (for list filters / editor picker). */
+export async function listUsedProductTypes(tenantId: string): Promise<string[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from("products").select("product_type").eq("tenant_id", tenantId).limit(20_000);
+  if (error) throw mapDbError(error, { op: "listUsedProductTypes" });
+  return [...new Set((data ?? []).map((r) => r.product_type).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
 async function thumbnails(supabase: Supabase, tenantId: string, ids: string[]) {
   const out = new Map<string, { url: string | null; alt: string }>();
   if (!ids.length) return out;

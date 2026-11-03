@@ -397,3 +397,10 @@ export function productsToCsv(items: { draft: ProductDraft; categorySlug: string
   for (const it of items) rows.push(...productToCsvRows(it.draft, it));
   return toCsv(rows);
 }
+
+export type ImportSkippedItem = { handle: string; title: string; errors: string[] };
+
+/** Products that failed validation — preview/apply surfaces these as skip reasons. */
+export function skippedImportItems(items: readonly { handle: string; title: string; errors: string[] }[]): ImportSkippedItem[] {
+  return items.filter((i) => i.errors.length).map(({ handle, title, errors }) => ({ handle, title, errors }));
+}

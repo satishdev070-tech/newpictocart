@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { createProductTypeAction, saveProductAction } from "@/features/catalog/actions";
+import { createProductTypeAction, persistAiProductImagesAction, saveProductAction } from "@/features/catalog/actions";
 import type { ProductDraft } from "@/features/catalog/types";
 import type { OptionDraft, VariantDraft } from "@/features/catalog/variants";
 import { discountPercent, priceFromDiscount } from "@/features/catalog/discount";
 import { cleanOptions, emptyVariant, initialSlugTouched, previewVariantMatrixRegen, productCanonicalPreview, slugify, suggestSku, variantTitle } from "@/features/catalog/variants";
 import { MAX_VARIANTS, OCCASIONS, OPTION_NAME_SUGGESTIONS, PRODUCT_STATUS_LABELS, PRODUCT_STATUSES, SIZE_PRESETS } from "@/features/catalog/constants";
-import { extraSpecs, groupTypesForPicker, setSpecValue, specValue, templateFor, type ProductTypeDef } from "@/features/catalog/product-types";
+import { extraSpecs, groupTypesForPicker, setSpecValue, specValue, templateFor, typesForProductEditor, type ProductTypeDef } from "@/features/catalog/product-types";
 import { Card } from "@/components/ui/layout";
 import { Button } from "@/components/ui/button";
 import { inputClassName as input } from "@/components/ui/field";
@@ -42,6 +42,7 @@ export function ProductEditor({
   canWriteInventory,
   stock,
   types: initialTypes,
+  usedTypeKeys = [],
   industryName,
   industry,
   mediaUrls = [],
@@ -58,6 +59,8 @@ export function ProductEditor({
   stock: Record<string, number>;
   /** Merged product-type catalogue for this store (defaults + Super Admin + store types). */
   types: ProductTypeDef[];
+  /** Distinct product_type keys already used on this store's products. */
+  usedTypeKeys?: string[];
   /** Store industry (slug + display name) used to order type suggestions. */
   industry: string | null;
   industryName: string | null;
@@ -78,8 +81,12 @@ export function ProductEditor({
   const [optionsError, setOptionsError] = useState<string | null>(null);
   const [regenWarning, setRegenWarning] = useState<string | null>(null);
   const [creatingType, startCreateType] = useTransition();
+  const [pendingMediaPaths, setPendingMediaPaths] = useState<string[]>([]);
+  const [aiMediaStatus, setAiMediaStatus] = useState<string | null>(null);
+  const [aiMediaPending, startAiMedia] = useTransition();
   const tpl = templateFor(d.productType, types);
-  const groups = groupTypesForPicker(types, industry, d.productType);
+  const pickerTypes = typesForProductEditor(types, usedTypeKeys, industry, d.productType);
+  const groups = groupTypesForPicker(pickerTypes, industry, d.productType);
   // Clothing fields show for clothing types, and for any product that already has values in them.
   const a = d.attributes;
   const showFashion = tpl.fashion || Boolean(a.fabric || a.style || a.length || a.work || a.pattern || a.occasion.length);
@@ -141,7 +148,7 @@ export function ProductEditor({
   };
   const setOptions = (options: OptionDraft[]) => set({ options });
   const setVariant = (i: number, patch: Partial<VariantDraft>) => set({ variants: d.variants.map((v, j) => (j === i ? { ...v, ...patch } : v)) });
-  const applyAi = (data: GenerateProductResult) => {
+  const applyAi = async (data: GenerateProductResult, images: File[]) => {
     const typeKey = data.productTypeHint && types.some((t) => t.key === data.productTypeHint) ? data.productTypeHint : undefined;
     const categoryId = data.categoryHint ? categories.find((c) => c.label.toLowerCase() === data.categoryHint!.toLowerCase())?.id : undefined;
     const priceStr = data.priceMinor > 0 ? toDecimalString(data.priceMinor) : null;
@@ -156,6 +163,31 @@ export function ProductEditor({
       ...(categoryId ? { categoryId } : {}),
       ...(slugTouched ? {} : { slug: slugify(data.title || d.title) }),
       ...(priceStr && d.variants[0] ? { variants: d.variants.map((v, i) => (i === 0 ? { ...v, price: priceStr } : v)) } : {}),
+    });
+    if (!images.length) {
+      setAiMediaStatus(null);
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      startAiMedia(async () => {
+        const r = await persistAiProductImagesAction({ productId: d.id, images });
+        if (!r.ok) {
+          setAiMediaStatus(r.error.fieldErrors?.file?.[0] ?? r.error.message);
+          resolve();
+          return;
+        }
+        if (!r.data.attached && r.data.paths.length) {
+          setPendingMediaPaths((prev) => [...new Set([...prev, ...r.data.paths])]);
+        }
+        setAiMediaStatus(
+          r.data.attached
+            ? "Image saved to Media and product."
+            : r.data.count === 1
+              ? "Image saved to Media. It will attach when you create the product."
+              : "Images saved to Media. They will attach when you create the product.",
+        );
+        resolve();
+      });
     });
   };
   const regenerate = () => {
@@ -225,6 +257,9 @@ export function ProductEditor({
       {collectionIds.map((id) => (
         <input key={id} type="hidden" name="collectionIds[]" value={id} />
       ))}
+      {pendingMediaPaths.map((path) => (
+        <input key={path} type="hidden" name="pendingMediaPaths[]" value={path} />
+      ))}
       {formErrors.length || otherErrorList.length || (state && !state.ok && !variantsCardErrors.length && !optionsCardErrors.length && !formErrors.length && !otherErrorList.length) ? (
         <div role="alert" className="rounded-md border border-error/30 bg-error/10 p-3 text-sm text-error">
           <p className="font-medium">{state && !state.ok ? state.error.message : ""}</p>
@@ -242,7 +277,12 @@ export function ProductEditor({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
-          <ProductGenerateAi imageUrls={mediaUrls.filter((u) => u.startsWith("https://"))} onApply={applyAi} />
+          <ProductGenerateAi
+            imageUrls={mediaUrls.filter((u) => u.startsWith("https://"))}
+            onApply={applyAi}
+            applyPending={aiMediaPending}
+            applyStatus={aiMediaStatus}
+          />
           <Card tour="product-basics" title="Basics">
             <div className="space-y-4">
               <div>
@@ -596,7 +636,7 @@ export function ProductEditor({
         </div>
 
         <div className="space-y-6">
-          <Card tour="product-status" title="Status">
+          <Card tour="product-status" title="Status" className="lg:sticky lg:top-20 lg:z-10 lg:self-start">
             <div className="space-y-3">
               <label htmlFor="p-status" className="sr-only">
                 Status

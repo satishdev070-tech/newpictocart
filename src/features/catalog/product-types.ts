@@ -416,6 +416,41 @@ export function groupTypesForPicker(types: readonly ProductTypeDef[], industry: 
   return { suggested, store, others };
 }
 
+/**
+ * Product editor type list: store-created types + types already used on products + the current
+ * value. When the store has no products yet, fall back to industry-suggested keys (and "other")
+ * so the first product still has a sensible picker without dumping the full catalogue.
+ */
+export function typesForProductEditor(
+  types: readonly ProductTypeDef[],
+  usedKeys: readonly string[],
+  industry: string | null | undefined,
+  current?: string,
+): ProductTypeDef[] {
+  const used = new Set(usedKeys);
+  const emptyStore = used.size === 0;
+  const suggested = emptyStore ? new Set(industryTypeKeys(industry, types)) : null;
+  const keep = new Set<string>();
+  if (current) keep.add(current);
+  for (const k of used) keep.add(k);
+  if (suggested) for (const k of suggested) keep.add(k);
+  if (emptyStore) keep.add("other");
+  const out = types.filter((t) => t.source === "store" || keep.has(t.key));
+  if (current && !out.some((t) => t.key === current)) {
+    out.push({
+      key: current,
+      label: humanizeTypeKey(current),
+      plural: humanizeTypeKey(current),
+      industries: [],
+      template: GENERIC_TEMPLATE,
+      position: 0,
+      status: "active",
+      source: "default",
+    });
+  }
+  return out;
+}
+
 // ---- spec fields from a template --------------------------------------------------------
 
 export type Spec = { label: string; value: string };

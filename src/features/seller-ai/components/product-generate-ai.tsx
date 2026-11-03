@@ -43,13 +43,19 @@ function classifyAiError(message: string): AiError {
  * Generate with AI for the product editor. New products have no media until save, so this accepts
  * local File uploads (up to 4) and/or https image URLs from ProductMediaManager after save.
  * Drafts land in a preview; Apply writes into the form (never silent-overwrite on generate).
+ * Local Files are passed to onApply so the editor can persist them to Media / product_media.
  */
 export function ProductGenerateAi({
   imageUrls,
   onApply,
+  applyPending = false,
+  applyStatus = null,
 }: {
   imageUrls: string[];
-  onApply: (result: GenerateProductResult) => void;
+  onApply: (result: GenerateProductResult, images: File[]) => void | Promise<void>;
+  applyPending?: boolean;
+  /** Short status after images were saved to Media / the product. */
+  applyStatus?: string | null;
 }) {
   const fileId = useId();
   const hintId = useId();
@@ -61,6 +67,7 @@ export function ProductGenerateAi({
   const [preview, setPreview] = useState<GenerateProductResult | null>(null);
   const [genStatus, setGenStatus] = useState<AiGenerationProgressStatus>("idle");
   const [pending, start] = useTransition();
+  const [applying, startApply] = useTransition();
 
   useEffect(() => {
     return () => {
@@ -129,16 +136,21 @@ export function ProductGenerateAi({
   };
 
   const apply = () => {
-    if (!preview) return;
-    onApply(preview);
-    setPreview(null);
-    setGenStatus("idle");
+    if (!preview || applying || applyPending) return;
+    const files = images.map((i) => i.file);
+    const draft = preview;
+    startApply(async () => {
+      await onApply(draft, files);
+      setPreview(null);
+      setGenStatus("idle");
+    });
   };
 
   const discard = () => {
     setPreview(null);
     setGenStatus("idle");
   };
+  const busyApply = applying || applyPending;
 
   return (
     <Card
@@ -302,16 +314,21 @@ export function ProductGenerateAi({
                 </div>
               ) : null}
             </dl>
-            <p className="text-caption text-subtle">Apply fills the title, descriptions, price, tags, category, type and SEO fields. You can edit everything before saving.</p>
+            <p className="text-caption text-subtle">Apply fills the title, descriptions, price, tags, category, type and SEO fields. Uploaded photos are saved to Media{images.length ? " and the product" : ""}. You can edit everything before saving.</p>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" onClick={apply}>
-                Apply to form
+              <Button type="button" size="sm" pending={busyApply} disabled={busyApply} onClick={apply}>
+                {busyApply ? "Applying…" : "Apply to form"}
               </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={discard}>
+              <Button type="button" size="sm" variant="ghost" onClick={discard} disabled={busyApply}>
                 Discard
               </Button>
             </div>
           </div>
+        ) : null}
+        {applyStatus ? (
+          <p role="status" className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-small text-success">
+            {applyStatus}
+          </p>
         ) : null}
       </div>
     </Card>
