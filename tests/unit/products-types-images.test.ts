@@ -186,6 +186,7 @@ describe("pre-migration product-type fallback", () => {
       shipping_info: null,
       return_info: null,
       hsn_code: null,
+      country_of_origin: null,
       seo: {},
     };
     expect(dbToDraft(base, [], [], []).productType).toBe("kurta");

@@ -135,6 +135,7 @@ describe("productInputSchema", () => {
   it("requires an active variant for an active product and one variant without options", () => {
     const d = base();
     d.status = "active";
+    d.countryOfOrigin = "India";
     d.variants = d.variants.map((v) => ({ ...v, status: "archived" as const }));
     const inactive = productInputSchema.safeParse(d);
     expect(inactive.success).toBe(false);
@@ -146,6 +147,27 @@ describe("productInputSchema", () => {
     e.options = [];
     e.variants = [emptyVariant({ price: "1" }), emptyVariant({ price: "2" })];
     expect(productInputSchema.safeParse(e).success).toBe(false);
+  });
+
+  it("requires country of origin when the product is active, optional on draft", () => {
+    const draft = base();
+    draft.status = "draft";
+    draft.countryOfOrigin = "";
+    expect(productInputSchema.safeParse(draft).success).toBe(true);
+
+    const active = base();
+    active.status = "active";
+    active.countryOfOrigin = "";
+    const missing = productInputSchema.safeParse(active);
+    expect(missing.success).toBe(false);
+    if (!missing.success) {
+      expect(missing.error.issues.map((i) => i.path.join("."))).toEqual(expect.arrayContaining(["countryOfOrigin"]));
+    }
+
+    active.countryOfOrigin = "India";
+    const ok = productInputSchema.parse(active);
+    expect(ok.countryOfOrigin).toBe("India");
+    expect(toSaveProductPayload(ok, { allowInitialStock: false }).product.country_of_origin).toBe("India");
   });
 
   it("drops blank option stubs and rejects empty option names that still have values", () => {

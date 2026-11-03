@@ -60,6 +60,8 @@ Inbound `x-paliya-host` headers from clients are stripped.
 
 **Addition (2026-10-28, platform AI wallet gateways):** `platform_app_credentials` may also hold **Razorpay** and **Cashfree** secrets used only to collect AI credit recharges for the platform (not store checkout; never `tenant_integrations`). Reads/writes follow the same secret-key + `platform.settings.manage` pattern as (1). Verified platform webhooks at `/api/webhooks/platform/razorpay` and `/api/webhooks/platform/cashfree` use the secret-key client to stamp and complete `ai_credit_purchase_requests` (RPC `complete_ai_credit_purchase_payment`, service_role only).
 
+**Addition (2026-11-03, platform PayU + plan upgrades):** the same `platform_app_credentials` row shape may also hold **PayU** (merchant key + salt + environment) for platform collection. Preference order for online checkout is Razorpay → Cashfree → PayU. Verified webhooks at `/api/webhooks/platform/{razorpay,cashfree,payu}` settle **both** AI credit purchases and **plan upgrades** (`plan_requests` payment columns + RPC `complete_plan_request_payment`, service_role only; same entitlement effect as `platform_decide_plan_request` approve). Store checkout continues to use each merchant's own PayU/`tenant_integrations` keys.
+
 ## ADR-007 — Edge → origin trust via HMAC-signed host · Accepted
 The Worker forwards the original hostname with `x-paliya-edge-{host,ts,sig}` where `sig = HMAC-SHA256(EDGE_SHARED_SECRET, host + "\n" + ts)`.
 The proxy accepts it only if the signature is valid and ≤ 300 s old; otherwise it falls back to the literal Host header. Anyone hitting the origin directly cannot claim a tenant host.

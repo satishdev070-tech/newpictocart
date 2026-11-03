@@ -138,6 +138,7 @@ export const productInputSchema = z
     shippingInfo: optText(2000),
     returnInfo: optText(2000),
     hsnCode: hsn,
+    countryOfOrigin: optText(80),
     seoTitle: optText(120),
     seoDescription: optText(320),
     seoCanonical: z.preprocess((v) => (typeof v === "string" && v.trim() ? v.trim() : undefined), z.string().max(300).regex(/^(\/[^\s]*|https:\/\/[^\s]+)$/, "Use a path like /products/kurta or a full https:// URL").optional()),
@@ -210,6 +211,9 @@ export const productInputSchema = z
       ctx.addIssue({ code: "custom", path: ["status"], message: "An active product needs at least one active variant" });
       ctx.addIssue({ code: "custom", path: ["variants"], message: "Turn on Active for at least one variant, or save as a draft" });
     }
+    if (p.status === "active" && !p.countryOfOrigin) {
+      ctx.addIssue({ code: "custom", path: ["countryOfOrigin"], message: "Enter the country of origin for an active product" });
+    }
   });
 
 export type ProductInput = z.infer<typeof productInputSchema>;
@@ -249,6 +253,7 @@ export function toSaveProductPayload(p: ProductInput, opts: { allowInitialStock:
       shipping_info: p.shippingInfo,
       return_info: p.returnInfo,
       hsn_code: p.hsnCode,
+      country_of_origin: p.countryOfOrigin,
       seo: seoJson,
     },
     options: p.options.map((o) => ({ name: o.name, values: o.values.map((v) => ({ value: v.value, swatch: v.swatch })) })),

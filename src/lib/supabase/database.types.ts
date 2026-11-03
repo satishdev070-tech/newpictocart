@@ -3545,45 +3545,63 @@ export type Database = {
       }
       plan_requests: {
         Row: {
+          amount_paise: number | null
           billing_cycle: string
+          coupon_code: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
           decision_note: string | null
+          discount_percent: number | null
           from_plan_id: string | null
           id: string
           note: string | null
+          paid_at: string | null
           plan_id: string
+          provider: string | null
+          provider_order_id: string | null
           requested_by: string | null
           status: string
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          amount_paise?: number | null
           billing_cycle?: string
+          coupon_code?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
           decision_note?: string | null
+          discount_percent?: number | null
           from_plan_id?: string | null
           id?: string
           note?: string | null
+          paid_at?: string | null
           plan_id: string
+          provider?: string | null
+          provider_order_id?: string | null
           requested_by?: string | null
           status?: string
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          amount_paise?: number | null
           billing_cycle?: string
+          coupon_code?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
           decision_note?: string | null
+          discount_percent?: number | null
           from_plan_id?: string | null
           id?: string
           note?: string | null
+          paid_at?: string | null
           plan_id?: string
+          provider?: string | null
+          provider_order_id?: string | null
           requested_by?: string | null
           status?: string
           tenant_id?: string
@@ -3719,6 +3737,51 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      platform_plan_coupons: {
+        Row: {
+          active: boolean
+          applies_to_plan_codes: string[]
+          code: string
+          created_at: string
+          created_by: string | null
+          ends_at: string | null
+          id: string
+          max_uses: number | null
+          percent_off: number
+          starts_at: string | null
+          updated_at: string
+          uses: number
+        }
+        Insert: {
+          active?: boolean
+          applies_to_plan_codes?: string[]
+          code: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          id?: string
+          max_uses?: number | null
+          percent_off: number
+          starts_at?: string | null
+          updated_at?: string
+          uses?: number
+        }
+        Update: {
+          active?: boolean
+          applies_to_plan_codes?: string[]
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          id?: string
+          max_uses?: number | null
+          percent_off?: number
+          starts_at?: string | null
+          updated_at?: string
+          uses?: number
         }
         Relationships: []
       }
@@ -4004,6 +4067,7 @@ export type Database = {
           brand: string | null
           care_instructions: string | null
           category_id: string | null
+          country_of_origin: string | null
           created_at: string
           description: string | null
           featured: boolean
@@ -4035,6 +4099,7 @@ export type Database = {
           brand?: string | null
           care_instructions?: string | null
           category_id?: string | null
+          country_of_origin?: string | null
           created_at?: string
           description?: string | null
           featured?: boolean
@@ -4066,6 +4131,7 @@ export type Database = {
           brand?: string | null
           care_instructions?: string | null
           category_id?: string | null
+          country_of_origin?: string | null
           created_at?: string
           description?: string | null
           featured?: boolean
@@ -5929,6 +5995,10 @@ export type Database = {
       complete_ai_credit_purchase_payment: {
         Args: { p_payment_reference?: string | null; p_request: string }
         Returns: number
+      }
+      complete_plan_request_payment: {
+        Args: { p_payment_reference?: string | null; p_request: string }
+        Returns: undefined
       }
       decide_ai_credit_purchase: {
         Args: { p_approve: boolean; p_note?: string | null; p_payment_reference?: string | null; p_request: string }

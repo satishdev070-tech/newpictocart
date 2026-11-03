@@ -10,8 +10,8 @@ import { audit } from "@/lib/audit";
 import { assertPlatformPermission, getPlatformContext } from "@/lib/platform/access";
 import { clearAppCredential, saveAppCredential } from "@/features/platform-apps/server";
 import { platformOrigin } from "@/lib/platform/urls";
-import { savePlatformCashfreeSchema, savePlatformRazorpaySchema } from "./gateway-schemas";
-import { getPlatformGatewayStatus, testPlatformCashfree, testPlatformRazorpay } from "./platform-gateways";
+import { savePlatformCashfreeSchema, savePlatformPayuSchema, savePlatformRazorpaySchema } from "./gateway-schemas";
+import { getPlatformGatewayStatus, testPlatformCashfree, testPlatformPayu, testPlatformRazorpay } from "./platform-gateways";
 
 const PATH = "/admin/credits-economy";
 const form = (message: string, field = "_form") => new AppError("VALIDATION", { message, fieldErrors: { [field]: [message] } });
@@ -137,6 +137,60 @@ export async function clearPlatformCashfreeAction(_prev: ActionResult | null, _f
   return runAction("platform.aiCredits.gateway.cashfree.clear", async () => {
     const ctx = await actor();
     await clearAppCredential(ctx, "cashfree");
+    refresh();
+  });
+}
+
+export async function savePlatformPayuAction(_prev: ActionResult<{ message: string }> | null, fd: FormData): Promise<ActionResult<{ message: string }>> {
+  return runAction("platform.aiCredits.gateway.payu.save", async () => {
+    const input = parseInput(savePlatformPayuSchema, formToObject(fd));
+    const ctx = await actor();
+    await rateLimit("platform-ai-gateway", ctx.user.id, 10, 600);
+    const test = await testPlatformPayu({ merchantKey: input.merchantKey, salt: input.salt, environment: input.environment });
+    if (!test.ok) throw form(test.message, "salt");
+    try {
+      await saveAppCredential(ctx, {
+        provider: "payu",
+        clientId: input.merchantKey,
+        secret: input.salt,
+        environment: input.environment,
+      });
+    } catch (error) {
+      const code = error instanceof AppError && error.cause && typeof error.cause === "object" && "code" in error.cause ? String(error.cause.code) : null;
+      if (code === "23514") throw form("The keys work, but this database can't store them yet: apply migration 20261103006300_platform_payu_and_plan_payments.sql first.");
+      throw error;
+    }
+    refresh();
+    return { message: `Saved. ${test.message} Notify URL: ${platformOrigin()}/api/webhooks/platform/payu` };
+  });
+}
+
+export async function testPlatformPayuAction(_prev: ActionResult<{ message: string }> | null, _fd: FormData): Promise<ActionResult<{ message: string }>> {
+  return runAction("platform.aiCredits.gateway.payu.test", async () => {
+    const ctx = await actor();
+    await rateLimit("platform-ai-gateway", ctx.user.id, 10, 600);
+    const { loadPlatformPayuCredentials } = await import("./platform-gateways");
+    const creds = await loadPlatformPayuCredentials();
+    if (!creds) throw form("No PayU keys saved yet. Paste them above and save.");
+    const test = await testPlatformPayu(creds);
+    await audit({
+      tenantId: null,
+      actorUserId: ctx.user.id,
+      actorType: "platform",
+      action: "platform_app_credential.tested",
+      entityType: "platform_app_credential",
+      entityId: "payu",
+      metadata: { ok: test.ok },
+    });
+    if (!test.ok) throw form(test.message);
+    return { message: test.message };
+  });
+}
+
+export async function clearPlatformPayuAction(_prev: ActionResult | null, _fd: FormData): Promise<ActionResult> {
+  return runAction("platform.aiCredits.gateway.payu.clear", async () => {
+    const ctx = await actor();
+    await clearAppCredential(ctx, "payu");
     refresh();
   });
 }

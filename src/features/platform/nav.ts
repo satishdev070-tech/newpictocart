@@ -29,7 +29,9 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
     items: [
       { href: "/admin/plan-requests", label: "Plan requests", permission: "platform.tenants.read", icon: "plans" },
       { href: "/admin/plans", label: "Plans", permission: "platform.plans.manage", icon: "plans" },
+      { href: "/admin/plan-coupons", label: "Plan coupons", permission: "platform.plans.manage", icon: "plans" },
       { href: "/admin/flags", label: "Feature flags", permission: "platform.flags.manage", icon: "flags" },
+
     ],
   },
   {
