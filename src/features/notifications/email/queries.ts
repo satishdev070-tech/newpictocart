@@ -1,13 +1,17 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mapDbError } from "@/lib/supabase/errors";
+import { logger } from "@/lib/observability/logger";
 import { resolveEmailPreferences, type EmailPreferences } from "./preferences";
 
-/** Email toggles for a dashboard page (user session; RLS: store.read on the tenant). */
+/** Email toggles for a dashboard page (user session; RLS: store.read on the tenant). Soft-fails to defaults. */
 export async function getEmailPreferences(tenantId: string): Promise<EmailPreferences> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("email_preferences").select("settings").eq("tenant_id", tenantId).maybeSingle();
-  if (error) throw mapDbError(error);
+  if (error) {
+    logger.warn("notifications.email_preferences_failed", { tenantId, code: error.code, message: error.message });
+    return resolveEmailPreferences(null);
+  }
   return resolveEmailPreferences(data?.settings);
 }
 
