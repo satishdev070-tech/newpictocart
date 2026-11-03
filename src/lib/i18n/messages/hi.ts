@@ -209,7 +209,7 @@ export const hi: Messages = {
       morning: "सुप्रभात",
       afternoon: "शुभ दोपहर",
       evening: "शुभ संध्या",
-      last30: "{store} · पिछले 30 दिन",
+      last30: "{store} · पिछले 30 दिनों की बिक्री",
     },
     products: { title: "प्रोडक्ट", count: "{count} प्रोडक्ट", countOne: "1 प्रोडक्ट", addTitle: "प्रोडक्ट जोड़ें", back: "← प्रोडक्ट" },
     orders: { title: "ऑर्डर", description: "आपके स्टोर पर आया हर ऑर्डर। फ़िल्टर करें, खोजें और एक्सपोर्ट करें।", detailTitle: "ऑर्डर {number}", back: "← ऑर्डर" },

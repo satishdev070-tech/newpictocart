@@ -211,7 +211,7 @@ export const en = {
       morning: "Good morning",
       afternoon: "Good afternoon",
       evening: "Good evening",
-      last30: "{store} · last 30 days",
+      last30: "{store} · sales last 30 days",
     },
     products: { title: "Products", count: "{count} products", countOne: "1 product", addTitle: "Add product", back: "← Products" },
     orders: { title: "Orders", description: "Every order placed on your store. Filter, search and export.", detailTitle: "Order {number}", back: "← Orders" },

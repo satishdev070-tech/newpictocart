@@ -8,12 +8,12 @@ import { SelectField, TextField } from "@/components/ui/field";
 import { Pagination } from "@/components/ui/pagination";
 import { EmptyState } from "@/components/ui/states";
 import { FilterBar, queryString } from "@/features/settings/ui/filter-bar";
-import { listProducts } from "@/features/catalog/server/products";
+import { listProducts, listUsedProductTypes } from "@/features/catalog/server/products";
 import { listCategoryFilterOptions } from "@/features/catalog/server/categories";
 import { listCollectionOptions } from "@/features/catalog/server/collections";
 import { productListQuerySchema, PRODUCT_SORT_LABELS, PRODUCT_SORTS } from "@/features/catalog/schemas";
 import { PRODUCT_PAGE_SIZE, PRODUCT_STATUSES, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_TONE } from "@/features/catalog/constants";
-import { groupTypesForPicker, typeLabel } from "@/features/catalog/product-types";
+import { typeLabel } from "@/features/catalog/product-types";
 import { getTenantTypeCatalogue } from "@/features/catalog/server/product-types";
 import { categoryLabel } from "@/features/catalog/category-tree";
 import { ProductBulkBar } from "@/features/catalog/components/catalog-forms";
@@ -26,9 +26,16 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
   const { t } = await getI18n();
   const sp = await searchParams;
   const f = productListQuerySchema.parse(sp);
-  const [{ rows, total }, categories, collections, catalogue] = await Promise.all([listProducts(ctx.tenantId, f), listCategoryFilterOptions(ctx.tenantId), listCollectionOptions(ctx.tenantId), getTenantTypeCatalogue(ctx.tenantId)]);
-  const typeGroups = groupTypesForPicker(catalogue.types, catalogue.industry, f.type);
-  const typeOptions = [...typeGroups.store, ...typeGroups.suggested, ...typeGroups.others].map((t) => ({ value: t.key, label: t.label }));
+  const [{ rows, total }, categories, collections, catalogue, usedTypes] = await Promise.all([
+    listProducts(ctx.tenantId, f),
+    listCategoryFilterOptions(ctx.tenantId),
+    listCollectionOptions(ctx.tenantId),
+    getTenantTypeCatalogue(ctx.tenantId),
+    listUsedProductTypes(ctx.tenantId),
+  ]);
+  // Type filter shows only types actually used on products (keep a deep-linked current filter visible).
+  const typeKeys = f.type && !usedTypes.includes(f.type) ? [...usedTypes, f.type] : usedTypes;
+  const typeOptions = typeKeys.map((key) => ({ value: key, label: typeLabel(key, catalogue.types) }));
   const params = { q: f.q, status: f.status, type: f.type, category: f.category, collection: f.collection, sort: f.sort };
   const filtered = Boolean(f.q || f.status || f.type || f.category || f.collection);
   const writable = can(ctx, "catalog.write");

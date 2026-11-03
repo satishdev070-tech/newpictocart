@@ -3,10 +3,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mapDbError } from "@/lib/supabase/errors";
 import { AppError } from "@/lib/errors";
 import { assetUrl } from "@/lib/storage/assets";
-import { flattenCategoryTree, validateCategoryParent, type FlatCategory } from "../category-tree";
+import { categoryTitleFromSlug, flattenCategoryTree, validateCategoryParent, type FlatCategory } from "../category-tree";
 import { catalogDbError } from "./db-errors";
 import type { z } from "zod";
 import type { categorySchema } from "../schemas";
+
+export { categoryTitleFromSlug };
 
 export type CategoryRow = {
   id: string;
@@ -81,6 +83,42 @@ export async function listCategories(tenantId: string, opts: { withCounts?: bool
 }
 
 export type CategoryInput = z.infer<typeof categorySchema>;
+
+/**
+ * Ensures each category slug exists for the tenant (creates a top-level active category when
+ * missing). Used by CSV import so a valid sample file with `category=Bag` succeeds.
+ */
+export async function ensureCategoriesBySlug(tenantId: string, slugs: string[]): Promise<{ bySlug: Map<string, string>; created: string[] }> {
+  const unique = [...new Set(slugs.map((s) => s.trim().toLowerCase()).filter(Boolean))];
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from("categories").select("id, slug").eq("tenant_id", tenantId);
+  if (error) throw mapDbError(error);
+  const bySlug = new Map((data ?? []).map((c) => [c.slug, c.id]));
+  const created: string[] = [];
+  for (const slug of unique) {
+    if (bySlug.has(slug)) continue;
+    const name = categoryTitleFromSlug(slug) || slug;
+    const { data: row, error: iErr } = await supabase
+      .from("categories")
+      .insert({
+        tenant_id: tenantId,
+        name,
+        slug,
+        description: null,
+        parent_id: null,
+        status: "active",
+        position: 0,
+        seo: {},
+        size_chart_id: null,
+      })
+      .select("id")
+      .single();
+    if (iErr) throw catalogDbError(iErr);
+    bySlug.set(slug, row.id);
+    created.push(slug);
+  }
+  return { bySlug, created };
+}
 
 /** Creates or updates a category after checking the parent (no cycles, depth limit). */
 export async function saveCategory(tenantId: string, input: CategoryInput, imagePath: string | null | undefined): Promise<{ id: string; oldImagePath: string | null }> {
