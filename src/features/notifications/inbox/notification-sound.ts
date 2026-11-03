@@ -55,6 +55,14 @@ export function unlockNotificationAudio(): void {
 
 const prefsListeners = new Set<() => void>();
 
+/**
+ * Cached snapshots for `useSyncExternalStore`. Returning a fresh object from getSnapshot on
+ * every call makes React think the store changed → infinite re-render → React error #185.
+ */
+const SERVER_SOUND_PREFS: NotificationSoundPrefs = DEFAULT_SOUND_PREFS;
+let clientSoundPrefs: NotificationSoundPrefs = DEFAULT_SOUND_PREFS;
+let clientSoundRaw: string | null | undefined = undefined;
+
 /** Subscribe to local sound-pref changes (for `useSyncExternalStore`). */
 export function subscribeSoundPrefs(onStoreChange: () => void): () => void {
   prefsListeners.add(onStoreChange);
@@ -63,22 +71,43 @@ export function subscribeSoundPrefs(onStoreChange: () => void): () => void {
   };
 }
 
+/** Stable getServerSnapshot — same reference every call. */
+export function getServerSoundPrefs(): NotificationSoundPrefs {
+  return SERVER_SOUND_PREFS;
+}
+
+/** Stable getSnapshot — same reference until localStorage actually changes. */
 export function readSoundPrefs(): NotificationSoundPrefs {
-  if (typeof window === "undefined") return { ...DEFAULT_SOUND_PREFS };
+  if (typeof window === "undefined") return SERVER_SOUND_PREFS;
   try {
-    return parseSoundPrefs(localStorage.getItem(SOUND_PREF_STORAGE_KEY));
+    const raw = localStorage.getItem(SOUND_PREF_STORAGE_KEY);
+    if (raw === clientSoundRaw) return clientSoundPrefs;
+    clientSoundRaw = raw;
+    clientSoundPrefs = parseSoundPrefs(raw);
+    return clientSoundPrefs;
   } catch {
-    return { ...DEFAULT_SOUND_PREFS };
+    return clientSoundPrefs;
   }
 }
 
 export function writeSoundPrefs(prefs: NotificationSoundPrefs): void {
   if (typeof window === "undefined") return;
+  const next: NotificationSoundPrefs = {
+    enabled: Boolean(prefs.enabled),
+    toneId: prefs.toneId,
+  };
+  // Skip notify when nothing changed (avoids feedback loops with controlled UIs).
+  if (next.enabled === clientSoundPrefs.enabled && next.toneId === clientSoundPrefs.toneId && clientSoundRaw !== undefined) {
+    return;
+  }
+  const serialized = serializeSoundPrefs(next);
   try {
-    localStorage.setItem(SOUND_PREF_STORAGE_KEY, serializeSoundPrefs(prefs));
+    localStorage.setItem(SOUND_PREF_STORAGE_KEY, serialized);
   } catch {
     // private mode / quota — prefs stay in-memory for this session only via callers
   }
+  clientSoundRaw = serialized;
+  clientSoundPrefs = next;
   for (const listener of prefsListeners) listener();
 }
 
