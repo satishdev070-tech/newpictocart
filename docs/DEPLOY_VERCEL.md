@@ -3,8 +3,8 @@
 The app runs on **Vercel** (Next.js), with **Supabase** (database, auth, storage), **Resend**
 (email, see [EMAIL.md](./EMAIL.md)) and the **WhatsApp Cloud API** (see
 [WHATSAPP_NOTIFICATIONS.md](./WHATSAPP_NOTIFICATIONS.md)). This guide is the full checklist.
-The Cloudflare setup (`workers/domain-router`, Cloudflare for SaaS) is an alternative edge and is
-not needed on Vercel.
+
+**Cloudflare in front (recommended edge):** put DNS/CDN/TLS on Cloudflare while keeping this Vercel origin — canary `pictocartdev.in` first, then `pictocart.in`. See [DEPLOY_CLOUDFLARE.md](./DEPLOY_CLOUDFLARE.md) (ADR-011). The Hostinger-oriented `workers/domain-router` Worker is **not** needed on this path; Cloudflare for SaaS custom hostnames remain optional later.
 
 ## 1. Vercel project
 

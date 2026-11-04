@@ -88,11 +88,14 @@ Proposal: enable it at the start of Phase 7 with tags `tenant:{id}`, `tenant:{id
 
 **Update (2026-10-28, public catalogue Redis):** shared helper `cachedPublic` / `revalidatePublicTags` (`src/lib/cache/public-cache.ts`) powers storefront (`sf:v1`) and platform public catalogues (`pub:v1`): marketplace themes/demos, platform `product_types`, marketing landing, public platform config, and `feature_flags` **defaults only** (no tenant overrides). Private admin/dashboard lists stay uncached. Feature-flag writes also invalidate `platform-feature-flag-defaults`.
 
-## ADR-011 — Hosting target for the Next.js app · Open (needed by Phase 11; affects nothing before)
-Options:
-1. **Vercel** for Next.js + Cloudflare in front (DNS, Cloudflare for SaaS custom hostnames, Worker). Most compatible with Next 16 features; two vendors; custom hostnames must also be added to Vercel via its API.
-2. **Cloudflare Workers via OpenNext** (`@opennextjs/cloudflare`) — one vendor, custom hostnames handled natively by Cloudflare for SaaS; some Next features lag (check Cache Components/ISR support at the time).
-Code is kept host-agnostic (Node runtime, no Vercel-only APIs) so either works.
+## ADR-011 — Hosting target for the Next.js app · Accepted (2026-11-04)
+**Choice:** **Vercel** runs the Next.js 16 app; **Cloudflare** sits in front for DNS, TLS, CDN, WAF (and later Cloudflare for SaaS custom hostnames when needed).
+
+**Why:** Pictocart is a multi-tenant Node app (`proxy.ts`, Server Actions, `vercel.json` crons, `sharp` / `/api/img`). Static Cloudflare Pages cannot host it. OpenNext on Workers (`@opennextjs/cloudflare`) remains a **deferred spike** until Next 16.3 + proxy + crons + sharp are proven on a canary — not a production cutover path today.
+
+**Cutover order:** canary `pictocartdev.in` on Cloudflare → Vercel first; then `pictocart.in` + `*.pictocart.in`. Runbook: [DEPLOY_CLOUDFLARE.md](./DEPLOY_CLOUDFLARE.md). While origin stays Vercel, do **not** deploy `workers/domain-router` (that Worker is for Hostinger / non-Vercel origins — [DEPLOY_HOSTINGER.md](./DEPLOY_HOSTINGER.md)).
+
+Code stays host-agnostic where practical; Vercel-specific pieces (`vercel.json` crons, Domains API) remain until an OpenNext migration closes them.
 
 ## ADR-012 — `tenants` vs `stores` · Accepted
 The blueprint has both with overlapping columns (name, slug, logo, currency, timezone). Proposal: `tenants` = account/billing/status/plan;

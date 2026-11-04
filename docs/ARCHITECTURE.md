@@ -29,8 +29,9 @@ unless it is a verified row in `domains`.
 Browser
   │
   ▼
-Cloudflare (DNS, SSL for SaaS custom hostnames, WAF/rate limits)            [Phase 11]
-  │  domain-router Worker: forwards original host as
+Cloudflare (DNS, TLS, CDN, WAF; optional SaaS custom hostnames)             [ADR-011]
+  │  Recommended: orange-cloud → Vercel origin (see docs/DEPLOY_CLOUDFLARE.md).
+  │  Hostinger-only: domain-router Worker forwards original host as
   │  x-paliya-edge-host + x-paliya-edge-ts + x-paliya-edge-sig (HMAC-SHA256)
   ▼
 Next.js  src/proxy.ts   (Node runtime, runs before every non-static request)
@@ -80,7 +81,7 @@ src/
                            observability/logger, platform/access
 supabase/migrations        13 ordered migrations (schema, RLS, SQL functions, storage, reference data)
 supabase/seed.sql, supabase/tests/supabase-shim.sql, scripts/db/*   local Postgres test harness + type generator
-workers/domain-router      Cloudflare Worker for custom domains (ADR-029)
+workers/domain-router      Cloudflare Worker for Hostinger/non-Vercel origins (ADR-029); skip when CF→Vercel (ADR-011)
 tests/unit (vitest)        tests/rls (Postgres, `pnpm test:db`)
 docs/
 ```

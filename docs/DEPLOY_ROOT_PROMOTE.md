@@ -2,7 +2,7 @@
 
 Full root cutover on the **same** Vercel project (`pictocart-u7pf`) and Supabase (`v2pictocart`). After this, store primaries and new creates use `{slug}.pictocart.in`. Staging hosts stay as platform aliases.
 
-For the earlier alias-only step (www only, root still pictocartdev), see [DEPLOY_DOMAIN_ALIAS.md](./DEPLOY_DOMAIN_ALIAS.md). Broader Vercel notes: [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md) § “Switching the root domain”.
+For the earlier alias-only step (www only, root still pictocartdev), see [DEPLOY_DOMAIN_ALIAS.md](./DEPLOY_DOMAIN_ALIAS.md). Broader Vercel notes: [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md) § “Switching the root domain”. After the root is live, put Cloudflare DNS/CDN in front via [DEPLOY_CLOUDFLARE.md](./DEPLOY_CLOUDFLARE.md) (canary `pictocartdev.in`, then `pictocart.in`) — ADR-011.
 
 ## Locked decisions
 
