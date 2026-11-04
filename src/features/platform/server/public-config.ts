@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { publicEnv } from "@/lib/env/public";
 import { logger } from "@/lib/observability/logger";
+import { logSpan, timeAsync } from "@/lib/observability/timing";
 import { PLATFORM_ICON } from "@/config/platform";
 import { cachedPublic, revalidatePublicTags } from "@/lib/cache/public-cache";
 import { LANDING_KEY } from "@/features/marketing-site/landing";
@@ -41,7 +42,10 @@ const cached = cachedPublic("platform-public-config", load, {
 /** Logos, favicon, GA4 id and switches. Never throws: any failure means today's defaults. */
 export const getPublicPlatformConfig = cache(async (): Promise<PublicPlatformConfig> => {
   try {
-    return await cached();
+    const { result, ms } = await timeAsync("public_config.load", () => cached());
+    // L1/L2 hit vs miss is inside cachedPublic; wall time still shows cache warmth.
+    logSpan({ span: "public_config.load", ms, cache: "l1_or_l2_or_db" });
+    return result;
   } catch {
     return DEFAULT_PUBLIC_CONFIG;
   }

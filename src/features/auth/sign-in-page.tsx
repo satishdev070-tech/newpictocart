@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { MerchantSignIn } from "@/features/auth/merchant-auth";
 import { ClearStartDraftOnLogin } from "@/features/auth/clear-start-draft-on-login";
 import { signOutAction } from "@/features/auth/actions";
@@ -9,8 +10,11 @@ import { isAdminPath, isOnboardingPath, isSellerPath } from "@/lib/auth/role-rou
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { AuthHeading, AuthSplit } from "@/components/auth/auth-split";
 import { ConsoleAside, MerchantAside } from "@/components/auth/auth-asides";
+import { getPublicPlatformConfig } from "@/features/platform/server/public-config";
 import { logger } from "@/lib/observability/logger";
+import { logSpan, timeAsync } from "@/lib/observability/timing";
 import { isNextControlFlowError } from "@/lib/next/control-flow";
+import { PROXY_CLAIMS_MS_HEADER, REQUEST_ID_HEADER } from "@/lib/tenant/routing";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -19,21 +23,76 @@ type SignInSession = {
   signedInNoStore: boolean;
 };
 
+async function tryObsHeaders(): Promise<{ requestId?: string; proxyClaimsMs?: number }> {
+  try {
+    const h = await headers();
+    const requestId = h.get(REQUEST_ID_HEADER) ?? undefined;
+    const raw = h.get(PROXY_CLAIMS_MS_HEADER);
+    const parsed = raw != null ? Number(raw) : NaN;
+    const proxyClaimsMs = Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+    return { requestId, proxyClaimsMs };
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Session + landing for the shared Login page. Fail-soft: never throw into (auth)/error.tsx for
  * transient Supabase/config blips — the form still renders.
  */
 async function loadSignInSession(requested: string): Promise<SignInSession> {
+  const pageStarted = performance.now();
+  const { requestId, proxyClaimsMs } = await tryObsHeaders();
   try {
-    const user = await getSessionUser();
-    const signedInLanding = user ? await landingPathFor(user.id, requested) : null;
+    // Correlate with proxy.claims when the proxy forwarded x-pc-claims-ms (cookie present).
+    // Does not skip getSessionUser — JWT is still verified in RSC; this only aids timing evidence.
+    if (proxyClaimsMs != null) {
+      logSpan({ span: "proxy.claims.header", ms: proxyClaimsMs, requestId });
+    }
+    const { result: user, ms: sessionMs } = await timeAsync("sign_in.getSessionUser", () => getSessionUser());
+    logSpan({ span: "sign_in.getSessionUser", ms: sessionMs, requestId });
+
+    let signedInLanding: string | null = null;
+    let landingMs = 0;
+    if (user) {
+      const landing = await timeAsync("sign_in.landingPathFor", () => landingPathFor(user.id, requested));
+      landingMs = landing.ms;
+      logSpan({ span: "sign_in.landingPathFor", ms: landingMs, requestId });
+      signedInLanding = landing.result;
+    }
     const panelLanding =
       signedInLanding && (isAdminPath(signedInLanding) || isSellerPath(signedInLanding)) ? signedInLanding : null;
     const signedInNoStore = Boolean(user && signedInLanding && isOnboardingPath(signedInLanding));
+    try {
+      const { observeLoginPage } = await import("@/features/observability/observe-login");
+      const spans = [
+        ...(proxyClaimsMs != null
+          ? [{ name: "proxy.claims.header", startMs: 0, endMs: proxyClaimsMs, status: "ok" as const }]
+          : []),
+        { name: "sign_in.getSessionUser", startMs: 0, endMs: sessionMs, status: "ok" as const },
+        ...(user
+          ? [{ name: "sign_in.landingPathFor", startMs: sessionMs, endMs: sessionMs + landingMs, status: "ok" as const }]
+          : []),
+      ];
+      observeLoginPage({
+        requestId,
+        durationMs: performance.now() - pageStarted,
+        status: 200,
+        spans,
+      });
+    } catch {
+      // observability must never break sign-in
+    }
     return { panelLanding, signedInNoStore };
   } catch (err) {
     if (isNextControlFlowError(err)) throw err;
     logger.error("auth.sign_in_page_failed", { error: err });
+    try {
+      const { observeLoginPage } = await import("@/features/observability/observe-login");
+      observeLoginPage({ requestId, durationMs: performance.now() - pageStarted, status: 500 });
+    } catch {
+      // ignore
+    }
     return { panelLanding: null, signedInNoStore: false };
   }
 }
@@ -53,7 +112,11 @@ export async function SharedSignInPage({ searchParams }: { searchParams: SearchP
   const requested = typeof searchParams.next === "string" ? safeRedirectPath(searchParams.next, "") : "";
   const error = searchParams.error;
   const toConsole = isAdminPath(requested);
+  // Warm React.cache'd public config in parallel with session (Google slot / brand share it).
+  // Does not change auth behavior — only overlaps I/O with loadSignInSession.
+  const publicConfigWarm = getPublicPlatformConfig();
   const { panelLanding, signedInNoStore } = await loadSignInSession(requested);
+  void publicConfigWarm;
 
   if (panelLanding) {
     return <ClearStartDraftOnLogin signedInLanding={panelLanding} />;
