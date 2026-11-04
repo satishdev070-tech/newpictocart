@@ -2485,6 +2485,275 @@ export type Database = {
           },
         ]
       }
+      observability_alert_events: {
+        Row: {
+          details: Json
+          fired_at: string
+          id: string
+          incident_id: string | null
+          rule_id: string | null
+          severity: string
+          summary: string
+        }
+        Insert: {
+          details?: Json
+          fired_at?: string
+          id?: string
+          incident_id?: string | null
+          rule_id?: string | null
+          severity?: string
+          summary: string
+        }
+        Update: {
+          details?: Json
+          fired_at?: string
+          id?: string
+          incident_id?: string | null
+          rule_id?: string | null
+          severity?: string
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observability_alert_events_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "observability_incidents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observability_alert_events_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "observability_alert_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      observability_alert_rules: {
+        Row: {
+          config: Json
+          created_at: string
+          enabled: boolean
+          id: string
+          name: string
+          rule_type: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name: string
+          rule_type: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name?: string
+          rule_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      observability_endpoint_metrics: {
+        Row: {
+          environment: string
+          error_count: number
+          id: string
+          latency_bucket_counts: number[]
+          latency_sum_ms: number
+          method: string
+          request_count: number
+          route_template: string
+          service: string
+          slow_count: number
+          time_bucket: string
+          updated_at: string
+        }
+        Insert: {
+          environment: string
+          error_count?: number
+          id?: string
+          latency_bucket_counts: number[]
+          latency_sum_ms?: number
+          method: string
+          request_count?: number
+          route_template: string
+          service: string
+          slow_count?: number
+          time_bucket: string
+          updated_at?: string
+        }
+        Update: {
+          environment?: string
+          error_count?: number
+          id?: string
+          latency_bucket_counts?: number[]
+          latency_sum_ms?: number
+          method?: string
+          request_count?: number
+          route_template?: string
+          service?: string
+          slow_count?: number
+          time_bucket?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      observability_error_groups: {
+        Row: {
+          attrs: Json
+          fingerprint: string
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          message_sample: string | null
+          occurrence_count: number
+          route_template: string | null
+          status: number | null
+        }
+        Insert: {
+          attrs?: Json
+          fingerprint: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          message_sample?: string | null
+          occurrence_count?: number
+          route_template?: string | null
+          status?: number | null
+        }
+        Update: {
+          attrs?: Json
+          fingerprint?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          message_sample?: string | null
+          occurrence_count?: number
+          route_template?: string | null
+          status?: number | null
+        }
+        Relationships: []
+      }
+      observability_incidents: {
+        Row: {
+          details: Json
+          id: string
+          opened_at: string
+          resolved_at: string | null
+          status: string
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          details?: Json
+          id?: string
+          opened_at?: string
+          resolved_at?: string | null
+          status?: string
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          details?: Json
+          id?: string
+          opened_at?: string
+          resolved_at?: string | null
+          status?: string
+          summary?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      observability_request_events: {
+        Row: {
+          attrs: Json
+          duration_ms: number
+          environment: string
+          error_fingerprint: string | null
+          error_message: string | null
+          id: string
+          method: string
+          request_id: string
+          route_template: string
+          service: string
+          spans: Json
+          status: number
+          tenant_id: string | null
+          timestamp: string
+          trace_id: string
+          user_id: string | null
+        }
+        Insert: {
+          attrs?: Json
+          duration_ms: number
+          environment?: string
+          error_fingerprint?: string | null
+          error_message?: string | null
+          id?: string
+          method?: string
+          request_id: string
+          route_template: string
+          service?: string
+          spans?: Json
+          status: number
+          tenant_id?: string | null
+          timestamp?: string
+          trace_id: string
+          user_id?: string | null
+        }
+        Update: {
+          attrs?: Json
+          duration_ms?: number
+          environment?: string
+          error_fingerprint?: string | null
+          error_message?: string | null
+          id?: string
+          method?: string
+          request_id?: string
+          route_template?: string
+          service?: string
+          spans?: Json
+          status?: number
+          tenant_id?: string | null
+          timestamp?: string
+          trace_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observability_request_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      observability_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       order_events: {
         Row: {
           actor_user_id: string | null
@@ -6072,6 +6341,11 @@ export type Database = {
           p_title: string
           p_type: string
         }
+        Returns: number
+      }
+      observability_cleanup: { Args: never; Returns: Json }
+      observability_upsert_endpoint_metrics: {
+        Args: { p_rows: Json }
         Returns: number
       }
       platform_accrue_partner_commissions: {

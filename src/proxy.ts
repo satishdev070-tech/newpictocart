@@ -2,13 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { publicEnv } from "@/lib/env/public";
 import { normalizeHost } from "@/lib/tenant/host";
-import { decideRoute, STORE_ROUTE_PREFIX, INTERNAL_HOST_HEADER, INTERNAL_REQUEST_HEADERS, REQUEST_ID_HEADER, THEME_PREVIEW_HEADER } from "@/lib/tenant/routing";
+import { decideRoute, STORE_ROUTE_PREFIX, INTERNAL_HOST_HEADER, INTERNAL_REQUEST_HEADERS, PROXY_CLAIMS_MS_HEADER, REQUEST_ID_HEADER, THEME_PREVIEW_HEADER } from "@/lib/tenant/routing";
 import { THEME_PREVIEW_COOKIE, THEME_PREVIEW_EXIT, THEME_PREVIEW_PARAM, THEME_PREVIEW_TTL_SECONDS, isPreviewKeyShape } from "@/features/theme/marketplace/live-preview";
 import { framingHeaders, platformFrameOrigins } from "@/lib/security/headers";
 import { platformOrigin } from "@/lib/platform/urls";
 import { platformHostAliases } from "@/lib/platform/hosts";
 import { EDGE_HOST_HEADER, EDGE_SIG_HEADER, EDGE_TS_HEADER, verifyEdgeHost } from "@/lib/tenant/edge-signature";
 import { logger } from "@/lib/observability/logger";
+import { logSpan, serverTimingHeader, timeAsync } from "@/lib/observability/timing";
 
 /**
  * Request entry point (Next.js 16 "proxy", formerly middleware). Responsibilities:
@@ -58,13 +59,18 @@ function hasSupabaseAuthCookie(request: NextRequest): boolean {
 }
 
 export async function proxy(request: NextRequest) {
+  const proxyStarted = performance.now();
   const env = publicEnv();
   const host = await effectiveHost(request);
+
+  const inboundId = request.headers.get(REQUEST_ID_HEADER);
+  const requestId = inboundId && REQUEST_ID_PATTERN.test(inboundId) ? inboundId : crypto.randomUUID();
 
   // (4) Session refresh — only when an auth cookie exists, so anonymous storefront
   // traffic never pays for a Supabase round-trip.
   const pendingCookies: PendingCookie[] = [];
   const pendingHeaders: Record<string, string> = {};
+  let proxyClaimsMs: number | undefined;
   if (hasSupabaseAuthCookie(request)) {
     try {
       const supabase = createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
@@ -79,7 +85,9 @@ export async function proxy(request: NextRequest) {
           },
         },
       });
-      await supabase.auth.getClaims();
+      const { ms } = await timeAsync("proxy.claims", () => supabase.auth.getClaims());
+      proxyClaimsMs = ms;
+      logSpan({ span: "proxy.claims", ms, requestId });
     } catch (err) {
       // Corrupt/expired cookies or a brief Supabase outage must not 500 the whole request
       // (seller/admin login and storefronts all pass through here when a session cookie exists).
@@ -92,9 +100,11 @@ export async function proxy(request: NextRequest) {
   for (const h of INTERNAL_REQUEST_HEADERS) forwarded.delete(h);
   for (const h of [EDGE_HOST_HEADER, EDGE_TS_HEADER, EDGE_SIG_HEADER]) forwarded.delete(h);
   if (host) forwarded.set(INTERNAL_HOST_HEADER, host);
-  const inboundId = request.headers.get(REQUEST_ID_HEADER);
-  const requestId = inboundId && REQUEST_ID_PATTERN.test(inboundId) ? inboundId : crypto.randomUUID();
   forwarded.set(REQUEST_ID_HEADER, requestId);
+  // Request-scoped memo of proxy getClaims duration for RSC logging (not a security boundary).
+  if (proxyClaimsMs != null && Number.isFinite(proxyClaimsMs)) {
+    forwarded.set(PROXY_CLAIMS_MS_HEADER, String(Math.round(proxyClaimsMs * 10) / 10));
+  }
 
   // (3) Routing decision.
   const decision = decideRoute(host, request.nextUrl.pathname, env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN, platformAliases(env.NEXT_PUBLIC_PLATFORM_URL));
@@ -130,6 +140,32 @@ export async function proxy(request: NextRequest) {
   for (const { name, value, options } of pendingCookies) response.cookies.set(name, value, options);
   for (const [key, value] of Object.entries(pendingHeaders)) response.headers.set(key, value);
   response.headers.set(REQUEST_ID_HEADER, requestId);
+  if (proxyClaimsMs != null) {
+    try {
+      const existing = response.headers.get("Server-Timing");
+      const added = serverTimingHeader([{ name: "proxy.claims", ms: proxyClaimsMs }]);
+      response.headers.set("Server-Timing", existing ? `${existing}, ${added}` : added);
+    } catch {
+      // never break routing
+    }
+  }
+  // Sampled telemetry for the observability dashboard (fail-soft; never blocks the response).
+  try {
+    const { observeProxyRequest } = await import("@/features/observability/observe-proxy");
+    observeProxyRequest({
+      requestId,
+      route: request.nextUrl.pathname,
+      method: request.method,
+      durationMs: performance.now() - proxyStarted,
+      status: decision.action === "not-found" ? 404 : 200,
+      spans:
+        proxyClaimsMs != null
+          ? [{ name: "proxy.claims", startMs: 0, endMs: proxyClaimsMs, status: "ok" as const }]
+          : [],
+    });
+  } catch {
+    // observability must never break routing
+  }
   return response;
 }
 

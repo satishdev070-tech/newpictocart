@@ -1,7 +1,10 @@
 import "server-only";
+import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/observability/logger";
+import { logSpan, timeAsync } from "@/lib/observability/timing";
 import { isNextControlFlowError } from "@/lib/next/control-flow";
+import { REQUEST_ID_HEADER } from "@/lib/tenant/routing";
 import { isAdminPath, landingFor, type AccountAccess } from "./role-routing";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
@@ -17,6 +20,14 @@ export function loginPathFor(next: string): string {
   return `${LOGIN_PATH}?next=${encodeURIComponent(next)}`;
 }
 
+async function tryRequestId(): Promise<string | undefined> {
+  try {
+    return (await headers()).get(REQUEST_ID_HEADER) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Platform and store access of the signed-in user. Read with the user's own session (RLS: members
  * see only their own membership rows), never from request input. Null when the lookup failed.
@@ -24,10 +35,21 @@ export function loginPathFor(next: string): string {
 export async function accountAccessFor(userId: string, client?: SupabaseServerClient): Promise<AccountAccess | null> {
   try {
     const supabase = client ?? (await createSupabaseServerClient());
-    const [tenant, platform] = await Promise.all([
-      supabase.from("tenant_memberships").select("tenant_id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "active"),
-      supabase.from("platform_memberships").select("status").eq("user_id", userId).maybeSingle(),
+    const requestId = await tryRequestId();
+    const [tenantTimed, platformTimed] = await Promise.all([
+      timeAsync("landing.tenantMemberships", () =>
+        Promise.resolve(
+          supabase.from("tenant_memberships").select("tenant_id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "active"),
+        ),
+      ),
+      timeAsync("landing.platformMemberships", () =>
+        Promise.resolve(supabase.from("platform_memberships").select("status").eq("user_id", userId).maybeSingle()),
+      ),
     ]);
+    logSpan({ span: "landing.tenantMemberships", ms: tenantTimed.ms, requestId });
+    logSpan({ span: "landing.platformMemberships", ms: platformTimed.ms, requestId });
+    const tenant = tenantTimed.result;
+    const platform = platformTimed.result;
     return { platformStaff: platform.data?.status === "active", storeCount: tenant.count ?? 0 };
   } catch (err) {
     if (isNextControlFlowError(err)) throw err;
