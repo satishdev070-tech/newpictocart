@@ -1,6 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { isObservabilityEnabled, getSlowMs } from "../config";
+import { resolveErrorFields } from "../error-fingerprint";
 import { emptyHistogram, histogramCountsForDb, recordLatency, type LatencyHistogram } from "../metrics";
 import { getRequestContext, generateId } from "../request-context";
 import { normalizeRoute, redactValue } from "../sanitization";
@@ -156,6 +157,13 @@ export function recordRequestEvent(partial: RequestEventPartial): void {
     const service = partial.service ?? "web";
     const spans = partial.spans ?? ctx?.spans ?? [];
     const attrs = (redactValue({ ...(ctx?.attrs ?? {}), ...(partial.attrs ?? {}) }) as Record<string, unknown>) ?? {};
+    const { errorFingerprint, errorMessage } = resolveErrorFields({
+      status,
+      method,
+      routeTemplate,
+      errorFingerprint: partial.errorFingerprint,
+      errorMessage: partial.errorMessage,
+    });
 
     const event: BufferedRequestEvent = {
       request_id: requestId,
@@ -169,8 +177,8 @@ export function recordRequestEvent(partial: RequestEventPartial): void {
       duration_ms: durationMs,
       tenant_id: partial.tenantId ?? ctx?.tenantId ?? null,
       user_id: partial.userId ?? null,
-      error_fingerprint: partial.errorFingerprint ?? null,
-      error_message: partial.errorMessage ? String(partial.errorMessage).slice(0, 500) : null,
+      error_fingerprint: errorFingerprint,
+      error_message: errorMessage,
       spans,
       attrs,
     };

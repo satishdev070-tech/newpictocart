@@ -10,8 +10,9 @@ Architecture assessment and instrumentation notes. **Do not optimize login laten
 | Request correlation | Yes — proxy sets `x-request-id` (`REQUEST_ID_HEADER` in `src/lib/tenant/routing.ts`) on every response |
 | OpenTelemetry / tracing SDK | **No** — no OTel exporter, no collector, no span processor |
 | Admin UI / telemetry schema | Yes — `/admin/performance/*` + migration `20261104007000_observability_center.sql` |
+| Cron `/api/cron/observability` | Yes — retention cleanup (`observability_cleanup`) **then** alert evaluation (`evaluateAndRecordAlertsForCron`); alert failures soft-fail and still return the cleanup result |
 
-Phase 1 adds **fail-soft wall-clock spans** on the login path (`obs.span` log lines + optional `Server-Timing` on the proxy response). Sampled rows are scheduled via `recordRequestEvent` / `after()` (fail-soft; never blocks auth).
+Phase 1 adds **fail-soft wall-clock spans** on the login path (`obs.span` log lines + optional `Server-Timing` on the proxy response). Sampled rows are scheduled via `recordRequestEvent` / `after()` (fail-soft; never blocks auth). Status ≥ 400 auto-derives `error_fingerprint` / `error_message`; ingest upserts `observability_error_groups`.
 
 ## Login path map
 

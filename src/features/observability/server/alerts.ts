@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { mapDbError } from "@/lib/supabase/errors";
 import { requirePlatform } from "@/lib/platform/access";
 import type { Json } from "@/lib/supabase/database.types";
+import { mergeEndpointMetrics } from "../analysis";
 import {
   evaluateAlerts,
   type AlertCooldownIncident,
@@ -25,6 +26,14 @@ export {
   type AlertSeverity,
   type ProposedIncident,
 } from "../alert-evaluation";
+
+export type EvaluateAlertsOptions = {
+  /**
+   * Skip requirePlatform — for cron / service_role paths with no user session.
+   * Admin UI callers must leave this unset/false.
+   */
+  skipAuth?: boolean;
+};
 
 type PgError = Parameters<typeof mapDbError>[0];
 function check(error: PgError, context?: Record<string, unknown>) {
@@ -220,12 +229,17 @@ export async function upsertAlertRule(input: z.infer<typeof upsertRuleSchema>): 
 /**
  * Evaluate rules against metrics and optionally persist proposed incidents.
  * Pure check: call `evaluateAlerts` alone. This helper loads cooldown state from DB.
+ *
+ * Pass `{ skipAuth: true }` only from cron/service paths (no user session).
  */
 export async function evaluateAndRecordAlerts(
   metrics: readonly AlertMetricSnapshot[],
   rules?: readonly AlertRuleForEval[],
+  options?: EvaluateAlertsOptions,
 ): Promise<ProposedIncident[]> {
-  await requirePlatform("platform.observability.manage");
+  if (!options?.skipAuth) {
+    await requirePlatform("platform.observability.manage");
+  }
   const admin = createSupabaseAdminClient();
 
   let ruleList: AlertRuleForEval[];
@@ -287,4 +301,37 @@ export async function evaluateAndRecordAlerts(
   }
 
   return proposed;
+}
+
+const DEFAULT_CRON_WINDOW_MINUTES = 15;
+
+/**
+ * Cron-safe alert evaluation: load recent endpoint metrics (admin client) and
+ * record incidents without requirePlatform.
+ */
+export async function evaluateAndRecordAlertsForCron(
+  windowMinutes = DEFAULT_CRON_WINDOW_MINUTES,
+): Promise<ProposedIncident[]> {
+  const admin = createSupabaseAdminClient();
+  const from = new Date(Date.now() - Math.max(1, windowMinutes) * 60_000).toISOString();
+  const { data, error } = await admin
+    .from("observability_endpoint_metrics")
+    .select("route_template, method, request_count, error_count, latency_bucket_counts, latency_sum_ms")
+    .gte("time_bucket", from)
+    .limit(5000);
+  check(error);
+
+  const snapshots = mergeEndpointMetrics(
+    (data ?? []).map((row) => ({
+      route_template: row.route_template,
+      method: row.method,
+      request_count: Number(row.request_count) || 0,
+      error_count: Number(row.error_count) || 0,
+      latency_bucket_counts: row.latency_bucket_counts?.map((n) => Number(n) || 0) ?? null,
+      latency_sum_ms: Number(row.latency_sum_ms) || 0,
+    })),
+    true,
+  );
+
+  return evaluateAndRecordAlerts(snapshots, undefined, { skipAuth: true });
 }

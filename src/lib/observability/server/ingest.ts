@@ -3,6 +3,98 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logger } from "../logger";
 import type { BufferedEndpointMetric, BufferedRequestEvent } from "./types";
 
+type ErrorGroupAgg = {
+  fingerprint: string;
+  routeTemplate: string | null;
+  status: number | null;
+  messageSample: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  count: number;
+};
+
+/** Aggregate fingerprinted events for error-group upsert (pure; exported for tests). */
+export function aggregateErrorGroups(events: readonly BufferedRequestEvent[]): ErrorGroupAgg[] {
+  const map = new Map<string, ErrorGroupAgg>();
+  for (const e of events) {
+    const fp = e.error_fingerprint?.trim();
+    if (!fp) continue;
+    const existing = map.get(fp);
+    if (!existing) {
+      map.set(fp, {
+        fingerprint: fp.slice(0, 128),
+        routeTemplate: e.route_template || null,
+        status: e.status,
+        messageSample: e.error_message ? e.error_message.slice(0, 500) : null,
+        firstSeenAt: e.timestamp,
+        lastSeenAt: e.timestamp,
+        count: 1,
+      });
+      continue;
+    }
+    existing.count += 1;
+    if (e.timestamp < existing.firstSeenAt) existing.firstSeenAt = e.timestamp;
+    if (e.timestamp > existing.lastSeenAt) {
+      existing.lastSeenAt = e.timestamp;
+      if (e.error_message) existing.messageSample = e.error_message.slice(0, 500);
+    }
+  }
+  return [...map.values()];
+}
+
+async function upsertErrorGroups(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  events: readonly BufferedRequestEvent[],
+): Promise<void> {
+  const groups = aggregateErrorGroups(events);
+  if (groups.length === 0) return;
+
+  for (const g of groups) {
+    try {
+      const { data: existing, error: readErr } = await admin
+        .from("observability_error_groups")
+        .select("id, occurrence_count, first_seen_at, message_sample")
+        .eq("fingerprint", g.fingerprint)
+        .maybeSingle();
+      if (readErr) {
+        logger.warn("observability.error_group_read_failed", { error: readErr.message, fingerprint: g.fingerprint });
+        continue;
+      }
+
+      if (existing) {
+        const firstSeen =
+          existing.first_seen_at && existing.first_seen_at < g.firstSeenAt ? existing.first_seen_at : g.firstSeenAt;
+        const { error: updErr } = await admin
+          .from("observability_error_groups")
+          .update({
+            last_seen_at: g.lastSeenAt,
+            first_seen_at: firstSeen,
+            occurrence_count: (Number(existing.occurrence_count) || 0) + g.count,
+            route_template: g.routeTemplate,
+            status: g.status,
+            message_sample: g.messageSample ?? existing.message_sample,
+          })
+          .eq("fingerprint", g.fingerprint);
+        if (updErr) logger.warn("observability.error_group_update_failed", { error: updErr.message, fingerprint: g.fingerprint });
+      } else {
+        const { error: insErr } = await admin.from("observability_error_groups").insert({
+          fingerprint: g.fingerprint,
+          route_template: g.routeTemplate,
+          status: g.status,
+          message_sample: g.messageSample,
+          first_seen_at: g.firstSeenAt,
+          last_seen_at: g.lastSeenAt,
+          occurrence_count: g.count,
+          attrs: {},
+        });
+        if (insErr) logger.warn("observability.error_group_insert_failed", { error: insErr.message, fingerprint: g.fingerprint });
+      }
+    } catch (err) {
+      logger.warn("observability.error_group_upsert_failed", { error: err, fingerprint: g.fingerprint });
+    }
+  }
+}
+
 /**
  * Persist buffered observability rows via the admin client (ADR-006: background
  * telemetry). Never throws to callers — failures are logged with warn.
@@ -36,6 +128,7 @@ export async function ingestObservability(events: BufferedRequestEvent[], metric
         })),
       );
       if (error) logger.warn("observability.insert_events_failed", { error: error.message, count: events.length });
+      else await upsertErrorGroups(admin, events);
     }
 
     if (metrics.length > 0) {
