@@ -45,7 +45,7 @@ describe("GET /api/cron/observability soft-fail alerts", () => {
       }) as never,
     );
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as { ok: boolean; result: unknown; alerts: unknown };
     expect(body.ok).toBe(true);
     expect(body.result).toEqual({ deleted_events: 1 });
     expect(body.alerts).toEqual({ ok: true, proposed: 1 });
@@ -63,7 +63,7 @@ describe("GET /api/cron/observability soft-fail alerts", () => {
       }) as never,
     );
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = (await res.json()) as { ok: boolean; result: unknown; alerts: unknown };
     expect(body.ok).toBe(true);
     expect(body.result).toEqual({ deleted_events: 0 });
     expect(body.alerts).toEqual({ ok: false, error: "db down" });

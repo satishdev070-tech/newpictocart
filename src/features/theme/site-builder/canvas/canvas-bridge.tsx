@@ -227,11 +227,12 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
     if (!styleEl.current) {
       styleEl.current = document.createElement("style");
       styleEl.current.dataset.builderTokens = "";
-      document.querySelector("[data-sf-root]")?.prepend(styleEl.current);
+      const sfRoot = document.querySelector("[data-sf-root]");
+      sfRoot?.insertBefore(styleEl.current, sfRoot.firstChild);
     }
     const root = document.querySelector("[data-sf-root]");
     const server = root?.querySelector("style:not([data-builder-tokens])");
-    if (server && styleEl.current.previousElementSibling !== server) server.after(styleEl.current);
+    if (server && styleEl.current.previousElementSibling !== server) server.parentNode?.insertBefore(styleEl.current, server.nextSibling);
     if (styleEl.current.textContent !== css) styleEl.current.textContent = css;
   }, []);
 
@@ -249,7 +250,7 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
       if (!marker && parsed.data.finish === "refined") {
         marker = document.createElement("i");
         marker.hidden = true;
-        styleEl.current?.after(marker);
+        styleEl.current?.parentNode?.insertBefore(marker, styleEl.current.nextSibling);
       }
       if (marker) marker.dataset.sfFinish = parsed.data.finish;
     },
@@ -314,7 +315,7 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
       const css = document.createElement("style");
       css.id = "pc-builder-canvas-css";
       css.textContent = "html[data-builder-canvas] [data-preview-banner]{display:none!important}";
-      document.head.append(css);
+      document.head.appendChild(css);
     }
     const t = window.setTimeout(() => {
       setFramed(true);

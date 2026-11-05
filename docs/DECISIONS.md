@@ -88,11 +88,18 @@ Proposal: enable it at the start of Phase 7 with tags `tenant:{id}`, `tenant:{id
 
 **Update (2026-10-28, public catalogue Redis):** shared helper `cachedPublic` / `revalidatePublicTags` (`src/lib/cache/public-cache.ts`) powers storefront (`sf:v1`) and platform public catalogues (`pub:v1`): marketplace themes/demos, platform `product_types`, marketing landing, public platform config, and `feature_flags` **defaults only** (no tenant overrides). Private admin/dashboard lists stay uncached. Feature-flag writes also invalidate `platform-feature-flag-defaults`.
 
-## ADR-011 — Hosting target for the Next.js app · Open (needed by Phase 11; affects nothing before)
-Options:
-1. **Vercel** for Next.js + Cloudflare in front (DNS, Cloudflare for SaaS custom hostnames, Worker). Most compatible with Next 16 features; two vendors; custom hostnames must also be added to Vercel via its API.
-2. **Cloudflare Workers via OpenNext** (`@opennextjs/cloudflare`) — one vendor, custom hostnames handled natively by Cloudflare for SaaS; some Next features lag (check Cache Components/ISR support at the time).
-Code is kept host-agnostic (Node runtime, no Vercel-only APIs) so either works.
+## ADR-011 — Hosting target for the Next.js app · Accepted (2026-11-05, Workers canary)
+**Production today:** Next.js on **Vercel** (`pictocart.in`).
+
+**Canary path:** same app on **Cloudflare Workers via vinext** (Cloudflare’s recommended Next.js-on-Workers stack — not OpenNext-first, not static Pages). Cutover order: `*.workers.dev` → `pictocartdev.in` → only then consider `pictocart.in`.
+
+**Why vinext:** official Workers guide; App Router + `proxy.ts` + Server Actions check at ~93% compatible; non-destructive alongside `next` scripts.
+
+**Constraints on Workers:** native `sharp` unavailable (soft-fail + Cloudflare Images); Cron Triggers need Workers Paid (Free = 0); large Worker bundle — prove with `build:vinext` / deploy.
+
+**Runbook:** [DEPLOY_CLOUDFLARE_WORKERS.md](./DEPLOY_CLOUDFLARE_WORKERS.md). Keep [`workers/domain-router`](../workers/domain-router) for Hostinger-only origins; unused when the vinext Worker is the origin.
+
+OpenNext remains a fallback only if a vinext compatibility gap blocks the canary.
 
 ## ADR-012 — `tenants` vs `stores` · Accepted
 The blueprint has both with overlapping columns (name, slug, logo, currency, timezone). Proposal: `tenants` = account/billing/status/plan;
