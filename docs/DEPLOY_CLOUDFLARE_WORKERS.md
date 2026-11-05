@@ -59,7 +59,13 @@ npx cf deploy --temporary-account --prebuilt
 # Claim URL is printed — claim before expiry to keep the Worker
 ```
 
-Verified 2026-11-05: temporary Worker `https://pictocart.airy-fact.workers.dev` uploaded (~3 MiB gzip). Automated curl got **CF bot challenge 403**; claim the preview and re-smoke in a browser, or use a real account token.
+Verified 2026-11-05: temporary Workers upload (~3 MiB gzip). **Deploy without `--secrets-file` leaves the Worker env empty** — `/api/health` still returns 200, but `/api/health/ready` is 503 and `/` becomes **Error 1101 (Worker threw exception)** when `parseEnv` fails. Always pass secrets on deploy (or set them in the dashboard), then claim:
+
+```bash
+npx cf deploy --temporary-account --prebuilt --secrets-file /path/to/worker-secrets.env
+```
+
+Latest canary with secrets: `https://pictocart.silver-uranium.workers.dev` (`/api/health/ready` → `ok`, `/seller/login` → 200). Curl may still hit CF bot challenge 403 on some HTML routes; use a browser after claim.
 
 ## Env / secrets (Workers)
 
