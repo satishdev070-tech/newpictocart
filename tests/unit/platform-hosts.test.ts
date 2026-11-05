@@ -33,6 +33,14 @@ describe("platformHostAliases", () => {
     expect(platformHostAliases({ VERCEL_PROJECT_PRODUCTION_URL: "brand.in" })).toEqual([]);
   });
 
+  it("trusts Cloudflare workers.dev canary hosts from env", () => {
+    expect(platformHostAliases({ WORKERS_DEV_HOST: "pictocart.account.workers.dev" })).toEqual(["pictocart.account.workers.dev"]);
+    expect(platformHostAliases({ CLOUDFLARE_WORKERS_HOST: "pictocart.workers.dev", WORKERS_DEV_HOST: "evil.example.com" })).toEqual([
+      "pictocart.workers.dev",
+    ]);
+    expect(platformHostAliases({ CF_PAGES_URL: "https://pictocart.account.workers.dev/" })).toEqual(["pictocart.account.workers.dev"]);
+  });
+
   it("ignores an invalid platform URL instead of throwing", () => {
     expect(platformHostAliases({ NEXT_PUBLIC_PLATFORM_URL: "not a url" })).toEqual([]);
   });
