@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { MerchantSignIn } from "@/features/auth/merchant-auth";
 import { ClearStartDraftOnLogin } from "@/features/auth/clear-start-draft-on-login";
 import { signOutAction } from "@/features/auth/actions";
@@ -11,6 +12,7 @@ import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { AuthHeading, AuthSplit } from "@/components/auth/auth-split";
 import { ConsoleAside, MerchantAside } from "@/components/auth/auth-asides";
 import { getPublicPlatformConfig } from "@/features/platform/server/public-config";
+import { clearStartDraftCookieServer } from "@/features/start/draft/clear-server";
 import { logger } from "@/lib/observability/logger";
 import { logSpan, timeAsync } from "@/lib/observability/timing";
 import { isNextControlFlowError } from "@/lib/next/control-flow";
@@ -102,9 +104,10 @@ async function loadSignInSession(requested: string): Promise<SignInSession> {
  * /admin/login redirects here). The account decides where it lands after sign-in: platform staff →
  * /admin, store members → /dashboard (lib/auth/role-routing.ts), never which URL was used.
  *
- * Already signed-in store owners / staff bounce to their panel (after clearing any /start draft).
- * Signed-in no-store accounts stay on this form — auto-sending them to /start/lang made Login look
- * broken when merchants clicked the marketing Login button with an abandoned session.
+ * Already signed-in store owners / staff bounce to their panel via **server** `redirect()`
+ * after clearing the `/start` draft cookie (avoids paying for a full login RSC shell + client
+ * `router.replace`). Signed-in no-store accounts stay on this form — auto-sending them to
+ * `/start/lang` made Login look broken when merchants clicked marketing Login with an abandoned session.
  *
  * Google is streamed so it cannot block first paint; auth asides no longer import the theme catalogue.
  */
@@ -119,7 +122,12 @@ export async function SharedSignInPage({ searchParams }: { searchParams: SearchP
   void publicConfigWarm;
 
   if (panelLanding) {
-    return <ClearStartDraftOnLogin signedInLanding={panelLanding} />;
+    try {
+      await clearStartDraftCookieServer();
+    } catch {
+      // cookie mutate can fail outside a mutable request — still redirect
+    }
+    redirect(panelLanding);
   }
 
   return (

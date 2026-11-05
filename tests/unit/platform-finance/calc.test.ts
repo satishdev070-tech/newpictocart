@@ -24,6 +24,7 @@ import {
   sellPriceCentiPaise,
   storeMrrMinor,
   subscriptionBreakdown,
+  subscriptionBreakdownFromCounts,
   validateCreditPricing,
   type PendingCommission,
 } from "@/features/platform-finance/calc";
@@ -78,6 +79,29 @@ describe("MRR", () => {
       ["Starter", 4, 399_600],
       ["Growth", 10, 1_999_000],
     ]);
+  });
+
+  it("subscriptionBreakdownFromCounts matches per-store expansion (SQL aggregates)", () => {
+    const fromRows = subscriptionBreakdown(plans, [
+      ...Array.from({ length: 51 }, () => ({ planId: "free", status: "active" })),
+      ...Array.from({ length: 4 }, () => ({ planId: "starter", status: "active" })),
+      ...Array.from({ length: 10 }, () => ({ planId: "growth", status: "active" })),
+      { planId: "growth", status: "cancelled" },
+      { planId: "starter", status: "trial" },
+      { planId: "starter", status: "trial" },
+      { planId: null, status: "active" },
+    ]);
+    const fromCounts = subscriptionBreakdownFromCounts(plans, [
+      { planId: "free", status: "active", count: 51 },
+      { planId: "starter", status: "active", count: 4 },
+      { planId: "growth", status: "active", count: 10 },
+      { planId: "growth", status: "cancelled", count: 3 },
+      { planId: "starter", status: "trial", count: 2 },
+      { planId: null, status: "active", count: 1 },
+    ]);
+    expect(fromCounts).toEqual(fromRows);
+    expect(fromCounts.trial).toBe(2);
+    expect(fromCounts.rows.find((r) => r.planName === "No plan")?.stores).toBe(1);
   });
 
   it("puts trials and unknown plans in their own buckets", () => {

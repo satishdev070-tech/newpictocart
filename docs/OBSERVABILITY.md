@@ -74,23 +74,85 @@ In Chrome DevTools → Network → Timing → Server Timing, or:
 curl -sI -H 'Cookie: …' 'http://localhost:3000/login' | grep -i server-timing
 ```
 
-## Baseline evidence (fill after measuring)
+## Baseline evidence (Phase A — 2026-11-05)
 
-Measure on a production build (`pnpm build` + `pnpm start`), same host/cookie conditions for Cold vs Warm. Leave cells blank until measured; **optimization waits for evidence.**
+Measure on a production build (`pnpm build` + `pnpm start`), same host/cookie conditions for Cold vs Warm. Leave cells blank until measured; **optimization waits for evidence.** **Do not claim login is fixed** from this baseline alone.
+
+### Prod curl (anonymous, no auth cookie) — 2026-11-05
+
+From Cloud Agent egress (edge POP `iad1`, function region `bom1` per `x-vercel-id`). Method: `curl` GET with `-w '%{time_starttransfer} %{time_total}'`. Cache: always `x-vercel-cache: MISS`, `cache-control: private, no-cache, no-store, max-age=0, must-revalidate`, `age: 0`.
+
+| URL | Cold TTFB (s) | Warm TTFB (s) | Cold total (s) | Warm total (s) | `x-vercel-id` region | Server-Timing | Sample `x-request-id` |
+|---|---:|---:|---:|---:|---|---|---|
+| `https://www.pictocart.in/login` | **0.764** (first); later idle ~0.31–0.32 | **0.288–0.377** (median ~0.33) | 1.352 (first body); warm ~0.29–0.35 | ~0.29–0.35 | `iad1::bom1::…` | **Absent** (anonymous) | cold `e126707e-…`; warm `e8e4cf67-…` |
+| `https://www.pictocart.in/seller/login` | **0.693** | **0.325** | 0.697 | 0.328 | `iad1::bom1::…` | **Absent** (anonymous) | cold `9858bd15-…`; warm `a9201780-…` |
+| `https://www.pictocartdev.in/login` | **0.435** (then idle ~0.37) | **0.329–0.380** | 0.448 | ~0.33–0.40 | `iad1::bom1::…` | **Absent** (anonymous) | cold `ac6e1e31-…`; warm `3103120f-…` |
+
+Notes on these numbers:
+
+- **Anonymous path only** — no `sb-*-auth-token` cookie, so proxy skips `getClaims` and does **not** emit `Server-Timing: proxy.claims` (by design in `src/proxy.ts`).
+- First hit after a quiet period can be ~2× warm (~0.69–0.76 s vs ~0.33 s). A short 8 s idle did **not** reproduce a 0.7 s cold — true cold isolates are intermittent on Vercel.
+- Warm `/login` repeats (n=3+): TTFB ≈ **287–377 ms**. All MISS (HTML login is intentionally uncacheable).
+- `vercel.json` → `"regions": ["bom1"]` matches response `x-vercel-id` function segment `bom1`. Edge segment `iad1` is the measuring client's POP, not the app region.
+
+### Span-level table (still mostly unknown without signed-in cookie + logs)
 
 | Span / stage | Cold (ms) | Warm (ms) | Notes / date |
 |---|---:|---:|---|
-| `proxy.claims` | _TBD_ | _TBD_ | Auth cookie present |
-| `session.getClaims` | _TBD_ | _TBD_ | |
-| `session.profile` | _TBD_ | _TBD_ | |
-| `sign_in.getSessionUser` | _TBD_ | _TBD_ | Includes claims + profile |
-| `sign_in.landingPathFor` | _TBD_ | _TBD_ | Includes memberships |
-| `landing.tenantMemberships` | _TBD_ | _TBD_ | |
-| `landing.platformMemberships` | _TBD_ | _TBD_ | |
-| End-to-end `/login` TTFB (signed-in) | _TBD_ | _TBD_ | |
-| End-to-end `/login` TTFB (anonymous) | _TBD_ | _TBD_ | |
+| `proxy.claims` | _unknown_ | _unknown_ | Needs auth cookie; Server-Timing then expected on response |
+| `session.getClaims` | _unknown_ | _unknown_ | Needs `obs.span` / admin telemetry or signed-in Server-Timing correlation |
+| `session.profile` | _unknown_ | _unknown_ | |
+| `sign_in.getSessionUser` | _unknown_ | _unknown_ | Includes claims + profile when signed in |
+| `sign_in.landingPathFor` | _unknown_ | _unknown_ | Includes memberships; only when `getSessionUser` non-null |
+| `landing.tenantMemberships` | _unknown_ | _unknown_ | |
+| `landing.platformMemberships` | _unknown_ | _unknown_ | |
+| End-to-end `/login` TTFB (signed-in) | _unknown_ | _unknown_ | Not measured Phase A (no session cookie in agent) |
+| End-to-end `/login` TTFB (anonymous) | **~690–760** (true cold) | **~290–380** | Prod `www.pictocart.in`, 2026-11-05; see table above |
+| Re-measure anonymous `/login` (post Phase B code; **pre-deploy**) | n/a (live still old build) | **~331–364** | 2026-11-05 re-curl; still `bom1`; confirms warm band while PR undeployed |
 
 Cold = fresh Node process / new serverless isolate. Warm = same process, caches warm.
+
+### Auth redirect behavior
+
+| Path | Behavior | Evidence |
+|---|---|---|
+| Signed-in store owner / staff hitting `/login` or `/seller/login` | **Server** `redirect()` to panel after `clearStartDraftCookieServer()` | `SharedSignInPage` (Phase B, 2026-11-05) — avoids full login shell + client `router.replace` |
+| Signed-in account with onboarding landing (`/start…`) | **Stays on login form** with “already signed in” UI | `signedInNoStore` branch in `sign-in-page.tsx` |
+| Anonymous | Renders sign-in form; proxy skips claims; client `ClearStartDraftOnLogin` wipes LS+cookie | `proxy.ts` + `clear-start-draft-on-login.tsx` |
+| Protected routes (`requireUser`) | **Server** `redirect()` to login | `session.ts` `requireUser` |
+| Double `getClaims` when cookie present | Proxy then RSC `getSessionUser` — **kept** (no dedupe without signed-in span proof) | `proxy.ts` + `session.ts` |
+
+### Phase B decisions (2026-11-05)
+
+| Check | Result | Action |
+|---|---|---|
+| Vercel region | `x-vercel-id` function segment **`bom1`** | No change (`vercel.json` already pins bom1) |
+| JWT JWKS | Public JWKS is **ES256 + kid** | Documented; ops should confirm live access tokens match (no HS256 `getUser` fallback) |
+| Signed-in `/login` bounce | Was client-only after full RSC | **Server redirect** + draft cookie clear |
+| Claims dedupe proxy→RSC | No signed-in `requestId` span pair in Phase A | **Not changed** — revisit when Production has `OBSERVABILITY_LOGIN_SPANS=1` + cookie traces |
+
+### `OBSERVABILITY_ENABLED` (production)
+
+| Check | Result |
+|---|---|
+| Unauthenticated `GET /admin/performance` | **307** → `/login?next=%2Fadmin` (cannot read settings UI) |
+| Unauthenticated `/admin/performance/settings` | Same 307 |
+| `.env.example` | No `OBSERVABILITY_*` keys documented |
+| Agent `.env.local` | No `OBSERVABILITY_ENABLED` / `OBSERVABILITY_LOGIN_SPANS` set |
+| Inference from anonymous curl | **Cannot infer** — no Server-Timing on anonymous (expected anyway); no public flag endpoint |
+
+Treat production master switch as **unknown** until an authenticated admin opens Monitoring settings or Vercel env is inspected by an operator.
+
+### JWT / Supabase (public only — no secrets)
+
+Production HTML references project host `ugbjlpdhktrlkyuijkfc.supabase.co` (same as local `NEXT_PUBLIC_SUPABASE_URL` host). Public Auth JWKS:
+
+- `GET /auth/v1/.well-known/jwks.json` → **200**, one **ES256** EC P-256 key with a **`kid`**
+- OpenID config lists `id_token_signing_alg_values_supported`: RS256, HS256, ES256
+
+So the project **publishes asymmetric verify keys**. That supports local `getClaims()` verification when tokens carry a matching `kid` (avoids network `getUser` fallback described in `docs/PERFORMANCE_AUDIT.md`). Phase A did **not** decode a live session JWT (no cookie); whether every issued access token is ES256+kid in prod remains **ops-confirm** (Supabase → Auth → JWT signing keys / a real `sb-*-auth-token` header decode of `alg`/`kid` only).
+
+JWKS cold fetch from the measuring host was ~0.83 s TTFB once — consistent with cold Auth/JWKS cost on a new isolate; warm claims should be local crypto if ES256+kid holds.
 
 ## Env vars
 
@@ -124,30 +186,33 @@ The admin **Database performance** page aggregates spans whose names contain `db
 
 ## Phase 7 login findings
 
-Instrumentation is live on the login path (`obs.span`, optional `Server-Timing: proxy.claims`, optional request header `x-pc-claims-ms` when the proxy measured claims). **Measured bottleneck is TBD** until production spans are collected into the baseline table above — do not treat any single lab timing as a fixed claim.
+Instrumentation is live on the login path (`obs.span`, optional `Server-Timing: proxy.claims`, optional request header `x-pc-claims-ms` when the proxy measured claims). Phase A filled **anonymous** end-to-end TTFB on production; **per-span bottlenecks for signed-in traffic remain TBD** until cookie-bearing curl or admin telemetry is collected. Do not treat anonymous TTFB alone as a login “fix.”
 
 ### Safe structural notes (not yet “fixed”)
 
 - **Double `getClaims` when a session cookie is present:** proxy refreshes/validates via `supabase.auth.getClaims()`, then the RSC sign-in path runs `getSessionUser` → `getClaims` again (React.cache only dedupes within the RSC tree, not across proxy → page). Skipping the page-side verify would weaken auth; keep both until JWT verification mode and cache strategy are confirmed.
-- **Recommend verifying** Supabase auth JWT mode (asymmetric / local verify vs network `getUser` fallback) and that production stays on the **Vercel `bom1`** region (see `vercel.json`) next to the Supabase project region.
-- **Anonymous / signed-out cold login:** proxy already skips claims when no `sb-*-auth-token` cookie; `getSessionUser` returns null quickly after failed/empty claims. Membership queries only run when signed in (`landingPathFor` already parallelizes tenant + platform memberships via `Promise.all`).
+- **Vercel region confirmed in prod responses:** `vercel.json` `bom1` and live `x-vercel-id` function segment `bom1` (2026-11-05). Supabase project region vs `bom1` co-location still ops-confirm.
+- **JWT:** public JWKS is ES256 + `kid` for the production project ref (see Phase A). Still confirm issued access tokens use that key (not legacy HS256-only).
+- **Anonymous / signed-out cold login:** proxy already skips claims when no `sb-*-auth-token` cookie; measured anonymous warm TTFB ~300 ms, intermittent cold ~700 ms. Membership queries only run when signed in (`landingPathFor` already parallelizes tenant + platform memberships via `Promise.all`).
+- **Signed-in panel bounce is now server `redirect()`** after `clearStartDraftCookieServer()` (Phase B). Session+landing still run once on `/login` (required to know the destination); the extra client navigation RTT is gone. Claims dedupe across proxy→RSC was **not** applied (no signed-in span pair yet).
 - **`getSessionUser` remains sequential claims → profile** (profile query needs `claims.sub`); React.cache avoids duplicate work within one RSC request.
-- **No unverified “fixed 12.5s” claim.** Any end-to-end login latency number must come from correlated `requestId` spans (and preferably production), not anecdote.
+- **No unverified “fixed 12.5s” claim.** Anonymous prod TTFB is ~0.3–0.8 s; the screenshot ~12.5 s remains unexplained without signed-in/`requestId` spans (cold isolate + claims fallback still candidates).
 
 ### Optional correlation header
 
 When the proxy measures claims, it sets internal request header `x-pc-claims-ms` (stripped from clients; see `PROXY_CLAIMS_MS_HEADER`). `SharedSignInPage` logs `proxy.claims.header` so RSC logs can sit next to `session.getClaims` under the same `requestId`. This does not remove the second verify.
 
-## Optimization candidates
+## Optimization candidates → recommended Phase B (evidence-justified)
 
-Candidates only — **do not claim login is fixed** until the baseline table has measured Cold/Warm numbers (and preferably production `requestId`-correlated spans). Expected wins below are order-of-magnitude guesses for planning, not SLAs.
+Candidates only — **do not claim login is fixed.** Phase A justifies the order below; expected wins are planning guesses, not SLAs.
 
-| Candidate | Evidence needed | Expected win (if confirmed) | Risk |
-|---|---|---|---|
-| Dedupe or cache JWT verify across proxy → RSC | `proxy.claims` + `session.getClaims` both large on same `requestId` | Could remove ~one claims RTT (often tens–hundreds of ms; region-dependent) | Must not skip RSC auth boundary |
-| Confirm local JWT verify (no network `getUser` fallback) | Compare claims ms cold vs warm; check Supabase JWT settings | Large cold spikes shrink if today falling back to network | Config-only; verify in staging |
-| Keep memberships on `Promise.all` (already done) | `landing.tenantMemberships` \|\| `landing.platformMemberships` ≈ max, not sum | Already ~serial sum → max of the two | None (shipped) |
-| Overlap public config with session on `/login` (safe warm) | `public_config.load` vs `sign_in.getSessionUser` on same request | Hides config latency behind session when both needed for first paint / Google slot | Behavior unchanged if cache shared |
-| Avoid recording duplicate work inside `getSessionUser` | Single `session.getClaims` + one `session.profile` per RSC request | N/A if already one each (current design) | Do not parallelize profile before `sub` |
+| Priority | Candidate | Evidence from Phase A / code | Expected win (if confirmed) | Risk |
+|---|---|---|---|---|
+| **B1** | Enable / confirm `OBSERVABILITY_ENABLED` (or `OBSERVABILITY_LOGIN_SPANS=1`) in prod + collect signed-in spans | Flag **unknown** without admin; anonymous curl cannot see span breakdown; Server-Timing only with cookie | Unblocks real `proxy.claims` / `session.*` numbers before more code changes | Ops-only; keep fail-soft |
+| **B2** | Confirm issued JWTs are ES256+`kid` (already JWKS-public); migrate if any HS256 path remains | Public JWKS is ES256+kid; PERFORMANCE_AUDIT warns HS256 → network `getUser` | Removes Auth RTTs on signed-in proxy+RSC claims | Config; verify with one real token header |
+| **B3** | Measure signed-in `/login` cold/warm (cookie) and compare `proxy.claims` vs `session.getClaims` on one `x-request-id` | Anonymous path skips claims; double-verify only matters when cookie present | Decide whether dedupe/cache across proxy→RSC is worth it | Must not skip RSC auth boundary |
+| **B4** | ~~Client-only signed-in bounce~~ → **shipped** server `redirect()` + draft cookie clear | Phase B 2026-11-05 | Removes client navigation RTT after session+landing | Watch draft resume on `/start` |
+| **B5** | Keep memberships on `Promise.all` (already done); overlap public config (already warmed in parallel) | Code already overlaps `getPublicPlatformConfig` with session | Marginal; already shipped | Low |
+| Later | Dedupe JWT verify proxy→RSC | Needs B1–B3 numbers showing both spans large | ~one claims cost | Auth boundary |
 
-Fill the baseline table first; only then pick one candidate and re-measure.
+**Not justified yet by Phase A alone:** claiming a specific claims-ms regression, changing region away from `bom1`, or shipping login “fixes” without signed-in span evidence. Anonymous ~300 ms warm / ~700 ms cold is a floor for the signed-out HTML path only.

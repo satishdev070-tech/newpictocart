@@ -111,9 +111,11 @@ describe("finance vs support permissions", () => {
       await rejects(q("select * from public.platform_generate_commission_invoices($1)", [PERIOD]), /not permitted/);
       await rejects(q("select * from public.platform_gmv_by_tenant()"), /not permitted/);
       await rejects(q("select * from public.platform_ai_usage()"), /not permitted/);
+      await rejects(q("select public.platform_revenue_report()"), /not permitted/);
     });
     await rejects(as(user(USERS.aanganOwner), (q) => q("select * from public.platform_generate_commission_invoices($1)", [PERIOD])), /not permitted/);
     await rejects(as(user(USERS.aanganOwner), (q) => q("select * from public.platform_gmv_by_tenant()")), /not permitted/);
+    await rejects(as(user(USERS.aanganOwner), (q) => q("select public.platform_revenue_report()")), /not permitted/);
     await rejects(as(anon, (q) => q("select * from public.platform_generate_commission_invoices($1)", [PERIOD])), /permission denied/);
   });
 
@@ -125,6 +127,8 @@ describe("finance vs support permissions", () => {
       const aangan = gmv.find((g) => g.tenant_id === TENANTS.aangan);
       expect(aangan).toMatchObject({ gmv: "1000.20", orders: 2 });
       await q("select * from public.platform_ai_usage()");
+      const report = await q<{ report: unknown }>("select public.platform_revenue_report($1) as report", ["2025-01-01T00:00:00+05:30"]);
+      expect(report[0]?.report).toBeTruthy();
       await q("select * from public.platform_generate_commission_invoices($1)", [PERIOD]);
       expect(await q("select id from commission_invoices")).toHaveLength(1);
       await rejects(q("insert into commission_invoices (tenant_id, invoice_number, period_start, period_end, gmv, rate_bps, commission, due_date) values ($1, 'PC-202502-0001', '2025-02-01', '2025-03-01', 1, 1, 1, '2025-03-16')", [TENANTS.aangan]), /permission denied/);
