@@ -108,18 +108,28 @@ Notes on these numbers:
 | `landing.platformMemberships` | _unknown_ | _unknown_ | |
 | End-to-end `/login` TTFB (signed-in) | _unknown_ | _unknown_ | Not measured Phase A (no session cookie in agent) |
 | End-to-end `/login` TTFB (anonymous) | **~690–760** (true cold) | **~290–380** | Prod `www.pictocart.in`, 2026-11-05; see table above |
+| Re-measure anonymous `/login` (post Phase B code; **pre-deploy**) | n/a (live still old build) | **~331–364** | 2026-11-05 re-curl; still `bom1`; confirms warm band while PR undeployed |
 
 Cold = fresh Node process / new serverless isolate. Warm = same process, caches warm.
 
-### Auth redirect behavior (code review — Phase A)
+### Auth redirect behavior
 
 | Path | Behavior | Evidence |
 |---|---|---|
-| Signed-in store owner / staff hitting `/login` or `/seller/login` | **Client redirect** after draft clear — **not** a server `redirect()` | `SharedSignInPage` returns `<ClearStartDraftOnLogin signedInLanding={panelLanding} />`; client `router.replace(signedInLanding)` in `clear-start-draft-on-login.tsx` |
+| Signed-in store owner / staff hitting `/login` or `/seller/login` | **Server** `redirect()` to panel after `clearStartDraftCookieServer()` | `SharedSignInPage` (Phase B, 2026-11-05) — avoids full login shell + client `router.replace` |
 | Signed-in account with onboarding landing (`/start…`) | **Stays on login form** with “already signed in” UI | `signedInNoStore` branch in `sign-in-page.tsx` |
-| Anonymous | Renders sign-in form; proxy skips claims | `proxy.ts` `hasSupabaseAuthCookie` gate |
+| Anonymous | Renders sign-in form; proxy skips claims; client `ClearStartDraftOnLogin` wipes LS+cookie | `proxy.ts` + `clear-start-draft-on-login.tsx` |
 | Protected routes (`requireUser`) | **Server** `redirect()` to login | `session.ts` `requireUser` |
-| Double `getClaims` when cookie present | Proxy then RSC `getSessionUser` — React.cache does not span proxy→RSC | `proxy.ts` + `session.ts` |
+| Double `getClaims` when cookie present | Proxy then RSC `getSessionUser` — **kept** (no dedupe without signed-in span proof) | `proxy.ts` + `session.ts` |
+
+### Phase B decisions (2026-11-05)
+
+| Check | Result | Action |
+|---|---|---|
+| Vercel region | `x-vercel-id` function segment **`bom1`** | No change (`vercel.json` already pins bom1) |
+| JWT JWKS | Public JWKS is **ES256 + kid** | Documented; ops should confirm live access tokens match (no HS256 `getUser` fallback) |
+| Signed-in `/login` bounce | Was client-only after full RSC | **Server redirect** + draft cookie clear |
+| Claims dedupe proxy→RSC | No signed-in `requestId` span pair in Phase A | **Not changed** — revisit when Production has `OBSERVABILITY_LOGIN_SPANS=1` + cookie traces |
 
 ### `OBSERVABILITY_ENABLED` (production)
 
@@ -184,9 +194,9 @@ Instrumentation is live on the login path (`obs.span`, optional `Server-Timing: 
 - **Vercel region confirmed in prod responses:** `vercel.json` `bom1` and live `x-vercel-id` function segment `bom1` (2026-11-05). Supabase project region vs `bom1` co-location still ops-confirm.
 - **JWT:** public JWKS is ES256 + `kid` for the production project ref (see Phase A). Still confirm issued access tokens use that key (not legacy HS256-only).
 - **Anonymous / signed-out cold login:** proxy already skips claims when no `sb-*-auth-token` cookie; measured anonymous warm TTFB ~300 ms, intermittent cold ~700 ms. Membership queries only run when signed in (`landingPathFor` already parallelizes tenant + platform memberships via `Promise.all`).
-- **Signed-in panel bounce is client-side** (`ClearStartDraftOnLogin` → `router.replace`) so users still pay full RSC `loadSignInSession` (claims + landing) before the client navigation — a Phase B UX/perf tradeoff if draft-clear can move earlier or server-redirect after a cookie-safe clear path.
+- **Signed-in panel bounce is now server `redirect()`** after `clearStartDraftCookieServer()` (Phase B). Session+landing still run once on `/login` (required to know the destination); the extra client navigation RTT is gone. Claims dedupe across proxy→RSC was **not** applied (no signed-in span pair yet).
 - **`getSessionUser` remains sequential claims → profile** (profile query needs `claims.sub`); React.cache avoids duplicate work within one RSC request.
-- **No unverified “fixed 12.5s” claim.** Any end-to-end login latency number must come from correlated `requestId` spans (and preferably production), not anecdote.
+- **No unverified “fixed 12.5s” claim.** Anonymous prod TTFB is ~0.3–0.8 s; the screenshot ~12.5 s remains unexplained without signed-in/`requestId` spans (cold isolate + claims fallback still candidates).
 
 ### Optional correlation header
 
@@ -201,7 +211,7 @@ Candidates only — **do not claim login is fixed.** Phase A justifies the order
 | **B1** | Enable / confirm `OBSERVABILITY_ENABLED` (or `OBSERVABILITY_LOGIN_SPANS=1`) in prod + collect signed-in spans | Flag **unknown** without admin; anonymous curl cannot see span breakdown; Server-Timing only with cookie | Unblocks real `proxy.claims` / `session.*` numbers before more code changes | Ops-only; keep fail-soft |
 | **B2** | Confirm issued JWTs are ES256+`kid` (already JWKS-public); migrate if any HS256 path remains | Public JWKS is ES256+kid; PERFORMANCE_AUDIT warns HS256 → network `getUser` | Removes Auth RTTs on signed-in proxy+RSC claims | Config; verify with one real token header |
 | **B3** | Measure signed-in `/login` cold/warm (cookie) and compare `proxy.claims` vs `session.getClaims` on one `x-request-id` | Anonymous path skips claims; double-verify only matters when cookie present | Decide whether dedupe/cache across proxy→RSC is worth it | Must not skip RSC auth boundary |
-| **B4** | Revisit client-only signed-in bounce (`ClearStartDraftOnLogin`) vs server redirect after draft clear | Code: full session+landing work then client `replace` — adds a round trip after TTFB | Saves one client navigation RTT for returning sellers; draft-clear must still run | UX/cookie clear must not regress |
+| **B4** | ~~Client-only signed-in bounce~~ → **shipped** server `redirect()` + draft cookie clear | Phase B 2026-11-05 | Removes client navigation RTT after session+landing | Watch draft resume on `/start` |
 | **B5** | Keep memberships on `Promise.all` (already done); overlap public config (already warmed in parallel) | Code already overlaps `getPublicPlatformConfig` with session | Marginal; already shipped | Low |
 | Later | Dedupe JWT verify proxy→RSC | Needs B1–B3 numbers showing both spans large | ~one claims cost | Auth boundary |
 
