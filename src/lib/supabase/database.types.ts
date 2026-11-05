@@ -6584,6 +6584,12 @@ export type Database = {
         }
         Returns: number
       }
+      platform_revenue_report: {
+        Args: {
+          p_from?: string
+        }
+        Returns: Json
+      }
       platform_revoke_ai_credit_code: {
         Args: {
           p_code: string

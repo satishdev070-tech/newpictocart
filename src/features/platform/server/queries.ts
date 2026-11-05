@@ -6,6 +6,7 @@ import { mapDbError } from "@/lib/supabase/errors";
 import { toMinor } from "@/lib/money";
 import { TENANT_STATUSES, type TenantStatus } from "@/lib/tenant/context";
 import type { Json } from "@/lib/supabase/database.types";
+import { logSpan, timeAsync } from "@/lib/observability/timing";
 import { bucketCounts, bucketWindows, recentMonthStarts, usageByMonth, type MonthlyUsage, type SeriesPoint } from "../stats";
 import { isMissingSchemaError, parseStoreType, type StoreType } from "../schemas";
 import type { auditFilterSchema, domainFilterSchema, StoreListFilter, tenantListFilterSchema } from "../schemas";
@@ -118,9 +119,13 @@ export type PlatformDashboard = z.infer<typeof dashboardSchema>;
 /** People, storage, 6-month GMV/orders/new stores and plan mix in one call (platform_dashboard RPC). */
 export async function getPlatformDashboard(): Promise<PlatformDashboard> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("platform_dashboard");
-  check(error);
-  return dashboardSchema.parse(data ?? {});
+  const { result, ms } = await timeAsync("admin.platform_dashboard", async () => {
+    const { data, error } = await supabase.rpc("platform_dashboard");
+    check(error);
+    return dashboardSchema.parse(data ?? {});
+  });
+  logSpan({ span: "admin.platform_dashboard", ms });
+  return result;
 }
 
 /** New tenants per week (one range select, then bucket in memory — avoids N head counts). */
