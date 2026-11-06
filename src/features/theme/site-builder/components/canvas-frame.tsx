@@ -77,6 +77,24 @@ export function fitScale(available: number, frameWidth: number): number {
   return available > 0 ? Math.min(1, available / frameWidth) : 1;
 }
 
+/** Mint via Workers route handler; fall back to the RSC server action. */
+async function mintPreviewEntry(): Promise<{ token: string; expiresAt: number } | null> {
+  try {
+    const res = await fetch("/api/theme/preview-token", { method: "POST", credentials: "same-origin", cache: "no-store" });
+    if (res.ok) {
+      const body = (await res.json()) as { ok?: boolean; url?: string; expiresAt?: number };
+      const tok = body.ok && body.url ? tokenOf(body.url) : null;
+      if (tok && typeof body.expiresAt === "number") return { token: tok, expiresAt: body.expiresAt };
+    }
+  } catch {
+    // Fall through to the server action.
+  }
+  const r = await refreshPreviewUrlAction();
+  const tok = r.ok ? tokenOf(r.data.url) : null;
+  if (!r.ok || !tok) return null;
+  return { token: tok, expiresAt: r.data.expiresAt };
+}
+
 export function CanvasFrame() {
   const b = useBuilder();
   const origin = useMemo(() => originOf(b.store.origin), [b.store.origin]);
@@ -175,15 +193,15 @@ export function CanvasFrame() {
   /**
    * A fresh preview token (renders are authorised by it, not only by the frame's cookie). Shared by
    * concurrent callers; false when it couldn't be renewed.
+   * Prefers POST /api/theme/preview-token (Workers route handler) over the RSC server action.
    */
   const renewToken = useEffectEvent((force: boolean): Promise<boolean> => {
     const t = token.current;
     if (!force && t && t.expiresAt - Date.now() / 1000 > TOKEN_MARGIN_S) return Promise.resolve(true);
-    refreshing.current ??= refreshPreviewUrlAction()
+    refreshing.current ??= mintPreviewEntry()
       .then((r) => {
-        const tok = r.ok ? tokenOf(r.data.url) : null;
-        if (!r.ok || !tok) return false;
-        token.current = { token: tok, expiresAt: r.data.expiresAt };
+        if (!r) return false;
+        token.current = r;
         return true;
       })
       .catch(() => false)
@@ -255,16 +273,15 @@ export function CanvasFrame() {
     const entryUrl = async (): Promise<string | null> => {
       const t = token.current;
       if (t && t.expiresAt - Date.now() / 1000 > TOKEN_MARGIN_S) return previewEntryUrl(origin, t.token, target.path);
-      const r = await refreshPreviewUrlAction();
+      const minted = await mintPreviewEntry();
       if (!live) return null;
-      const tok = r.ok ? tokenOf(r.data.url) : null;
-      if (!r.ok || !tok) {
-        setLoadError(r.ok ? "The preview link could not be created." : r.error.message);
+      if (!minted) {
+        setLoadError("The preview link could not be created.");
         return null;
       }
-      token.current = { token: tok, expiresAt: r.data.expiresAt };
+      token.current = minted;
       setLoadError(null);
-      return previewEntryUrl(origin, tok, target.path);
+      return previewEntryUrl(origin, minted.token, target.path);
     };
     void entryUrl().then((url) => {
       if (!live || !url) return;
@@ -447,6 +464,18 @@ export function CanvasFrame() {
     const onMessage = (e: MessageEvent) => {
       const win = frame.current?.contentWindow;
       if (!win || e.source !== win || e.origin !== origin) return;
+      // /preview 403 HTML (token/host rejected) — renew instead of hanging at “Loading 92%”.
+      const denied = e.data;
+      if (
+        denied &&
+        typeof denied === "object" &&
+        (denied as { source?: unknown }).source === "pictocart-preview" &&
+        (denied as { type?: unknown }).type === "denied"
+      ) {
+        const reason = typeof (denied as { reason?: unknown }).reason === "string" ? (denied as { reason: string }).reason : "bad_token";
+        recover({ expired: true, error: `Preview blocked (${reason}). Retry to continue.` });
+        return;
+      }
       const msg = parseCanvasMessage(e.data);
       if (msg) onCanvasMessage(msg);
     };

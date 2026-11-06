@@ -353,12 +353,26 @@ export function TopBar() {
     const tab = window.open("", "_blank");
     startPreview(async () => {
       try {
-        const r = await refreshPreviewUrlAction();
-        if (!r.ok) {
-          tab?.close();
-          return setNotice({ tone: "error", text: errorText(r.error) });
+        // Prefer the Workers route handler (same as the canvas); fall back to the RSC action.
+        let entry: string | null = null;
+        try {
+          const res = await fetch("/api/theme/preview-token", { method: "POST", credentials: "same-origin", cache: "no-store" });
+          if (res.ok) {
+            const body = (await res.json()) as { ok?: boolean; url?: string };
+            if (body.ok && body.url) entry = body.url;
+          }
+        } catch {
+          /* fall through */
         }
-        const url = previewUrlFor(r.data.url, b.store.origin, b.page.path);
+        if (!entry) {
+          const r = await refreshPreviewUrlAction();
+          if (!r.ok) {
+            tab?.close();
+            return setNotice({ tone: "error", text: errorText(r.error) });
+          }
+          entry = r.data.url;
+        }
+        const url = previewUrlFor(entry, b.store.origin, b.page.path);
         if (tab) {
           tab.opener = null;
           tab.location.href = url;

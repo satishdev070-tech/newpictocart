@@ -8,6 +8,12 @@ _Last updated: 2026-11-06 (Theme preview bad_token diagnostics) · 2026-11-06 (T
 
 **Fix:** `/preview` `data-preview-error` now returns precise reasons (`sig_fail`, `tenant_mismatch`, `expired`, `bad_uuid`, `malformed`, `not_yet_valid`); cron self-test `GET /api/cron/preview-token-self-test` (Bearer `CRON_SECRET`) mint+verifies in-process and can diagnose an external `token`+`tenantId`. Ops: redeploy Worker with production `--secrets-file`, retarget/disable wrong Workers Builds, confirm self-test `mintVerify: ok`.
 
+## Theme editor preview token diagnose + recover (2026-11-06, branch `cursor/theme-preview-bad-token-c73e`)
+
+**Bug:** After CF cutover, Theme Editor still stuck at “Loading 92%” with `/preview` **403**. Coarse `bad_token` hid `sig_fail` vs `tenant_mismatch`. GitHub Workers Builds targets the wrong CF account (no prod deploy). Leftover CHIPS cookies could collide with Lax.
+
+**Fix:** Precise `data-preview-error` (`sig_fail` / `tenant_mismatch` / `expired` / …); cron self-test `GET /api/cron/preview-token-self-test`; mint via `POST /api/theme/preview-token` (route handler) from the canvas; 403 HTML `postMessage` so the editor renews instead of hanging; clear Partitioned cookie before setting Lax; `pnpm deploy:cf:secrets`. Verified live: self-test `mintVerify: ok`; garbage → `sig_fail`; shell-minted nuts-fruits token → 307 + Lax.
+
 ## Theme editor preview on Workers (2026-11-06, branch `cursor/theme-editor-preview-cf-c73e`)
 
 **Bug:** Theme Editor stuck at “Loading 92%” with Network **403** on `{slug}.pictocart.in/preview?token=…`, postMessage origin mismatch, and `marketing/creative` **500**.
