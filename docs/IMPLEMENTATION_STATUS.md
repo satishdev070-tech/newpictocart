@@ -11,7 +11,8 @@ _Last updated: 2026-11-05 (Cloudflare Workers vinext canary) · 2026-11-05 (App 
 - `vite.config.ts`, `cloudflare.config.ts`, scripts `dev:vinext` / `build:vinext` / `deploy:vinext`.
 - Workers adaptations: theme `fetch-guard` without `dns.lookup` (DoH fallback); sharp soft-fail in variants; `workers.dev` host aliases.
 - `pnpm build:vinext` green; temporary-account deploy to `https://pictocart.airy-fact.workers.dev` (claim within 60m). Local `vite preview`: `/api/health` + `/login` **200**.
-- Cron Triggers omitted on Free (0 limit); HTTP cron documented. **pictocartdev.in** custom domain needs a claimed/real Cloudflare account + secrets (`CLOUDFLARE_API_TOKEN`).
+- Cron Triggers omitted on Free (0 limit); HTTP cron documented.
+- **pictocartdev.in** + **www.pictocartdev.in** mapped as Worker Custom Domains on `pictocart` (Airy Fact). Verified 2026-11-06: `/`, `/login`, `/api/health`, `/api/health/ready` all **200** on both hosts.
 
 ## App speed — login measure + Revenue (2026-11-05, branch `cursor/app-speed-login-revenue-c73e`)
 
