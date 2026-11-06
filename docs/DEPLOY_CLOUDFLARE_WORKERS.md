@@ -65,7 +65,7 @@ Verified 2026-11-05: temporary Workers upload (~3 MiB gzip). **Deploy without 
 npx cf deploy --temporary-account --prebuilt --secrets-file /path/to/worker-secrets.env
 ```
 
-Latest canary with secrets: `https://pictocart.silver-uranium.workers.dev` (`/api/health/ready` → `ok`, `/seller/login` → 200). Curl may still hit CF bot challenge 403 on some HTML routes; use a browser after claim.
+Canaries with secrets (2026-11-06): `https://pictocart.airy-fact.workers.dev` and `https://pictocart.silver-uranium.workers.dev` — `/`, `/login`, `/seller/login`, `/api/health/ready` all **200**. Curl may still hit CF bot challenge 403 on some HTML routes before claim; use a browser after claim.
 
 ## Env / secrets (Workers)
 
