@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRequestHost } from "@/lib/tenant/resolve";
 import { tenantDirectory } from "@/lib/tenant/directory";
-import { verifyPreviewToken } from "@/features/theme/server/preview";
-import { PREVIEW_COOKIE, PREVIEW_TTL_SECONDS } from "@/features/theme/preview";
+import { diagnosePreviewToken } from "@/features/theme/server/preview";
+import { PREVIEW_COOKIE, PREVIEW_TTL_SECONDS, type PreviewTokenFailReason } from "@/features/theme/preview";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { publicEnv } from "@/lib/env/public";
 import { logger } from "@/lib/observability/logger";
 
-type PreviewFailReason = "missing_token" | "unknown_host" | "bad_token";
+type PreviewFailReason = "missing_token" | "unknown_host" | PreviewTokenFailReason;
 
 /** Single-level `{slug}.{root}` hosts are same-site to the dashboard — use Lax, not CHIPS. */
 function isPlatformSubdomainHost(host: string, rootDomain: string): boolean {
@@ -20,7 +20,9 @@ function isPlatformSubdomainHost(host: string, rootDomain: string): boolean {
 
 function previewDenied(reason: PreviewFailReason): NextResponse {
   logger.warn("theme.preview_denied", { reason });
-  const body = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Preview unavailable</title></head><body data-preview-error="${reason}"><p>Preview unavailable (${reason}). Close and reopen the theme editor.</p></body></html>`;
+  // Notify the Theme Editor parent frame (cross-origin) so it can renew the token instead of
+  // hanging at “Loading 92%”. Reason is non-secret (no token / tenant id).
+  const body = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Preview unavailable</title></head><body data-preview-error="${reason}"><p>Preview unavailable (${reason}). Close and reopen the theme editor.</p><script>try{parent.postMessage({source:"pictocart-preview",type:"denied",reason:${JSON.stringify(reason)}},"*")}catch(e){}</script></body></html>`;
   return new NextResponse(body, {
     status: 403,
     headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
@@ -61,10 +63,19 @@ export async function GET(request: NextRequest) {
   if (!host) return previewDenied("unknown_host");
   const tenant = await tenantDirectory.findByHost(host);
   if (!tenant) return previewDenied("unknown_host");
-  if (!verifyPreviewToken(token, tenant.tenantId)) return previewDenied("bad_token");
+  const diagnosed = diagnosePreviewToken(token, tenant.tenantId);
+  if (!diagnosed.ok) {
+    logger.warn("theme.preview_denied", { reason: diagnosed.reason, host, tenantId: tenant.tenantId });
+    return previewDenied(diagnosed.reason);
+  }
 
   const res = NextResponse.redirect(new URL(safeRedirectPath(url.searchParams.get("path"), "/"), origin));
   res.headers.set("Cache-Control", "no-store");
+  // Drop any leftover CHIPS cookie before installing the active one — browsers can keep both
+  // Partitioned and non-Partitioned cookies with the same name, and the wrong one may win.
+  if (secure) {
+    res.cookies.set(PREVIEW_COOKIE, "", { httpOnly: true, secure: true, sameSite: "none", partitioned: true, path: "/", maxAge: 0 });
+  }
   // Platform subdomains are same-site to the dashboard (e.g. pictocart.in ↔ slug.pictocart.in):
   // SameSite=Lax is enough and more reliable in the editor iframe than CHIPS.
   // Custom domains (and http *.localhost) are cross-site → SameSite=None; Secure; Partitioned.

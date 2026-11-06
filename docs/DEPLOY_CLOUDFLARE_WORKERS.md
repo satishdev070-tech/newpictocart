@@ -86,9 +86,34 @@ Mirror Production (Supabase URL/keys, `APP_SECRET`, `CRON_SECRET`, platform root
 
 Set secrets via dashboard / Workers settings multipart PATCH / `--secrets-file` on deploy. Always pass secrets — empty env → Error 1101 on `/`.
 
+**Important:** `pnpm deploy:vinext` (`vinext-cloudflare deploy`) does **not** accept `--secrets-file`. After a Vite build, upload with secrets explicitly:
+
+```bash
+pnpm run build:vinext
+npx cf deploy --prebuilt --secrets-file /path/to/worker-secrets.env
+```
+
+`cloudflare.config.ts` only declares resource bindings (`ASSETS`, `IMAGES`, `VINEXT_KV_CACHE`, cache metadata). App secrets (`APP_SECRET`, `CRON_SECRET`, Supabase keys, …) are **not** typed there — they become `secret_text` bindings only when uploaded via `--secrets-file` / dashboard. Dotenv secrets files expand `$VAR` from the shell; **process env overrides file values (including empty)**.
+
+**Workers Builds / wrong account:** GitHub “Workers Builds: newpictocart” on account `8ee184…` is **not** production. Production Worker is `pictocart` on the account in `CLOUDFLARE_ACCOUNT_ID` (zone NS for `pictocart.in`). Do not treat that check as a successful prod deploy; disable or retarget the Cloudflare Workers Builds integration to the Airy Fact account + worker `pictocart`, and always pass the same secrets file used for manual deploys.
+
+**APP_SECRET must match mint + verify:** Theme preview tokens are HMAC’d with `APP_SECRET` (HKDF purpose `theme-preview`). Dashboard Server Actions and `{slug}/preview` must hit the **same** Worker version/secret. Shell-minted tokens that verify while browser-minted tokens 403 usually means the dashboard mint path used a different `APP_SECRET` (stale Vercel deploy, wrong Workers Builds account, or a version uploaded without the production secrets file).
+
+Self-test (Bearer `CRON_SECRET`):
+
+```bash
+curl -fsS -H "Authorization: Bearer $CRON_SECRET" \
+  "https://www.pictocart.in/api/cron/preview-token-self-test"
+# optional: diagnose a dashboard-minted token without echoing it
+curl -fsS -H "Authorization: Bearer $CRON_SECRET" \
+  "https://www.pictocart.in/api/cron/preview-token-self-test?token=…&tenantId=…"
+```
+
+Expect `mintVerify: "ok"`. External diagnose returns `sig_fail` / `tenant_mismatch` / `expired` / `bad_uuid` / `malformed`.
+
 ## Theme editor iframe preview
 
-The seller Theme Editor iframes `{slug}.pictocart.in/preview?token=…`. Keep **Bot Fight Mode off** (`fight_mode: false` on zone bot management) — Cloudflare challenges cannot run inside cross-origin iframes and show up as **403**, leaving the canvas stuck at “Loading 92%”. Platform subdomains use `sf_preview` with **SameSite=Lax**; custom domains still use **None + Partitioned**. Failed token/host checks return **403 HTML** with `data-preview-error` (`missing_token` / `unknown_host` / `bad_token`).
+The seller Theme Editor iframes `{slug}.pictocart.in/preview?token=…`. Keep **Bot Fight Mode off** (`fight_mode: false` on zone bot management) — Cloudflare challenges cannot run inside cross-origin iframes and show up as **403**, leaving the canvas stuck at “Loading 92%”. Platform subdomains use `sf_preview` with **SameSite=Lax**; custom domains still use **None + Partitioned**. Failed token/host checks return **403 HTML** with `data-preview-error` (`missing_token` / `unknown_host` / `sig_fail` / `tenant_mismatch` / `expired` / `bad_uuid` / `malformed` / `not_yet_valid`).
 
 ## Production domains (`pictocart.in` + `*.pictocart.in`)
 
