@@ -1,8 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import sharp from "sharp";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { assetUrl, STORE_ASSETS_BUCKET } from "@/lib/storage/assets";
+import { loadSharp } from "@/lib/storage/sharp-load";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/observability/logger";
 import { getPublishedThemeConfig } from "@/features/theme/server/queries";
@@ -43,6 +43,9 @@ async function dataUri(tenantId: string, path: string | null): Promise<string | 
   if (!url) return null;
   const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
   if (!res.ok) return null;
+  const sharpMod = await loadSharp();
+  if (!sharpMod) return null;
+  const sharp = sharpMod.default;
   // Normalise to PNG so every image format renders identically inside the SVG.
   const png = await sharp(Buffer.from(await res.arrayBuffer())).rotate().resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true }).png().toBuffer();
   return `data:image/png;base64,${png.toString("base64")}`;
@@ -50,6 +53,9 @@ async function dataUri(tenantId: string, path: string | null): Promise<string | 
 
 /** Renders to PNG and saves it into the media library (folder "creative"). Returns the storage path. */
 export async function renderAndStore(tenantId: string, t: CreativeTemplate, values: CreativeValues, imagePath: string | null, name: string): Promise<{ path: string; bytes: number }> {
+  const sharpMod = await loadSharp();
+  if (!sharpMod) throw new AppError("INTERNAL", { message: "Image rendering isn't available on this host. Try again later or use a pre-sized PNG." });
+  const sharp = sharpMod.default;
   const brand = await getBrand(tenantId);
   const [image, logo] = await Promise.all([dataUri(tenantId, imagePath), dataUri(tenantId, brand.logoPath)]);
   const svg = renderCreativeSvg(t, { ...brand, logoHref: logo }, values, image);
