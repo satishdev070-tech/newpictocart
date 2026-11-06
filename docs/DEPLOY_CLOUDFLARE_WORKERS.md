@@ -86,6 +86,10 @@ Mirror Production (Supabase URL/keys, `APP_SECRET`, `CRON_SECRET`, platform root
 
 Set secrets via dashboard / Workers settings multipart PATCH / `--secrets-file` on deploy. Always pass secrets — empty env → Error 1101 on `/`.
 
+## Theme editor iframe preview
+
+The seller Theme Editor iframes `{slug}.pictocart.in/preview?token=…`. Keep **Bot Fight Mode off** (`fight_mode: false` on zone bot management) — Cloudflare challenges cannot run inside cross-origin iframes and show up as **403**, leaving the canvas stuck at “Loading 92%”. Platform subdomains use `sf_preview` with **SameSite=Lax**; custom domains still use **None + Partitioned**. Failed token/host checks return **403 HTML** with `data-preview-error` (`missing_token` / `unknown_host` / `bad_token`).
+
 ## Production domains (`pictocart.in` + `*.pictocart.in`)
 
 1. Add zone `pictocart.in` (Full DNS) on the Cloudflare account that owns Worker `pictocart`. Import MX/TXT/CAA (Hostinger mail, Resend DKIM, Google verification) **before** changing nameservers.

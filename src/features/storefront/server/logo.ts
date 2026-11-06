@@ -5,16 +5,7 @@ import { assetUrl } from "@/lib/storage/assets";
 import { logger } from "@/lib/observability/logger";
 import { storeImageSrc } from "@/features/storefront/components/store-image";
 import { pickVariantWidth } from "@/lib/storage/variants";
-
-/** Native sharp is unavailable on Cloudflare Workers — never static-import it into storefront SSR. */
-async function loadSharp(): Promise<typeof import("sharp") | null> {
-  try {
-    return await import("sharp");
-  } catch (err) {
-    logger.warn("storefront.sharp_unavailable", { error: err instanceof Error ? err.message : String(err) });
-    return null;
-  }
-}
+import { loadSharp } from "@/lib/storage/sharp-load";
 
 /**
  * Header logo as a resized WebP copy (lib/images/loader, at most 960px wide) instead of the uploaded
