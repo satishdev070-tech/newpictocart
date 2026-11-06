@@ -82,10 +82,14 @@ Set secrets via `cf workers secrets` / dashboard. `NEXT_PUBLIC_*` must be presen
 
 ## Custom domain (pictocartdev.in)
 
+Adding the zone under **Domains** is not enough — the hostname must be attached to the **Worker**.
+
 1. Claim or use a real Cloudflare account (not Free cron-limited temp if you need schedules).
-2. Workers → `pictocart` → Custom Domains → add `pictocartdev.in` and `www.pictocartdev.in`.
-3. Keep **`pictocart.in` on Vercel** until canary is green.
-4. Smoke: `/api/health`, `/api/health/ready`, `/login`, `/seller/login`.
+2. **DNS cleanup:** On the `pictocartdev.in` zone, delete apex/`www` **A/AAAA** records that point at Cloudflare IPs, and any **CNAME** to another proxied Cloudflare hostname or a raw `workers.dev` target. Those cause **Error 1000 (DNS points to prohibited IP)**. Do not paste Cloudflare or `workers.dev` IPs into A records.
+3. Workers → `pictocart` → Settings → **Domains & Routes** → Add → **Custom domain** → add `pictocartdev.in` and `www.pictocartdev.in`. Cloudflare creates the DNS records and certificate. Prefer Custom Domains over manual Worker Routes + `AAAA 100::` for this full-app canary.
+4. Set Worker secret/var `PLATFORM_HOST_ALIASES` to include `pictocartdev.in,www.pictocartdev.in` (exact hosts; see `src/lib/platform/hosts.ts`). Keep the secrets that fixed Error 1101 (`APP_SECRET`, Supabase keys, etc.).
+5. Keep **`pictocart.in` on Vercel** until canary is green. Do **not** route pictocartdev through `workers/domain-router`.
+6. Smoke: `/api/health`, `/api/health/ready`, `/login`, `/seller/login` on both apex and `www`.
 
 ## Crons
 
