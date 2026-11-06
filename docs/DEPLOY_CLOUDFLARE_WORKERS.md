@@ -67,6 +67,8 @@ npx cf deploy --temporary-account --prebuilt --secrets-file /path/to/worker-secr
 
 Canaries with secrets (2026-11-06): `https://pictocart.airy-fact.workers.dev` and `https://pictocart.silver-uranium.workers.dev` — `/`, `/login`, `/seller/login`, `/api/health/ready` all **200**. Curl may still hit CF bot challenge 403 on some HTML routes before claim; use a browser after claim.
 
+**Custom domain (2026-11-06):** After deleting apex A/AAAA that pointed at Cloudflare IPs and attaching a Worker Custom Domain, **`https://pictocartdev.in`** serves the canary (`/`, `/login`, `/seller/login`, `/api/health`, `/api/health/ready` all **200**). Attach **`www.pictocartdev.in`** the same way (Custom Domain on Worker `pictocart`) if it has no DNS yet.
+
 ## Env / secrets (Workers)
 
 Mirror Production (Supabase URL/keys, `APP_SECRET`, `CRON_SECRET`, platform root/URL). For canary:
