@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRequestHost } from "@/lib/tenant/resolve";
 import { tenantDirectory } from "@/lib/tenant/directory";
-import { verifyPreviewToken } from "@/features/theme/server/preview";
-import { PREVIEW_COOKIE, PREVIEW_TTL_SECONDS } from "@/features/theme/preview";
+import { diagnosePreviewToken } from "@/features/theme/server/preview";
+import { PREVIEW_COOKIE, PREVIEW_TTL_SECONDS, type PreviewTokenFailReason } from "@/features/theme/preview";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { publicEnv } from "@/lib/env/public";
 import { logger } from "@/lib/observability/logger";
 
-type PreviewFailReason = "missing_token" | "unknown_host" | "bad_token";
+type PreviewFailReason = "missing_token" | "unknown_host" | PreviewTokenFailReason;
 
 /** Single-level `{slug}.{root}` hosts are same-site to the dashboard — use Lax, not CHIPS. */
 function isPlatformSubdomainHost(host: string, rootDomain: string): boolean {
@@ -61,7 +61,8 @@ export async function GET(request: NextRequest) {
   if (!host) return previewDenied("unknown_host");
   const tenant = await tenantDirectory.findByHost(host);
   if (!tenant) return previewDenied("unknown_host");
-  if (!verifyPreviewToken(token, tenant.tenantId)) return previewDenied("bad_token");
+  const diagnosed = diagnosePreviewToken(token, tenant.tenantId);
+  if (!diagnosed.ok) return previewDenied(diagnosed.reason);
 
   const res = NextResponse.redirect(new URL(safeRedirectPath(url.searchParams.get("path"), "/"), origin));
   res.headers.set("Cache-Control", "no-store");
