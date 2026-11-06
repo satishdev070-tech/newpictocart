@@ -15,7 +15,7 @@ _Last updated: 2026-11-06 (Cloudflare Workers production cutover) · 2026-11-05 
 - Crons: Free plan = 0 Cron Triggers → HTTP `CRON_SECRET` against `https://www.pictocart.in/api/cron/*`.
 - Rollback: restore Vercel NS `ns1/ns2.vercel-dns.com` while Vercel domains remain.
 
-**Pending user:** flip registrar NS to `karina.ns.cloudflare.com` / `vicente.ns.cloudflare.com`, then smoke platform + one `{slug}.pictocart.in` storefront.
+**Cutover verified (2026-11-06):** NS → Cloudflare; zone **active**. `www.pictocart.in` / apex `/`, `/login`, `/seller/login`, `/api/health/ready` **200** (`server: cloudflare`, `x-vinext-build-id`). Storefronts e.g. `november-two.pictocart.in` **200**. Redeployed Worker with production `NEXT_PUBLIC_*` baked in; storefront sharp static import soft-failed for Workers.
 
 ## Cloudflare Workers vinext canary (2026-11-05, branch `cursor/cloudflare-workers-vinext-c73e`)
 
