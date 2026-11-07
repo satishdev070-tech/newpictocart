@@ -1,8 +1,23 @@
 # Deploy Pictocart on Cloudflare Workers (vinext)
 
-**ADR-011 production origin:** the Next.js app runs on **Cloudflare Workers via vinext**. Do **not** use static Pages or OpenNext for this cut. Vercel remains a **rollback** target only (keep project domains until soak completes).
+**ADR-011 production origin:** the Next.js app runs on **Cloudflare Workers via vinext**. Do **not** use static Pages or OpenNext for this cut. Vercel remains a **rollback** target only (keep project domains until soak completes; **disconnect Git** so PRs are not blocked by Vercel checks).
 
 Related: [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md) (legacy/rollback), [DEPLOY_HOSTINGER.md](./DEPLOY_HOSTINGER.md) (Node + domain-router), `workers/domain-router` (Hostinger-only; unused when vinext is origin).
+
+## Auto-deploy (GitHub Actions → Airy Fact)
+
+Supported production path: [`.github/workflows/deploy-cloudflare-workers.yml`](../.github/workflows/deploy-cloudflare-workers.yml) on push to `main` / `cursor/prod-cf-full-cutover-c73e` (and `workflow_dispatch`).
+
+1. Add repo **Actions secrets**: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (Airy Fact), `APP_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, optional `PLATFORM_HOST_ALIASES`, `WORKERS_DEV_HOST`.
+2. Workflow runs `pnpm build:vinext` then `npx cf deploy --prebuilt --secrets-file …`, then curls `/api/cron/preview-token-self-test` (`mintVerify: ok`).
+3. Do **not** rely on GitHub check **Workers Builds: newpictocart** (account `8ee184…`) — that is the wrong Cloudflare account/worker. Delete that Builds trigger in the Cloudflare dashboard.
+
+### Stop Vercel deploy checks (required)
+
+1. Vercel → project `pictocart-u7pf` → **Settings → Git → Disconnect** this repository.
+2. GitHub → repo **Settings → Integrations** → remove/restrict the Vercel app if it still posts.
+3. Remove required status check `Vercel` from branch protection if present.
+4. In-repo: `vercel.json` sets `"ignoreCommand": "exit 1"` so any residual Vercel Git hook skips builds (project kept for ADR-011 rollback only).
 
 ```
 Visitor → pictocart.in / www / *.pictocart.in → vinext Worker → Supabase
@@ -95,7 +110,7 @@ npx cf deploy --prebuilt --secrets-file /path/to/worker-secrets.env
 
 `cloudflare.config.ts` only declares resource bindings (`ASSETS`, `IMAGES`, `VINEXT_KV_CACHE`, cache metadata). App secrets (`APP_SECRET`, `CRON_SECRET`, Supabase keys, …) are **not** typed there — they become `secret_text` bindings only when uploaded via `--secrets-file` / dashboard. Dotenv secrets files expand `$VAR` from the shell; **process env overrides file values (including empty)**.
 
-**Workers Builds / wrong account:** GitHub “Workers Builds: newpictocart” on account `8ee184…` is **not** production. Production Worker is `pictocart` on the account in `CLOUDFLARE_ACCOUNT_ID` (zone NS for `pictocart.in`). Do not treat that check as a successful prod deploy; disable or retarget the Cloudflare Workers Builds integration to the Airy Fact account + worker `pictocart`, and always pass the same secrets file used for manual deploys.
+**Workers Builds / wrong account:** GitHub “Workers Builds: newpictocart” on account `8ee184…` is **not** production. Production Worker is `pictocart` on the account in `CLOUDFLARE_ACCOUNT_ID` (zone NS for `pictocart.in`). **Delete** that Builds GitHub trigger (Cloudflare dashboard → Workers → `newpictocart` → Builds). Use **GitHub Actions** `Deploy Cloudflare Workers` (Airy Fact) or manual `cf deploy --prebuilt --secrets-file`.
 
 **APP_SECRET must match mint + verify:** Theme preview tokens are HMAC’d with `APP_SECRET` (HKDF purpose `theme-preview`). Dashboard Server Actions and `{slug}/preview` must hit the **same** Worker version/secret. Shell-minted tokens that verify while browser-minted tokens 403 usually means the dashboard mint path used a different `APP_SECRET` (stale Vercel deploy, wrong Workers Builds account, or a version uploaded without the production secrets file).
 
@@ -113,7 +128,21 @@ Expect `mintVerify: "ok"`. External diagnose returns `sig_fail` / `tenant_mismat
 
 ## Theme editor iframe preview
 
-The seller Theme Editor iframes `{slug}.pictocart.in/preview?token=…`. Keep **Bot Fight Mode off** (`fight_mode: false` on zone bot management) — Cloudflare challenges cannot run inside cross-origin iframes and show up as **403**, leaving the canvas stuck at “Loading 92%”. Platform subdomains use `sf_preview` with **SameSite=Lax**; custom domains still use **None + Partitioned**. Failed token/host checks return **403 HTML** with `data-preview-error` (`missing_token` / `unknown_host` / `sig_fail` / `tenant_mismatch` / `expired` / `bad_uuid` / `malformed` / `not_yet_valid`).
+The seller Theme Editor mints via `POST /api/theme/preview-token`, **preflights** `{slug}.pictocart.in/preview?token=…` (`redirect: manual`) before setting the iframe `src`, and recovers on 403 `data-preview-error` without hanging at “Loading 92%”. Deny HTML also `postMessage`s `{source:"pictocart-preview",type:"denied"}` (fired 3×) so remount races still renew the token.
+
+Keep **Bot Fight Mode off** (`fight_mode: false` on zone bot management) — Cloudflare challenges cannot run inside cross-origin iframes and show up as **403**. Platform subdomains use `sf_preview` with **SameSite=Lax**; custom domains still use **None + Partitioned**. Failed token/host checks return **403 HTML** with `data-preview-error` (`missing_token` / `unknown_host` / `sig_fail` / `tenant_mismatch` / `expired` / `bad_uuid` / `malformed` / `not_yet_valid`).
+
+**Production deploy gate (required after every Worker upload):**
+
+```bash
+pnpm run build:vinext
+npx cf deploy --prebuilt --secrets-file /path/to/worker-secrets.env   # or: pnpm deploy:cf:secrets …
+curl -fsS -H "Authorization: Bearer $CRON_SECRET" \
+  "https://www.pictocart.in/api/cron/preview-token-self-test"
+# must print mintVerify: "ok"
+```
+
+Disable GitHub Workers Builds aimed at account `8ee184…` / worker `newpictocart` — that is not production.
 
 ## Production domains (`pictocart.in` + `*.pictocart.in`)
 

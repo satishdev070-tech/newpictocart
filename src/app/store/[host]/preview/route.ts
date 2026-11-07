@@ -21,8 +21,10 @@ function isPlatformSubdomainHost(host: string, rootDomain: string): boolean {
 function previewDenied(reason: PreviewFailReason): NextResponse {
   logger.warn("theme.preview_denied", { reason });
   // Notify the Theme Editor parent frame (cross-origin) so it can renew the token instead of
-  // hanging at “Loading 92%”. Reason is non-secret (no token / tenant id).
-  const body = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Preview unavailable</title></head><body data-preview-error="${reason}"><p>Preview unavailable (${reason}). Close and reopen the theme editor.</p><script>try{parent.postMessage({source:"pictocart-preview",type:"denied",reason:${JSON.stringify(reason)}},"*")}catch(e){}</script></body></html>`;
+  // hanging at “Loading 92%”. Fire 3× so an iframe remount still catches the signal.
+  // Reason is non-secret (no token / tenant id).
+  const payload = JSON.stringify({ source: "pictocart-preview", type: "denied", reason });
+  const body = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><title>Preview unavailable</title></head><body data-preview-error="${reason}"><p>Preview unavailable (${reason}). Close and reopen the theme editor.</p><script>(function(){var m=${payload};function send(){try{parent.postMessage(m,"*")}catch(e){}}send();setTimeout(send,50);setTimeout(send,200);})()</script></body></html>`;
   return new NextResponse(body, {
     status: 403,
     headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
