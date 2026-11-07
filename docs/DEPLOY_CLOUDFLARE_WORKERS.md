@@ -113,7 +113,21 @@ Expect `mintVerify: "ok"`. External diagnose returns `sig_fail` / `tenant_mismat
 
 ## Theme editor iframe preview
 
-The seller Theme Editor iframes `{slug}.pictocart.in/preview?token=…`. Keep **Bot Fight Mode off** (`fight_mode: false` on zone bot management) — Cloudflare challenges cannot run inside cross-origin iframes and show up as **403**, leaving the canvas stuck at “Loading 92%”. Platform subdomains use `sf_preview` with **SameSite=Lax**; custom domains still use **None + Partitioned**. Failed token/host checks return **403 HTML** with `data-preview-error` (`missing_token` / `unknown_host` / `sig_fail` / `tenant_mismatch` / `expired` / `bad_uuid` / `malformed` / `not_yet_valid`).
+The seller Theme Editor mints via `POST /api/theme/preview-token`, **preflights** `{slug}.pictocart.in/preview?token=…` (`redirect: manual`) before setting the iframe `src`, and recovers on 403 `data-preview-error` without hanging at “Loading 92%”. Deny HTML also `postMessage`s `{source:"pictocart-preview",type:"denied"}` (fired 3×) so remount races still renew the token.
+
+Keep **Bot Fight Mode off** (`fight_mode: false` on zone bot management) — Cloudflare challenges cannot run inside cross-origin iframes and show up as **403**. Platform subdomains use `sf_preview` with **SameSite=Lax**; custom domains still use **None + Partitioned**. Failed token/host checks return **403 HTML** with `data-preview-error` (`missing_token` / `unknown_host` / `sig_fail` / `tenant_mismatch` / `expired` / `bad_uuid` / `malformed` / `not_yet_valid`).
+
+**Production deploy gate (required after every Worker upload):**
+
+```bash
+pnpm run build:vinext
+npx cf deploy --prebuilt --secrets-file /path/to/worker-secrets.env   # or: pnpm deploy:cf:secrets …
+curl -fsS -H "Authorization: Bearer $CRON_SECRET" \
+  "https://www.pictocart.in/api/cron/preview-token-self-test"
+# must print mintVerify: "ok"
+```
+
+Disable GitHub Workers Builds aimed at account `8ee184…` / worker `newpictocart` — that is not production.
 
 ## Production domains (`pictocart.in` + `*.pictocart.in`)
 
