@@ -27,7 +27,9 @@ export default defineConfig({
       ...cache.env,
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
-      VINEXT_KV_CACHE: bindings.kv(),
+      // Pin to the existing Airy Fact namespace — unpinned bindings.kv() makes `cf deploy`
+      // (strict by default in CI) abort when local config differs from the remote Worker.
+      VINEXT_KV_CACHE: bindings.kv({ id: "2a8074bf01e4433d824ab34d9531cf0b" }),
     },
   }),
 });

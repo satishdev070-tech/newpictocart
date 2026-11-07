@@ -110,6 +110,8 @@ npx cf deploy --prebuilt --secrets-file /path/to/worker-secrets.env
 
 `cloudflare.config.ts` only declares resource bindings (`ASSETS`, `IMAGES`, `VINEXT_KV_CACHE`, cache metadata). App secrets (`APP_SECRET`, `CRON_SECRET`, Supabase keys, …) are **not** typed there — they become `secret_text` bindings only when uploaded via `--secrets-file` / dashboard. Dotenv secrets files expand `$VAR` from the shell; **process env overrides file values (including empty)**.
 
+**KV binding must be pinned:** `cf deploy` runs with `--strict` by default. Use `bindings.kv({ id: "…" })` for `VINEXT_KV_CACHE` (Airy Fact namespace `2a8074bf01e4433d824ab34d9531cf0b`). Unpinned `bindings.kv()` makes CI abort with a local/remote `kv_namespaces` id conflict.
+
 **Workers Builds / wrong account:** GitHub “Workers Builds: newpictocart” on account `8ee184…` is **not** production. Production Worker is `pictocart` on the account in `CLOUDFLARE_ACCOUNT_ID` (zone NS for `pictocart.in`). **Delete** that Builds GitHub trigger (Cloudflare dashboard → Workers → `newpictocart` → Builds). Use **GitHub Actions** `Deploy Cloudflare Workers` (Airy Fact) or manual `cf deploy --prebuilt --secrets-file`.
 
 **APP_SECRET must match mint + verify:** Theme preview tokens are HMAC’d with `APP_SECRET` (HKDF purpose `theme-preview`). Dashboard Server Actions and `{slug}/preview` must hit the **same** Worker version/secret. Shell-minted tokens that verify while browser-minted tokens 403 usually means the dashboard mint path used a different `APP_SECRET` (stale Vercel deploy, wrong Workers Builds account, or a version uploaded without the production secrets file).
