@@ -360,8 +360,9 @@ export function TopBar() {
           tab?.close();
           return setNotice({ tone: "error", text: "Could not open preview. Check your connection and try again." });
         }
-        const entry = previewEntryUrl(b.store.origin, minted.token, b.page.path);
-        const url = previewUrlFor(entry, b.store.origin, b.page.path);
+        const parent = window.location.origin;
+        const entry = previewEntryUrl(b.store.origin, minted.token, b.page.path, parent);
+        const url = previewUrlFor(entry, b.store.origin, b.page.path, parent);
         if (tab) {
           tab.opener = null;
           tab.location.href = url;

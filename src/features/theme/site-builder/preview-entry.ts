@@ -1,17 +1,13 @@
 /**
- * Theme Editor preview entry helpers (mint + preflight). Kept free of React so unit tests can
- * cover the Network 403 / disconnect paths that leave the canvas stuck at “Loading 92%”.
+ * Theme Editor preview entry helpers (mint + entry URL). Kept free of React so unit tests can
+ * cover mint / deny-message paths. Canvas loads the iframe via real navigation — do not gate on
+ * cross-origin `fetch(/preview)` (browsers hide 307 behind CORS / opaque redirect).
  */
 
 import { refreshPreviewUrlAction } from "@/features/theme/actions";
 import { previewEntryUrl } from "@/features/theme/preview";
 
 export type MintedPreview = { token: string; expiresAt: number };
-
-export type PreviewPreflight =
-  | { ok: true }
-  | { ok: false; kind: "denied"; reason: string }
-  | { ok: false; kind: "network" };
 
 /** Token from a preview entry URL (`/preview?token=…`). */
 export function tokenOf(url: string): string | null {
@@ -63,44 +59,21 @@ export function previewDenyReasonFromHtml(html: string): string | null {
 }
 
 /**
- * Probe `/preview?token=…` before setting iframe.src.
- * - 302/307 → safe to navigate the iframe (cookie is set on the real navigation).
- * - 403 with data-preview-error → typed deny (do not hang at 92%).
- * - network / opaque → soft failure for retry.
- */
-export async function preflightPreviewEntry(url: string, fetchImpl: typeof fetch = fetch): Promise<PreviewPreflight> {
-  try {
-    const res = await fetchImpl(url, { redirect: "manual", credentials: "omit", cache: "no-store" });
-    if (res.status === 301 || res.status === 302 || res.status === 303 || res.status === 307 || res.status === 308) {
-      return { ok: true };
-    }
-    if (res.status === 403) {
-      const reason = previewDenyReasonFromHtml(await res.text()) ?? "bad_token";
-      return { ok: false, kind: "denied", reason };
-    }
-    // Unexpected status (CF challenge HTML, 5xx, …) — treat as soft so we can remint/retry.
-    return { ok: false, kind: "network" };
-  } catch {
-    return { ok: false, kind: "network" };
-  }
-}
-
-/**
- * Mint (or reuse) a token, preflight `/preview`, remint once on typed deny.
- * Returns the entry URL to load in the iframe, or a typed failure.
+ * Mint (or reuse) a token and return the iframe entry URL.
+ * Deny recovery is via 403 HTML `postMessage` after navigation — not a client fetch preflight
+ * (cross-origin fetch never sees the 307 status in browsers).
  */
 export async function resolvePreviewEntryUrl(opts: {
   storeOrigin: string;
   path: string;
   existing: MintedPreview | null;
   tokenMarginS: number;
+  parentOrigin?: string | null;
   nowMs?: number;
   mint?: () => Promise<MintedPreview | null>;
-  preflight?: (url: string) => Promise<PreviewPreflight>;
 }): Promise<{ ok: true; url: string; minted: MintedPreview } | { ok: false; error: string; soft?: boolean }> {
   const now = opts.nowMs ?? Date.now();
   const mint = opts.mint ?? mintPreviewEntry;
-  const preflight = opts.preflight ?? ((url: string) => preflightPreviewEntry(url));
 
   let minted = opts.existing;
   if (!minted || minted.expiresAt - now / 1000 <= opts.tokenMarginS) {
@@ -108,37 +81,11 @@ export async function resolvePreviewEntryUrl(opts: {
     if (!minted) return { ok: false, error: "The preview link could not be created.", soft: true };
   }
 
-  const tryOnce = async (m: MintedPreview) => {
-    const url = previewEntryUrl(opts.storeOrigin, m.token, opts.path);
-    const result = await preflight(url);
-    return { url, minted: m, result };
+  return {
+    ok: true,
+    url: previewEntryUrl(opts.storeOrigin, minted.token, opts.path, opts.parentOrigin),
+    minted,
   };
-
-  let attempt = await tryOnce(minted);
-  if (attempt.result.ok) return { ok: true, url: attempt.url, minted: attempt.minted };
-
-  if (attempt.result.kind === "denied") {
-    // Fresh token — if it still denies, surface the reason immediately.
-    const reminted = await mint();
-    if (!reminted) return { ok: false, error: `Preview blocked (${attempt.result.reason}). Retry to continue.` };
-    attempt = await tryOnce(reminted);
-    if (attempt.result.ok) return { ok: true, url: attempt.url, minted: attempt.minted };
-    if (attempt.result.kind === "denied") {
-      return { ok: false, error: `Preview blocked (${attempt.result.reason}). Retry to continue.` };
-    }
-    return { ok: false, error: "The store preview didn't connect. Retry to continue.", soft: true };
-  }
-
-  // Soft network failure on first preflight — remint once more then give soft error.
-  const reminted = await mint();
-  if (reminted) {
-    attempt = await tryOnce(reminted);
-    if (attempt.result.ok) return { ok: true, url: attempt.url, minted: attempt.minted };
-    if (attempt.result.kind === "denied") {
-      return { ok: false, error: `Preview blocked (${attempt.result.reason}). Retry to continue.` };
-    }
-  }
-  return { ok: false, error: "The store preview didn't connect. Retry to continue.", soft: true };
 }
 
 /** Whether a postMessage payload is a /preview deny signal from the store origin. */
