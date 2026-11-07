@@ -65,10 +65,60 @@ export function explainPreviewClaims(
   return { ok: true, claims: { tenantId: t, userId: u, expiresAt: x } };
 }
 
+/**
+ * Rough cookie-site key (last two labels). `pictocartdev.in` ≠ `pictocart.in`.
+ * localhost / *.localhost stay as the full host.
+ */
+export function cookieSiteKey(host: string): string {
+  const h = host.toLowerCase().split(":")[0]!;
+  if (h === "localhost" || h.endsWith(".localhost")) return h;
+  const parts = h.split(".");
+  if (parts.length <= 2) return h;
+  return parts.slice(-2).join(".");
+}
+
+export function hostsAreSameCookieSite(a: string, b: string): boolean {
+  return cookieSiteKey(a) === cookieSiteKey(b);
+}
+
+/**
+ * Platform subdomains are same-site to `www.{root}` → Lax is fine in the editor iframe.
+ * Dashboard aliases on another eTLD+1 (e.g. pictocartdev.in → *.pictocart.in) are cross-site →
+ * need SameSite=None; Partitioned. Custom domains are always cross-site.
+ */
+export function previewCookieNeedsPartitioned(
+  storeHost: string,
+  parentOrigin: string | null | undefined,
+  platformSubdomain: boolean,
+): boolean {
+  if (!platformSubdomain) return true;
+  if (!parentOrigin) return false;
+  try {
+    return !hostsAreSameCookieSite(storeHost, new URL(parentOrigin).host);
+  } catch {
+    return false;
+  }
+}
+
 /** Storefront URL that installs the preview cookie and lands on `path`. */
-export function previewEntryUrl(storeOrigin: string, token: string, path = "/"): string {
+export function previewEntryUrl(
+  storeOrigin: string,
+  token: string,
+  path = "/",
+  parentOrigin?: string | null,
+): string {
   const safePath = path.startsWith("/") && !path.startsWith("//") ? path : "/";
-  return `${storeOrigin}/preview?token=${encodeURIComponent(token)}&path=${encodeURIComponent(safePath)}`;
+  const url = new URL("/preview", storeOrigin.endsWith("/") ? storeOrigin : `${storeOrigin}/`);
+  url.searchParams.set("token", token);
+  url.searchParams.set("path", safePath);
+  if (parentOrigin) {
+    try {
+      url.searchParams.set("parent", new URL(parentOrigin).origin);
+    } catch {
+      /* ignore bad parent */
+    }
+  }
+  return url.toString();
 }
 
 /**

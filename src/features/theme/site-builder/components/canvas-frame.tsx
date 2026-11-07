@@ -49,9 +49,9 @@ export function originOf(url: string): string | null {
 export { tokenOf } from "../preview-entry";
 
 /** A preview entry URL (from refreshPreviewUrlAction) re-targeted at `path` on the store origin. */
-export function previewUrlFor(url: string, storeOrigin: string, path: string): string {
+export function previewUrlFor(url: string, storeOrigin: string, path: string, parentOrigin?: string | null): string {
   const token = tokenOf(url);
-  return token ? previewEntryUrl(storeOrigin, token, path) : url;
+  return token ? previewEntryUrl(storeOrigin, token, path, parentOrigin) : url;
 }
 
 /** Path without query, hash or trailing slash ("/" stays "/"). */
@@ -243,8 +243,9 @@ export function CanvasFrame() {
     return () => clearInterval(t);
   }, []);
 
-  // Load the canvas at `target` (first load, page changes, reload). Preflight /preview so a 403
-  // surfaces as “Preview blocked (…)” immediately instead of hanging at Loading 92%.
+  // Load the canvas at `target` (first load, page changes, reload). Mint then navigate the iframe
+  // (real document load installs the cookie). 403 HTML postMessages “denied” so we remint instead
+  // of hanging at Loading 92% — do not fetch(/preview) from the dashboard (CORS hides 307).
   useEffect(() => {
     if (!origin) return;
     let live = true;
@@ -253,6 +254,7 @@ export function CanvasFrame() {
       path: target.path,
       existing: token.current,
       tokenMarginS: TOKEN_MARGIN_S,
+      parentOrigin: typeof window !== "undefined" ? window.location.origin : null,
     }).then((resolved) => {
       if (!live) return;
       if (!resolved.ok) {
