@@ -6,7 +6,7 @@
  * Usage: pnpm exec tsx scripts/ci/validate-worker-secrets.mts /tmp/worker-secrets.json
  */
 import { readFileSync } from "node:fs";
-import { EnvValidationError, parseEnv, serverEnvSchema } from "../../src/lib/env/schema.ts";
+import { EnvValidationError, parseEnv, serverEnvSchema } from "../../src/lib/env/schema";
 
 const path = process.argv[2];
 if (!path) {

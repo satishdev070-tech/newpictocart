@@ -8,8 +8,10 @@ describe("public-config read module", () => {
     expect(src).not.toMatch(/import\s+sharp\b/);
   });
 
-  it("keeps sharp in the write-only branding-images module", () => {
+  it("keeps image processing in the write-only branding-images module via loadSharp", () => {
     const src = readFileSync(new URL("../../../src/features/platform/server/branding-images.ts", import.meta.url), "utf8");
-    expect(src).toMatch(/from ["']sharp["']/);
+    // Soft-load sharp (Workers hosts without native sharp); never a hard `from "sharp"`.
+    expect(src).toMatch(/loadSharp/);
+    expect(src).not.toMatch(/from ["']sharp["']/);
   });
 });

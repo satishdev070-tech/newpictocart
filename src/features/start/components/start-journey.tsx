@@ -113,9 +113,11 @@ export function StartJourney({
         clearStartDraftCookie();
       } else {
         finalizing.current = false;
+        // Prefer action `_form` (finishError / EnvValidationError). Opaque INTERNAL only
+        // falls back to the longer “account connected…” copy.
         const message =
           res.error.fieldErrors?._form?.[0] ??
-          (res.error.message === "Something went wrong. Please try again."
+          (res.error.code === "INTERNAL" || res.error.message === "Something went wrong. Please try again."
             ? "Your account is connected, but the store could not be finished. Try again."
             : res.error.message);
         toast.show({ tone: "error", message });

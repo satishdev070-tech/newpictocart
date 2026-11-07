@@ -6,13 +6,13 @@ Related: [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md) (legacy/rollback), [DEPLOY_HOSTI
 
 ## Auto-deploy (GitHub Actions → Airy Fact)
 
-Supported production path: [`.github/workflows/deploy-cloudflare-workers.yml`](../.github/workflows/deploy-cloudflare-workers.yml) on push to `main` / `cursor/prod-cf-full-cutover-c73e` (and `workflow_dispatch`).
+Supported production path: [`.github/workflows/deploy-cloudflare-workers.yml`](../.github/workflows/deploy-cloudflare-workers.yml) via **`workflow_dispatch`** (push-to-`main` is paused until secrets are proven green).
 
 1. Add repo **Actions secrets** (Settings → Secrets and variables → Actions). Required names: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (Airy Fact), `APP_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, optional `PLATFORM_HOST_ALIASES`, `WORKERS_DEV_HOST`. If any required secret is missing, the workflow fails at “Write Worker secrets file” (`APP_SECRET: missing APP_SECRET`) and **does not deploy** — use manual `cf deploy --prebuilt --secrets-file` until secrets are set.
-2. Generate secrets with hex (no `$` / quotes): `openssl rand -hex 32` for `APP_SECRET` (≥32), `openssl rand -hex 24` for `CRON_SECRET` (≥24). Put the **same** values in GitHub Actions secrets and the Cloudflare Worker `pictocart` secrets. The workflow rejects short values before deploy.
+2. Generate secrets with hex (no `$` / quotes): `openssl rand -hex 32` for `APP_SECRET` (≥32), `openssl rand -hex 24` for `CRON_SECRET` (≥24). Put the **same** values in GitHub Actions secrets and the Cloudflare Worker `pictocart` secrets. The workflow rejects short values before deploy. Bad/mismatched secrets make seller `/start` finalize show “The store could not be finished” after OTP.
 3. Workflow runs `pnpm build:vinext`, writes a **JSON** secrets file (trims whitespace; validates with `serverEnvSchema` — prints field errors, never values), then `npx cf deploy --prebuilt --secrets-file …`, then curls `/api/cron/preview-token-self-test` (`mintVerify: ok`).
-4. **Push-to-main deploy is paused** until a manual **Actions → Deploy Cloudflare Workers → Run workflow** is green. After that, re-enable the `push` trigger in `.github/workflows/deploy-cloudflare-workers.yml`.
-3. Do **not** rely on GitHub check **Workers Builds: newpictocart** (account `8ee184…`) — that is the wrong Cloudflare account/worker. Delete that Builds trigger in the Cloudflare dashboard.
+4. **Push-to-main deploy stays paused** until a manual **Actions → Deploy Cloudflare Workers → Run workflow** is green (`mintVerify: ok`). Then re-enable the `push` trigger in `.github/workflows/deploy-cloudflare-workers.yml`.
+5. Do **not** rely on GitHub check **Workers Builds: newpictocart** (account `8ee184…`) — that is the wrong Cloudflare account/worker. Delete that Builds trigger in the Cloudflare dashboard.
 
 ### Stop Vercel deploy checks (required)
 

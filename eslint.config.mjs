@@ -29,7 +29,8 @@ const eslintConfig = defineConfig([
   },
   // Local agent worktrees contain generated Next chunks from other checkouts; they are neither
   // application source nor part of this repository's deliverable.
-  globalIgnores([".next/**", "out/**", "build/**", ".claude/**", "next-env.d.ts", "workers/**/dist/**"]),
+  // .cloudflare/ is vinext/cf build output (worker bundles + generated types), not app source.
+  globalIgnores([".next/**", "out/**", "build/**", ".cloudflare/**", ".claude/**", "next-env.d.ts", "workers/**/dist/**"]),
 ]);
 
 export default eslintConfig;
