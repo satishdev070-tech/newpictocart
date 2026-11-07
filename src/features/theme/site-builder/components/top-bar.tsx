@@ -7,14 +7,16 @@ import { AlertTriangle, ArrowLeft, ChevronDown, ExternalLink, FileText, History,
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import type { PublicError } from "@/lib/errors";
-import { publishThemeAction, refreshPreviewUrlAction, rollbackThemeAction, saveThemeDraftAction } from "@/features/theme/actions";
+import { publishThemeAction, rollbackThemeAction, saveThemeDraftAction } from "@/features/theme/actions";
 import { AUTOSAVE_IDLE_MS, AUTOSAVE_MAX_WAIT_MS, autosaveMaxWaitDelayMs, draftStatusLabel, isStaleDraftConflict, shouldScheduleAutosave } from "../autosave";
 import { useBuilder } from "../context";
 import { leaveDecision, shouldGateLeave } from "../leave-gate";
 import { PAGE_GROUP_LABELS, type PageGroup } from "../pages";
+import { mintPreviewEntry } from "../preview-entry";
 import { ExitUnsavedDialog } from "./exit-unsaved-dialog";
 import { Dialog, IconButton, input } from "./ui";
 import { previewUrlFor } from "./canvas-frame";
+import { previewEntryUrl } from "@/features/theme/preview";
 
 /** Set before a deliberate reload / navigation so the "unsaved changes" prompt is skipped. */
 export const leaveGuard = { bypass: false };
@@ -353,25 +355,12 @@ export function TopBar() {
     const tab = window.open("", "_blank");
     startPreview(async () => {
       try {
-        // Prefer the Workers route handler (same as the canvas); fall back to the RSC action.
-        let entry: string | null = null;
-        try {
-          const res = await fetch("/api/theme/preview-token", { method: "POST", credentials: "same-origin", cache: "no-store" });
-          if (res.ok) {
-            const body = (await res.json()) as { ok?: boolean; url?: string };
-            if (body.ok && body.url) entry = body.url;
-          }
-        } catch {
-          /* fall through */
+        const minted = await mintPreviewEntry();
+        if (!minted) {
+          tab?.close();
+          return setNotice({ tone: "error", text: "Could not open preview. Check your connection and try again." });
         }
-        if (!entry) {
-          const r = await refreshPreviewUrlAction();
-          if (!r.ok) {
-            tab?.close();
-            return setNotice({ tone: "error", text: errorText(r.error) });
-          }
-          entry = r.data.url;
-        }
+        const entry = previewEntryUrl(b.store.origin, minted.token, b.page.path);
         const url = previewUrlFor(entry, b.store.origin, b.page.path);
         if (tab) {
           tab.opener = null;

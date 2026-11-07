@@ -5,7 +5,6 @@ import { AlertTriangle, CheckCircle2, LoaderCircle, Lock, RotateCw } from "lucid
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import type { ThemeConfig } from "@/features/theme/schema/config";
-import { refreshPreviewUrlAction } from "@/features/theme/actions";
 import { previewEntryUrl } from "@/features/theme/preview";
 import { useBuilder, type SectionTab } from "../context";
 import { changePlan, duplicateSection, moveSection, removeSection, setTextLookWidth, toggleHidden } from "../ops";
@@ -13,6 +12,7 @@ import { pageForPath, type BuilderPage } from "../pages";
 import { HOST_TAG, parseCanvasMessage, type CanvasMessage, type HostMessage } from "../protocol";
 import { listKeyOf } from "../slots";
 import { sectionChipLabels } from "../chip-labels";
+import { isPreviewDeniedMessage, mintPreviewEntry, resolvePreviewEntryUrl, tokenOf } from "../preview-entry";
 
 /**
  * The canvas: the storefront (store origin) in an iframe, entered through the theme preview route so
@@ -46,14 +46,7 @@ export function originOf(url: string): string | null {
   }
 }
 
-/** Token from a preview entry URL (`/preview?token=…`). */
-export function tokenOf(url: string): string | null {
-  try {
-    return new URL(url).searchParams.get("token");
-  } catch {
-    return null;
-  }
-}
+export { tokenOf } from "../preview-entry";
 
 /** A preview entry URL (from refreshPreviewUrlAction) re-targeted at `path` on the store origin. */
 export function previewUrlFor(url: string, storeOrigin: string, path: string): string {
@@ -75,24 +68,6 @@ export function canvasShowsPage(pages: BuilderPage[], canvasPath: string, page: 
 /** Scale that fits a `frameWidth` device into `available` px, never above 1. */
 export function fitScale(available: number, frameWidth: number): number {
   return available > 0 ? Math.min(1, available / frameWidth) : 1;
-}
-
-/** Mint via Workers route handler; fall back to the RSC server action. */
-async function mintPreviewEntry(): Promise<{ token: string; expiresAt: number } | null> {
-  try {
-    const res = await fetch("/api/theme/preview-token", { method: "POST", credentials: "same-origin", cache: "no-store" });
-    if (res.ok) {
-      const body = (await res.json()) as { ok?: boolean; url?: string; expiresAt?: number };
-      const tok = body.ok && body.url ? tokenOf(body.url) : null;
-      if (tok && typeof body.expiresAt === "number") return { token: tok, expiresAt: body.expiresAt };
-    }
-  } catch {
-    // Fall through to the server action.
-  }
-  const r = await refreshPreviewUrlAction();
-  const tok = r.ok ? tokenOf(r.data.url) : null;
-  if (!r.ok || !tok) return null;
-  return { token: tok, expiresAt: r.data.expiresAt };
 }
 
 export function CanvasFrame() {
@@ -163,14 +138,17 @@ export function CanvasFrame() {
    * The canvas couldn't render: reload it (with a fresh preview token when the old one was rejected,
    * Bugs 2.0 #14/#15 "You don't have permission"). Unsaved edits are re-sent when it is ready again.
    * After MAX_AUTO_RECOVERIES failures in a row the error stays with a Retry button.
+   * Soft network blips (`soft: true`) remint/reload without burning the recovery budget.
    */
-  const recover = useEffectEvent(({ expired, error }: { expired: boolean; error: string }) => {
+  const recover = useEffectEvent(({ expired, error, soft }: { expired: boolean; error: string; soft?: boolean }) => {
     clearWatchdog();
-    if (recoveries.current >= MAX_AUTO_RECOVERIES) {
-      setStatus({ updating: false, error });
-      return;
+    if (!soft) {
+      if (recoveries.current >= MAX_AUTO_RECOVERIES) {
+        setStatus({ updating: false, error });
+        return;
+      }
+      recoveries.current += 1;
     }
-    recoveries.current += 1;
     if (expired) token.current = null;
     setStatus({ updating: true, error: null });
     reload();
@@ -265,31 +243,41 @@ export function CanvasFrame() {
     return () => clearInterval(t);
   }, []);
 
-  // Load the canvas at `target` (first load, page changes, reload).
+  // Load the canvas at `target` (first load, page changes, reload). Preflight /preview so a 403
+  // surfaces as “Preview blocked (…)” immediately instead of hanging at Loading 92%.
   useEffect(() => {
     if (!origin) return;
     let live = true;
-    /** A preview entry URL for the target path, refreshing the token when it is close to expiry. */
-    const entryUrl = async (): Promise<string | null> => {
-      const t = token.current;
-      if (t && t.expiresAt - Date.now() / 1000 > TOKEN_MARGIN_S) return previewEntryUrl(origin, t.token, target.path);
-      const minted = await mintPreviewEntry();
-      if (!live) return null;
-      if (!minted) {
-        setLoadError("The preview link could not be created.");
-        return null;
+    void resolvePreviewEntryUrl({
+      storeOrigin: origin,
+      path: target.path,
+      existing: token.current,
+      tokenMarginS: TOKEN_MARGIN_S,
+    }).then((resolved) => {
+      if (!live) return;
+      if (!resolved.ok) {
+        token.current = null;
+        setLoadedTarget(target);
+        readyRef.current = false;
+        setReady(false);
+        setSrc(null);
+        if (resolved.soft) {
+          // Soft network failure: show the error but keep Retry cheap (no recovery burn).
+          setLoadError(resolved.error);
+          setStatus({ updating: false, error: null });
+        } else {
+          setLoadError(null);
+          setStatus({ updating: false, error: resolved.error });
+        }
+        return;
       }
-      token.current = minted;
+      token.current = resolved.minted;
       setLoadError(null);
-      return previewEntryUrl(origin, minted.token, target.path);
-    };
-    void entryUrl().then((url) => {
-      if (!live || !url) return;
       setLoadedTarget(target);
       readyRef.current = false;
       setReady(false);
       setStatus({ updating: false, error: null });
-      setSrc(url);
+      setSrc(resolved.url);
       setLoads((n) => n + 1);
     });
     return () => {
@@ -462,20 +450,15 @@ export function CanvasFrame() {
   useEffect(() => {
     if (!origin) return;
     const onMessage = (e: MessageEvent) => {
-      const win = frame.current?.contentWindow;
-      if (!win || e.source !== win || e.origin !== origin) return;
-      // /preview 403 HTML (token/host rejected) — renew instead of hanging at “Loading 92%”.
-      const denied = e.data;
-      if (
-        denied &&
-        typeof denied === "object" &&
-        (denied as { source?: unknown }).source === "pictocart-preview" &&
-        (denied as { type?: unknown }).type === "denied"
-      ) {
-        const reason = typeof (denied as { reason?: unknown }).reason === "string" ? (denied as { reason: string }).reason : "bad_token";
+      // Deny signal: accept by store origin alone — iframe remount (`key={loads}`) races
+      // `e.source === contentWindow` and would otherwise leave the canvas stuck at 92%.
+      if (e.origin === origin && isPreviewDeniedMessage(e.data)) {
+        const reason = typeof e.data.reason === "string" ? e.data.reason : "bad_token";
         recover({ expired: true, error: `Preview blocked (${reason}). Retry to continue.` });
         return;
       }
+      const win = frame.current?.contentWindow;
+      if (!win || e.source !== win || e.origin !== origin) return;
       const msg = parseCanvasMessage(e.data);
       if (msg) onCanvasMessage(msg);
     };
@@ -486,7 +469,8 @@ export function CanvasFrame() {
   /** Manual retry: start the automatic recoveries over. */
   const retry = () => {
     recoveries.current = 0;
-    if (status.error?.includes("expired")) token.current = null;
+    token.current = null;
+    setLoadError(null);
     setStatus({ updating: true, error: null });
     reload();
   };
@@ -543,7 +527,7 @@ export function CanvasFrame() {
           <div className="grid h-full place-items-center p-6 text-center">
             <div className="space-y-2">
               <p className="text-small text-error">{loadError}</p>
-              <button type="button" onClick={reload} className="text-small font-medium text-accent hover:underline">
+              <button type="button" onClick={retry} className="text-small font-medium text-accent hover:underline">
                 Try again
               </button>
             </div>

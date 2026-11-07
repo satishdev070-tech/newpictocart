@@ -9,7 +9,10 @@ import { ErrorState } from "@/components/ui/states";
 
 export const metadata: Metadata = { title: "Theme editor" };
 
+// Client-only: SSR HTML for the builder chrome mismatches the hydrated tree (React #418) and
+// races the canvas deny/postMessage listener, leaving the preview stuck at “Loading 92%”.
 const SiteBuilder = dynamic(() => import("@/features/theme/site-builder/components/site-builder").then((m) => m.SiteBuilder), {
+  ssr: false,
   loading: () => <div className="fixed inset-0 animate-pulse bg-surface-secondary" aria-busy="true" />,
 });
 
