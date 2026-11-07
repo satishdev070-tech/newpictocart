@@ -6,11 +6,15 @@
 name: Deploy Cloudflare Workers
 
 on:
-  push:
-    branches:
-      - main
-      - cursor/prod-cf-full-cutover-c73e
+  # Push-to-main deploy is paused until a workflow_dispatch run is green with
+  # mintVerify:ok. Merges were uploading GitHub APP_SECRET/CRON_SECRET that made
+  # the Worker return 500 on /api/cron/preview-token-self-test; prod was restored
+  # manually each time. Re-enable the push trigger after one successful manual deploy.
   workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
+  #     - cursor/prod-cf-full-cutover-c73e
 
 concurrency:
   group: deploy-cloudflare-workers
@@ -71,16 +75,26 @@ jobs:
           fi
           # JSON — not dotenv. Dotenv expands $VAR / ${VAR} and can truncate secrets that
           # contain `$`; empty process env can also override file values.
+          # Trim edge whitespace/newlines — GitHub secret paste often adds a trailing \n
+          # that breaks HMAC / Bearer compare even when length checks still pass.
           python3 - <<'PY' > /tmp/worker-secrets.json
           import json, os
-          aliases = os.environ.get("PLATFORM_HOST_ALIASES") or "pictocartdev.in,www.pictocartdev.in"
-          workers_dev = os.environ.get("WORKERS_DEV_HOST") or "pictocart.airy-fact.workers.dev"
+          def req(name: str) -> str:
+              v = os.environ.get(name, "")
+              if v is None:
+                  v = ""
+              v = v.strip()
+              if not v:
+                  raise SystemExit(f"{name}: empty after trim")
+              return v
+          aliases = (os.environ.get("PLATFORM_HOST_ALIASES") or "").strip() or "pictocartdev.in,www.pictocartdev.in"
+          workers_dev = (os.environ.get("WORKERS_DEV_HOST") or "").strip() or "pictocart.airy-fact.workers.dev"
           payload = {
-              "APP_SECRET": os.environ["APP_SECRET"],
-              "CRON_SECRET": os.environ["CRON_SECRET"],
-              "SUPABASE_SECRET_KEY": os.environ["SUPABASE_SECRET_KEY"],
-              "NEXT_PUBLIC_SUPABASE_URL": os.environ["NEXT_PUBLIC_SUPABASE_URL"],
-              "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": os.environ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"],
+              "APP_SECRET": req("APP_SECRET"),
+              "CRON_SECRET": req("CRON_SECRET"),
+              "SUPABASE_SECRET_KEY": req("SUPABASE_SECRET_KEY"),
+              "NEXT_PUBLIC_SUPABASE_URL": req("NEXT_PUBLIC_SUPABASE_URL"),
+              "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": req("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
               "NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN": "pictocart.in",
               "NEXT_PUBLIC_PLATFORM_URL": "https://www.pictocart.in",
               "PLATFORM_HOST_ALIASES": aliases,
@@ -88,8 +102,7 @@ jobs:
           }
           print(json.dumps(payload, separators=(",", ":")))
           PY
-          echo "secrets file keys: $(python3 -c 'import json;print(",".join(json.load(open("/tmp/worker-secrets.json"))))')"
-          echo "APP_SECRET len=${#APP_SECRET} CRON_SECRET len=${#CRON_SECRET}"
+          pnpm exec tsx scripts/ci/validate-worker-secrets.mts /tmp/worker-secrets.json
       - name: Deploy to Cloudflare (Airy Fact / pictocart)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -102,9 +115,13 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
+          CRON_SECRET="${CRON_SECRET#"${CRON_SECRET%%[![:space:]]*}"}"
+          CRON_SECRET="${CRON_SECRET%"${CRON_SECRET##*[![:space:]]}"}"
           for i in 1 2 3 4 5; do
-            body=$(curl -fsS -H "Authorization: Bearer ${CRON_SECRET}" \
+            code=$(curl -sS -o /tmp/self-test.json -w '%{http_code}' -H "Authorization: Bearer ${CRON_SECRET}" \
               "https://www.pictocart.in/api/cron/preview-token-self-test" || true)
+            echo "http=${code}"
+            body=$(cat /tmp/self-test.json 2>/dev/null || true)
             echo "$body"
             echo "$body" | grep -q '"mintVerify":"ok"' && exit 0
             sleep 5
