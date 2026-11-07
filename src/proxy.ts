@@ -36,6 +36,9 @@ function platformAliases(platformUrl: string | undefined): string[] {
     VERCEL_URL: process.env.VERCEL_URL,
     VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
     VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    CF_PAGES_URL: process.env.CF_PAGES_URL,
+    WORKERS_DEV_HOST: process.env.WORKERS_DEV_HOST,
+    CLOUDFLARE_WORKERS_HOST: process.env.CLOUDFLARE_WORKERS_HOST,
   });
   return cachedAliases;
 }

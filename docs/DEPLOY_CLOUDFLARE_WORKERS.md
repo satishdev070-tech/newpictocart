@@ -1,12 +1,13 @@
 # Deploy Pictocart on Cloudflare Workers (vinext)
 
-**ADR-011 canary:** run the Next.js app on **Cloudflare Workers via vinext**. Keep **Vercel** as production for `pictocart.in` until the canary soaks. Do **not** use static Pages or OpenNext for this cut.
+**ADR-011 production origin:** the Next.js app runs on **Cloudflare Workers via vinext**. Do **not** use static Pages or OpenNext for this cut. Vercel remains a **rollback** target only (keep project domains until soak completes).
 
-Related: [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md) (current prod), [DEPLOY_HOSTINGER.md](./DEPLOY_HOSTINGER.md) (Node + domain-router), `workers/domain-router` (unused for this canary).
+Related: [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md) (legacy/rollback), [DEPLOY_HOSTINGER.md](./DEPLOY_HOSTINGER.md) (Node + domain-router), `workers/domain-router` (Hostinger-only; unused when vinext is origin).
 
 ```
-Visitor → pictocartdev.in / *.workers.dev → vinext Worker → Supabase
-Visitor → pictocart.in (unchanged) → Vercel → Supabase
+Visitor → pictocart.in / www / *.pictocart.in → vinext Worker → Supabase
+Visitor → pictocartdev.in / www (canary aliases) → same Worker → Supabase
+Visitor → pictocart.<account>.workers.dev → same Worker → Supabase
 ```
 
 ## Compatibility (vinext check)
@@ -67,35 +68,70 @@ npx cf deploy --temporary-account --prebuilt --secrets-file /path/to/worker-secr
 
 Canaries with secrets (2026-11-06): `https://pictocart.airy-fact.workers.dev` and `https://pictocart.silver-uranium.workers.dev` — `/`, `/login`, `/seller/login`, `/api/health/ready` all **200**. Curl may still hit CF bot challenge 403 on some HTML routes before claim; use a browser after claim.
 
-**Custom domain (2026-11-06):** Worker Custom Domains on `pictocart` for **`pictocartdev.in`** and **`www.pictocartdev.in`**. Verified both hosts: `/`, `/login`, `/api/health`, `/api/health/ready` all **200**. Do not point A/AAAA at Cloudflare IPs (Error 1000); let Custom Domains create `AAAA 100::` (proxied).
+**Canary Custom Domains (2026-11-06):** `pictocartdev.in` + `www.pictocartdev.in` on Worker `pictocart`. Verified `/`, `/login`, `/api/health`, `/api/health/ready` all **200**.
+
+**Production cutover (2026-11-06):** zone `pictocart.in` on the same account (Airy Fact). Custom Domains for **`pictocart.in`** + **`www.pictocart.in`**. Wildcard stores via Worker Route `*.pictocart.in/*` + proxied DNS `AAAA * → 100::` (Custom Domains cannot use `*`). Mail/verification TXT/MX/CAA imported before NS flip. Do not point A/AAAA at Cloudflare edge IPs (Error 1000).
 
 ## Env / secrets (Workers)
 
-Mirror Production (Supabase URL/keys, `APP_SECRET`, `CRON_SECRET`, platform root/URL). For canary:
+Mirror Production (Supabase URL/keys, `APP_SECRET`, `CRON_SECRET`, platform root/URL):
 
-| Variable | Canary value |
+| Variable | Production value |
 |---|---|
-| `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` | keep `pictocart.in` (or leave as prod) |
-| `PLATFORM_HOST_ALIASES` | include `pictocartdev.in,www.pictocartdev.in` |
+| `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` | `pictocart.in` (hostname only — no scheme) |
+| `NEXT_PUBLIC_PLATFORM_URL` | `https://www.pictocart.in` |
+| `PLATFORM_HOST_ALIASES` | `pictocartdev.in,www.pictocartdev.in` (canary aliases; apex/www come from `PLATFORM_URL`) |
 | `WORKERS_DEV_HOST` / `CLOUDFLARE_WORKERS_HOST` | `pictocart.<account>.workers.dev` so proxy treats it as platform |
 | `CF_PAGES_URL` | optional full `https://…workers.dev` |
 
-Set secrets via `cf workers secrets` / dashboard. `NEXT_PUBLIC_*` must be present at **build** time for vinext as with Next.
+Set secrets via dashboard / Workers settings multipart PATCH / `--secrets-file` on deploy. Always pass secrets — empty env → Error 1101 on `/`.
 
-## Custom domain (pictocartdev.in)
+**Important:** `pnpm deploy:vinext` (`vinext-cloudflare deploy`) does **not** accept `--secrets-file`. After a Vite build, upload with secrets explicitly:
 
-Adding the zone under **Domains** is not enough — the hostname must be attached to the **Worker**.
+```bash
+pnpm run build:vinext
+npx cf deploy --prebuilt --secrets-file /path/to/worker-secrets.env
+```
 
-1. Claim or use a real Cloudflare account (not Free cron-limited temp if you need schedules).
-2. **DNS cleanup:** On the `pictocartdev.in` zone, delete apex/`www` **A/AAAA** records that point at Cloudflare IPs, and any **CNAME** to another proxied Cloudflare hostname or a raw `workers.dev` target. Those cause **Error 1000 (DNS points to prohibited IP)**. Do not paste Cloudflare or `workers.dev` IPs into A records.
-3. Workers → `pictocart` → Settings → **Domains & Routes** → Add → **Custom domain** → add `pictocartdev.in` and `www.pictocartdev.in`. Cloudflare creates the DNS records and certificate. Prefer Custom Domains over manual Worker Routes + `AAAA 100::` for this full-app canary.
-4. Set Worker secret/var `PLATFORM_HOST_ALIASES` to include `pictocartdev.in,www.pictocartdev.in` (exact hosts; see `src/lib/platform/hosts.ts`). Keep the secrets that fixed Error 1101 (`APP_SECRET`, Supabase keys, etc.).
-5. Keep **`pictocart.in` on Vercel** until canary is green. Do **not** route pictocartdev through `workers/domain-router`.
-6. Smoke: `/api/health`, `/api/health/ready`, `/login`, `/seller/login` on both apex and `www`.
+`cloudflare.config.ts` only declares resource bindings (`ASSETS`, `IMAGES`, `VINEXT_KV_CACHE`, cache metadata). App secrets (`APP_SECRET`, `CRON_SECRET`, Supabase keys, …) are **not** typed there — they become `secret_text` bindings only when uploaded via `--secrets-file` / dashboard. Dotenv secrets files expand `$VAR` from the shell; **process env overrides file values (including empty)**.
+
+**Workers Builds / wrong account:** GitHub “Workers Builds: newpictocart” on account `8ee184…` is **not** production. Production Worker is `pictocart` on the account in `CLOUDFLARE_ACCOUNT_ID` (zone NS for `pictocart.in`). Do not treat that check as a successful prod deploy; disable or retarget the Cloudflare Workers Builds integration to the Airy Fact account + worker `pictocart`, and always pass the same secrets file used for manual deploys.
+
+**APP_SECRET must match mint + verify:** Theme preview tokens are HMAC’d with `APP_SECRET` (HKDF purpose `theme-preview`). Dashboard Server Actions and `{slug}/preview` must hit the **same** Worker version/secret. Shell-minted tokens that verify while browser-minted tokens 403 usually means the dashboard mint path used a different `APP_SECRET` (stale Vercel deploy, wrong Workers Builds account, or a version uploaded without the production secrets file).
+
+Self-test (Bearer `CRON_SECRET`):
+
+```bash
+curl -fsS -H "Authorization: Bearer $CRON_SECRET" \
+  "https://www.pictocart.in/api/cron/preview-token-self-test"
+# optional: diagnose a dashboard-minted token without echoing it
+curl -fsS -H "Authorization: Bearer $CRON_SECRET" \
+  "https://www.pictocart.in/api/cron/preview-token-self-test?token=…&tenantId=…"
+```
+
+Expect `mintVerify: "ok"`. External diagnose returns `sig_fail` / `tenant_mismatch` / `expired` / `bad_uuid` / `malformed`.
+
+## Theme editor iframe preview
+
+The seller Theme Editor iframes `{slug}.pictocart.in/preview?token=…`. Keep **Bot Fight Mode off** (`fight_mode: false` on zone bot management) — Cloudflare challenges cannot run inside cross-origin iframes and show up as **403**, leaving the canvas stuck at “Loading 92%”. Platform subdomains use `sf_preview` with **SameSite=Lax**; custom domains still use **None + Partitioned**. Failed token/host checks return **403 HTML** with `data-preview-error` (`missing_token` / `unknown_host` / `sig_fail` / `tenant_mismatch` / `expired` / `bad_uuid` / `malformed` / `not_yet_valid`).
+
+## Production domains (`pictocart.in` + `*.pictocart.in`)
+
+1. Add zone `pictocart.in` (Full DNS) on the Cloudflare account that owns Worker `pictocart`. Import MX/TXT/CAA (Hostinger mail, Resend DKIM, Google verification) **before** changing nameservers.
+2. Attach Worker **Custom Domains** for exact hosts `pictocart.in` and `www.pictocart.in` (API: `PUT /accounts/{id}/workers/domains`). Cloudflare creates proxied `AAAA 100::` + certs. Delete any conflicting manual A/AAAA first.
+3. Add Worker **Route** `*.pictocart.in/*` → `pictocart`, plus proxied DNS `AAAA * → 100::` (required for storefronts; Custom Domains reject wildcards).
+4. Optional backup routes: `pictocart.in/*`, `www.pictocart.in/*` (Custom Domains already cover apex/www).
+5. Do **not** attach `workers/domain-router` routes on this zone when vinext is the origin.
+6. Flip registrar nameservers from `ns1/ns2.vercel-dns.com` → Cloudflare NS for the zone (e.g. `karina.ns.cloudflare.com` / `vicente.ns.cloudflare.com`). Wait until zone status **Active**.
+7. Smoke: `https://www.pictocart.in` and apex `/api/health`, `/api/health/ready`, `/login`, `/seller/login`; one store `https://{slug}.pictocart.in`.
+
+## Canary domains (`pictocartdev.in`)
+
+Same Worker. Custom Domains for apex + `www`. DNS cleanup: delete apex/`www` A/AAAA that point at Cloudflare edge IPs (Error 1000). Set `PLATFORM_HOST_ALIASES` as above.
 
 ## Crons
 
-Workers **Free** allows **0** Cron Triggers (temporary account hit this limit). On **Paid**, add to `cloudflare.config.ts`:
+Workers **Free** allows **0** Cron Triggers. On **Paid**, add to `cloudflare.config.ts`:
 
 ```ts
 import { triggers } from "cf/config";
@@ -103,11 +139,11 @@ import { triggers } from "cf/config";
 triggers: [triggers.scheduled({ schedule: "0 0 * * *" })],
 ```
 
-Until a vinext `scheduled` handler fans out, call the same routes as Hostinger (daily is fine):
+Until Paid + a vinext `scheduled` handler, use an **external HTTP scheduler** (same as Hostinger) daily:
 
 ```bash
 for p in social-publish expire-orders domains gbp-reviews notifications observability; do
-  curl -fsS -H "Authorization: Bearer $CRON_SECRET" "https://www.pictocartdev.in/api/cron/$p"
+  curl -fsS -H "Authorization: Bearer $CRON_SECRET" "https://www.pictocart.in/api/cron/$p"
 done
 ```
 
@@ -119,10 +155,11 @@ done
 
 ## Rollback
 
-- Unbind `pictocartdev.in` from the Worker (or leave DNS on Vercel).
-- Production `pictocart.in` stays on Vercel — no NS flip required to roll back the canary.
-- Remove vinext-only deps only if abandoning Workers (not required to keep shipping on Vercel).
+- Point `pictocart.in` nameservers back to Vercel (`ns1.vercel-dns.com`, `ns2.vercel-dns.com`) while Vercel project domains remain configured.
+- Or unbind Custom Domains / delete Worker Routes on the Cloudflare zone and restore Vercel DNS at the registrar.
+- Canary `pictocartdev.in` is independent — leave it on Workers during a production rollback.
+- Remove vinext-only deps only if abandoning Workers entirely.
 
 ## domain-router
 
-[`workers/domain-router`](../workers/domain-router) stays for Hostinger origins. This canary Worker **is** the origin — do not route pictocartdev through domain-router.
+[`workers/domain-router`](../workers/domain-router) stays for Hostinger / Cloudflare-for-SaaS origins only. When the vinext Worker is the origin for `pictocart.in`, do **not** attach domain-router routes on that zone.

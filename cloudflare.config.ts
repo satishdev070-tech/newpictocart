@@ -4,9 +4,10 @@ import { createWorkersCacheConfig } from "@vinext/cloudflare/cache/config";
 const cache = await createWorkersCacheConfig();
 
 /**
- * vinext app Worker (canary). Cron Triggers need Workers Paid (Free = 0 schedules).
- * Until then, HTTP-call `/api/cron/*` with `Authorization: Bearer $CRON_SECRET`
- * (same as Hostinger — see docs/DEPLOY_CLOUDFLARE_WORKERS.md).
+ * vinext app Worker (production + canary). Serves pictocart.in / www / *.pictocart.in
+ * and pictocartdev.in aliases — see docs/DEPLOY_CLOUDFLARE_WORKERS.md.
+ * Cron Triggers need Workers Paid (Free = 0 schedules). Until then, HTTP-call
+ * `/api/cron/*` with `Authorization: Bearer $CRON_SECRET`.
  * To enable on Paid: import { triggers } from "cf/config" and add
  * `triggers: [triggers.scheduled({ schedule: "0 0 * * *" })]`.
  */

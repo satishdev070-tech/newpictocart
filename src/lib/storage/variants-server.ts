@@ -2,23 +2,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/observability/logger";
+import { loadSharp } from "@/lib/storage/sharp-load";
 import { STORE_ASSETS_BUCKET, assetUrl } from "./assets";
 import { VARIANT_WIDTHS, isVariantable, variantPath, type VariantWidth } from "./variants";
 
 const CACHE = "31536000"; // variants are immutable: a new upload gets a new path
-
-/**
- * Dynamic sharp import — native sharp does not load on Cloudflare Workers.
- * Callers already treat failures as soft (upload continues; /api/img falls back to original).
- */
-async function loadSharp(): Promise<typeof import("sharp") | null> {
-  try {
-    return await import("sharp");
-  } catch (err) {
-    logger.warn("media.sharp_unavailable", { error: err instanceof Error ? err.message : String(err) });
-    return null;
-  }
-}
 
 /** WebP copy of `bytes` at most `width` px wide (never enlarged), EXIF-rotated. */
 export async function renderVariant(bytes: Uint8Array | Buffer, width: VariantWidth): Promise<Buffer> {

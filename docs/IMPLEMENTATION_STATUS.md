@@ -1,16 +1,47 @@
 # Implementation Status
 
-_Last updated: 2026-11-05 (Cloudflare Workers vinext canary) · 2026-11-05 (App speed: login measure + server redirect + Revenue SQL) · 2026-11-04 (Admin API Observability Center) · 2026-11-03 (Platform PayU + plan online checkout) · 2026-11-03 (React #185 + shell Link viewport prefetch) · 2026-11-03 (Dashboard / Admin load resilience) · 2026-11-03 (Catalog / Dashboard QA fixes) · 2026-11-02 (Submenu → feature page hrefs) · 2026-11-02 (Feature detail pages CMS) · 2026-11-02 (Marketing Steps stack + landing media) · 2026-11-02 (Marketing BWOG palette) · 2026-11-02 (Platform root → pictocart.in) · 2026-11-02 (Seller onboarding AI polish) · 2026-10-31 (Niche samples + theme imagery polish) · 2026-10-31 (Theme panel crash harden) · 2026-10-31 (Theme editor exit guard + Contact path + Footer settings) · 2026-10-30 (Grade A LCP + customizer preview lazy images) · 2026-10-30 (Marketing GTmetrix LCP/JS) · 2026-10-30 (Theme/store crash + 404 resilience) · 2026-10-30 (Marketing homepage perf P0–P1) · 2026-10-30 (Customizer speed model lock) · 2026-10-30 (Customizer UX fixes) · 2026-10-30 (Theme Customizer Master) · 2026-10-30 (Seller login harden) · 2026-10-29 (Theme pages + popups Phase E) · 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-11-06 (Theme preview bad_token diagnostics) · 2026-11-06 (Theme editor preview CF fix) · 2026-11-06 (Cloudflare Workers production cutover) · 2026-11-05 (Cloudflare Workers vinext canary) · 2026-11-05 (App speed: login measure + server redirect + Revenue SQL) · 2026-11-04 (Admin API Observability Center) · 2026-11-03 (Platform PayU + plan online checkout) · 2026-11-03 (React #185 + shell Link viewport prefetch) · 2026-11-03 (Dashboard / Admin load resilience) · 2026-11-03 (Catalog / Dashboard QA fixes) · 2026-11-02 (Submenu → feature page hrefs) · 2026-11-02 (Feature detail pages CMS) · 2026-11-02 (Marketing Steps stack + landing media) · 2026-11-02 (Marketing BWOG palette) · 2026-11-02 (Platform root → pictocart.in) · 2026-11-02 (Seller onboarding AI polish) · 2026-10-31 (Niche samples + theme imagery polish) · 2026-10-31 (Theme panel crash harden) · 2026-10-31 (Theme editor exit guard + Contact path + Footer settings) · 2026-10-30 (Grade A LCP + customizer preview lazy images) · 2026-10-30 (Marketing GTmetrix LCP/JS) · 2026-10-30 (Theme/store crash + 404 resilience) · 2026-10-30 (Marketing homepage perf P0–P1) · 2026-10-30 (Customizer speed model lock) · 2026-10-30 (Customizer UX fixes) · 2026-10-30 (Theme Customizer Master) · 2026-10-30 (Seller login harden) · 2026-10-29 (Theme pages + popups Phase E) · 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Theme preview bad_token diagnostics (2026-11-06, branch `cursor/theme-preview-bad-token-c73e`)
+
+**Diagnosis:** Live `pictocart.in` / `www` / `nuts-fruits-store` share one vinext build (`x-vinext-build-id`), NS on Cloudflare (not Vercel). `vinext-cloudflare deploy` does not pass `--secrets-file`; GitHub Workers Builds targets wrong account (`newpictocart` / `8ee184…`). Shell-minted HMAC tokens verifying while dashboard tokens 403 ⇒ treat as **APP_SECRET / deployment skew** until proven otherwise (not dual DNS).
+
+**Fix:** `/preview` `data-preview-error` now returns precise reasons (`sig_fail`, `tenant_mismatch`, `expired`, `bad_uuid`, `malformed`, `not_yet_valid`); cron self-test `GET /api/cron/preview-token-self-test` (Bearer `CRON_SECRET`) mint+verifies in-process and can diagnose an external `token`+`tenantId`. Ops: redeploy Worker with production `--secrets-file`, retarget/disable wrong Workers Builds, confirm self-test `mintVerify: ok`.
+
+## Theme editor preview token diagnose + recover (2026-11-06, branch `cursor/theme-preview-bad-token-c73e`)
+
+**Bug:** After CF cutover, Theme Editor still stuck at “Loading 92%” with `/preview` **403**. Coarse `bad_token` hid `sig_fail` vs `tenant_mismatch`. GitHub Workers Builds targets the wrong CF account (no prod deploy). Leftover CHIPS cookies could collide with Lax.
+
+**Fix:** Precise `data-preview-error` (`sig_fail` / `tenant_mismatch` / `expired` / …); cron self-test `GET /api/cron/preview-token-self-test`; mint via `POST /api/theme/preview-token` (route handler) from the canvas; 403 HTML `postMessage` so the editor renews instead of hanging; clear Partitioned cookie before setting Lax; `pnpm deploy:cf:secrets`. Verified live: self-test `mintVerify: ok`; garbage → `sig_fail`; shell-minted nuts-fruits token → 307 + Lax.
+
+## Theme editor preview on Workers (2026-11-06, branch `cursor/theme-editor-preview-cf-c73e`)
+
+**Bug:** Theme Editor stuck at “Loading 92%” with Network **403** on `{slug}.pictocart.in/preview?token=…`, postMessage origin mismatch, and `marketing/creative` **500**.
+
+**Fix:** Bot Fight confirmed off; platform-subdomain `sf_preview` uses **SameSite=Lax** (CHIPS only for custom domains); failed `/preview` returns **403 HTML** with `data-preview-error`; shared `loadSharp()` soft-fail for creative/branding/social/variants. Verified: bad token → 403 `bad_token`; good token → 307 + `SameSite=Lax` + canvas present on follow-up.
+
+## Cloudflare Workers production cutover (2026-11-06, branch `cursor/prod-cf-full-cutover-c73e`)
+
+**ADR-011:** Production frontend origin is **vinext → Cloudflare Workers** (not Pages, not OpenNext-first). Runbook: [DEPLOY_CLOUDFLARE_WORKERS.md](./DEPLOY_CLOUDFLARE_WORKERS.md).
+
+**Shipped (infra):**
+- Zone `pictocart.in` added (Airy Fact); MX/TXT/CAA (Hostinger mail, Resend, Google) imported before NS flip.
+- Worker `pictocart` env set to production: `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN=pictocart.in`, `NEXT_PUBLIC_PLATFORM_URL=https://www.pictocart.in`, `PLATFORM_HOST_ALIASES=pictocartdev.in,www.pictocartdev.in`.
+- Custom Domains: `pictocart.in`, `www.pictocart.in` (plus canary `pictocartdev.in` / `www`).
+- Wildcard: Route `*.pictocart.in/*` + proxied `AAAA * → 100::`; backup routes `pictocart.in/*`, `www.pictocart.in/*`.
+- No `domain-router` routes on the production zone.
+- Crons: Free plan = 0 Cron Triggers → HTTP `CRON_SECRET` against `https://www.pictocart.in/api/cron/*`.
+- Rollback: restore Vercel NS `ns1/ns2.vercel-dns.com` while Vercel domains remain.
+
+**Cutover verified (2026-11-06):** NS → Cloudflare; zone **active**. `www.pictocart.in` / apex `/`, `/login`, `/seller/login`, `/api/health/ready` **200** (`server: cloudflare`, `x-vinext-build-id`). Storefronts e.g. `november-two.pictocart.in` **200**. Redeployed Worker with production `NEXT_PUBLIC_*` baked in; storefront sharp static import soft-failed for Workers.
 
 ## Cloudflare Workers vinext canary (2026-11-05, branch `cursor/cloudflare-workers-vinext-c73e`)
-
-**ADR-011:** Production stays on Vercel; canary path is **vinext → Cloudflare Workers** (not Pages, not OpenNext-first). Runbook: [DEPLOY_CLOUDFLARE_WORKERS.md](./DEPLOY_CLOUDFLARE_WORKERS.md).
 
 **Shipped:**
 - `vinext check` ~93% compatible; `vinext init` (workers-cache + KV data-cache + Cloudflare Images, `--ignore-wrangler-config`).
 - `vite.config.ts`, `cloudflare.config.ts`, scripts `dev:vinext` / `build:vinext` / `deploy:vinext`.
 - Workers adaptations: theme `fetch-guard` without `dns.lookup` (DoH fallback); sharp soft-fail in variants; `workers.dev` host aliases.
-- `pnpm build:vinext` green; temporary-account deploy to `https://pictocart.airy-fact.workers.dev` (claim within 60m). Local `vite preview`: `/api/health` + `/login` **200**.
+- `pnpm build:vinext` green; temporary-account deploy to `https://pictocart.airy-fact.workers.dev`. Local `vite preview`: `/api/health` + `/login` **200**.
 - Cron Triggers omitted on Free (0 limit); HTTP cron documented.
 - **pictocartdev.in** + **www.pictocartdev.in** mapped as Worker Custom Domains on `pictocart` (Airy Fact). Verified 2026-11-06: `/`, `/login`, `/api/health`, `/api/health/ready` all **200** on both hosts.
 
