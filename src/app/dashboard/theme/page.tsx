@@ -1,20 +1,13 @@
 import type { Metadata } from "next";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { requireTenantPermission } from "@/lib/tenant/membership";
 import { getBuilderData } from "@/features/theme/site-builder/server/data";
 import { BuilderErrorBoundary } from "@/features/theme/site-builder/components/builder-error-boundary";
+import { ThemeBuilderClient } from "@/features/theme/site-builder/components/theme-builder-client";
 import { buttonClass } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/states";
 
 export const metadata: Metadata = { title: "Theme editor" };
-
-// Client-only: SSR HTML for the builder chrome mismatches the hydrated tree (React #418) and
-// races the canvas deny/postMessage listener, leaving the preview stuck at “Loading 92%”.
-const SiteBuilder = dynamic(() => import("@/features/theme/site-builder/components/site-builder").then((m) => m.SiteBuilder), {
-  ssr: false,
-  loading: () => <div className="fixed inset-0 animate-pulse bg-surface-secondary" aria-busy="true" />,
-});
 
 export default async function ThemePage() {
   const ctx = await requireTenantPermission("theme.edit");
@@ -36,7 +29,7 @@ export default async function ThemePage() {
   }
   return (
     <BuilderErrorBoundary>
-      <SiteBuilder data={data} />
+      <ThemeBuilderClient data={data} />
     </BuilderErrorBoundary>
   );
 }
