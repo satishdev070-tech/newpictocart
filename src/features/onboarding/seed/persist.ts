@@ -519,7 +519,12 @@ async function writeThemeDraft(ctx: TenantContext, next: ThemeConfig): Promise<b
 
 async function mergeThemeContent(ctx: TenantContext, plan: ReadyStorePlan, ids: Ids, images: ThemeSeedImages): Promise<void> {
   const data = await getThemeEditorData(ctx.tenantId);
-  if (!data) throw new AppError("INTERNAL", { message: "Couldn't load the theme draft while seeding.", context: { tenantId: ctx.tenantId } });
+  if (!data) {
+    throw new AppError("INTERNAL", {
+      message: "Couldn't load the theme draft while seeding.",
+      context: { operation: "seed_theme_draft", tenantId: ctx.tenantId },
+    });
+  }
   await writeThemeDraft(ctx, patchHomeSections(data.config, plan, ids, images));
 }
 

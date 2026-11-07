@@ -35,6 +35,14 @@ describe("getSessionUser resilience", () => {
     await expect(getSessionUser()).rejects.toBe(bailout);
   });
 
+  it("rethrows EnvValidationError so finalize can show a server-config toast", async () => {
+    const { EnvValidationError } = await import("@/lib/env/schema");
+    const envErr = new EnvValidationError(["APP_SECRET: Too small"]);
+    serverClient = envErr;
+    const { getSessionUser } = await import("@/lib/auth/session");
+    await expect(getSessionUser()).rejects.toBe(envErr);
+  });
+
   it("returns the user when claims and profile are healthy", async () => {
     serverClient = {
       auth: { getClaims: async () => ({ data: { claims: { sub: "u1", email: "a@example.com" } }, error: null }) },

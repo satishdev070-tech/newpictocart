@@ -5,10 +5,12 @@ import { runAction, type ActionResult } from "@/lib/actions/result";
 import { formToObject } from "@/lib/actions/form";
 import { parseInput } from "@/lib/validation/common";
 import { AppError } from "@/lib/errors";
-import { requireUser } from "@/lib/auth/session";
+import { EnvValidationError } from "@/lib/env/schema";
+import { requireUserWithRetry } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mapDbError } from "@/lib/supabase/errors";
 import { publicEnv } from "@/lib/env/public";
+import { mapStartFinalizeError } from "@/features/start/finalize-error";
 import { isValidStoreSlug } from "@/lib/tenant/host";
 import { setActiveTenant } from "@/lib/tenant/active";
 import { clientIpKey, rateLimit } from "@/lib/rate-limit";
@@ -280,29 +282,22 @@ async function createOrResumeStore(userId: string, name: string, slug: string): 
     if (error.code === "54000") {
       throw new AppError("VALIDATION", { fieldErrors: { _form: ["You've reached the maximum number of stores for one account."] } });
     }
-    throw mapDbError(error);
+    throw mapDbError(error, { operation: "create_tenant" });
   }
   const tenantId = data;
-  if (!tenantId) throw new AppError("INTERNAL");
+  if (!tenantId) throw new AppError("INTERNAL", { context: { operation: "create_tenant" } });
   return { tenantId, slug };
 }
 
 function finishError(err: unknown): never {
-  const context = err instanceof AppError ? err.context : undefined;
+  const mapped = mapStartFinalizeError(err);
   logger.error("start.finalize_failed", {
-    code: err instanceof AppError ? err.code : "throw",
-    context,
+    code: err instanceof AppError ? err.code : err instanceof EnvValidationError ? "env_invalid" : "throw",
+    mappedCode: mapped.code,
+    context: mapped.context ?? (err instanceof AppError ? err.context : undefined),
     message: err instanceof Error ? err.message.slice(0, 300) : "unknown",
   });
-  if (err instanceof AppError) {
-    const line = err.fieldErrors?._form?.[0] ?? err.fieldErrors?.slug?.[0];
-    if (line) throw err;
-    throw new AppError(err.code === "INTERNAL" ? "VALIDATION" : err.code, {
-      fieldErrors: { _form: [err.code === "INTERNAL" ? "The store could not be finished. Try again." : err.publicMessage] },
-      context,
-    });
-  }
-  throw new AppError("VALIDATION", { fieldErrors: { _form: ["The store could not be finished. Try again."] } });
+  throw mapped;
 }
 
 export type FinalizeStartResult = { slug: string; name: string };
@@ -346,7 +341,20 @@ export async function finalizeStartDraftAction(
   fd: FormData,
 ): Promise<ActionResult<FinalizeStartResult>> {
   return runAction("start.finalize", async () => {
-    const user = await requireUser("/start");
+    let user;
+    try {
+      // Uncached retry: post-OTP cookie can miss on the first read of this action.
+      user = await requireUserWithRetry("/start");
+    } catch (err) {
+      if (err instanceof EnvValidationError) {
+        logger.error("start.finalize_env_invalid", { issues: err.issues.slice(0, 8) });
+        throw new AppError("INTERNAL", {
+          fieldErrors: { _form: ["Server configuration error — contact support."] },
+          context: { reason: "env_invalid" },
+        });
+      }
+      throw err;
+    }
     await assertEmailVerifiedForOnboarding();
     await rateLimit("start-finalize", user.id, 10, 3600);
     const { draftJson } = parseInput(finalizeSchema, formToObject(fd));
