@@ -2,20 +2,37 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getRequestHost } from "@/lib/tenant/resolve";
 import { tenantDirectory } from "@/lib/tenant/directory";
 import { diagnosePreviewToken } from "@/features/theme/server/preview";
-import { PREVIEW_COOKIE, PREVIEW_TTL_SECONDS, type PreviewTokenFailReason } from "@/features/theme/preview";
+import {
+  PREVIEW_COOKIE,
+  PREVIEW_TTL_SECONDS,
+  previewCookieNeedsPartitioned,
+  type PreviewTokenFailReason,
+} from "@/features/theme/preview";
 import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { publicEnv } from "@/lib/env/public";
+import { builderParentOrigins } from "@/lib/platform/urls";
 import { logger } from "@/lib/observability/logger";
 
 type PreviewFailReason = "missing_token" | "unknown_host" | PreviewTokenFailReason;
 
-/** Single-level `{slug}.{root}` hosts are same-site to the dashboard — use Lax, not CHIPS. */
+/** Single-level `{slug}.{root}` hosts are same-site to the primary dashboard root. */
 function isPlatformSubdomainHost(host: string, rootDomain: string): boolean {
   const h = host.toLowerCase();
   const root = rootDomain.toLowerCase();
   if (!root || !h.endsWith(`.${root}`)) return false;
   const sub = h.slice(0, -(root.length + 1));
   return sub.length > 0 && !sub.includes(".");
+}
+
+/** Accept only exact origins the Theme Editor may run on (frame-ancestors allowlist). */
+function acceptedParentOrigin(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const origin = new URL(raw).origin;
+    return builderParentOrigins().includes(origin) ? origin : null;
+  } catch {
+    return null;
+  }
 }
 
 function previewDenied(reason: PreviewFailReason): NextResponse {
@@ -52,6 +69,7 @@ export async function GET(request: NextRequest) {
   const secure = url.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https" || local;
   const root = publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN;
   const platformSub = Boolean(host && isPlatformSubdomainHost(host, root));
+  const parent = acceptedParentOrigin(url.searchParams.get("parent"));
 
   if (url.searchParams.get("exit")) {
     const res = NextResponse.redirect(new URL(safeRedirectPath(url.searchParams.get("path"), "/"), origin));
@@ -78,14 +96,12 @@ export async function GET(request: NextRequest) {
   if (secure) {
     res.cookies.set(PREVIEW_COOKIE, "", { httpOnly: true, secure: true, sameSite: "none", partitioned: true, path: "/", maxAge: 0 });
   }
-  // Platform subdomains are same-site to the dashboard (e.g. pictocart.in ↔ slug.pictocart.in):
-  // SameSite=Lax is enough and more reliable in the editor iframe than CHIPS.
-  // Custom domains (and http *.localhost) are cross-site → SameSite=None; Secure; Partitioned.
+  // Same-site dashboard (www.pictocart.in ↔ slug.pictocart.in): Lax.
+  // Cross-site dashboard alias (pictocartdev.in ↔ slug.pictocart.in) or custom domain: None+Partitioned.
+  const partitioned = secure && previewCookieNeedsPartitioned(realHost, parent, platformSub);
   if (!secure) {
     res.cookies.set(PREVIEW_COOKIE, token, { httpOnly: true, sameSite: "lax", path: "/", maxAge: PREVIEW_TTL_SECONDS });
-  } else if (platformSub) {
-    res.cookies.set(PREVIEW_COOKIE, token, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: PREVIEW_TTL_SECONDS });
-  } else {
+  } else if (partitioned) {
     res.cookies.set(PREVIEW_COOKIE, token, {
       httpOnly: true,
       secure: true,
@@ -94,6 +110,8 @@ export async function GET(request: NextRequest) {
       path: "/",
       maxAge: PREVIEW_TTL_SECONDS,
     });
+  } else {
+    res.cookies.set(PREVIEW_COOKIE, token, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: PREVIEW_TTL_SECONDS });
   }
   return res;
 }
