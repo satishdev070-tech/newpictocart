@@ -74,6 +74,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        # cf deploy is strict by default: local KV binding id must match the remote Worker.
         run: npx cf deploy --prebuilt --secrets-file /tmp/worker-secrets.env --message "gha:${{ github.sha }}"
       - name: Post-deploy preview-token self-test
         env:
