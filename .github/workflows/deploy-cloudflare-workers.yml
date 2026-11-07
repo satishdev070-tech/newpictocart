@@ -59,23 +59,44 @@ jobs:
           : "${SUPABASE_SECRET_KEY:?missing SUPABASE_SECRET_KEY}"
           : "${NEXT_PUBLIC_SUPABASE_URL:?missing NEXT_PUBLIC_SUPABASE_URL}"
           : "${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?missing NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}"
-          {
-            printf 'APP_SECRET=%s\n' "$APP_SECRET"
-            printf 'CRON_SECRET=%s\n' "$CRON_SECRET"
-            printf 'SUPABASE_SECRET_KEY=%s\n' "$SUPABASE_SECRET_KEY"
-            printf 'NEXT_PUBLIC_SUPABASE_URL=%s\n' "$NEXT_PUBLIC_SUPABASE_URL"
-            printf 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=%s\n' "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
-            printf 'NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN=pictocart.in\n'
-            printf 'NEXT_PUBLIC_PLATFORM_URL=https://www.pictocart.in\n'
-            printf 'PLATFORM_HOST_ALIASES=%s\n' "${PLATFORM_HOST_ALIASES:-pictocartdev.in,www.pictocartdev.in}"
-            printf 'WORKERS_DEV_HOST=%s\n' "${WORKERS_DEV_HOST:-pictocart.airy-fact.workers.dev}"
-          } > /tmp/worker-secrets.env
+          # Match serverEnv schema: APP_SECRET ≥32, CRON_SECRET ≥24. Short values make
+          # /api/cron/preview-token-self-test (and other serverEnv paths) return 500.
+          if [ "${#APP_SECRET}" -lt 32 ]; then
+            echo "APP_SECRET length ${#APP_SECRET} < 32 (generate with: openssl rand -hex 32)" >&2
+            exit 1
+          fi
+          if [ "${#CRON_SECRET}" -lt 24 ]; then
+            echo "CRON_SECRET length ${#CRON_SECRET} < 24 (generate with: openssl rand -hex 24)" >&2
+            exit 1
+          fi
+          # JSON — not dotenv. Dotenv expands $VAR / ${VAR} and can truncate secrets that
+          # contain `$`; empty process env can also override file values.
+          python3 - <<'PY' > /tmp/worker-secrets.json
+          import json, os
+          aliases = os.environ.get("PLATFORM_HOST_ALIASES") or "pictocartdev.in,www.pictocartdev.in"
+          workers_dev = os.environ.get("WORKERS_DEV_HOST") or "pictocart.airy-fact.workers.dev"
+          payload = {
+              "APP_SECRET": os.environ["APP_SECRET"],
+              "CRON_SECRET": os.environ["CRON_SECRET"],
+              "SUPABASE_SECRET_KEY": os.environ["SUPABASE_SECRET_KEY"],
+              "NEXT_PUBLIC_SUPABASE_URL": os.environ["NEXT_PUBLIC_SUPABASE_URL"],
+              "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": os.environ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"],
+              "NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN": "pictocart.in",
+              "NEXT_PUBLIC_PLATFORM_URL": "https://www.pictocart.in",
+              "PLATFORM_HOST_ALIASES": aliases,
+              "WORKERS_DEV_HOST": workers_dev,
+          }
+          print(json.dumps(payload, separators=(",", ":")))
+          PY
+          echo "secrets file keys: $(python3 -c 'import json;print(",".join(json.load(open("/tmp/worker-secrets.json"))))')"
+          echo "APP_SECRET len=${#APP_SECRET} CRON_SECRET len=${#CRON_SECRET}"
       - name: Deploy to Cloudflare (Airy Fact / pictocart)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         # cf deploy is strict by default: local KV binding id must match the remote Worker.
-        run: npx cf deploy --prebuilt --secrets-file /tmp/worker-secrets.env --message "gha:${{ github.sha }}"
+        # Prefer JSON secrets-file so `$` in secret values is not expanded (unlike dotenv).
+        run: npx cf deploy --prebuilt --secrets-file /tmp/worker-secrets.json --message "gha:${{ github.sha }}"
       - name: Post-deploy preview-token self-test
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}

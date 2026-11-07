@@ -9,7 +9,8 @@ Related: [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md) (legacy/rollback), [DEPLOY_HOSTI
 Supported production path: [`.github/workflows/deploy-cloudflare-workers.yml`](../.github/workflows/deploy-cloudflare-workers.yml) on push to `main` / `cursor/prod-cf-full-cutover-c73e` (and `workflow_dispatch`).
 
 1. Add repo **Actions secrets** (Settings → Secrets and variables → Actions). Required names: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (Airy Fact), `APP_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, optional `PLATFORM_HOST_ALIASES`, `WORKERS_DEV_HOST`. If any required secret is missing, the workflow fails at “Write Worker secrets file” (`APP_SECRET: missing APP_SECRET`) and **does not deploy** — use manual `cf deploy --prebuilt --secrets-file` until secrets are set.
-2. Workflow runs `pnpm build:vinext` then `npx cf deploy --prebuilt --secrets-file …`, then curls `/api/cron/preview-token-self-test` (`mintVerify: ok`).
+2. Generate secrets with hex (no `$` / quotes): `openssl rand -hex 32` for `APP_SECRET` (≥32), `openssl rand -hex 24` for `CRON_SECRET` (≥24). Put the **same** values in GitHub Actions secrets and the Cloudflare Worker `pictocart` secrets. The workflow rejects short values before deploy.
+3. Workflow runs `pnpm build:vinext` then `npx cf deploy --prebuilt --secrets-file …` (**JSON** secrets file — avoids dotenv `$VAR` expansion), then curls `/api/cron/preview-token-self-test` (`mintVerify: ok`).
 3. Do **not** rely on GitHub check **Workers Builds: newpictocart** (account `8ee184…`) — that is the wrong Cloudflare account/worker. Delete that Builds trigger in the Cloudflare dashboard.
 
 ### Stop Vercel deploy checks (required)
@@ -108,7 +109,7 @@ pnpm run build:vinext
 npx cf deploy --prebuilt --secrets-file /path/to/worker-secrets.env
 ```
 
-`cloudflare.config.ts` only declares resource bindings (`ASSETS`, `IMAGES`, `VINEXT_KV_CACHE`, cache metadata). App secrets (`APP_SECRET`, `CRON_SECRET`, Supabase keys, …) are **not** typed there — they become `secret_text` bindings only when uploaded via `--secrets-file` / dashboard. Dotenv secrets files expand `$VAR` from the shell; **process env overrides file values (including empty)**.
+`cloudflare.config.ts` only declares resource bindings (`ASSETS`, `IMAGES`, `VINEXT_KV_CACHE`, cache metadata). App secrets (`APP_SECRET`, `CRON_SECRET`, Supabase keys, …) are **not** typed there — they become `secret_text` bindings only when uploaded via `--secrets-file` / dashboard. Prefer a **JSON** `--secrets-file` (GHA does this). Dotenv format expands `$VAR` / `${VAR}` and can truncate secrets that contain `$`; process env also overrides file values (including empty).
 
 **KV binding must be pinned:** `cf deploy` runs with `--strict` by default. Use `bindings.kv({ id: "…" })` for `VINEXT_KV_CACHE` (Airy Fact namespace `2a8074bf01e4433d824ab34d9531cf0b`). Unpinned `bindings.kv()` makes CI abort with a local/remote `kv_namespaces` id conflict.
 
