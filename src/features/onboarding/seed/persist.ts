@@ -130,45 +130,55 @@ async function ensureProducts(
     }
     const sku = `SEED-${String(i + 1).padStart(2, "0")}`;
     const title = withSamplePrefix(p.title);
-    const input = productInputSchema.parse({
-      title,
-      slug: p.slug,
-      description: p.description || p.shortDescription,
-      shortDescription: p.shortDescription,
-      productType,
-      brand: storeName,
-      categoryId: catIds[p.categorySlug] ?? null,
-      status: "active",
-      featured: p.featured || i < 2,
-      tags: p.tags.length ? p.tags : i === 0 ? ["bestseller"] : [],
-      attributes: { occasion: [], specs: [] },
-      careInstructions: null,
-      shippingInfo: null,
-      returnInfo: null,
-      hsnCode: p.hsnCode ?? null,
-      seoTitle: p.seoTitle ?? `${title} | ${storeName}`.slice(0, 120),
-      seoDescription: p.seoDescription ?? (p.shortDescription || p.description).slice(0, 320),
-      options: [],
-      variants: [
-        {
-          option1: null,
-          option2: null,
-          option3: null,
-          sku,
-          price: toDecimalString(p.pricePaise),
-          compareAtPrice: p.compareAtPaise != null ? toDecimalString(p.compareAtPaise) : "",
-          weightGrams: String(p.weightGrams),
-          trackInventory: true,
-          lowStockThreshold: "3",
-          initialStock: "10",
-          status: "active",
-        },
-      ],
-    });
+    let input;
+    try {
+      // Active products require countryOfOrigin (catalog schema); seed defaults to India.
+      input = productInputSchema.parse({
+        title,
+        slug: p.slug,
+        description: p.description || p.shortDescription,
+        shortDescription: p.shortDescription,
+        productType,
+        brand: storeName,
+        categoryId: catIds[p.categorySlug] ?? null,
+        status: "active",
+        countryOfOrigin: "India",
+        featured: p.featured || i < 2,
+        tags: p.tags.length ? p.tags : i === 0 ? ["bestseller"] : [],
+        attributes: { occasion: [], specs: [] },
+        careInstructions: null,
+        shippingInfo: null,
+        returnInfo: null,
+        hsnCode: p.hsnCode ?? null,
+        seoTitle: p.seoTitle ?? `${title} | ${storeName}`.slice(0, 120),
+        seoDescription: p.seoDescription ?? (p.shortDescription || p.description).slice(0, 320),
+        options: [],
+        variants: [
+          {
+            option1: null,
+            option2: null,
+            option3: null,
+            sku,
+            price: toDecimalString(p.pricePaise),
+            compareAtPrice: p.compareAtPaise != null ? toDecimalString(p.compareAtPaise) : "",
+            weightGrams: String(p.weightGrams),
+            trackInventory: true,
+            lowStockThreshold: "3",
+            initialStock: "10",
+            status: "active",
+          },
+        ],
+      });
+    } catch (err) {
+      throw new AppError("INTERNAL", {
+        context: { operation: "seed_save_product", reason: "seed_product_parse", slug: p.slug },
+        cause: err,
+      });
+    }
     const payload = toSaveProductPayload(input, { allowInitialStock: true });
     const { data: id, error: saveErr } = await callSaveProduct(supabase, tenantId, payload);
     if (saveErr || !id) {
-      if (saveErr) throw mapDbError(saveErr);
+      if (saveErr) throw mapDbError(saveErr, { operation: "seed_save_product" });
       throw new AppError("INTERNAL", { context: { operation: "seed_save_product" } });
     }
     bySlug.set(p.slug, id);
