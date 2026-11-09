@@ -2,27 +2,38 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { analyticsAttributes, type AnalyticsEvent } from "../analytics";
+import { CardGlow } from "./card-glow";
 
 /**
- * Shared marketing primitives. Colours come from `.theme-brand` + `.theme-marketing` tokens
- * (black chrome, orange money CTAs, green success chips only).
+ * Shared marketing primitives for the dark editorial system (`.theme-marketing`).
+ * Accent CTAs use mint; secondary actions stay bordered/transparent. Variant names are
+ * stable so existing callers (`cta`, `orange`, `primary`, …) keep working.
  */
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60";
-const sizes = { md: "h-11 px-6 text-sm", lg: "h-12 px-7 text-[0.95rem]", sm: "h-9 px-4 text-sm" } as const;
+  "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-[color,background-color,box-shadow,border-color,transform] duration-[var(--dur-fast,200ms)] ease-[var(--ease-out,cubic-bezier(0.22,1,0.36,1))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent disabled:opacity-60";
+
+const sizes = {
+  sm: "px-4 py-2 text-sm",
+  md: "px-6 py-3.5 text-sm",
+  lg: "px-7 py-3.5 text-[0.95rem]",
+} as const;
+
+/** Mint fill + dark ink — primary money CTAs. */
+const accentFill =
+  "bg-mk-accent text-mk-accent-ink font-semibold hover:bg-mk-accent-hover hover:shadow-[0_0_40px_var(--accent-glow)]";
+
 const variants = {
-  /** Charcoal chrome — secondary actions / nav emphasis */
-  primary: "bg-brand text-white hover:bg-brand-hover",
-  secondary: "border border-border-strong bg-surface text-brand-ink hover:border-brand-orange hover:text-brand-orange",
-  light: "bg-surface text-brand-ink hover:bg-brand-soft",
-  ghostLight: "border border-white/40 text-white hover:bg-white/10",
-  /** Orange money CTAs (Start free / Create store) */
-  cta: "bg-brand-orange font-bold text-white shadow-[0_10px_30px_-10px_rgb(234_88_12/0.7)] hover:bg-brand-orange-hover",
-  orange: "bg-brand-orange font-bold text-white shadow-[0_10px_30px_-10px_rgb(234_88_12/0.7)] hover:bg-brand-orange-hover",
-  night: "bg-brand-ink text-white hover:bg-brand-ink/90",
-  /** Legacy name → charcoal chrome (no indigo) */
-  indigo: "bg-brand text-white shadow-[0_10px_30px_-10px_rgb(0_0_0/0.35)] hover:bg-brand-hover",
+  primary: accentFill,
+  cta: accentFill,
+  orange: accentFill,
+  indigo: accentFill,
+  night: accentFill,
+  light: accentFill,
+  secondary:
+    "border border-mk-line-strong bg-transparent text-mk-text hover:bg-mk-elev-2 hover:border-mk-line-strong",
+  ghostLight:
+    "border border-mk-line-strong bg-transparent text-mk-text hover:bg-mk-elev-2",
 } as const;
 
 export function buttonClass(variant: keyof typeof variants = "primary", size: keyof typeof sizes = "md", extra?: string) {
@@ -67,23 +78,46 @@ export function ButtonLink({
 }
 
 export function Container({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("mx-auto w-full max-w-6xl px-4 sm:px-6", className)}>{children}</div>;
+  return <div className={cn("mk-container", className)}>{children}</div>;
 }
 
-export function Section({ id, children, className, labelledBy, tone = "white" }: { id?: string; children: ReactNode; className?: string; labelledBy?: string; tone?: "white" | "canvas" | "ink" }) {
+const sectionTones = {
+  white: "bg-mk-bg text-mk-text",
+  canvas: "bg-mk-elev-1 text-mk-text",
+  ink: "bg-mk-bg text-mk-text",
+} as const;
+
+export function Section({
+  id,
+  children,
+  className,
+  labelledBy,
+  tone = "white",
+}: {
+  id?: string;
+  children: ReactNode;
+  className?: string;
+  labelledBy?: string;
+  tone?: keyof typeof sectionTones;
+}) {
   return (
-    <section
-      id={id}
-      aria-labelledby={labelledBy}
-      className={cn("scroll-mt-20 py-16 sm:py-20", tone === "canvas" && "bg-brand-canvas", tone === "ink" && "bg-brand-ink text-white", className)}
-    >
+    <section id={id} aria-labelledby={labelledBy} className={cn("mk-section", sectionTones[tone], className)}>
       <Container>{children}</Container>
     </section>
   );
 }
 
-export function Eyebrow({ children, tone = "brand" }: { children: ReactNode; tone?: "brand" | "light" }) {
-  return <p className={cn("text-xs font-bold uppercase tracking-[0.14em]", tone === "brand" ? "text-brand" : "text-brand-accent")}>{children}</p>;
+export function Eyebrow({ children, tone = "brand" }: { children: ReactNode; tone?: "brand" | "light" | "muted" }) {
+  return (
+    <p
+      className={cn(
+        "mk-label",
+        tone === "muted" ? "text-mk-muted" : tone === "light" ? "text-mk-muted" : "text-mk-accent",
+      )}
+    >
+      {children}
+    </p>
+  );
 }
 
 export function SectionHeading({
@@ -104,17 +138,69 @@ export function SectionHeading({
   tone?: "dark" | "light";
 }) {
   return (
-    <div className={cn("max-w-2xl", align === "center" && "mx-auto text-center")}>
-      {eyebrow ? <Eyebrow tone={tone === "light" ? "light" : "brand"}>{eyebrow}</Eyebrow> : null}
-      <As id={id} className={cn("mt-3 font-brand font-bold tracking-tight text-balance", As === "h1" ? "text-4xl sm:text-5xl" : "text-3xl sm:text-4xl", tone === "dark" ? "text-brand-ink" : "text-white")}>
+    <div className={cn("max-w-3xl", align === "center" && "mx-auto text-center")}>
+      {eyebrow ? <Eyebrow tone={tone === "light" ? "muted" : "brand"}>{eyebrow}</Eyebrow> : null}
+      <As id={id} className={cn("mk-display-lg mt-3 text-balance text-mk-text")}>
         {title}
       </As>
-      {body ? <p className={cn("mt-4 text-lg leading-relaxed", tone === "dark" ? "text-muted" : "text-white/80")}>{body}</p> : null}
+      {body ? <p className={cn("mk-body-lg mt-4 max-w-[60ch] text-mk-muted", align === "center" && "mx-auto")}>{body}</p> : null}
     </div>
   );
 }
 
+export function Card({
+  children,
+  className,
+  glow = true,
+}: {
+  children: ReactNode;
+  className?: string;
+  /** Cursor-following accent radial (client). Pass false for static cards. */
+  glow?: boolean;
+}) {
+  const inner = (
+    <>
+      {glow ? <div className="mk-card-glow pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-[var(--dur-fast,200ms)] group-hover/card:opacity-100" aria-hidden /> : null}
+      <div className="relative z-[1]">{children}</div>
+    </>
+  );
+
+  const shell = cn(
+    "group/card relative overflow-hidden rounded-mk-lg border border-mk-line bg-mk-elev-1 p-7 sm:p-8",
+    "transition-[border-color,transform,box-shadow] duration-[var(--dur-fast,200ms)] ease-[var(--ease-out,cubic-bezier(0.22,1,0.36,1))]",
+    "hover:-translate-y-1 hover:border-mk-line-strong",
+    "motion-reduce:hover:translate-y-0",
+    className,
+  );
+
+  if (!glow) {
+    return <div className={shell}>{inner}</div>;
+  }
+  return <CardGlow className={shell}>{inner}</CardGlow>;
+}
+
+export function Pill({ children, className, href }: { children: ReactNode; className?: string; href?: string }) {
+  const cls = cn(
+    "inline-flex items-center rounded-full border border-mk-line px-3.5 py-1.5 text-sm text-mk-muted",
+    "transition-[color,border-color] duration-[var(--dur-fast,200ms)] ease-[var(--ease-out,cubic-bezier(0.22,1,0.36,1))]",
+    "hover:border-mk-accent hover:text-mk-accent",
+    className,
+  );
+  if (href) {
+    return (
+      <Link href={href} className={cls}>
+        {children}
+      </Link>
+    );
+  }
+  return <span className={cls}>{children}</span>;
+}
+
 /** Small "Demo data" chip for illustrative product visuals. */
 export function DemoBadge({ className }: { className?: string }) {
-  return <span className={cn("inline-flex items-center rounded-full bg-brand-accent-soft px-2.5 py-0.5 text-[11px] font-semibold text-brand-ink", className)}>Demo data</span>;
+  return (
+    <span className={cn("inline-flex items-center rounded-full bg-mk-accent-tint px-2.5 py-0.5 text-[11px] font-semibold text-mk-accent", className)}>
+      Demo data
+    </span>
+  );
 }
