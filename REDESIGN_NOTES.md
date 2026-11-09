@@ -16,6 +16,18 @@ Inspiration-only restyle of the public marketing site (Sheryians-like dark edito
 
 Mint `#24CFA6` replaced with brand orange after live review; Inter Tight replaced with Manrope; hero/section density tightened toward Sheryians editorial feel while keeping CMS content.
 
+## Type scale polish (2026-11-09)
+
+Hero `mk-display-xl` was up to `8rem` and dwarfed body/nav. Retuned:
+
+| Token | Size |
+|---|---|
+| `mk-display-xl` | `clamp(2.5rem, 5.2vw, 4.25rem)` |
+| `mk-display-lg` | `clamp(1.875rem, 3.2vw, 3rem)` |
+| `mk-h3` | `clamp(1.25rem, 1.4vw, 1.5rem)` |
+
+Hero body bumped to `text-lg`/`xl`; stats/step numbers dialed down; labels use `mk-label` instead of `10px`.
+
 ## New dependencies
 
 - `@fontsource-variable/jetbrains-mono`

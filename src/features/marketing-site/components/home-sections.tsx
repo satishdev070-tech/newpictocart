@@ -47,7 +47,7 @@ export function Hero({
           <h1 id="hero-title" className="mk-display-xl mt-5 max-w-[14ch] text-balance text-mk-text">
             {HERO.headline}
           </h1>
-          <p className="mt-5 max-w-md text-base leading-relaxed text-mk-muted sm:text-lg">{HERO.body}</p>
+          <p className="mt-5 max-w-lg text-lg leading-relaxed text-mk-muted sm:text-xl">{HERO.body}</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <ButtonLink href={SIGNUP_HREF} variant="cta" size="lg" className="rounded-full bg-mk-accent font-bold text-mk-accent-ink shadow-[0_12px_40px_-12px_var(--accent-glow)] hover:bg-mk-accent-hover" track={{ id: "create_store", location: "hero" }}>
               {CTA_CREATE} <ArrowRight aria-hidden className="size-4" />
