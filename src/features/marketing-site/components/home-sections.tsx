@@ -36,22 +36,23 @@ export function Hero({
     "Free store address, custom domain on eligible plans",
   ];
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-mk-bg to-mk-elev-1" aria-labelledby="hero-title">
+    <section className="relative isolate overflow-hidden bg-mk-bg" aria-labelledby="hero-title">
+      <div aria-hidden className="mk-grid-texture absolute inset-0 -z-10 opacity-50 [mask-image:radial-gradient(ellipse_at_center,black_25%,transparent_72%)]" />
       <Container className="grid items-center gap-12 py-14 sm:py-20 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] lg:py-24">
-        <div>
+        <div className="flex flex-col items-start">
           <p className="mk-label inline-flex items-center gap-2 text-mk-accent">
             <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
             {HERO.eyebrow}
           </p>
-          <h1 id="hero-title" className="mk-display-lg mt-5 text-balance text-mk-text">
+          <h1 id="hero-title" className="mk-display-xl mt-5 max-w-[14ch] text-balance text-mk-text">
             {HERO.headline}
           </h1>
-          <p className="mt-5 max-w-xl text-lg leading-relaxed text-mk-muted sm:text-xl">{HERO.body}</p>
+          <p className="mt-5 max-w-md text-base leading-relaxed text-mk-muted sm:text-lg">{HERO.body}</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <ButtonLink href={SIGNUP_HREF} size="lg" track={{ id: "create_store", location: "hero" }}>
+            <ButtonLink href={SIGNUP_HREF} variant="cta" size="lg" className="rounded-full bg-mk-accent font-bold text-mk-accent-ink shadow-[0_12px_40px_-12px_var(--accent-glow)] hover:bg-mk-accent-hover" track={{ id: "create_store", location: "hero" }}>
               {CTA_CREATE} <ArrowRight aria-hidden className="size-4" />
             </ButtonLink>
-            <ButtonLink href={THEMES_HREF} variant="secondary" size="lg" track={{ id: "explore_themes", location: "hero" }}>
+            <ButtonLink href={THEMES_HREF} variant="secondary" size="lg" className="rounded-full border-white/20 bg-transparent text-white/80 hover:border-mk-accent hover:text-mk-accent" track={{ id: "explore_themes", location: "hero" }}>
               {CTA_THEMES}
             </ButtonLink>
           </div>
@@ -68,7 +69,8 @@ export function Hero({
         </div>
         {theme ? (
           <figure className="relative w-full pb-4">
-            <div className="absolute -inset-x-4 -top-6 bottom-2 -z-0 rounded-[40px] bg-mk-accent-tint" aria-hidden />
+            <div aria-hidden className="absolute -inset-x-4 -top-6 bottom-2 -z-0 rounded-[40px] bg-brand-orange/20 blur-3xl" />
+            <div aria-hidden className="absolute -inset-x-2 -top-4 bottom-4 -z-0 rounded-[40px] bg-[radial-gradient(circle_at_50%_40%,var(--accent-glow),transparent_65%)] blur-2xl" />
             <div className="relative">
               <ThemeDevicePreview theme={theme} previewUrl={previewUrl} size="large" eager live />
             </div>
@@ -90,7 +92,10 @@ export function Benefits() {
   return (
     <Section id={SECTION_IDS.benefits} labelledBy="benefits-title">
       <div className="mx-auto max-w-2xl text-center">
-        <p className="mk-label text-mk-accent">Why Pictocart</p>
+        <p className="mk-label inline-flex items-center gap-2 text-mk-accent">
+          <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+          Why Pictocart
+        </p>
         <h2 id="benefits-title" className="mk-display-lg mt-4 text-balance text-mk-text">
           Everything you need to sell online
         </h2>
@@ -124,7 +129,10 @@ export function Categories() {
   return (
     <Section id={SECTION_IDS.categories} tone="canvas" labelledBy="categories-title">
       <div className="mx-auto max-w-2xl text-center">
-        <p className="mk-label text-mk-accent">For every kind of business</p>
+        <p className="mk-label inline-flex items-center gap-2 text-mk-accent">
+          <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+          For every kind of business
+        </p>
         <h2 id="categories-title" className="mk-display-lg mt-4 text-balance text-mk-text">
           Built for more than fashion
         </h2>
@@ -177,7 +185,10 @@ export function ThemeShowcase({ themes }: { themes: MarketplaceTheme[] }) {
     <Section id={SECTION_IDS.themes} labelledBy="themes-title">
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div className="max-w-2xl">
-          <p className="mk-label text-mk-accent">Themes</p>
+          <p className="mk-label inline-flex items-center gap-2 text-mk-accent">
+            <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+            Themes
+          </p>
           <h2 id="themes-title" className="mk-display-lg mt-4 text-balance text-mk-text">
             Start with a design made for your products
           </h2>
@@ -221,7 +232,10 @@ export function HowItWorks() {
   return (
     <Section id={SECTION_IDS.howItWorks} tone="canvas" labelledBy="how-title">
       <div className="mx-auto max-w-2xl text-center">
-        <p className="mk-label text-mk-accent">How it works</p>
+        <p className="mk-label inline-flex items-center gap-2 text-mk-accent">
+          <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+          How it works
+        </p>
         <h2 id="how-title" className="mk-display-lg mt-4 text-balance text-mk-text">
           From sign-up to your first sale
         </h2>
@@ -245,7 +259,10 @@ export function FaqSection({ faqs, title = "Questions sellers ask" }: { faqs: Fa
     <Section id={SECTION_IDS.faq} labelledBy="faq-title">
       <div className="grid gap-10 lg:grid-cols-[1fr_1.6fr]">
         <div className="max-w-xl">
-          <p className="mk-label text-mk-accent">FAQ</p>
+          <p className="mk-label inline-flex items-center gap-2 text-mk-accent">
+            <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+            FAQ
+          </p>
           <h2 id="faq-title" className="mk-display-lg mt-4 text-balance text-mk-text">
             {title}
           </h2>
@@ -273,12 +290,16 @@ export function FinalCta({ trialDays, freeForever = false }: { trialDays: number
   return (
     <section className="relative isolate overflow-hidden bg-mk-bg px-4 pb-20 sm:px-6" aria-labelledby="final-cta-title">
       <div className="relative mx-auto max-w-6xl overflow-hidden rounded-mk-lg border border-mk-line bg-mk-elev-1 px-6 py-14 text-center sm:px-12">
+        <div aria-hidden className="mk-grid-texture pointer-events-none absolute inset-0 opacity-60" />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_60%_at_20%_0%,rgb(36_207_166/0.16),transparent_70%),radial-gradient(40%_50%_at_90%_100%,rgb(36_207_166/0.1),transparent_70%)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_60%_at_20%_0%,var(--accent-glow),transparent_70%),radial-gradient(40%_50%_at_90%_100%,rgb(234_88_12/0.12),transparent_70%)]"
         />
         <div className="relative">
-          <p className="mk-label text-mk-accent">Get started</p>
+          <p className="mk-label inline-flex items-center justify-center gap-2 text-mk-accent">
+            <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+            Get started
+          </p>
           <h2 id="final-cta-title" className="mk-display-lg mx-auto mt-4 max-w-2xl text-balance text-mk-text">
             Ready to open your online store?
           </h2>
@@ -291,10 +312,10 @@ export function FinalCta({ trialDays, freeForever = false }: { trialDays: number
             It stays private until you publish.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <ButtonLink href={SIGNUP_HREF} variant="cta" size="lg" track={{ id: "create_store", location: "final_cta" }}>
+            <ButtonLink href={SIGNUP_HREF} variant="cta" size="lg" className="rounded-full bg-mk-accent font-bold text-mk-accent-ink shadow-[0_12px_40px_-12px_var(--accent-glow)] hover:bg-mk-accent-hover" track={{ id: "create_store", location: "final_cta" }}>
               {CTA_CREATE}
             </ButtonLink>
-            <ButtonLink href={THEMES_HREF} variant="secondary" size="lg" track={{ id: "explore_themes", location: "final_cta" }}>
+            <ButtonLink href={THEMES_HREF} variant="secondary" size="lg" className="rounded-full border-white/20 bg-transparent text-white/80 hover:border-mk-accent hover:text-mk-accent" track={{ id: "explore_themes", location: "final_cta" }}>
               {CTA_THEMES}
             </ButtonLink>
           </div>

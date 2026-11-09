@@ -68,7 +68,10 @@ export default async function PricingPage() {
       <section className="bg-gradient-to-b from-mk-bg to-mk-elev-1 pt-16 pb-6 sm:pt-20" aria-labelledby="pricing-title">
         <div className="mk-container">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="mk-label text-mk-accent">Pricing</p>
+            <p className="mk-label inline-flex items-center justify-center gap-2 text-mk-accent">
+              <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+              Pricing
+            </p>
             <h1 id="pricing-title" className="mk-display-lg mt-4 text-balance text-mk-text">
               Simple plans for every stage of your business
             </h1>
@@ -81,7 +84,10 @@ export default async function PricingPage() {
       </section>
       <Section labelledBy="compare-title">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="mk-label text-mk-accent">Compare</p>
+          <p className="mk-label inline-flex items-center justify-center gap-2 text-mk-accent">
+            <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+            Compare
+          </p>
           <h2 id="compare-title" className="mk-display-lg mt-4 text-balance text-mk-text">
             Compare plans
           </h2>

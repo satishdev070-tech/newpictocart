@@ -48,9 +48,9 @@ export function RotatingWords({ words }: { words: string[] }) {
   return (
     <>
       <span className="sr-only">{list.join(", ")}</span>
-      <span aria-hidden className="text-mk-accent">
+      <span aria-hidden className="text-mk-accent underline decoration-mk-accent/40 decoration-[0.06em] underline-offset-[0.12em]">
         {shown}
-        <span className="ml-1 inline-block h-[0.85em] w-[3px] animate-pulse rounded-full bg-mk-accent/80 motion-reduce:hidden" />
+        <span className="ml-1 inline-block h-[0.85em] w-[3px] animate-pulse rounded-sm bg-mk-accent motion-reduce:hidden" />
       </span>
     </>
   );

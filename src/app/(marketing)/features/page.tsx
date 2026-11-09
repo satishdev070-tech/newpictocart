@@ -32,14 +32,17 @@ export default async function FeaturesPage() {
       <section className="bg-gradient-to-b from-mk-bg to-mk-elev-1 pt-16 sm:pt-20">
         <Container>
           <div className="mx-auto max-w-2xl text-center">
-            <p className="mk-label text-mk-accent">Features</p>
+            <p className="mk-label inline-flex items-center justify-center gap-2 text-mk-accent">
+              <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+              Features
+            </p>
             <h1 className="mk-display-lg mt-4 text-balance text-mk-text">Everything you need to run your online store</h1>
             <p className="mt-4 text-lg leading-relaxed text-mk-muted">
               Deep-dive pages for every capability in the Features menu — from Snap-to-Product AI to Pica2.
             </p>
           </div>
           <div className="mt-8 flex justify-center">
-            <ButtonLink href={SIGNUP_HREF} size="lg" variant="cta" track={{ id: "create_store", location: "features_page" }}>
+            <ButtonLink href={SIGNUP_HREF} size="lg" variant="cta" className="rounded-full bg-mk-accent font-bold text-mk-accent-ink shadow-[0_12px_40px_-12px_var(--accent-glow)] hover:bg-mk-accent-hover" track={{ id: "create_store", location: "features_page" }}>
               {CTA_CREATE}
             </ButtonLink>
           </div>

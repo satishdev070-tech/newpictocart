@@ -55,7 +55,10 @@ export default async function ThemeDetailPage({ params }: PageProps<"/themes/[ke
                 <span className="rounded-full bg-mk-accent-tint px-2.5 py-1 text-mk-accent">{industryName(t.industry)}</span>
                 <span className="rounded-full bg-mk-elev-2 px-2.5 py-1 text-mk-muted">{THEME_STYLE_LABELS[t.style]}</span>
               </div>
-              <p className="mk-label mt-6 text-mk-dim">Theme</p>
+              <p className="mk-label mt-6 inline-flex items-center gap-2 text-mk-accent">
+                <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+                Theme
+              </p>
               <h1 id="theme-title" className="mk-display-lg mt-3 text-balance text-mk-text">
                 {t.name}
               </h1>
