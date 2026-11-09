@@ -103,7 +103,7 @@ export function MobileNav({
                         aria-expanded={menuOpen}
                         aria-controls={accordionId}
                         onClick={() => setMenuOpen((v) => !v)}
-                        className="flex w-full items-center justify-between rounded-mk-md px-1 py-3 text-left font-mk-display text-3xl font-semibold tracking-tight text-mk-text hover:text-mk-accent sm:text-4xl"
+                        className="flex w-full items-center justify-between rounded-mk-md px-1 py-3 text-left font-mk-display text-2xl font-semibold tracking-tight text-mk-text hover:text-mk-accent sm:text-3xl"
                       >
                         {l.label}
                         <ChevronDown aria-hidden className={cn("size-6 text-mk-muted transition-transform duration-200 motion-reduce:transition-none", menuOpen && "rotate-180")} />
@@ -149,7 +149,7 @@ export function MobileNav({
                       prefetch
                       onClick={() => setOpen(false)}
                       aria-current={pathname === l.href ? "page" : undefined}
-                      className="block rounded-mk-md px-1 py-3 font-mk-display text-3xl font-semibold tracking-tight text-mk-text transition-colors hover:text-mk-accent aria-[current=page]:text-mk-accent sm:text-4xl"
+                      className="block rounded-mk-md px-1 py-3 font-mk-display text-2xl font-semibold tracking-tight text-mk-text transition-colors hover:text-mk-accent aria-[current=page]:text-mk-accent sm:text-3xl"
                     >
                       {l.label}
                     </Link>

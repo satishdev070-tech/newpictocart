@@ -480,28 +480,28 @@
 }
 @utility mk-display-xl {
   font-family: var(--font-brand-display);
-  font-size: clamp(3.25rem, 9vw, 8rem);
-  line-height: 0.92;
+  font-size: clamp(2.5rem, 5.2vw, 4.25rem);
+  line-height: 1.02;
   font-weight: 700;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.03em;
 }
 @utility mk-display-lg {
   font-family: var(--font-brand-display);
-  font-size: clamp(2.25rem, 5vw, 4.5rem);
-  line-height: 1;
+  font-size: clamp(1.875rem, 3.2vw, 3rem);
+  line-height: 1.1;
   font-weight: 650;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
 }
 @utility mk-h3 {
   font-family: var(--font-brand-display);
-  font-size: clamp(1.375rem, 2vw, 1.75rem);
-  line-height: 1.15;
+  font-size: clamp(1.25rem, 1.4vw, 1.5rem);
+  line-height: 1.25;
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 @utility mk-body-lg {
   font-size: 1.125rem;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 @utility mk-label {
   font-family: var(--font-mono-label);
