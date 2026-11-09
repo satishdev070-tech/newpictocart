@@ -11,14 +11,23 @@ export function FeaturePageView({ page }: { page: FeaturePage }) {
       <section className="relative isolate overflow-hidden bg-mk-bg text-mk-text">
         <div
           aria-hidden
-          className="absolute inset-0 -z-10 bg-[radial-gradient(50%_60%_at_20%_0%,rgb(36_207_166/0.18),transparent_70%),radial-gradient(40%_50%_at_90%_80%,rgb(36_207_166/0.08),transparent_70%)]"
+          className="absolute inset-0 -z-10 bg-[radial-gradient(50%_60%_at_20%_0%,var(--accent-glow),transparent_70%),radial-gradient(40%_50%_at_90%_80%,rgb(234_88_12/0.1),transparent_70%)]"
         />
         <Container className="py-16 sm:py-20">
-          <p className="mk-label text-mk-accent">{page.eyebrow || FEATURE_GROUP_LABELS[page.group]}</p>
+          <p className="mk-label inline-flex items-center gap-2 text-mk-accent">
+            <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+            {page.eyebrow || FEATURE_GROUP_LABELS[page.group]}
+          </p>
           <h1 className="mk-display-lg mt-4 max-w-3xl text-balance text-mk-text">{page.title}</h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-mk-muted">{page.summary}</p>
           <div className="mt-8">
-            <ButtonLink href={page.ctaHref || "/start"} variant="cta" size="lg" className="rounded-xl" track={{ id: "create_store", location: `feature_${page.slug}` }}>
+            <ButtonLink
+              href={page.ctaHref || "/start"}
+              variant="cta"
+              size="lg"
+              className="rounded-full bg-mk-accent font-bold text-mk-accent-ink shadow-[0_12px_40px_-12px_var(--accent-glow)] hover:bg-mk-accent-hover"
+              track={{ id: "create_store", location: `feature_${page.slug}` }}
+            >
               {page.ctaLabel || "Start free"} <ArrowRight aria-hidden className="size-4" />
             </ButtonLink>
           </div>
@@ -73,7 +82,13 @@ export function FeaturePageView({ page }: { page: FeaturePage }) {
           <h2 className="font-brand text-2xl font-extrabold text-mk-text sm:text-3xl">Ready to try it on your store?</h2>
           <p className="mx-auto mt-3 max-w-lg text-mk-muted">Create a free Pictocart store and turn this capability on from your dashboard.</p>
           <div className="mt-7 flex justify-center">
-            <ButtonLink href={page.ctaHref || "/start"} variant="orange" size="lg" className="rounded-xl" track={{ id: "create_store", location: `feature_footer_${page.slug}` }}>
+            <ButtonLink
+              href={page.ctaHref || "/start"}
+              variant="cta"
+              size="lg"
+              className="rounded-full bg-mk-accent font-bold text-mk-accent-ink shadow-[0_12px_40px_-12px_var(--accent-glow)] hover:bg-mk-accent-hover"
+              track={{ id: "create_store", location: `feature_footer_${page.slug}` }}
+            >
               {page.ctaLabel || "Start free"} <ArrowRight aria-hidden className="size-4" />
             </ButtonLink>
           </div>

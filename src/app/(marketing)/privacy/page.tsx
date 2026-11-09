@@ -11,7 +11,10 @@ export default function Page() {
   return (
     <article className="bg-mk-bg">
       <div className="mk-container max-w-3xl py-20">
-        <p className="mk-label text-mk-accent">Legal</p>
+        <p className="mk-label inline-flex items-center gap-2 text-mk-accent">
+          <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+          Legal
+        </p>
         <h1 className="mk-display-lg mt-4 text-balance text-mk-text">Privacy policy</h1>
         <p className="mt-3 text-sm text-mk-dim">Summary version. The full legal text is provided with your subscription agreement.</p>
         <div className="mt-10 space-y-6 border-t border-mk-line pt-10 text-base leading-relaxed text-mk-muted">

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { interTight, jetbrainsMono } from "@/app/fonts";
+import { jetbrainsMono, manrope } from "@/app/fonts";
 import { cn } from "@/lib/cn";
 import { MarketingFooter, MarketingHeader } from "@/features/marketing-site/components/chrome";
 import { PlatformAnalytics } from "@/features/marketing-site/components/platform-analytics";
@@ -14,7 +14,7 @@ export function generateMetadata(): Promise<Metadata> {
 export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
   const [{ ga4Id }, landing] = await Promise.all([getPublicPlatformConfig(), getLandingContent()]);
   return (
-    <div data-theme="dark" className={cn("theme-brand theme-marketing flex min-h-full flex-1 flex-col", interTight.variable, jetbrainsMono.variable)}>
+    <div data-theme="dark" className={cn("theme-brand theme-marketing flex min-h-full flex-1 flex-col", manrope.variable, jetbrainsMono.variable)}>
       <MarketingHeader header={landing.header} />
       <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
         {children}

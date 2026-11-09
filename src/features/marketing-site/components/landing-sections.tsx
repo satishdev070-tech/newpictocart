@@ -34,7 +34,8 @@ function Shell({ children, className }: { children: ReactNode; className?: strin
 function Pill({ children }: { children: ReactNode }) {
   if (!children) return null;
   return (
-    <p className="mk-label inline-flex items-center rounded-full border border-mk-line bg-mk-elev-1 px-3.5 py-1.5 text-mk-accent">
+    <p className="mk-label inline-flex items-center gap-2 text-mk-accent">
+      <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
       {children}
     </p>
   );
@@ -94,17 +95,18 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
   return (
     <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-mk-bg text-mk-text">
       <div aria-hidden className="mk-grid-texture absolute inset-0 -z-10 opacity-60 [mask-image:radial-gradient(ellipse_at_center,black_25%,transparent_72%)]" />
+      <div aria-hidden className="absolute top-1/4 right-[8%] -z-10 size-[min(42vw,28rem)] rounded-full bg-brand-orange/20 blur-3xl" />
       <div aria-hidden className="absolute top-1/4 right-[8%] -z-10 size-[min(42vw,28rem)] rounded-full bg-[radial-gradient(circle,var(--accent-glow),transparent_70%)] blur-2xl" />
       <div aria-hidden className="absolute -top-24 left-1/4 -z-10 size-72 rounded-full bg-mk-accent/10 blur-3xl motion-safe:animate-pulse [animation-duration:7s]" />
       <Shell className="grid items-center gap-10 py-16 sm:py-20 lg:grid-cols-[0.9fr_1.1fr] lg:gap-10 lg:py-24">
-        <div>
+        <div className="flex flex-col items-start">
           {content.badge ? (
-            <p className={cn("mk-label inline-flex items-center gap-2 rounded-full border border-mk-line bg-mk-elev-1/80 px-3.5 py-1.5 text-mk-muted backdrop-blur", enter())}>
-              <LandingIconView name="zap" className="size-3.5 text-mk-accent" />
+            <p className={cn("mk-label inline-flex items-center gap-2 text-mk-accent", enter())}>
+              <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
               {content.badge}
             </p>
           ) : null}
-          <h1 id="hero-title" className={cn("mk-display-xl mt-6 text-balance", "transition-[translate] duration-700 ease-out starting:translate-y-3")}>
+          <h1 id="hero-title" className={cn("mk-display-xl mt-5 max-w-[14ch] text-balance", "transition-[translate] duration-700 ease-out starting:translate-y-3")}>
             <Highlighted text={content.titleLead} underline />
             {content.rotatingWords.length ? (
               <>
@@ -115,7 +117,7 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
               </>
             ) : null}
           </h1>
-          {content.body ? <p className={cn("mt-6 max-w-xl text-lg leading-relaxed text-mk-muted", enter("delay-150"))}>{content.body}</p> : null}
+          {content.body ? <p className={cn("mt-5 max-w-md text-base leading-relaxed text-mk-muted sm:text-lg", enter("delay-150"))}>{content.body}</p> : null}
           <div className={cn("mt-8 flex flex-wrap items-center gap-3 sm:gap-4", enter("delay-200"))}>
             {content.primaryCta.label ? (
               <ButtonLink href={content.primaryCta.href || "/start"} variant="cta" size="lg" className={ctaAccent} track={{ id: "create_store", location: "hero" }}>
@@ -128,24 +130,28 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
               </Link>
             ) : null}
           </div>
-          {stats.length ? (
-            <ul className={cn("mt-12 flex flex-wrap items-stretch gap-0", enter("delay-300"))}>
+          {stats.length || content.liveLabel ? (
+            <div className={cn("mt-12 flex flex-wrap items-stretch gap-0", enter("delay-300"))}>
               {content.liveLabel ? (
-                <li className="mr-6 mb-4 inline-flex items-center gap-1.5 self-center rounded-full border border-mk-accent/40 bg-mk-accent-tint px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-mk-accent">
+                <p className="mr-5 mb-4 inline-flex items-center gap-1.5 self-center border border-mk-accent/35 bg-mk-accent-tint px-2.5 py-1 font-mk-mono text-[10px] font-medium tracking-[0.14em] text-mk-accent uppercase">
                   <span className="relative grid size-1.5 place-items-center" aria-hidden>
                     <span className="absolute size-full rounded-full bg-mk-accent motion-safe:animate-ping" />
                     <span className="size-1.5 rounded-full bg-mk-accent" />
                   </span>
                   {content.liveLabel}
-                </li>
+                </p>
               ) : null}
-              {stats.map((s, i) => (
-                <li key={s.label} className={cn("flex min-w-[7.5rem] flex-col gap-1 px-5 sm:px-6", i > 0 && "border-l border-mk-line")}>
-                  <span className="font-mk-display text-3xl font-bold tracking-tight text-mk-text tabular-nums sm:text-4xl">{fillTokens(s.value, tokens)}</span>
-                  <span className="mk-label text-mk-dim">{s.label}</span>
-                </li>
-              ))}
-            </ul>
+              {stats.length ? (
+                <ul className="flex flex-wrap items-stretch">
+                  {stats.map((s, i) => (
+                    <li key={s.label} className={cn("flex min-w-[6.5rem] flex-col gap-1.5 px-5 sm:min-w-[7.5rem] sm:px-6", i > 0 && "border-l border-mk-line")}>
+                      <span className="font-mk-display text-3xl font-bold tracking-tight text-mk-text tabular-nums sm:text-4xl">{fillTokens(s.value, tokens)}</span>
+                      <span className="font-mk-mono text-[10px] font-medium tracking-[0.14em] text-mk-dim uppercase">{s.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
           ) : null}
         </div>
         <div className={enter("delay-200", "starting:translate-x-8", "duration-1000")}>
@@ -178,6 +184,7 @@ function HeroVisual({ content, themes }: { content: LandingContent["hero"]; them
   const slides = content.slides.filter((s) => s.imageUrl);
   const glow = (
     <>
+      <div aria-hidden className="absolute -inset-10 -z-10 rounded-[40px] bg-brand-orange/25 blur-3xl" />
       <div aria-hidden className="absolute -inset-8 -z-10 rounded-[40px] bg-[radial-gradient(circle_at_50%_40%,var(--accent-glow),transparent_65%)] blur-2xl" />
       <div aria-hidden className="absolute inset-x-8 top-8 bottom-16 -z-10 rotate-2 rounded-2xl border border-mk-line bg-mk-elev-2/60" />
     </>
@@ -379,8 +386,8 @@ const STEP_BG = [
   "bg-[linear-gradient(135deg,#fff4eb,#ffffff)]",
   "bg-[linear-gradient(135deg,#fff7ed,#ffffff)]",
   "bg-[linear-gradient(135deg,#ffe4d6,#fff1e6)]",
-  "bg-[linear-gradient(135deg,#e8f6ee,#fff4eb,#f7f7f5)]",
-  "bg-[linear-gradient(160deg,#fff4eb,#e8f6ee,#f3f3f2)]",
+  "bg-[linear-gradient(135deg,#ffedd5,#fff4eb,#f7f7f5)]",
+  "bg-[linear-gradient(160deg,#fff4eb,#fed7aa,#f3f3f2)]",
 ];
 
 function StepCard({
@@ -484,7 +491,7 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
             <span className="rounded bg-brand-orange px-2 py-0.5 text-white">Apply theme</span>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
-            {["from-[#f97316] to-[#111111]", "from-[#fed7aa] to-[#ea580c]", "from-[#bbf7d0] to-[#15803d]", "from-[#fde68a] to-[#f97316]", "from-[#e8f6ee] to-[#15803d]", "from-[#f3f3f2] to-[#111111]"].map((g, i) => (
+            {["from-[#f97316] to-[#111111]", "from-[#fed7aa] to-[#ea580c]", "from-[#fdba74] to-[#9a3412]", "from-[#fde68a] to-[#f97316]", "from-[#ffedd5] to-[#c2410c]", "from-[#f3f3f2] to-[#111111]"].map((g, i) => (
               <div key={g} className={cn("rounded-md bg-surface p-1", i === 0 && "ring-2 ring-brand-orange")}>
                 <div className={cn("h-12 rounded bg-gradient-to-br", g)} />
                 <div className="mt-1 h-1.5 w-3/4 rounded bg-black/10" />
@@ -497,7 +504,7 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
       return (
         <div className="relative text-center">
           {["-top-10 -left-20", "-top-6 -right-20", "-bottom-10 -left-24", "-bottom-12 -right-16"].map((pos, i) => (
-            <span key={pos} className={cn("absolute size-4 rotate-12 rounded-sm", pos, ["bg-brand-orange", "bg-brand-ink", "bg-brand-success", "bg-brand-orange-hover"][i])} />
+            <span key={pos} className={cn("absolute size-4 rotate-12 rounded-sm", pos, ["bg-brand-orange", "bg-brand-ink", "bg-brand-orange-hover", "bg-[#fdba74]"][i])} />
           ))}
           <p className="font-brand text-[11px] font-semibold tracking-widest text-white/90 uppercase drop-shadow">Your store is</p>
           <p className="font-brand text-6xl font-black tracking-tight text-white drop-shadow-[0_6px_20px_rgb(0_0_0/0.15)]">LIVE</p>
@@ -525,7 +532,7 @@ export function LandingFaq({ content }: { content: LandingContent["faq"] }) {
                 {f.question}
                 <span
                   aria-hidden
-                  className="relative grid size-6 shrink-0 place-items-center text-mk-muted transition-colors group-open:text-mk-accent"
+                  className="relative grid size-6 shrink-0 place-items-center text-mk-accent"
                 >
                   <span className="absolute h-px w-3.5 bg-current transition-transform duration-300 group-open:rotate-45 motion-reduce:transition-none" />
                   <span className="absolute h-3.5 w-px bg-current transition-transform duration-300 group-open:rotate-45 motion-reduce:transition-none" />
@@ -624,7 +631,7 @@ export function LandingThemes({ content, themes, images }: { content: LandingCon
   return (
     <section id="themes" aria-labelledby="themes-title" className="mk-section scroll-mt-20 bg-mk-bg">
       <Shell>
-        <Heading id="themes-title" badge={content.badge} tone="green" title={content.title} body={content.body} />
+        <Heading id="themes-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
         <ul className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 [content-visibility:auto] [contain-intrinsic-size:auto_420px]">
           {themes.map((t, i) => (
             <li key={t.key} className="h-full">

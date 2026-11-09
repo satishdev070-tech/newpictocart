@@ -61,7 +61,7 @@ export function MarketingHeader({ header }: { header: LandingContent["header"] }
             href={ctaHref}
             variant="cta"
             size="sm"
-            className="hidden h-10 rounded-full border-0 px-5 whitespace-nowrap text-mk-accent-ink shadow-[0_10px_30px_-12px_var(--accent-glow)] sm:inline-flex"
+            className="hidden h-10 rounded-full border-0 px-5 whitespace-nowrap sm:inline-flex"
             track={{ id: "create_store", location: "header" }}
           >
             {header.ctaLabel || "Start Free"} <ArrowRight aria-hidden className="size-4" />

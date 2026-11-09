@@ -47,7 +47,7 @@ export function StepsStackCard({
   return (
     <li
       className={cn(
-        "rounded-[var(--r-lg)] border border-mk-line bg-mk-elev-1 p-6 shadow-brand-card sm:p-8",
+        "rounded-[var(--r-lg)] border border-mk-line bg-mk-elev-1 p-6 shadow-brand-card sm:p-8 lg:p-10",
         !reduceMotion && "sticky top-24",
         className,
       )}

@@ -53,15 +53,18 @@ export default async function HowItWorksPage() {
       <section className="bg-gradient-to-b from-mk-bg to-mk-elev-1 pt-16 pb-10 sm:pt-20">
         <Container>
           <div className="mx-auto max-w-2xl text-center">
-            <p className="mk-label text-mk-accent">How it works</p>
+            <p className="mk-label inline-flex items-center justify-center gap-2 text-mk-accent">
+              <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+              How it works
+            </p>
             <h1 className="mk-display-lg mt-4 text-balance text-mk-text">Your store, step by step</h1>
             <p className="mt-4 text-lg leading-relaxed text-mk-muted">What setting up a Pictocart store involves, including what you need to have ready.</p>
           </div>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <ButtonLink href={SIGNUP_HREF} size="lg" track={{ id: "create_store", location: "how_it_works_page" }}>
+            <ButtonLink href={SIGNUP_HREF} variant="cta" size="lg" className="rounded-full bg-mk-accent font-bold text-mk-accent-ink shadow-[0_12px_40px_-12px_var(--accent-glow)] hover:bg-mk-accent-hover" track={{ id: "create_store", location: "how_it_works_page" }}>
               {CTA_CREATE}
             </ButtonLink>
-            <ButtonLink href={THEMES_HREF} variant="secondary" size="lg" track={{ id: "explore_themes", location: "how_it_works_page" }}>
+            <ButtonLink href={THEMES_HREF} variant="secondary" size="lg" className="rounded-full border-white/20 bg-transparent text-white/80 hover:border-mk-accent hover:text-mk-accent" track={{ id: "explore_themes", location: "how_it_works_page" }}>
               Explore Themes
             </ButtonLink>
           </div>

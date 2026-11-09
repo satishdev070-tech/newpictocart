@@ -121,9 +121,9 @@ export function MobileNav({
                                       href={itemHref}
                                       prefetch
                                       onClick={() => setOpen(false)}
-                                      className="group flex items-center gap-3 rounded-mk-sm px-2 py-2 hover:bg-mk-elev-2"
+                                      className="group flex items-center gap-3 rounded-mk-sm px-2 py-2 hover:bg-mk-accent-tint/40"
                                     >
-                                      <span className="relative grid size-8 shrink-0 place-items-center rounded-lg bg-mk-elev-2 text-mk-muted ring-1 ring-mk-line">
+                                      <span className="relative grid size-8 shrink-0 place-items-center rounded-lg bg-mk-elev-2 text-mk-muted ring-1 ring-mk-line transition-colors group-hover:bg-mk-accent-tint group-hover:text-mk-accent group-hover:ring-mk-accent/40">
                                         <MenuIconView name={it.icon} className="size-4" />
                                         <span aria-hidden className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-mk-accent opacity-0 transition-opacity group-hover:opacity-100" />
                                       </span>
@@ -161,11 +161,11 @@ export function MobileNav({
               <Link
                 href={signupHref}
                 onClick={() => setOpen(false)}
-                className={buttonClass("cta", "lg", "rounded-full border-0 text-mk-accent-ink shadow-[0_10px_30px_-12px_var(--accent-glow)]")}
+                className={buttonClass("cta", "lg", "rounded-full border-0")}
               >
                 {ctaLabel}
               </Link>
-              <a href={loginHref} onClick={() => setOpen(false)} className={buttonClass("secondary", "lg", "rounded-full bg-transparent text-mk-text hover:border-mk-accent hover:text-mk-accent")}>
+              <a href={loginHref} onClick={() => setOpen(false)} className={buttonClass("secondary", "lg", "rounded-full")}>
                 {loginLabel}
               </a>
             </div>

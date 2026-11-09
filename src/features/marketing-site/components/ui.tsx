@@ -6,8 +6,8 @@ import { CardGlow } from "./card-glow";
 
 /**
  * Shared marketing primitives for the dark editorial system (`.theme-marketing`).
- * Accent CTAs use mint; secondary actions stay bordered/transparent. Variant names are
- * stable so existing callers (`cta`, `orange`, `primary`, …) keep working.
+ * Filled CTAs use Pictocart orange + white ink; secondary actions stay outlined on dark.
+ * Variant names (`cta`, `orange`, `primary`, `indigo`, …) stay stable for callers.
  */
 
 const base =
@@ -19,9 +19,9 @@ const sizes = {
   lg: "px-7 py-3.5 text-[0.95rem]",
 } as const;
 
-/** Mint fill + dark ink — primary money CTAs. */
+/** Orange fill + white ink — primary money CTAs (accent-ink is white on marketing). */
 const accentFill =
-  "bg-mk-accent text-mk-accent-ink font-semibold hover:bg-mk-accent-hover hover:shadow-[0_0_40px_var(--accent-glow)]";
+  "bg-mk-accent text-mk-accent-ink font-semibold shadow-[0_10px_30px_-14px_var(--accent-glow)] hover:bg-mk-accent-hover hover:shadow-[0_0_40px_var(--accent-glow)]";
 
 const variants = {
   primary: accentFill,
@@ -31,9 +31,9 @@ const variants = {
   night: accentFill,
   light: accentFill,
   secondary:
-    "border border-mk-line-strong bg-transparent text-mk-text hover:bg-mk-elev-2 hover:border-mk-line-strong",
+    "border border-mk-line-strong bg-transparent text-mk-text hover:border-mk-accent/50 hover:bg-mk-elev-2 hover:text-mk-text",
   ghostLight:
-    "border border-mk-line-strong bg-transparent text-mk-text hover:bg-mk-elev-2",
+    "border border-mk-line-strong bg-transparent text-mk-text hover:border-mk-accent/40 hover:bg-mk-elev-2",
 } as const;
 
 export function buttonClass(variant: keyof typeof variants = "primary", size: keyof typeof sizes = "md", extra?: string) {

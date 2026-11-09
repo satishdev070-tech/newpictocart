@@ -37,7 +37,10 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
       <section className="bg-gradient-to-b from-mk-bg to-mk-elev-1 pt-14 pb-8 sm:pt-20" aria-labelledby="themes-title">
         <Container>
           <div className="max-w-2xl">
-            <p className="mk-label text-mk-accent">Theme marketplace</p>
+            <p className="mk-label inline-flex items-center gap-2 text-mk-accent">
+              <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+              Theme marketplace
+            </p>
             <h1 id="themes-title" className="mk-display-lg mt-4 text-balance text-mk-text">
               Find a theme for your store
             </h1>

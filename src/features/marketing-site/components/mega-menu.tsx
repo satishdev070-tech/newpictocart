@@ -111,9 +111,9 @@ export function MegaMenu({ label, href, menu }: { label: string; href: string; m
                           href={itemHref}
                           prefetch
                           onClick={() => setOpen(false)}
-                          className="group -mx-2 flex gap-3 rounded-mk-sm px-2 py-2 transition-colors hover:bg-mk-elev-2 focus-visible:bg-mk-elev-2 focus-visible:outline-2 focus-visible:outline-mk-accent"
+                          className="group -mx-2 flex gap-3 rounded-mk-sm px-2 py-2 transition-colors hover:bg-mk-accent-tint/40 focus-visible:bg-mk-accent-tint/40 focus-visible:outline-2 focus-visible:outline-mk-accent"
                         >
-                          <span className="relative mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-mk-elev-2 text-mk-muted ring-1 ring-mk-line transition-colors duration-150 group-hover:text-mk-text">
+                          <span className="relative mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-mk-elev-2 text-mk-muted ring-1 ring-mk-line transition-colors duration-150 group-hover:bg-mk-accent-tint group-hover:text-mk-accent group-hover:ring-mk-accent/40">
                             <MenuIconView name={it.icon} className="size-4" />
                             <span
                               aria-hidden

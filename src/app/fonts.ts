@@ -16,10 +16,13 @@ export const inter = localFont({
   preload: false,
 });
 
-/** Marketing site display face (dark editorial headings). Imported only by the (marketing) layout. */
-export const interTight = localFont({
-  src: [{ path: "../../node_modules/@fontsource-variable/inter-tight/files/inter-tight-latin-wght-normal.woff2", style: "normal", weight: "100 900" }],
-  variable: "--font-inter-tight",
+/**
+ * Marketing site display face (Sheryians-like editorial headings). Manrope is already a
+ * storefront theme font; this export is for the (marketing) layout CSS variable only.
+ */
+export const manrope = localFont({
+  src: [{ path: "../../node_modules/@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2", style: "normal", weight: "200 800" }],
+  variable: "--font-manrope",
   display: "swap",
   adjustFontFallback: "Arial",
 });
