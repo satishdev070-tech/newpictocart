@@ -78,7 +78,7 @@ export function MarketingFooter({ footer }: { footer: LandingContent["footer"] }
                           aria-label={SOCIAL_LABELS[k]}
                           title={SOCIAL_LABELS[k]}
                           className={cn(
-                            "grid size-8 place-items-center rounded-full shadow-[0_6px_16px_-8px_rgb(0_0_0/0.8)] transition-transform duration-150 hover:-translate-y-0.5 hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none motion-reduce:hover:transform-none",
+                            "grid size-8 place-items-center rounded-full shadow-[0_6px_16px_-8px_rgb(0_0_0/0.8)] transition-transform duration-150 hover:-translate-y-0.5 hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent motion-reduce:transition-none motion-reduce:hover:transform-none",
                             BRAND_CHIP[k],
                           )}
                           {...analyticsAttributes("nav_click", `social_${k}`, "footer")}

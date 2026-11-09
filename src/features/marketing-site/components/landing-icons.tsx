@@ -100,8 +100,9 @@ export function LandingIconView({ name, className }: { name: LandingIcon; classN
 }
 
 /**
- * Dark editorial highlights for "{green:text}" CMS headings: the warm colours become the single
- * accent (optionally underlined), the cool ones a muted grey so a headline can mix white and grey.
+ * Dark editorial highlights for "{green:text}" / "{orange:text}" CMS headings: former mint/green
+ * (and orange) resolve to Pictocart orange; cool colours stay muted grey so headlines can mix
+ * white and grey.
  */
 export const HIGHLIGHT_CLASS: Record<HighlightColor, string> = {
   purple: "text-mk-muted",
