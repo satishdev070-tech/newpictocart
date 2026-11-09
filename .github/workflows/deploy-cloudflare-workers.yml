@@ -2,7 +2,10 @@
 # Do NOT use GitHub “Workers Builds: newpictocart” (wrong Cloudflare account).
 # Required repo secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, APP_SECRET,
 # CRON_SECRET, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-# SUPABASE_SECRET_KEY (and optional PLATFORM_HOST_ALIASES / WORKERS_DEV_HOST).
+# SUPABASE_SECRET_KEY, EMAIL_FROM (and optional PLATFORM_HOST_ALIASES /
+# WORKERS_DEV_HOST / RESEND_API_KEY / GOOGLE_IDENTITY_SIGNIN).
+# `--secrets-file` replaces Worker secret bindings — never upload a 9-key subset
+# that omits EMAIL_FROM / Resend / GIS or those bindings are wiped.
 name: Deploy Cloudflare Workers
 
 on:
@@ -56,6 +59,9 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           PLATFORM_HOST_ALIASES: ${{ secrets.PLATFORM_HOST_ALIASES }}
           WORKERS_DEV_HOST: ${{ secrets.WORKERS_DEV_HOST }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          GOOGLE_IDENTITY_SIGNIN: ${{ secrets.GOOGLE_IDENTITY_SIGNIN }}
         run: |
           set -euo pipefail
           : "${APP_SECRET:?missing APP_SECRET}"
@@ -77,6 +83,8 @@ jobs:
           # contain `$`; empty process env can also override file values.
           # Trim edge whitespace/newlines — GitHub secret paste often adds a trailing \n
           # that breaks HMAC / Bearer compare even when length checks still pass.
+          # IMPORTANT: `cf deploy --secrets-file` replaces Worker secret bindings with this
+          # file. Always include EMAIL_FROM (+ RESEND_API_KEY when not using Admin→Email DB).
           python3 - <<'PY' > /tmp/worker-secrets.json
           import json, os
           def req(name: str) -> str:
@@ -87,8 +95,12 @@ jobs:
               if not v:
                   raise SystemExit(f"{name}: empty after trim")
               return v
+          def opt(name: str) -> str | None:
+              v = (os.environ.get(name) or "").strip()
+              return v or None
           aliases = (os.environ.get("PLATFORM_HOST_ALIASES") or "").strip() or "pictocartdev.in,www.pictocartdev.in"
           workers_dev = (os.environ.get("WORKERS_DEV_HOST") or "").strip() or "pictocart.airy-fact.workers.dev"
+          email_from = (os.environ.get("EMAIL_FROM") or "").strip() or "Pictocart <no-reply@pictocart.in>"
           payload = {
               "APP_SECRET": req("APP_SECRET"),
               "CRON_SECRET": req("CRON_SECRET"),
@@ -99,10 +111,23 @@ jobs:
               "NEXT_PUBLIC_PLATFORM_URL": "https://www.pictocart.in",
               "PLATFORM_HOST_ALIASES": aliases,
               "WORKERS_DEV_HOST": workers_dev,
+              "EMAIL_FROM": email_from,
           }
+          resend = opt("RESEND_API_KEY")
+          if resend:
+              payload["RESEND_API_KEY"] = resend
+          gis = opt("GOOGLE_IDENTITY_SIGNIN")
+          if gis:
+              payload["GOOGLE_IDENTITY_SIGNIN"] = gis
           print(json.dumps(payload, separators=(",", ":")))
           PY
-          pnpm exec tsx scripts/ci/validate-worker-secrets.mts /tmp/worker-secrets.json
+          # Prefer env Resend when the Actions secret is set; otherwise require Admin→Email DB
+          # credential encrypted with this same APP_SECRET (--allow-db-resend).
+          if [ -n "${RESEND_API_KEY:-}" ]; then
+            pnpm exec tsx scripts/ci/validate-worker-secrets.mts /tmp/worker-secrets.json
+          else
+            pnpm exec tsx scripts/ci/validate-worker-secrets.mts /tmp/worker-secrets.json --allow-db-resend
+          fi
       - name: Deploy to Cloudflare (Airy Fact / pictocart)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
