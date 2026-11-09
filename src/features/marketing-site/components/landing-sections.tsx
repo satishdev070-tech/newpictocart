@@ -117,7 +117,7 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
               </>
             ) : null}
           </h1>
-          {content.body ? <p className={cn("mt-5 max-w-md text-base leading-relaxed text-mk-muted sm:text-lg", enter("delay-150"))}>{content.body}</p> : null}
+          {content.body ? <p className={cn("mt-5 max-w-lg text-lg leading-relaxed text-mk-muted sm:text-xl", enter("delay-150"))}>{content.body}</p> : null}
           <div className={cn("mt-8 flex flex-wrap items-center gap-3 sm:gap-4", enter("delay-200"))}>
             {content.primaryCta.label ? (
               <ButtonLink href={content.primaryCta.href || "/start"} variant="cta" size="lg" className={ctaAccent} track={{ id: "create_store", location: "hero" }}>
@@ -133,7 +133,7 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
           {stats.length || content.liveLabel ? (
             <div className={cn("mt-12 flex flex-wrap items-stretch gap-0", enter("delay-300"))}>
               {content.liveLabel ? (
-                <p className="mr-5 mb-4 inline-flex items-center gap-1.5 self-center border border-mk-accent/35 bg-mk-accent-tint px-2.5 py-1 font-mk-mono text-[10px] font-medium tracking-[0.14em] text-mk-accent uppercase">
+                <p className="mk-label mr-5 mb-4 inline-flex items-center gap-1.5 self-center border border-mk-accent/35 bg-mk-accent-tint px-2.5 py-1 text-mk-accent">
                   <span className="relative grid size-1.5 place-items-center" aria-hidden>
                     <span className="absolute size-full rounded-full bg-mk-accent motion-safe:animate-ping" />
                     <span className="size-1.5 rounded-full bg-mk-accent" />
@@ -145,8 +145,8 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
                 <ul className="flex flex-wrap items-stretch">
                   {stats.map((s, i) => (
                     <li key={s.label} className={cn("flex min-w-[6.5rem] flex-col gap-1.5 px-5 sm:min-w-[7.5rem] sm:px-6", i > 0 && "border-l border-mk-line")}>
-                      <span className="font-mk-display text-3xl font-bold tracking-tight text-mk-text tabular-nums sm:text-4xl">{fillTokens(s.value, tokens)}</span>
-                      <span className="font-mk-mono text-[10px] font-medium tracking-[0.14em] text-mk-dim uppercase">{s.label}</span>
+                      <span className="font-mk-display text-2xl font-bold tracking-tight text-mk-text tabular-nums sm:text-3xl">{fillTokens(s.value, tokens)}</span>
+                      <span className="mk-label text-mk-dim">{s.label}</span>
                     </li>
                   ))}
                 </ul>
@@ -300,8 +300,8 @@ export function Solutions({ content }: { content: LandingContent["solutions"] })
                       <LandingIconView name={item.icon} className="size-5" />
                     </span>
                     <div>
-                      <h3 className="mk-h3 text-[0.95rem] text-mk-text">{item.title}</h3>
-                      {item.tag ? <p className={cn("mt-0.5 text-[10px] font-bold tracking-[0.14em] uppercase", tint.text)}>{item.tag}</p> : null}
+                      <h3 className="mk-h3 text-mk-text">{item.title}</h3>
+                      {item.tag ? <p className={cn("mk-label mt-1", tint.text)}>{item.tag}</p> : null}
                     </div>
                   </div>
                   <p className="relative mt-3 flex-1 text-xs leading-relaxed text-mk-muted sm:mt-4 sm:text-sm">{item.body}</p>
@@ -339,9 +339,9 @@ export function Steps({ content }: { content: LandingContent["steps"] }) {
             <StepsStackCard key={`${step.title}-${i}`} index={i} total={total}>
               <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-10">
                 <div className="max-w-md">
-                  <p className="font-mk-mono text-5xl font-medium tracking-tight text-mk-accent/90 tabular-nums sm:text-6xl">
+                  <p className="font-mk-mono text-3xl font-medium tracking-tight text-mk-accent/90 tabular-nums sm:text-4xl">
                     {String(i + 1).padStart(2, "0")}
-                    <span className="ml-2 text-lg font-normal text-mk-dim">/ {String(total).padStart(2, "0")}</span>
+                    <span className="ml-2 text-base font-normal text-mk-dim">/ {String(total).padStart(2, "0")}</span>
                   </p>
                   <div className="mt-4 flex items-center gap-3">
                     <span className="grid size-11 place-items-center rounded-[var(--r-sm)] bg-mk-elev-2 text-mk-accent">
@@ -349,7 +349,7 @@ export function Steps({ content }: { content: LandingContent["steps"] }) {
                     </span>
                     <span className="mk-label text-mk-dim">Step {String(i + 1).padStart(2, "0")}</span>
                   </div>
-                  <h3 className="mk-h3 mt-5 text-2xl text-mk-text sm:text-[1.75rem]">{step.title}</h3>
+                  <h3 className="mk-h3 mt-5 text-mk-text">{step.title}</h3>
                   <p className="mt-3 text-base leading-relaxed text-mk-muted">{step.body}</p>
                 </div>
                 <StepCard
@@ -570,7 +570,7 @@ export function Features({ content }: { content: LandingContent["features"] }) {
             <span className="relative grid size-12 place-items-center rounded-[var(--r-sm)] bg-mk-elev-2 text-mk-accent">
               <LandingIconView name={content.highlight.icon} className="size-6" />
             </span>
-            <h3 className="mk-h3 relative mt-6 text-2xl text-mk-text sm:text-3xl">{content.highlight.title}</h3>
+            <h3 className="mk-h3 relative mt-6 text-mk-text">{content.highlight.title}</h3>
             <p className="relative mt-3 max-w-lg leading-relaxed text-mk-muted">{content.highlight.body}</p>
             {content.highlight.tags.length ? (
               <ul className="relative mt-6 flex flex-wrap gap-2">
@@ -763,7 +763,7 @@ export function Testimonials({ content }: { content: LandingContent["testimonial
                   <Star key={i} aria-hidden className={cn("size-4", i < t.rating ? "fill-mk-accent text-mk-accent" : "text-mk-line-strong")} />
                 ))}
               </p>
-              <blockquote className="mt-5 flex-1 font-mk-display text-xl leading-snug tracking-tight text-mk-text sm:text-2xl">&ldquo;{t.quote}&rdquo;</blockquote>
+              <blockquote className="mt-5 flex-1 font-mk-display text-lg leading-snug tracking-tight text-mk-text sm:text-xl">&ldquo;{t.quote}&rdquo;</blockquote>
               <div className="mt-8 flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <p className="font-semibold text-mk-text">{t.name}</p>
