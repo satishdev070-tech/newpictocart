@@ -190,7 +190,8 @@ Publish/rollback go through SECURITY DEFINER RPCs that re-check `theme.publish`.
 | Concern | Current behavior | Verdict |
 |---|---|---|
 | Editor local state | `historyReducer` + React context; canvas paints from local config | Correct for single session |
-| Live preview | `postMessage` + preview token; no DB round-trip per keystroke for paint | Correct |
+| Canvas slot overrides | Module singleton + `useSyncExternalStore` (`site-builder/canvas/store.ts`) — not Zustand | Correct |
+| Live preview | `postMessage` (theme post debounce ~150ms) + preview token; no DB round-trip per keystroke for paint | Correct |
 | DB persistence | Debounced autosave 2.5s idle / 10s max-wait (`autosave.ts`) | Correct |
 | Multi-tab sync | Optimistic concurrency on `updated_at` → `CONFLICT` / reload or force | Partial — no live merge |
 | Multi-device sync | Same CONFLICT model after save | Partial |
@@ -220,8 +221,11 @@ Publish/rollback go through SECURITY DEFINER RPCs that re-check `theme.publish`.
 | Rate limit | **Not Redis** — Postgres `svc_rate_limit` |
 | Stale risk | If Redis unreachable during invalidation, L2 keys expire ≤ TTL (documented) |
 | Prod hit rate | **Not Verified** (no metrics sampled in this audit) |
+| Marketplace demos invalidation | `revalidateMarketplaceDemos()` is **defined** in `theme/marketplace/cache.ts` but **never called** — demo-origins L2 relies on ~300s TTL |
+| L1-only (no Redis L2) | Instagram feed (`unstable_cache` 1h); logo dimension cache (7d, untagged — not cleared by `revalidateStorefront`) |
+| Workers Data Cache | On CF, Next Data Cache may also sit on **KV** (`VINEXT_KV_CACHE`) — orthogonal to Upstash L2 |
 
-Duplicate layers: L1 (Data Cache) + L2 (Redis) are intentional, not conflicting duplicates.
+Duplicate layers: L1 (Data Cache) + L2 (Redis) are intentional, not conflicting duplicates. `revalidatePublicTags` walks all registered prefixes (`sf:v1` and `pub:v1`) for every tag (harmless extra Redis ops when a tag exists under only one prefix).
 
 ---
 
@@ -298,8 +302,11 @@ Recommended workflow (largely already present):
 | Redis credentials | Mitigated | Server-only env; unused if unset |
 | XSS via theme HTML | Partial | Prefer structured fields; rich text paths need ongoing review — **spot-check Not Verified exhaustively** |
 | Upload security | Mitigated | Tenant-scoped upload helpers + type checks (theme AI screenshots magic-byte check) |
-| Rate limiting | Mitigated | Auth/theme AI use Postgres limiter; fails open |
+| Rate limiting | Mitigated | Auth/theme AI use Postgres limiter; **fails open** if RPC is down (edge expected for volumetric abuse) |
 | Cross-tenant draft read | Mitigated by RLS | Requires `theme.edit` on that tenant |
+| Preview token as draft bearer | Residual | Valid `sf_preview` (HMAC, ~2h TTL, host-bound) can view that tenant’s draft until expiry if leaked |
+| `store-assets` public SELECT | Residual | Objects are world-readable given a known path (`tenant/{uuid}/…`); confidentiality tradeoff for “unlisted” media |
+| Storage RLS asymmetry | Residual | `theme.edit` may INSERT; UPDATE/DELETE often need `catalog.write` / `content.write` — theme-only roles may not overwrite in place |
 
 No **P0** cross-tenant theme write path was verified in this pass. Continued reliance on `requireTenant()` + RLS remains correct.
 
@@ -313,7 +320,7 @@ No **P0** cross-tenant theme write path was verified in this pass. Continued rel
 | Site builder “Add with AI” | One section type+settings | `ai-section.ts` sanitises; media not taken from model | Inserts into local draft; seller still publishes |
 | Seller AI suite | Catalog/coach/etc. (separate feature) | Own schemas | Not theme publish |
 
-ChatGPT-branded single SDK: **Not Verified** as exclusive — code uses multi-provider Neural Pulse (`anthropic`, `gemini`, `groq`, `nvidia`).
+**OpenAI / ChatGPT is not a first-class provider** (`AI_PROVIDERS` = nvidia, gemini, groq, anthropic). “OpenAI” appears only as OpenAI-compatible HTTP endpoints (Groq / NVIDIA NIM) or model id strings. Onboarding voice uses **Sarvam** separately (`lib/sarvam`).
 
 Invalid AI output: repaired/sanitised or rejected; should not write published storefront without seller publish.
 
@@ -381,6 +388,11 @@ Invalid AI output: repaired/sanitised or rejected; should not write published st
 | History holds full documents | `HISTORY_LIMIT` 100 | `history.ts` | Memory/CPU on huge configs near 256KB | Structural sharing already; monitor | P3 | Small |
 | Force-save can clobber peer edits | `force=1` on CONFLICT | `saveThemeDraftAction` | Data loss if misunderstood | Confirm dialog already; audit force saves | P2 | Small |
 | XSS via unconstrained HTML embeds | `embeds` in config | `schema/site.ts` (embeds) | Storefront XSS if embed HTML trusted poorly | Strict allowlist / CSP; sanitize | P1 | Medium |
+| Marketplace demo cache never tag-invalidated | `revalidateMarketplaceDemos` unused | `theme/marketplace/cache.ts` | Stale demo origins up to TTL (~300s) | Call invalidator on demo-origin writes, or document TTL-only | P3 | Small |
+| Logo dimension cache not tied to storefront tags | L1-only 7d `unstable_cache` | logo size helper (theme imagery path) | Stale logo sizing after replace until TTL | Tag + invalidate with media/theme publish | P3 | Small |
+| Legacy `ThemeEditor` component unused by `/dashboard/theme` | Old editor still in tree | `features/theme/editor/theme-editor.tsx` | Maintainability noise / wrong entry confusion | Delete or clearly mark dead after import audit | P3 | Small |
+| Public store-assets given path | Storage public SELECT | media/storage migrations | Unlisted theme media discoverable if path guessed/leaked | Accept for public CDN model, or signed URLs for drafts | P2 | Medium |
+| Preview token leak window | 2h httpOnly cookie / token | `theme/preview.ts` | Draft disclosure until expiry | Keep TTL short; rotate `APP_SECRET` only with coordinated redeploy | P2 | Small |
 
 ---
 
@@ -613,3 +625,4 @@ flowchart LR
 - Source and migration inspection only; no production DB mutation; no dependency installs for the audit itself.
 - Playwright/CWV/Redis hit rates were **not** measured in this pass.
 - Secrets and env values are never reproduced here.
+- Follow-up pass incorporated residual findings from parallel codebase explores (Redis invalidation gaps, storage/preview residual risks, AI provider inventory, unused marketplace demo revalidator).
