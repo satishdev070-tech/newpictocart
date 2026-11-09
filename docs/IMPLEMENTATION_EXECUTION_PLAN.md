@@ -2,6 +2,8 @@
 
 _Derived from [`TECHNICAL_ARCHITECTURE_AUDIT.md`](./TECHNICAL_ARCHITECTURE_AUDIT.md) and [`IMPLEMENTATION_STATUS.md`](./IMPLEMENTATION_STATUS.md) · 2026-11-09 · **Plan only** — no application code, migrations, or production changes in this deliverable._
 
+_Final consistency review: 2026-11-09 — task cards completed; A2 demo-cache finding narrowed; mandatory vs optional separated; deploy safety expanded._
+
 Every recommendation below was re-checked against current source. Findings the audit overstated are explicitly **downgraded**. Optional product features are separated from bugs/ops gaps.
 
 ---
@@ -10,17 +12,18 @@ Every recommendation below was re-checked against current source. Findings the a
 
 The Pictocart theme stack is **already production-shaped**: App Router, JSONB `theme_versions`, Zod dual parsers, section registry + RSC renderers, React `historyReducer` + debounced autosave, iframe preview with signed tokens, draft/publish/rollback SQL, and optional Upstash Redis L2 behind `unstable_cache`.
 
-**Do not rebuild** that architecture. **Do not** add Zustand or Supabase Realtime for themes unless product explicitly requires multi-editor collaboration. **Do not** put private dashboard data or rate limits on Redis without a new ADR.
+**Do not rebuild** that architecture. **Do not** add Zustand or Supabase Realtime for themes unless product explicitly requires multi-editor collaboration. **Do not** put private dashboard data or rate limits on Redis without a new ADR. **Do not** introduce microservices.
 
 | Classification | Count (after re-validation) | Action |
 |---|---|---|
 | P0 critical bugs | **0 verified** | None |
-| P1 (ops / security review) | 1–2 | Production verification + small hardening |
-| P2 improvements | Several | Measure first, then smallest fix |
-| P3 polish / optional | Several | Defer or docs-only |
+| Mandatory before/with Wave A code | Ops checklist Pass (or documented waivers) | [`PRODUCTION_VERIFICATION_CHECKLIST.md`](./PRODUCTION_VERIFICATION_CHECKLIST.md) |
+| Wave A (small) | Docs/ops + optional tiny code | After checklist |
+| Wave B | Perf only if §7 measurements show pain | Blocked on checklist §7.4 |
+| Wave C | Optional product | Explicit product approval |
 | Audit overstatements | 1 major | Embeds XSS — **not free HTML** (see §3) |
 
-**Recommended first work after approval:** run [`PRODUCTION_VERIFICATION_CHECKLIST.md`](./PRODUCTION_VERIFICATION_CHECKLIST.md), then ship Wave A (ops + tiny code/docs fixes) only.
+**Gate:** Coding implementation starts only after (1) this plan is approved and (2) the production checklist is executed with Pass / documented N/A waivers for blockers. Docs-only Wave A items (A3, A4, A2-docs path) may proceed in parallel with checklist execution.
 
 ---
 
@@ -43,6 +46,7 @@ The Pictocart theme stack is **already production-shaped**: App Router, JSONB `t
 | Structured theme embeds | `embedsSchema` = WhatsApp + backToTop only (`schema/site.ts`) | Yes |
 | Map embed URL rebuild | `parseMapsEmbedUrl` + iframe in `sections-pages.tsx` | Yes |
 | AI → draft only | Admin marketplace AI; seller `ai-section.ts`; publish explicit | Yes |
+| Theme version history as rollback | Archived rows + `rollback_theme` UI | Yes — **backup model already exists** |
 
 ---
 
@@ -50,24 +54,24 @@ The Pictocart theme stack is **already production-shaped**: App Router, JSONB `t
 
 Legend: **Bug** = incorrect/broken behavior · **Ops** = needs production check · **Product** = optional feature · **Overstated** = audit claim too strong vs code · **Keep as-is** = intentional design
 
-| Audit item | Priority (audit) | Re-validated verdict | Type | Smallest safe next step |
-|---|---|---|---|---|
-| Cross-tenant theme write | (implied P0) | **Not found** | Keep as-is | Continue RLS + `requireTenant` discipline |
-| XSS via “unconstrained HTML embeds” | P1 | **Overstated** — `embedsSchema` is structured widgets; RichText is plain text + `Paragraphs`; maps use rebuilt iframe URL | Ops / residual review | Spot-check `parseMapsEmbedUrl` + CSP is frame-ancestors only; no broad sanitize rewrite |
-| Preview token / framing blank editor | P1 | **Valid ops risk** | Ops | Production checklist: mintVerify, preview preflight, Bot Fight Mode |
-| No Realtime multi-tab sync | P2 | **Product gap**, not a bug — CONFLICT model works | Product / Keep | Document single-active-editor; **no Realtime** unless product asks |
-| Dual CMS `pages` vs theme `pages` | P2 | **Product / UX debt** | Product | Docs/UI copy first; **no schema merge** without approved design |
-| Redis optional / unknown hit rate | P2 | **Ops Not Verified** | Ops | Checklist env + metrics; no architecture change |
-| Section render waterfalls | P2 | **Potential** — code has per-section `listProducts` etc. | Perf (unmeasured) | Measure TTFB first; then batch loaders if proven |
-| Force-save clobber | P2 | **Mitigated in UI** — Reload / Save anyway already (`top-bar.tsx`) | Keep / tiny | Optional audit log on `force=1`; no UX rewrite |
-| Public `store-assets` by path | P2 | **Intentional CDN model** for published media | Product / Accept | Document; signed URLs only if “private draft media” becomes a requirement |
-| Preview token 2h bearer window | P2 | **Residual** by design | Ops | Keep TTL; document rotation of `APP_SECRET` |
-| Tablet visibility | P3 | **Product** — only `desktop`/`mobile` in schema | Product | Document CSS breakpoints; add `tablet` only if sellers ask |
-| AI marketplace vs live theme confusion | P3 | **Copy/docs** | Docs | Clarify AI → draft → publish in UI strings |
-| History full snapshots | P3 | **By design** (≤256KB, limit 100) | Keep | Monitor; no change |
-| `revalidateMarketplaceDemos` unused | P3 | **Verified** — defined, never called | Small bug/ops | Call on demo-origin writes **or** document TTL-only (300s) |
-| Logo size cache untagged 7d | P3 | **Verified** — `storefront/server/logo.ts` | Small bug | Tag + invalidate on logo path change, or accept TTL (paths usually change on upload) |
-| Legacy `ThemeEditor` unused | P3 | **Verified** — `editor/theme-editor.tsx` not imported by `/dashboard/theme` | Cleanup | Delete after import audit, or mark `@deprecated` |
+| Audit item | Priority (audit) | Re-validated verdict | Type | Mandatory? | Smallest safe next step |
+|---|---|---|---|---|---|
+| Cross-tenant theme write | (implied P0) | **Not found** | Keep as-is | N/A | Continue RLS + `requireTenant` discipline |
+| XSS via “unconstrained HTML embeds” | P1 | **Overstated** — structured embeds; RichText plain text; maps rebuilt URL | Ops spot-check | Checklist §6 | No sanitizer rewrite |
+| Preview token / framing blank editor | P1 | **Valid ops risk** | Ops | **Yes — verify** | Checklist §2; code only if measured failure |
+| No Realtime multi-tab sync | P2 | Product gap — CONFLICT works | Product | No | Document single-active-editor (A4) |
+| Dual CMS `pages` vs theme `pages` | P2 | UX debt | Product | No | Copy first; no schema merge without design |
+| Redis optional / unknown hit rate | P2 | Ops Not Verified | Ops | **Yes — verify or waive** | Checklist §1 |
+| Section render waterfalls | P2 | Potential, unmeasured | Perf | No until §7.4 fails | Measure then batch (B1/B2) |
+| Force-save clobber | P2 | Mitigated in UI | Keep / optional | No | Optional A5 audit log |
+| Public `store-assets` by path | P2 | Intentional CDN | Product / Accept | No | Document only unless C4 |
+| Preview token 2h bearer window | P2 | Residual by design | Ops | Document | Checklist §2; keep TTL |
+| Tablet visibility | P3 | Product | Product | No | C1 only if sellers ask |
+| AI marketplace vs live theme | P3 | Copy | Docs | Recommended | A3 |
+| History full snapshots | P3 | By design | Keep | No | Monitor only |
+| `revalidateMarketplaceDemos` unused | P3 | Verified unused; demos = code `SHOWCASE_STORES` + live open status (`marketplace/server.ts`) | Ops / docs | Recommended docs | Prefer **document 300s TTL**; wire invalidation only if status-change path is identified and approved |
+| Logo size cache untagged 7d | P3 | Path-keyed `unstable_cache` in `storefront/server/logo.ts` | Small | No | Accept TTL (new upload = new path) or later tag |
+| Legacy `ThemeEditor` unused | P3 | Not used by `/dashboard/theme` | Cleanup | No | C5 after import audit |
 
 ---
 
@@ -75,51 +79,151 @@ Legend: **Bug** = incorrect/broken behavior · **Ops** = needs production check 
 
 ### 4.1 None verified as P0
 
-No exploitable cross-tenant theme mutation path was re-confirmed in `theme/actions.ts` + RLS policies on `theme_versions`.
+No exploitable cross-tenant theme mutation path was re-confirmed in `theme/actions.ts` + RLS on `theme_versions`.
 
-### 4.2 P1 — treat as ops-first, not rewrite
+### 4.2 Mandatory production verification (not architecture rewrites)
 
-1. **Theme editor preview health (production)**  
-   - Evidence: `preview.ts`, `api/theme/preview-token`, `api/cron/preview-token-self-test`, canvas preflight in `canvas-frame.tsx`.  
-   - Risk: blank canvas if `APP_SECRET` skew, bot fight, or token/host mismatch.  
-   - Fix: verification checklist + keep existing preflight/self-test gates. Code change only if a **measured** failure remains.
+1. **Theme editor preview health** — Checklist §2 (`mintVerify`, mint API, preflight, Bot Fight Mode).  
+2. **Redis posture** — Checklist §1 (present or conscious L1-only).  
+3. **Publish → storefront** — Checklist §3.  
+4. **XSS spot-check** — Checklist §6 (confirm embeds downgrade holds in prod render).
 
-2. **Storefront script/HTML injection surface (reclassified)**  
-   - Theme `embeds` are **not** free HTML.  
-   - Residual: Contact map uses allowlisted URL rebuild; CSP today is mainly `frame-ancestors` (`lib/security/headers.ts`).  
-   - Fix: security spot-check + document; expand CSP only with a careful allowlist plan (can break maps/third-party).
+Code changes are **not** the first response to these; ops verification is.
 
 ---
 
-## 5. Recommended Improvements (priority sequence)
+## 5. Task Cards (objective · priority · dependencies · acceptance · validation)
 
-### Wave A — After production checklist (Small, low risk)
+### Mandatory ops (before Wave A *code*)
 
-| ID | Work | Files likely affected | DB | API | Effort |
-|---|---|---|---|---|---|
-| A1 | Run / fix ops from checklist (Redis env, mintVerify, publish smoke) | Deploy secrets / CF / Supabase dashboard — **ops** | No | No | Small |
-| A2 | Wire `revalidateMarketplaceDemos()` on demo-origin mutations **or** document TTL-only in ADR/docs | `theme/marketplace/cache.ts` + write sites if any; else docs | No | No | Small |
-| A3 | Seller-facing copy: AI / marketplace apply does not publish live | Marketplace apply UI, theme top-bar help | No | No | Small |
-| A4 | Document single-active-editor + CONFLICT UX | `docs/` + optional in-editor tip | No | No | Small |
-| A5 | Optional: audit `force=1` draft saves | `theme/actions.ts` + audit helper | No | No | Small |
+#### CHK — Production verification
 
-### Wave B — Measured performance (only if checklist shows pain)
+| Field | Content |
+|---|---|
+| **Objective** | Establish measured baseline: preview, publish/cache, Redis, RLS, CONFLICT, XSS spot-checks, perf samples |
+| **Priority** | P1 ops |
+| **Dependencies** | Access to CF Worker, Supabase, a test seller store |
+| **Acceptance** | Checklist signed; each section Pass / Fail / N/A / Not Verified; Failures that break editor or publish have remediation notes |
+| **Validation** | [`PRODUCTION_VERIFICATION_CHECKLIST.md`](./PRODUCTION_VERIFICATION_CHECKLIST.md) sign-off table |
+| **Mandatory** | **Yes** before Wave A application-code PRs |
 
-| ID | Work | Files | Effort |
-|---|---|---|---|
-| B1 | Storefront TTFB / section waterfall profiling on heavy themes | `render/sections.tsx` (+ catalog loaders) | Medium |
-| B2 | Batch product/collection fetches for section lists if B1 proves cost | `storefront/server/catalog.ts`, section renderers | Medium |
-| B3 | Redis hit/miss logging (names only, no values) | `public-cache.ts` | Small |
+---
 
-### Wave C — Optional product (explicit approval required)
+### Wave A — Small / low risk
 
-| ID | Work | Avoid unless |
-|---|---|---|
-| C1 | Tablet visibility flag | Sellers report tablet bugs |
-| C2 | Unify CMS `pages` vs theme `pages` | Dedicated UX design approved |
-| C3 | Supabase Realtime Broadcast for draft peer-save | Multi-editor collaboration is a roadmap item |
-| C4 | Signed URLs for draft-only media | Confidentiality requirement for unpublished assets |
-| C5 | Delete legacy `ThemeEditor` | Confirmed zero imports / no admin path |
+#### A1 — Remediate checklist Failures (ops)
+
+| Field | Content |
+|---|---|
+| **Objective** | Restore preview/publish/secrets health without changing theme architecture |
+| **Priority** | P1 |
+| **Dependencies** | CHK |
+| **Acceptance** | Previously Failed checklist items → Pass; `mintVerify: ok`; sample publish visible on storefront |
+| **Validation** | Re-run checklist §§2–3; `/api/health/ready` |
+| **Mandatory** | **Yes** if CHK failed; else N/A |
+| **Files** | CF secrets / zone settings / Supabase Auth URLs — **not** app architecture |
+
+#### A2 — Marketplace demo-origins cache policy
+
+| Field | Content |
+|---|---|
+| **Objective** | Remove ambiguity around unused `revalidateMarketplaceDemos` |
+| **Priority** | P3 |
+| **Dependencies** | None (docs path); code path depends on identifying a tenant-status write that should invalidate demos |
+| **Evidence** | `SHOWCASE_STORES` is a **code constant** (`marketplace/showcase.ts`); live openness from DB (`marketplace/server.ts`); helper unused (`marketplace/cache.ts`); catalogue writes already call `revalidateMarketplaceCatalogue` (`builder/actions.ts`) |
+| **Acceptance (docs path — preferred)** | ADR-010 / deploy or theme docs state demo-origins may be stale ≤300s when a showcase store opens/closes |
+| **Acceptance (code path — optional)** | On approved status-change mutation affecting showcase tenants, call `revalidateMarketplaceDemos()`; unit/assertion proves call |
+| **Validation** | Docs review **or** unit test on wire-up |
+| **Mandatory** | Docs path **recommended**; code path **optional** |
+
+#### A3 — AI / marketplace apply copy
+
+| Field | Content |
+|---|---|
+| **Objective** | Sellers understand AI/marketplace apply updates **draft**, not live storefront until Publish |
+| **Priority** | P3 |
+| **Dependencies** | None |
+| **Acceptance** | Visible help near Apply / Theme Editor publish states the draft→publish rule |
+| **Validation** | Manual UI review on `/dashboard/themes` and `/dashboard/theme` |
+| **Mandatory** | Recommended (docs/UI copy only) |
+| **Files** | Marketplace apply UI, theme top-bar help strings |
+
+#### A4 — Single-active-editor documentation
+
+| Field | Content |
+|---|---|
+| **Objective** | Document CONFLICT / Reload / Save anyway as the multi-tab model; no Realtime |
+| **Priority** | P2 product clarity |
+| **Dependencies** | None |
+| **Acceptance** | Short doc (or in-editor tip) matches checklist §5/§8 expected behavior |
+| **Validation** | Checklist §8.5 product sign-off can reference the doc |
+| **Mandatory** | Recommended |
+| **Files** | `docs/` and/or optional tip in `top-bar.tsx` |
+
+#### A5 — Audit log on force draft save (optional)
+
+| Field | Content |
+|---|---|
+| **Objective** | Trace intentional clobber when `force=1` |
+| **Priority** | P2 optional |
+| **Dependencies** | None |
+| **Acceptance** | `force=1` success writes an audit event; normal saves unchanged |
+| **Validation** | Unit/integration: stale without force → CONFLICT; with force → update + audit |
+| **Mandatory** | **No** |
+| **Files** | `src/features/theme/actions.ts`, audit helper |
+
+---
+
+### Wave B — Only if checklist §7 shows pain
+
+#### B1 — Profile heavy storefront TTFB
+
+| Field | Content |
+|---|---|
+| **Objective** | Produce evidence for/against section waterfalls |
+| **Priority** | P2 |
+| **Dependencies** | CHK §7.4 recorded |
+| **Acceptance** | Written note: TTFB, waterfall, whether section product queries dominate |
+| **Validation** | Browser/network or server timing artifacts attached to ticket |
+| **Mandatory** | **No** — only if §7.4 regresses vs baseline or feels slow |
+
+#### B2 — Batch section catalog fetches
+
+| Field | Content |
+|---|---|
+| **Objective** | Reduce duplicate product/collection queries if B1 proves cost |
+| **Priority** | P2 |
+| **Dependencies** | B1 evidence |
+| **Acceptance** | Fewer duplicate catalog queries on a fixed heavy page; `pnpm check` green; visual unchanged |
+| **Validation** | Before/after query counts or TTFB; unit tests for batch helper |
+| **Mandatory** | **No** |
+| **Files** | `render/sections.tsx`, `storefront/server/catalog.ts` |
+
+#### B3 — Redis hit/miss logging (names only)
+
+| Field | Content |
+|---|---|
+| **Objective** | Observability for L2 effectiveness without logging payloads |
+| **Priority** | P2 |
+| **Dependencies** | Redis present (or skip) |
+| **Acceptance** | Logs/metrics show hit/miss by prefix/tag **names**; no secret/body values |
+| **Validation** | Code review + sample log redaction check |
+| **Mandatory** | **No** |
+| **Files** | `src/lib/cache/public-cache.ts` |
+
+---
+
+### Wave C — Optional product (explicit approval)
+
+| ID | Objective | Priority | Dependencies | Acceptance | Validation | Mandatory |
+|---|---|---|---|---|---|---|
+| C1 | Tablet visibility flag | P3 | Product ask | Schema + editor + render honor `tablet` | Unit + device QA | No |
+| C2 | Unify CMS vs theme pages | P2 | UX design | Single mental model; no data loss migration plan | Design review + migration rehearsal | No |
+| C3 | Realtime draft peer-save | P2 | Multi-editor roadmap + **new ADR** | Second tab notified on peer save; no keystroke broadcast | Manual two-tab + RLS | No |
+| C4 | Signed URLs for draft media | P2 | Confidentiality requirement | Unpublished assets not world-readable by path | Security review | No |
+| C5 | Remove legacy `ThemeEditor` | P3 | Import audit | Zero references; `/dashboard/theme` unchanged | ripgrep + `pnpm check` | No |
+
+---
 
 ### Explicitly avoid
 
@@ -127,7 +231,9 @@ No exploitable cross-tenant theme mutation path was re-confirmed in `theme/actio
 - Redis for dashboard lists, carts, sessions, or rate limits  
 - Auto-publishing AI output  
 - Rewriting draft/publish SQL model  
+- Microservices split for theme rendering  
 - Full CSP `script-src` lockdown without map/embed inventory  
+- Wiring `revalidateMarketplaceDemos` “for completeness” with no call site that changes demo openness  
 
 ---
 
@@ -135,10 +241,15 @@ No exploitable cross-tenant theme mutation path was re-confirmed in `theme/actio
 
 | Wave | Modules |
 |---|---|
-| A (docs/ops) | `docs/*`, CF Worker secrets, Supabase Auth URL config, Upstash dashboard |
-| A (code, if approved) | `src/features/theme/marketplace/cache.ts`, marketplace write actions (if demos mutable), marketplace/theme UI copy, `src/features/theme/actions.ts` (force audit) |
-| B | `src/lib/cache/public-cache.ts`, `src/features/theme/render/sections.tsx`, `src/features/storefront/server/catalog.ts`, `src/features/storefront/server/logo.ts` |
-| C | `schema/config.ts` (visibility), `site-builder/pages.ts`, new realtime hook (**not** recommended now), `editor/theme-editor.tsx` |
+| CHK / A1 ops | CF Worker secrets, zone bot settings, Supabase Auth URL allow-list, Upstash dashboard |
+| A2 docs | `docs/DECISIONS.md` or theme/deploy docs |
+| A2 code (optional) | `theme/marketplace/cache.ts` + **existing** tenant status mutation module (only if identified) |
+| A3–A4 | Marketplace/theme UI copy; `docs/` |
+| A5 | `src/features/theme/actions.ts` |
+| B1–B3 | Profiling artifacts; optionally `public-cache.ts`, `render/sections.tsx`, `storefront/server/catalog.ts` |
+| C | `schema/config.ts`, `site-builder/pages.ts`, `editor/theme-editor.tsx`, etc. — **not started now** |
+
+**Note:** Logo cache (`storefront/server/logo.ts`) is **not** in Wave B. It is path-keyed with 7d TTL; treat as P3 accept-or-later, not a batching dependency.
 
 ---
 
@@ -147,11 +258,11 @@ No exploitable cross-tenant theme mutation path was re-confirmed in `theme/actio
 | Change | Required now? |
 |---|---|
 | New tables / columns for Realtime | **No** |
-| Theme schema migrations for tablet | **No** (Wave C only) |
-| RLS changes for themes | **No** unless checklist finds a policy gap |
+| Theme schema migrations for tablet | **No** (C1 only) |
+| RLS changes for themes | **No** unless checklist §4 finds a gap |
 | Signed URL / private bucket | **No** unless C4 approved |
 
-Plan phase introduces **zero migrations**.
+**Zero migrations** in the plan/approval phase and in Wave A preferred path.
 
 ---
 
@@ -161,20 +272,19 @@ Plan phase introduces **zero migrations**.
 |---|---|
 | New public theme REST | **No** |
 | Preview-token API | Keep; verify only |
-| Publish / rollback Server Actions | Keep; no contract change in Wave A |
-| Cache metrics endpoint | Optional Wave B (admin-only, no secrets) |
+| Publish / rollback Server Actions | Keep; A5 may add audit only |
+| Cache metrics endpoint | Optional B3 alternative — prefer logs over new public API |
 
 ---
 
 ## 9. Frontend Changes
 
-| Change | Wave |
-|---|---|
-| Copy / tips (AI publish, single editor) | A |
-| None for Realtime/Zustand | — |
-| Conflict UX | Already present — leave |
-| Section data batching | B only if measured |
-| Tablet controls | C only |
+| Change | Wave | Mandatory |
+|---|---|---|
+| Copy / tips (AI publish, single editor) | A3/A4 | Recommended |
+| Conflict UX | — | Already present — leave |
+| Section data batching | B2 | No until measured |
+| Tablet / Realtime UI | C | No |
 
 ---
 
@@ -183,34 +293,33 @@ Plan phase introduces **zero migrations**.
 ### Automated (existing gates)
 
 - `pnpm check` after any code wave  
-- Unit: `tests/unit` covering autosave, preview protocol, public-cache, theme schema (extend when touching those files)  
-- RLS: `pnpm test:db` when touching policies (not in Wave A)
+- Extend unit tests when touching autosave, protocol, public-cache, theme schema  
+- `pnpm test:db` only if RLS/policies change (not Wave A preferred path)
 
-### New / focused cases per item
+### Per-task validation
 
-| Item | Test / acceptance |
-|---|---|
-| A2 demo revalidate | Unit: calling write path invokes `revalidateMarketplaceDemos` **or** documented TTL assertion |
-| A5 force save | Unit/integration: `force=1` updates draft; without force, stale `baseUpdatedAt` → CONFLICT |
-| B3 cache metrics | Log lines contain tag/prefix names only, never Redis payloads |
-| Preview protocol | Existing protocol parse tests remain green |
-| Embeds / maps | Unit: malicious map HTML rejected by `parseMapsEmbedUrl`; WhatsApp embed cannot inject script |
+Embedded in §5 task cards (Acceptance + Validation columns).
 
 ### Manual / production
 
-See [`PRODUCTION_VERIFICATION_CHECKLIST.md`](./PRODUCTION_VERIFICATION_CHECKLIST.md).
+[`PRODUCTION_VERIFICATION_CHECKLIST.md`](./PRODUCTION_VERIFICATION_CHECKLIST.md) — required gate for Wave A **code**.
 
 ---
 
-## 11. Deployment and Rollback Strategy
+## 11. Deployment, Rollback, Backup, Monitoring Safety
 
-| Step | Action |
-|---|---|
-| Pre-deploy | Checklist green: `mintVerify: ok`, Redis env present or consciously absent |
-| Deploy | Existing vinext Worker path; **complete** secrets file (do not wipe `EMAIL_FROM` / Resend) |
-| Theme code waves | Prefer feature flag or docs-only first; code behind normal CF deploy |
-| Rollback | Previous Worker version + known-good secrets; theme data rollback via existing `rollback_theme` UI |
-| Cache after incident | `revalidateStorefront(tenantId)` / `revalidateAllStorefronts()` as appropriate |
+| Concern | Existing capability | Plan requirement |
+|---|---|---|
+| **Backup (theme data)** | Immutable archived `theme_versions`; publish copies draft | Prefer rollback UI over DB restore; no extra backup job required for Wave A |
+| **Backup (Worker)** | Prior CF Worker versions | Keep last known-good version id recorded at deploy |
+| **Secrets safety** | Complete JSON secrets file; incomplete file **wipes** bindings | Never deploy 9-key subset; include `EMAIL_FROM` (+ Resend or DB-Resend waiver) — see `DEPLOY_CLOUDFLARE_WORKERS.md` |
+| **Pre-deploy** | Checklist: `mintVerify: ok`, `/api/health/ready` | Mandatory before Wave A code deploy |
+| **Deploy** | `pnpm build:vinext` + `cf deploy --prebuilt --secrets-file` | Unchanged architecture |
+| **Post-deploy monitor** | Self-test, health/ready, one publish smoke, editor open | Checklist §3.7 within 15 minutes; §9 deploy safety when releasing Worker |
+| **Rollback app** | Previous Worker version + known-good secrets | Document version id; do not rotate `APP_SECRET` during rollback |
+| **Rollback theme content** | `rollback_theme` from Theme Editor history | Seller/support runbook |
+| **Cache after incident** | `revalidateStorefront` / `revalidateAllStorefronts` | Ops may need a one-tenant revalidate after bad publish |
+| **Feature flags** | Prefer docs-only first for A3/A4 | Code waves: ship behind normal review; avoid dual theme engines |
 
 ---
 
@@ -218,10 +327,11 @@ See [`PRODUCTION_VERIFICATION_CHECKLIST.md`](./PRODUCTION_VERIFICATION_CHECKLIST
 
 | Wave | Complexity | Notes |
 |---|---|---|
-| Production checklist | Small–Medium | Ops time, not eng architecture |
-| Wave A code/docs | Small | Hours–1 day if demos write path exists |
-| Wave B | Medium | Needs profiling evidence first |
-| Wave C | Medium–Large | Product decisions required |
+| Production checklist | Small–Medium | Ops time |
+| Wave A docs/copy | Small | Hours |
+| Wave A optional code (A5 / A2 wire) | Small | Half day |
+| Wave B | Medium | Only with §7 evidence |
+| Wave C | Medium–Large | Product decisions |
 
 ---
 
@@ -229,28 +339,32 @@ See [`PRODUCTION_VERIFICATION_CHECKLIST.md`](./PRODUCTION_VERIFICATION_CHECKLIST
 
 ```mermaid
 flowchart TD
-  V[Production verification checklist] --> D{Gaps found?}
-  D -->|Preview/secrets| A1[Fix ops: APP_SECRET / preview / Bot Fight]
-  D -->|Redis unset| A1b[Set Upstash or accept L1-only]
-  D -->|None| A2[Wave A tiny code/docs]
-  A1 --> A2
-  A1b --> A2
-  A2 --> M[Measure storefront TTFB + Redis hits]
-  M --> B{Perf pain?}
-  B -->|Yes| WaveB[Batch loaders / metrics]
+  Approve[Approve this plan] --> V[Run production checklist]
+  V --> D{Blocker Failures?}
+  D -->|Preview/secrets/publish| A1[A1 ops remediation]
+  D -->|Redis unset| A1b[Set Upstash or document L1-only]
+  D -->|None or waived| DocsA[A2 docs + A3 + A4]
+  A1 --> DocsA
+  A1b --> DocsA
+  DocsA --> CodeGate{Wave A code approved?}
+  CodeGate -->|A5 optional| A5[Force-save audit]
+  CodeGate -->|Skip code| M[Measure §7]
+  A5 --> M
+  M --> B{§7.4 pain?}
+  B -->|Yes| WaveB[B1 then B2/B3]
   B -->|No| SkipB[Skip Wave B]
-  WaveB --> C{Product asks?}
+  WaveB --> C{Product asks Wave C?}
   SkipB --> C
-  C -->|Multi-editor| RealtimeConsider[Consider Broadcast — new ADR]
   C -->|No| Stop[Stop — architecture preserved]
+  C -->|Yes + ADR| WaveC[C items only]
 ```
 
-1. **Verify production** (checklist).  
-2. **Wave A** smallest fixes + docs.  
-3. **Measure**.  
-4. **Wave B** only with numbers.  
-5. **Wave C** only with explicit product approval.  
-6. **Implementation coding starts only after this plan is approved.**
+1. Approve plan.  
+2. Run checklist (mandatory).  
+3. Wave A docs/ops; optional tiny code.  
+4. Measure.  
+5. Wave B only with numbers.  
+6. Wave C only with product + ADR where required.  
 
 ---
 
@@ -258,22 +372,40 @@ flowchart TD
 
 | Item | Depends on |
 |---|---|
-| Wave B batching | Checklist + baseline TTFB |
-| Realtime | Explicit multi-editor requirement + ADR; after CONFLICT docs (A4) |
-| CMS/theme unify | Product design; not blocked by Redis |
-| Logo cache tags | Optional; independent of Redis L2 |
-| Demo revalidate | Independent; tiny |
-| CSP expansion | Map/embed inventory; after embeds reclassification |
+| A1 | CHK Failures |
+| A3/A4 | None (parallel with CHK) |
+| A5 | Plan approval |
+| B1 | CHK §7.4 |
+| B2 | B1 evidence |
+| B3 | Redis present |
+| C3 Realtime | Product multi-editor + **new ADR**; A4 docs first |
+| C2 CMS unify | UX design — not blocked by Redis |
+| Logo retag | Independent P3 — **not** tied to Wave B |
 
 ---
 
-## 15. Acceptance Criteria (plan complete → ready to implement)
+## 15. Consistency Notes (plan ↔ checklist)
 
-- [ ] Stakeholders accept **no P0 theme isolation bug** and **embeds XSS downgrade**.  
-- [ ] Stakeholders accept **no Zustand / no theme Realtime** by default.  
-- [ ] Production checklist executed (or scheduled) before Wave A code.  
+| Topic | Plan | Checklist | Aligned? |
+|---|---|---|---|
+| Checklist before Wave A **code** | §1 gate + CHK task | How to use + §10 blockers | **Yes** (docs A3/A4 may parallel) |
+| Deploy / rollback / secrets | §11 safety table | §9 deploy safety + §3.7 monitor | **Yes** |
+| No live multi-tab merge | A4 / avoid Realtime | §8 expects no live merge | **Yes** |
+| Embeds XSS | Downgraded | §6 confirms structured embeds | **Yes** |
+| Wave B blocked on perf | B1 deps §7.4 | §7 + “Wave B blocked until 7.4” | **Yes** |
+| Demo cache | Prefer document 300s TTL | §3.6 accept TTL or revalidate | **Yes** |
+| Redis optional | Verify or L1-only | §1.1 | **Yes** |
+
+---
+
+## 16. Acceptance Criteria (plan approved → implementation may start)
+
+- [x] Docs list mandatory vs optional tasks with objective, priority, deps, acceptance, validation (§5).  
+- [ ] Stakeholders accept **no P0** and **embeds XSS downgrade**.  
+- [ ] Stakeholders accept **no Zustand / no theme Realtime / no extra Redis scope** by default.  
+- [ ] Production checklist executed with Pass or written waivers for Failures.  
 - [ ] Wave A/B/C scope approved explicitly.  
-- [ ] Any code PR references this plan and the audit evidence paths.
+- [ ] Any code PR references this plan + audit evidence paths.  
 
 ---
 
@@ -282,11 +414,12 @@ flowchart TD
 | Topic | Path |
 |---|---|
 | Save / publish / force | `src/features/theme/actions.ts` |
-| Autosave / CONFLICT label | `src/features/theme/site-builder/autosave.ts`, `top-bar.tsx` |
+| Autosave / CONFLICT | `site-builder/autosave.ts`, `top-bar.tsx` |
 | Embeds schema | `src/features/theme/schema/site.ts` |
 | Map iframe | `src/features/theme/render/sections-pages.tsx` |
 | Redis L2 | `src/lib/cache/redis.ts`, `public-cache.ts`, `storefront.ts` |
-| Demo revalidate unused | `src/features/theme/marketplace/cache.ts` |
+| Demo origins | `marketplace/showcase.ts`, `marketplace/server.ts`, `marketplace/cache.ts` |
+| Catalogue revalidate (used) | `revalidateMarketplaceCatalogue` in `builder/actions.ts` |
 | Logo cache | `src/features/storefront/server/logo.ts` |
 | Framing CSP | `src/lib/security/headers.ts` |
 | Preview cookie | `src/features/theme/preview.ts` |

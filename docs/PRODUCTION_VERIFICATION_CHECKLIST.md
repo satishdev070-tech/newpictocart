@@ -2,7 +2,9 @@
 
 _Companion to [`IMPLEMENTATION_EXECUTION_PLAN.md`](./IMPLEMENTATION_EXECUTION_PLAN.md) and [`TECHNICAL_ARCHITECTURE_AUDIT.md`](./TECHNICAL_ARCHITECTURE_AUDIT.md) · 2026-11-09 · **Ops verification only** — do not change production settings from the agent without explicit approval._
 
-Use this after (or before) approving implementation waves. Mark each item **Pass / Fail / N/A / Not Verified**. Never paste secret values into tickets or chat.
+_Aligned with execution-plan consistency review (2026-11-09)._
+
+Use this as the **mandatory gate** before Wave A **application code**. Mark each item **Pass / Fail / N/A / Not Verified**. Never paste secret values into tickets or chat.
 
 ---
 
@@ -11,7 +13,12 @@ Use this after (or before) approving implementation waves. Mark each item **Pass
 1. Run against **production** Worker `pictocart` + live Supabase project used by `www.pictocart.in`.  
 2. Prefer dashboard / existing self-test endpoints over ad-hoc secret dumps.  
 3. Record timestamp (Asia/Kolkata) and who ran the check.  
-4. Failures block Wave B/C; Wave A may proceed for docs-only items.
+4. **Gating (aligned with execution plan):**  
+   - **Fail** on §§2–3 (preview / publish) → block Wave A **code** until A1 ops remediation Pass.  
+   - **Fail** or Not Verified on §1 Redis → document L1-only waiver **or** set env; does not require architecture change.  
+   - Docs-only Wave A (A3/A4, A2 docs path) may run **in parallel** with this checklist.  
+   - Wave B blocked until §7.4 has a recorded measurement and shows pain.  
+   - Wave C never starts from checklist Failures alone (needs product approval).
 
 ---
 
@@ -55,9 +62,10 @@ Evidence: `src/features/theme/preview.ts`, `server/preview.ts`, `api/cron/previe
 | 3.3 | Storefront reflects publish | Hard-refresh storefront home (and one inner page) | Change visible within seconds (L1 drop); if Redis down, ≤120s | |
 | 3.4 | Rollback | Rollback to prior version from history UI | Live matches rollback; draft reset | |
 | 3.5 | Draft never public | Incognito storefront while only draft changed | Shoppers still see old published | |
-| 3.6 | Marketplace demos | If demo origins change in admin | Either revalidate called **or** accept ≤300s stale (`revalidateMarketplaceDemos` currently unused) | |
+| 3.6 | Marketplace demos | Understand cache source: `SHOWCASE_STORES` (code) + live open status (`marketplace/server.ts`) | Accept ≤300s stale when a showcase store opens/closes **or** note a future invalidation call site; `revalidateMarketplaceDemos` is unused today | |
+| 3.7 | Post-publish monitor | Within 15 minutes of any Worker deploy | Re-hit §2.1 self-test + one storefront page + `/api/health/ready` | |
 
-Evidence: `theme/actions.ts` → `revalidateStorefront`; `lib/cache/storefront.ts`.
+Evidence: `theme/actions.ts` → `revalidateStorefront`; `lib/cache/storefront.ts`; demo list `marketplace/showcase.ts` + `marketplace/server.ts`.
 
 ---
 
@@ -137,7 +145,18 @@ Do **not** implement Supabase Realtime for themes based solely on this checklist
 
 ---
 
-## 9. Sign-off
+## 9. Deploy safety spot-checks (when verifying after a Worker release)
+
+| # | Check | How | Pass criteria | Result |
+|---|---|---|---|---|
+| 9.1 | Secrets completeness | Worker bindings names include core Supabase + `APP_SECRET`/`CRON_SECRET` + `EMAIL_FROM` | No accidental wipe from incomplete `--secrets-file` | |
+| 9.2 | Known-good Worker version recorded | CF dashboard version id saved in runbook/ticket | Rollback target known | |
+| 9.3 | Theme content rollback path | Theme Editor → Version history visible | `rollback_theme` UI usable (archived versions = backup) | |
+| 9.4 | Do not rotate `APP_SECRET` during rollback | Ops confirmation | Preview HMAC and encrypted DB credentials stay consistent | |
+
+---
+
+## 10. Sign-off
 
 | Role | Name | Date (Asia/Kolkata) | Notes |
 |---|---|---|---|
@@ -147,9 +166,11 @@ Do **not** implement Supabase Realtime for themes based solely on this checklist
 
 **Overall:** Pass with notes · Fail · Not Verified  
 
-**Blockers before implementation Wave A code:** _(list)_  
+**Blockers before Wave A application code:** _(list Failed items from §§2–3, or secrets §9.1)_  
 
-**Blockers before Wave B:** missing §7 measurements ·  
+**Blockers before Wave B:** missing §7.4 measurement, or no demonstrated pain ·  
+
+**Waivers (N/A with reason):** _(e.g. Redis consciously L1-only)_ ·  
 
 ---
 
