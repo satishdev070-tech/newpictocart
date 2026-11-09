@@ -36,10 +36,10 @@ export function Hero({
     "Free store address, custom domain on eligible plans",
   ];
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-brand-soft/70 to-white" aria-labelledby="hero-title">
+    <section className="relative overflow-hidden bg-gradient-to-b from-brand-soft/70 to-mk-bg" aria-labelledby="hero-title">
       <Container className="grid items-center gap-12 py-14 sm:py-20 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] lg:py-24">
         <div>
-          <p className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-brand shadow-brand-card">
+          <p className="inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-brand shadow-brand-card">
             <span className="size-1.5 rounded-full bg-brand-accent" aria-hidden />
             {HERO.eyebrow}
           </p>
@@ -94,7 +94,7 @@ export function Benefits() {
         {BENEFITS.map((b) => {
           const Icon = BENEFIT_ICONS[b.key];
           return (
-            <li key={b.key} className="rounded-brand-lg border border-border bg-white p-6">
+            <li key={b.key} className="rounded-brand-lg border border-border bg-surface p-6">
               <span className="grid size-11 place-items-center rounded-brand-md bg-brand-soft text-brand" aria-hidden>
                 <Icon className="size-5" />
               </span>
@@ -124,7 +124,7 @@ export function Categories() {
           const count = themeCountFor(c.industry);
           return (
             <li key={c.industry}>
-              <Link href={themesHref({ industry: c.industry as never })} className="group block h-full overflow-hidden rounded-brand-lg border border-border bg-white transition-shadow hover:shadow-brand-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+              <Link href={themesHref({ industry: c.industry as never })} className="group block h-full overflow-hidden rounded-brand-lg border border-border bg-surface transition-shadow hover:shadow-brand-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
                 <div className="overflow-hidden border-b border-border" aria-hidden>
                   {theme ? <CategoryPreview theme={theme} label={c.label} /> : null}
                 </div>
@@ -181,7 +181,7 @@ export function HowItWorksSteps({ steps = HOW_IT_WORKS, headingId = "how-title",
   return (
     <ol className={`mt-12 grid gap-5 ${compact ? "md:grid-cols-5" : "md:grid-cols-2 lg:grid-cols-5"}`} aria-labelledby={headingId}>
       {steps.map((s, i) => (
-        <li key={s.title} className="relative rounded-brand-lg border border-border bg-white p-6">
+        <li key={s.title} className="relative rounded-brand-lg border border-border bg-surface p-6">
           <span className="grid size-10 place-items-center rounded-full bg-brand font-brand text-base font-bold text-white" aria-hidden>
             {i + 1}
           </span>
@@ -218,7 +218,7 @@ export function FaqSection({ faqs, title = "Questions sellers ask" }: { faqs: Fa
     <Section id={SECTION_IDS.faq} labelledBy="faq-title">
       <div className="grid gap-10 lg:grid-cols-[1fr_1.6fr]">
         <SectionHeading id="faq-title" align="left" eyebrow="FAQ" title={title} body="Straight answers about setting up and running your store." />
-        <div className="divide-y divide-border rounded-brand-lg border border-border bg-white">
+        <div className="divide-y divide-border rounded-brand-lg border border-border bg-surface">
           {faqs.map((f) => (
             <details key={f.question} className="group px-5 py-1 [&_summary::-webkit-details-marker]:hidden">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded py-4 font-semibold text-brand-ink focus-visible:outline-2 focus-visible:outline-brand">
@@ -238,7 +238,7 @@ export function FaqSection({ faqs, title = "Questions sellers ask" }: { faqs: Fa
 
 export function FinalCta({ trialDays, freeForever = false }: { trialDays: number; freeForever?: boolean }) {
   return (
-    <section className="bg-white px-4 pb-20 sm:px-6" aria-labelledby="final-cta-title">
+    <section className="bg-surface px-4 pb-20 sm:px-6" aria-labelledby="final-cta-title">
       <div className="mx-auto max-w-6xl overflow-hidden rounded-brand-xl bg-brand-ink px-6 py-14 text-center text-white sm:px-12">
         <h2 id="final-cta-title" className="mx-auto max-w-2xl font-brand text-3xl font-extrabold tracking-tight text-balance sm:text-4xl">
           Ready to open your online store?

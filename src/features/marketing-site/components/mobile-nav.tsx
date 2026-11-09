@@ -70,7 +70,7 @@ export function MobileNav({
       </button>
       {/* The header's backdrop-blur makes it the containing block for this fixed panel, so the panel
           sits at top-full (under the 68/76px header) with an explicit height instead of bottom-0. */}
-      <div id={panelId} hidden={!open} className="fixed inset-x-0 top-full z-40 h-[calc(100dvh-68px)] overflow-y-auto overscroll-contain border-t border-border bg-white sm:h-[calc(100dvh-76px)]">
+      <div id={panelId} hidden={!open} className="fixed inset-x-0 top-full z-40 h-[calc(100dvh-68px)] overflow-y-auto overscroll-contain border-t border-border bg-surface sm:h-[calc(100dvh-76px)]">
         <nav aria-label="Main" className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
           <ul className="space-y-1">
             {links.map((l) =>
@@ -95,7 +95,7 @@ export function MobileNav({
                             const itemHref = normalizeMegaMenuItemHref(it.title, it.href);
                             return (
                             <li key={it.title + itemHref}>
-                              <Link href={itemHref} prefetch onClick={() => setOpen(false)} className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-white">
+                              <Link href={itemHref} prefetch onClick={() => setOpen(false)} className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface">
                                 <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg ring-1", MENU_TONE_CLASS[col.tone].chip)}>
                                   <MenuIconView name={it.icon} className="size-4" />
                                 </span>

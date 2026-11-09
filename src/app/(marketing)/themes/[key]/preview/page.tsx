@@ -52,7 +52,7 @@ export default async function ThemePreviewPage({ params }: PageProps<"/themes/[k
   );
 
   return (
-    <section className="bg-gradient-to-b from-brand-soft/60 to-white pt-6 pb-14" aria-labelledby="preview-title">
+    <section className="bg-gradient-to-b from-brand-soft/60 to-mk-bg pt-6 pb-14" aria-labelledby="preview-title">
       <Container>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>

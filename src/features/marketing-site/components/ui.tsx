@@ -14,8 +14,8 @@ const sizes = { md: "h-11 px-6 text-sm", lg: "h-12 px-7 text-[0.95rem]", sm: "h-
 const variants = {
   /** Charcoal chrome — secondary actions / nav emphasis */
   primary: "bg-brand text-white hover:bg-brand-hover",
-  secondary: "border border-border-strong bg-white text-brand-ink hover:border-brand-orange hover:text-brand-orange",
-  light: "bg-white text-brand-ink hover:bg-brand-soft",
+  secondary: "border border-border-strong bg-surface text-brand-ink hover:border-brand-orange hover:text-brand-orange",
+  light: "bg-surface text-brand-ink hover:bg-brand-soft",
   ghostLight: "border border-white/40 text-white hover:bg-white/10",
   /** Orange money CTAs (Start free / Create store) */
   cta: "bg-brand-orange font-bold text-white shadow-[0_10px_30px_-10px_rgb(234_88_12/0.7)] hover:bg-brand-orange-hover",

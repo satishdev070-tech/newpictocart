@@ -23,7 +23,7 @@ export function PricingTable({ plans, headingLevel = "h3" }: { plans: MarketingP
     <div>
       {yearly ? (
         <div className="mb-10 flex justify-center">
-          <div role="radiogroup" aria-label="Billing period" className="inline-flex rounded-full border border-border bg-white p-1 text-sm font-semibold shadow-brand-card">
+          <div role="radiogroup" aria-label="Billing period" className="inline-flex rounded-full border border-border bg-surface p-1 text-sm font-semibold shadow-brand-card">
             {(["monthly", "yearly"] as const).map((p) => (
               <button
                 key={p}
@@ -47,7 +47,7 @@ export function PricingTable({ plans, headingLevel = "h3" }: { plans: MarketingP
           const featured = plan.code === rec;
           const saving = yearlySavingsPercent(plan.monthlyMinor, plan.yearlyMinor);
           return (
-            <li key={plan.code} className={cn("relative flex flex-col rounded-brand-lg border bg-white p-7", featured ? "border-brand bg-brand-soft/40 shadow-brand-float ring-1 ring-brand" : "border-border")}>
+            <li key={plan.code} className={cn("relative flex flex-col rounded-brand-lg border bg-surface p-7", featured ? "border-brand bg-brand-soft/40 shadow-brand-float ring-1 ring-brand" : "border-border")}>
               {featured ? <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand px-3 py-1 text-xs font-bold whitespace-nowrap text-white">Most Popular</span> : null}
               <H className="font-brand text-xl font-bold text-brand-ink">{plan.name}</H>
               {plan.description ? <p className="mt-1 text-sm text-muted">{plan.description}</p> : null}

@@ -34,7 +34,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
 
   return (
     <>
-      <section className="bg-gradient-to-b from-brand-soft/70 to-white pt-14 pb-8 sm:pt-20" aria-labelledby="themes-title">
+      <section className="bg-gradient-to-b from-brand-soft/70 to-mk-bg pt-14 pb-8 sm:pt-20" aria-labelledby="themes-title">
         <Container>
           <div className="max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Theme marketplace</p>
@@ -59,7 +59,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
                 type="search"
                 defaultValue={query.q}
                 placeholder="Search by name, style or product type"
-                className="h-12 w-full rounded-full border border-border-strong bg-white pl-11 pr-4 text-[0.95rem] text-brand-ink placeholder:text-subtle focus:border-brand focus:outline-2 focus:outline-brand/30"
+                className="h-12 w-full rounded-full border border-border-strong bg-surface pl-11 pr-4 text-[0.95rem] text-brand-ink placeholder:text-subtle focus:border-brand focus:outline-2 focus:outline-brand/30"
               />
             </div>
             <button type="submit" className="h-12 rounded-full bg-brand px-6 text-sm font-semibold text-white hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">

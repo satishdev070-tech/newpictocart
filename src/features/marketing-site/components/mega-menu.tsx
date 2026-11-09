@@ -96,7 +96,7 @@ export function MegaMenu({ label, href, menu }: { label: string; href: string; m
           open ? "visible translate-y-0 opacity-100" : "invisible -translate-y-2 opacity-0",
         )}
       >
-        <div className="mx-auto flex max-h-[calc(100dvh-6rem)] max-w-[1240px] flex-col overflow-hidden rounded-[22px] border border-border bg-white shadow-[0_30px_80px_-24px_rgb(27_29_69/0.35)]">
+        <div className="mx-auto flex max-h-[calc(100dvh-6rem)] max-w-[1240px] flex-col overflow-hidden rounded-[22px] border border-border bg-surface shadow-[0_30px_80px_-24px_rgb(27_29_69/0.35)]">
           <div className="grid min-h-0 grid-cols-3 divide-border overflow-y-auto overscroll-contain xl:grid-cols-6 xl:divide-x">
             {menu.columns.map((col) => {
               const tone = MENU_TONE_CLASS[col.tone];
@@ -132,7 +132,7 @@ export function MegaMenu({ label, href, menu }: { label: string; href: string; m
             })}
           </div>
           {menu.footerLead || menu.footerText || menu.footerLink.label ? (
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-gradient-to-r from-brand-soft via-white to-brand-mint px-6 py-3.5 text-sm">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-gradient-to-r from-brand-soft via-mk-bg to-brand-mint px-6 py-3.5 text-sm">
               <p className="text-brand-ink/70">
                 {menu.footerLead ? <strong className="font-semibold text-brand-ink">{menu.footerLead}</strong> : null} {menu.footerText}
               </p>

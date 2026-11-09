@@ -225,7 +225,7 @@ export function TrustStrip({ content }: { content: LandingContent["trust"] }) {
   const chips = content.chips.filter((c) => c.label);
   if (!chips.length) return null;
   return (
-    <section aria-label={content.title || "Business categories"} className="border-b border-border bg-white py-10">
+    <section aria-label={content.title || "Business categories"} className="border-b border-border bg-surface py-10">
       {content.title ? <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-subtle">{content.title}</p> : null}
       <div className="group relative mt-6 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)] motion-reduce:[mask-image:none]">
         <ul className="flex w-max gap-3 px-1.5 py-1 motion-safe:animate-[marquee_50s_linear_infinite] group-hover:[animation-play-state:paused] motion-reduce:mx-auto motion-reduce:w-auto motion-reduce:max-w-5xl motion-reduce:flex-wrap motion-reduce:justify-center">
@@ -233,7 +233,7 @@ export function TrustStrip({ content }: { content: LandingContent["trust"] }) {
             <li
               key={`${c.label}-${i}`}
               aria-hidden={i >= chips.length}
-              className={cn("inline-flex items-center gap-2.5 rounded-full border border-border bg-white py-1.5 pr-4 pl-1.5 text-sm font-medium whitespace-nowrap text-brand-ink/85 shadow-[0_1px_2px_rgb(15_23_42/0.05)] transition-colors hover:border-border-strong", i >= chips.length && "motion-reduce:hidden")}
+              className={cn("inline-flex items-center gap-2.5 rounded-full border border-border bg-surface py-1.5 pr-4 pl-1.5 text-sm font-medium whitespace-nowrap text-brand-ink/85 shadow-[0_1px_2px_rgb(15_23_42/0.05)] transition-colors hover:border-border-strong", i >= chips.length && "motion-reduce:hidden")}
             >
               <span className={cn("grid size-7 place-items-center rounded-full", ACCENT[c.color].chip)}>
                 <LandingIconView name={c.icon} className="size-3.5" />
@@ -251,7 +251,7 @@ export function TrustStrip({ content }: { content: LandingContent["trust"] }) {
 
 export function Solutions({ content }: { content: LandingContent["solutions"] }) {
   return (
-    <section id="solutions" aria-labelledby="solutions-title" className="relative isolate scroll-mt-20 overflow-hidden bg-gradient-to-b from-white to-brand-canvas/60 py-20 sm:py-24">
+    <section id="solutions" aria-labelledby="solutions-title" className="relative isolate scroll-mt-20 overflow-hidden bg-gradient-to-b from-mk-bg to-brand-canvas/60 py-20 sm:py-24">
       <div aria-hidden className="absolute top-24 -left-32 -z-10 size-96 rounded-full bg-[#a78bfa]/15 blur-3xl" />
       <div aria-hidden className="absolute -right-32 bottom-10 -z-10 size-96 rounded-full bg-brand-success/15 blur-3xl" />
       <Container>
@@ -263,7 +263,7 @@ export function Solutions({ content }: { content: LandingContent["solutions"] })
               <li key={item.title} className={revealItem} style={revealDelay(i)}>
                 <div className="group relative h-full rounded-2xl bg-border p-px transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_-24px_rgb(27_29_69/0.35)] motion-reduce:hover:translate-y-0">
                   <span aria-hidden className={cn("absolute inset-0 rounded-2xl bg-gradient-to-br opacity-0 transition-opacity duration-300 group-hover:opacity-100", tint.ring)} />
-                  <div className="relative flex h-full flex-col overflow-hidden rounded-[15px] bg-white p-4 sm:p-5">
+                  <div className="relative flex h-full flex-col overflow-hidden rounded-[15px] bg-surface p-4 sm:p-5">
                     <span aria-hidden className={cn("absolute -top-10 -right-10 size-28 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100", tint.glow)} />
                     <div className="relative flex flex-col items-start gap-3 sm:flex-row">
                       <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 motion-reduce:group-hover:transform-none", tint.chip)}>
@@ -411,11 +411,11 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
   switch (visual) {
     case "signup":
       return (
-        <div className="w-full max-w-[260px] -rotate-3 rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="w-full max-w-[260px] -rotate-3 rounded-2xl bg-surface p-6 shadow-2xl">
           <p className="text-center font-brand text-lg font-extrabold text-brand-ink">Sign up</p>
           <div className="mt-4 h-9 rounded-lg bg-brand-canvas px-3 text-[11px] leading-9 text-subtle">you@business.in</div>
           <div className="mt-3 flex h-9 items-center justify-center gap-2 rounded-lg bg-brand-orange text-xs font-bold text-white">
-            <span className="grid size-4 place-items-center rounded-full bg-white text-[9px] font-black text-brand-orange">G</span> Continue with Google
+            <span className="grid size-4 place-items-center rounded-full bg-surface text-[9px] font-black text-brand-orange">G</span> Continue with Google
           </div>
           <div className="mt-3 h-9 rounded-lg bg-brand-ink text-center text-xs leading-9 font-bold text-white">Create account</div>
           <p className="mt-3 text-center text-[10px] text-subtle">No credit card required</p>
@@ -423,7 +423,7 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
       );
     case "details":
       return (
-        <div className="w-full max-w-[300px] rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="w-full max-w-[300px] rounded-2xl bg-surface p-6 shadow-2xl">
           <p className="text-center font-brand text-lg font-extrabold text-brand-ink">Tell us about your store.</p>
           <div className="mt-4 rounded-lg border border-border px-3 py-2 text-[11px] text-brand-ink">Store name · Asha&apos;s Bakes</div>
           <div className="mt-2 rounded-lg border border-border px-3 py-2 text-[11px] text-subtle">
@@ -436,7 +436,7 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
       return (
         <div className="relative">
           <span className="absolute top-10 -left-16 size-28 rounded-full bg-gradient-to-br from-[#fdba74] to-brand-orange opacity-90 blur-[1px]" />
-          <div className="relative w-[150px] rounded-[26px] border-[5px] border-brand-ink bg-white p-2.5 shadow-2xl">
+          <div className="relative w-[150px] rounded-[26px] border-[5px] border-brand-ink bg-surface p-2.5 shadow-2xl">
             <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-brand-ink" />
             <p className="text-[9px] text-subtle">Choose a category</p>
             <div className="mt-2 grid grid-cols-2 gap-1.5">
@@ -459,7 +459,7 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
             {["from-[#f97316] to-[#111111]", "from-[#fed7aa] to-[#ea580c]", "from-[#bbf7d0] to-[#15803d]", "from-[#fde68a] to-[#f97316]", "from-[#e8f6ee] to-[#15803d]", "from-[#f3f3f2] to-[#111111]"].map((g, i) => (
-              <div key={g} className={cn("rounded-md bg-white p-1", i === 0 && "ring-2 ring-brand-orange")}>
+              <div key={g} className={cn("rounded-md bg-surface p-1", i === 0 && "ring-2 ring-brand-orange")}>
                 <div className={cn("h-12 rounded bg-gradient-to-br", g)} />
                 <div className="mt-1 h-1.5 w-3/4 rounded bg-black/10" />
               </div>
@@ -475,7 +475,7 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
           ))}
           <p className="font-brand text-[11px] font-semibold tracking-widest text-white/90 uppercase drop-shadow">Your store is</p>
           <p className="font-brand text-6xl font-black tracking-tight text-white drop-shadow-[0_6px_20px_rgb(0_0_0/0.15)]">LIVE</p>
-          <p className="mx-auto mt-3 w-fit rounded-md bg-white px-3 py-1.5 font-mono text-[11px] text-brand-ink shadow">myshop.pictocart.in</p>
+          <p className="mx-auto mt-3 w-fit rounded-md bg-surface px-3 py-1.5 font-mono text-[11px] text-brand-ink shadow">myshop.pictocart.in</p>
           <p className="mx-auto mt-3 w-fit rounded-full bg-brand-orange px-5 py-2 text-xs font-bold text-white shadow-lg">Share on WhatsApp</p>
         </div>
       );
@@ -489,10 +489,10 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
 export function LandingFaq({ content }: { content: LandingContent["faq"] }) {
   if (!content.items.length) return null;
   return (
-    <section id="faq" aria-labelledby="faq-title" className="scroll-mt-20 bg-white pb-20 sm:pb-24">
+    <section id="faq" aria-labelledby="faq-title" className="scroll-mt-20 bg-surface pb-20 sm:pb-24">
       <Container>
         <Heading id="faq-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
-        <div className="mx-auto mt-10 max-w-3xl divide-y divide-border rounded-2xl border border-border bg-white shadow-brand-card">
+        <div className="mx-auto mt-10 max-w-3xl divide-y divide-border rounded-2xl border border-border bg-surface shadow-brand-card">
           {content.items.map((f) => (
             <details key={f.question} className="group px-5 [&_summary::-webkit-details-marker]:hidden">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded py-4 text-[0.95rem] font-semibold text-brand-ink focus-visible:outline-2 focus-visible:outline-brand">
@@ -561,7 +561,7 @@ export function Features({ content }: { content: LandingContent["features"] }) {
         {content.mini.length ? (
           <ul className="mt-5 grid grid-cols-2 gap-5 md:grid-cols-[repeat(auto-fit,minmax(160px,1fr))]">
             {content.mini.map((m) => (
-              <li key={m.title} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-white px-4 py-5 text-center">
+              <li key={m.title} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-surface px-4 py-5 text-center">
                 <LandingIconView name={m.icon} className="size-5 text-brand" />
                 <span className="text-sm font-semibold text-brand-ink">{m.title}</span>
               </li>
@@ -575,7 +575,7 @@ export function Features({ content }: { content: LandingContent["features"] }) {
 
 function FeatureCard({ icon, title, body }: LandingContent["features"]["items"][number]) {
   return (
-    <li className="rounded-2xl border border-border bg-white p-6">
+    <li className="rounded-2xl border border-border bg-surface p-6">
       <span className="grid size-10 place-items-center rounded-xl bg-brand-soft text-brand">
         <LandingIconView name={icon} className="size-5" />
       </span>
@@ -590,7 +590,7 @@ function FeatureCard({ icon, title, body }: LandingContent["features"]["items"][
 export function LandingThemes({ content, themes, images }: { content: LandingContent["themes"]; themes: MarketplaceTheme[]; images?: Map<string, CategoryImage> }) {
   if (!themes.length) return null;
   return (
-    <section id="themes" aria-labelledby="themes-title" className="scroll-mt-20 bg-white py-20 sm:py-24">
+    <section id="themes" aria-labelledby="themes-title" className="scroll-mt-20 bg-surface py-20 sm:py-24">
       <Container>
         <Heading id="themes-title" badge={content.badge} tone="green" title={content.title} body={content.body} />
         <ul className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 [content-visibility:auto] [contain-intrinsic-size:auto_420px]">
@@ -671,7 +671,7 @@ function CategoryTile({ item }: { item: LandingContent["categories"]["items"][nu
     </>
   );
   const cls = cn(
-    "group relative flex h-full flex-col items-center overflow-hidden rounded-2xl border border-border bg-white p-3 transition-[translate,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-transparent hover:shadow-[0_20px_40px_-20px_rgb(27_29_69/0.35)] motion-reduce:hover:translate-y-0 sm:p-4",
+    "group relative flex h-full flex-col items-center overflow-hidden rounded-2xl border border-border bg-surface p-3 transition-[translate,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-transparent hover:shadow-[0_20px_40px_-20px_rgb(27_29_69/0.35)] motion-reduce:hover:translate-y-0 sm:p-4",
     !item.imageUrl && "justify-center py-5 sm:py-6",
   );
   const glow = <span aria-hidden className={cn("pointer-events-none absolute -bottom-12 left-1/2 size-24 -translate-x-1/2 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100", tint.glow)} />;
@@ -701,7 +701,7 @@ function CategoryTile({ item }: { item: LandingContent["categories"]["items"][nu
 
 export function LandingPricing({ content, plans }: { content: LandingContent["pricing"]; plans: MarketingPlan[] }) {
   return (
-    <section id="pricing" aria-labelledby="pricing-title" className="scroll-mt-20 bg-white py-20 sm:py-24">
+    <section id="pricing" aria-labelledby="pricing-title" className="scroll-mt-20 bg-surface py-20 sm:py-24">
       <Container>
         <Heading id="pricing-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
         <div className="mx-auto mt-14 max-w-5xl">
@@ -728,7 +728,7 @@ export function Testimonials({ content }: { content: LandingContent["testimonial
         <Heading id="testimonials-title" badge={content.badge} tone="amber" title={content.title} />
         <ul className={cn("mx-auto mt-12 grid gap-6", content.items.length === 1 ? "max-w-2xl" : content.items.length === 2 ? "max-w-5xl md:grid-cols-2" : "lg:grid-cols-3")}>
           {content.items.map((t) => (
-            <li key={t.name + t.quote.slice(0, 20)} className="relative flex flex-col rounded-2xl border border-border bg-white p-7 shadow-brand-card">
+            <li key={t.name + t.quote.slice(0, 20)} className="relative flex flex-col rounded-2xl border border-border bg-surface p-7 shadow-brand-card">
               <Quote aria-hidden className="absolute top-6 right-6 size-8 text-brand-soft" />
               <p className="flex gap-0.5" aria-label={`${t.rating} out of 5 stars`}>
                 {Array.from({ length: 5 }, (_, i) => (

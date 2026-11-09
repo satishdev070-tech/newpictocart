@@ -50,7 +50,7 @@ export default async function HowItWorksPage() {
   const steps = guide(storeRootDomain());
   return (
     <>
-      <section className="bg-gradient-to-b from-brand-soft/70 to-white pt-16 pb-10 sm:pt-20">
+      <section className="bg-gradient-to-b from-brand-soft/70 to-mk-bg pt-16 pb-10 sm:pt-20">
         <Container>
           <SectionHeading as="h1" eyebrow="How it works" title="Your store, step by step" body="What setting up a Pictocart store involves, including what you need to have ready." />
           <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -71,7 +71,7 @@ export default async function HowItWorksPage() {
                 <span className="absolute -left-[3.05rem] top-5 grid size-9 place-items-center rounded-full bg-brand font-brand text-sm font-bold text-white ring-4 ring-white sm:-left-[3.55rem]" aria-hidden>
                   {i + 1}
                 </span>
-                <article className="rounded-brand-lg border border-border bg-white p-6">
+                <article className="rounded-brand-lg border border-border bg-surface p-6">
                   <h2 className="font-brand text-xl font-bold text-brand-ink">
                     <span className="sr-only">Step {i + 1}: </span>
                     {s.title}

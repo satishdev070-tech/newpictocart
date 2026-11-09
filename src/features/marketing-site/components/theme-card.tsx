@@ -92,8 +92,8 @@ function Devices({ desktop, phone, size }: { desktop: ReactNode; phone: ReactNod
     // Fixed 4:3 stage: the phone is sized by the stage height and pinned inside it, so it never
     // overhangs the card and every card's preview is exactly the same height.
     return (
-      <div className="relative aspect-[4/3] w-full" aria-hidden>
-        <div className="absolute inset-0 flex flex-col overflow-hidden rounded-brand-md border border-border bg-white shadow-brand-card">
+      <div className="mk-light relative aspect-[4/3] w-full" aria-hidden>
+        <div className="absolute inset-0 flex flex-col overflow-hidden rounded-brand-md border border-border bg-surface shadow-brand-card">
           {DOTS}
           <div className="relative min-h-0 flex-1 overflow-hidden">{desktop}</div>
         </div>
@@ -105,8 +105,8 @@ function Devices({ desktop, phone, size }: { desktop: ReactNode; phone: ReactNod
   }
   // Large (hero): desktop fills the stage; phone is height-capped so it reads as a handset, not a tall strip.
   return (
-    <div className="relative w-full" aria-hidden>
-      <div className="overflow-hidden rounded-brand-md border border-border bg-white shadow-brand-card">
+    <div className="mk-light relative w-full" aria-hidden>
+      <div className="overflow-hidden rounded-brand-md border border-border bg-surface shadow-brand-card">
         {DOTS}
         {desktop}
       </div>
@@ -182,7 +182,7 @@ export function ThemeCard({ theme, headingLevel = "h3", location, image = null }
   const H = headingLevel;
   const photo = themeSiteType(theme) === "informative" ? null : image && !themeShot(theme.key, "desktop") ? image : null;
   return (
-    <article className="group flex h-full flex-col rounded-brand-lg border border-border bg-white p-4 transition duration-300 ease-out hover:-translate-y-1 hover:border-brand/30 hover:shadow-brand-card motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+    <article className="group flex h-full flex-col rounded-brand-lg border border-border bg-surface p-4 transition duration-300 ease-out hover:-translate-y-1 hover:border-brand/30 hover:shadow-brand-card motion-reduce:transition-none motion-reduce:hover:translate-y-0">
       <div className="relative">
         <Link href={`/themes/${theme.key}`} className="block rounded-brand-md" tabIndex={-1} aria-hidden>
           <ThemeDevicePreview theme={theme} image={photo} />

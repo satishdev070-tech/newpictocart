@@ -43,7 +43,7 @@ export function ThemePreviewStage({ liveUrl, sample, title }: { liveUrl: string 
 
       <div className={`mt-4 flex justify-center rounded-brand-lg bg-brand-canvas ring-1 ring-border ${phone ? "py-6" : "p-2 sm:p-3"}`}>
         <div
-          className={`relative overflow-hidden bg-white shadow-brand-card ${phone ? "h-[min(78dvh,844px)] w-[390px] max-w-full rounded-[28px] border-[8px] border-brand-ink" : "h-[min(78dvh,860px)] w-full rounded-brand-md border border-border"}`}
+          className={`mk-light relative overflow-hidden bg-white shadow-brand-card ${phone ? "h-[min(78dvh,844px)] w-[390px] max-w-full rounded-[28px] border-[8px] border-brand-ink" : "h-[min(78dvh,860px)] w-full rounded-brand-md border border-border"}`}
         >
           {liveUrl ? (
             <>

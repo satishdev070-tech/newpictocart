@@ -32,7 +32,7 @@ export default async function ThemeDetailPage({ params }: PageProps<"/themes/[ke
 
   return (
     <>
-      <section className="bg-gradient-to-b from-brand-soft/70 to-white pt-10 pb-16" aria-labelledby="theme-title">
+      <section className="bg-gradient-to-b from-brand-soft/70 to-mk-bg pt-10 pb-16" aria-labelledby="theme-title">
         <Container>
           <Link href={themesHref({ industry: t.industry })} className="inline-flex items-center gap-1.5 rounded text-sm font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">
             <ArrowLeft aria-hidden className="size-4" /> {industryName(t.industry)} themes
@@ -91,7 +91,7 @@ export default async function ThemeDetailPage({ params }: PageProps<"/themes/[ke
                   <dt className="text-sm font-semibold text-brand-ink">Colours</dt>
                   <dd className="mt-3 flex flex-wrap gap-2">
                     {colors.map(([k, v]) => (
-                      <span key={k} className="flex items-center gap-2 rounded-full border border-border bg-white py-1 pr-3 pl-1 text-xs text-muted">
+                      <span key={k} className="flex items-center gap-2 rounded-full border border-border bg-surface py-1 pr-3 pl-1 text-xs text-muted">
                         <span className="size-5 rounded-full border border-border" style={{ background: v }} aria-hidden />
                         {COLOR_LABELS[k]}
                       </span>

@@ -29,7 +29,7 @@ export default async function FeaturesPage() {
   const freeForever = Boolean(entryPlan(plans) && isFreeForeverPlan(entryPlan(plans)!));
   return (
     <>
-      <section className="bg-gradient-to-b from-brand-soft/70 to-white pt-16 sm:pt-20">
+      <section className="bg-gradient-to-b from-brand-soft/70 to-mk-bg pt-16 sm:pt-20">
         <Container>
           <SectionHeading as="h1" eyebrow="Features" title="Everything you need to run your online store" body="Deep-dive pages for every capability in the Features menu — from Snap-to-Product AI to Pica2." />
           <div className="mt-8 flex justify-center">
@@ -44,7 +44,7 @@ export default async function FeaturesPage() {
         const pages = byGroup[group];
         if (!pages.length) return null;
         return (
-          <section key={group} className="border-t border-border bg-white py-14 sm:py-16" aria-labelledby={`group-${group}`}>
+          <section key={group} className="border-t border-border bg-surface py-14 sm:py-16" aria-labelledby={`group-${group}`}>
             <Container>
               <h2 id={`group-${group}`} className="font-brand text-2xl font-extrabold tracking-tight text-brand-ink">
                 {FEATURE_GROUP_LABELS[group]}
@@ -54,7 +54,7 @@ export default async function FeaturesPage() {
                   <li key={p.slug}>
                     <Link
                       href={group === "design" && p.slug === "theme-marketplace" ? "/themes" : `/features/${p.slug}`}
-                      className="group flex h-full flex-col rounded-2xl border border-border bg-brand-canvas/40 p-5 transition-colors hover:border-brand-orange/40 hover:bg-white"
+                      className="group flex h-full flex-col rounded-2xl border border-border bg-brand-canvas/40 p-5 transition-colors hover:border-brand-orange/40 hover:bg-surface"
                     >
                       <p className="text-[11px] font-bold tracking-[0.12em] text-brand-orange uppercase">{p.eyebrow || FEATURE_GROUP_LABELS[p.group]}</p>
                       <h3 className="mt-2 font-brand text-lg font-bold text-brand-ink group-hover:text-brand-orange">{p.title}</h3>

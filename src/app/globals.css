@@ -297,12 +297,90 @@
 }
 
 /*
- * Marketing landing only (paired with .theme-brand on (marketing)/layout).
- * Black / White / Orange / Green — 60% white canvas, 30% charcoal chrome, 10% orange CTAs;
- * green reserved for success/trust chips. Auth + onboarding keep base .theme-brand (indigo).
- * White on --brand-orange / --brand-cta: bold button labels (AA large text).
+ * Marketing site only (paired with .theme-brand on (marketing)/layout): dark editorial.
+ * Near-black surfaces, off-white text, one mint accent (#24cfa6) kept under ~10% of a screen.
+ * Auth + onboarding keep base .theme-brand (light indigo). The legacy --brand-* names are
+ * remapped so older markup reads dark: --brand-ink is now the text colour, --brand-orange /
+ * --brand-cta are the accent, --brand-canvas / --brand-soft are elevated surfaces.
+ * Contrast on --bg #0b0b0b: --text 18.1:1, --text-muted 8.0:1, --text-dim 5.6:1,
+ * --accent 10.4:1; --accent-ink on --accent 10.4:1.
  */
 .theme-marketing {
+  color-scheme: dark;
+  --bg: #0b0b0b;
+  --bg-elev-1: #141414;
+  --bg-elev-2: #1c1c1c;
+  --mk-border: rgb(255 255 255 / 0.08);
+  --mk-border-strong: rgb(255 255 255 / 0.16);
+  --text: #f5f5f5;
+  --text-muted: #a3a3a3;
+  --text-dim: #8a8a8a;
+  --mk-accent: #24cfa6;
+  --mk-accent-hover: #1fb892;
+  --accent-ink: #0b0b0b;
+  --accent-glow: rgb(36 207 166 / 0.35);
+  --accent-tint: rgb(36 207 166 / 0.12);
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-pill: 999px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 200ms;
+  --dur: 450ms;
+  --dur-slow: 900ms;
+
+  --brand-primary: var(--text);
+  --brand-primary-hover: #ffffff;
+  --brand-primary-soft: var(--bg-elev-2);
+  --brand-ink: var(--text);
+  --brand-accent: var(--mk-accent);
+  --brand-accent-soft: var(--accent-tint);
+  --brand-mint: var(--accent-tint);
+  --brand-canvas: var(--bg-elev-1);
+  --brand-cta: var(--mk-accent);
+  --brand-cta-hover: var(--mk-accent-hover);
+  --brand-orange: var(--mk-accent);
+  --brand-orange-hover: var(--mk-accent-hover);
+  --brand-purple: var(--bg-elev-2);
+  --brand-night: var(--bg);
+  --brand-success: var(--mk-accent);
+  --brand-success-hover: var(--mk-accent-hover);
+
+  --background: var(--bg);
+  --surface: var(--bg-elev-1);
+  --surface-secondary: var(--bg-elev-2);
+  --surface-elevated: var(--bg-elev-2);
+  --foreground: var(--text);
+  --muted: var(--text-muted);
+  --subtle: var(--text-dim);
+  --border: var(--mk-border);
+  --border-strong: var(--mk-border-strong);
+  --primary: var(--text);
+  --primary-foreground: var(--bg);
+  --accent: var(--mk-accent);
+  --accent-foreground: var(--accent-ink);
+  --accent-soft: var(--accent-tint);
+  --focus: var(--mk-accent);
+
+  --brand-radius-sm: var(--r-sm);
+  --brand-radius-md: var(--r-md);
+  --brand-radius-lg: var(--r-lg);
+  --brand-radius-xl: 32px;
+  --brand-shadow-card: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 24px 48px -24px rgb(0 0 0 / 0.8);
+  --brand-shadow-float: 0 40px 80px -32px rgb(0 0 0 / 0.9);
+  --font-brand-display: var(--font-inter-tight), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono-label: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  background: var(--bg);
+  color: var(--text);
+}
+
+/*
+ * Light island inside the dark marketing site: storefront mockups, theme screenshots and
+ * onboarding illustrations depict a seller's (light) store, so they keep the light palette.
+ */
+.theme-marketing .mk-light {
+  color-scheme: light;
   --brand-primary: #111111;
   --brand-primary-hover: #000000;
   --brand-primary-soft: #f3f3f2;
@@ -319,25 +397,27 @@
   --brand-night: #0a0a0a;
   --brand-success: #15803d;
   --brand-success-hover: #166534;
-
   --background: #ffffff;
   --surface: #ffffff;
-  --surface-secondary: var(--brand-canvas);
+  --surface-secondary: #f7f7f5;
   --surface-elevated: #ffffff;
   --foreground: #111111;
   --muted: #525252;
   --subtle: #737373;
   --border: #e7e5e4;
   --border-strong: #d6d3d1;
-  --primary: var(--brand-primary);
+  --primary: #111111;
   --primary-foreground: #ffffff;
-  --accent: var(--brand-orange);
+  --accent: #ea580c;
   --accent-foreground: #ffffff;
-  --accent-soft: var(--brand-accent-soft);
-  --focus: var(--brand-orange);
-
+  --accent-soft: #fff4eb;
+  --brand-radius-sm: 8px;
+  --brand-radius-md: 12px;
+  --brand-radius-lg: 18px;
+  --brand-radius-xl: 28px;
   --brand-shadow-card: 0 1px 2px rgb(0 0 0 / 0.05), 0 8px 24px -12px rgb(0 0 0 / 0.12);
   --brand-shadow-float: 0 24px 60px -24px rgb(0 0 0 / 0.4);
+  color: #111111;
 }
 
 @theme inline {
@@ -364,6 +444,72 @@
   --shadow-brand-card: var(--brand-shadow-card);
   --shadow-brand-float: var(--brand-shadow-float);
   --font-brand: var(--font-brand-display);
+
+  /* Dark editorial marketing tokens (.theme-marketing only). */
+  --color-mk-bg: var(--bg);
+  --color-mk-elev-1: var(--bg-elev-1);
+  --color-mk-elev-2: var(--bg-elev-2);
+  --color-mk-line: var(--mk-border);
+  --color-mk-line-strong: var(--mk-border-strong);
+  --color-mk-text: var(--text);
+  --color-mk-muted: var(--text-muted);
+  --color-mk-dim: var(--text-dim);
+  --color-mk-accent: var(--mk-accent);
+  --color-mk-accent-hover: var(--mk-accent-hover);
+  --color-mk-accent-ink: var(--accent-ink);
+  --color-mk-accent-tint: var(--accent-tint);
+  --radius-mk-sm: var(--r-sm);
+  --radius-mk-md: var(--r-md);
+  --radius-mk-lg: var(--r-lg);
+  --font-mk-display: var(--font-brand-display);
+  --font-mk-mono: var(--font-mono-label);
+  --ease-mk: var(--ease-out);
+}
+
+/* ---- Marketing layout + type scale ---------------------------------------------------- */
+
+@utility mk-container {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 4vw, 2.5rem);
+}
+@utility mk-section {
+  padding-block: clamp(5rem, 10vw, 9rem);
+  scroll-margin-top: 5rem;
+}
+@utility mk-display-xl {
+  font-family: var(--font-brand-display);
+  font-size: clamp(3rem, 8vw, 7.5rem);
+  line-height: 0.95;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+@utility mk-display-lg {
+  font-family: var(--font-brand-display);
+  font-size: clamp(2.25rem, 5vw, 4.5rem);
+  line-height: 1;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+@utility mk-h3 {
+  font-family: var(--font-brand-display);
+  font-size: clamp(1.375rem, 2vw, 1.75rem);
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+@utility mk-body-lg {
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+@utility mk-label {
+  font-family: var(--font-mono-label);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 @theme inline {
@@ -531,5 +677,63 @@ body {
   }
   to {
     transform: translateX(-50%);
+  }
+}
+@keyframes marquee-reverse {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+html:has(.theme-marketing) {
+  scroll-behavior: smooth;
+  background: var(--bg, #0b0b0b);
+}
+.theme-marketing ::selection {
+  background: var(--mk-accent);
+  color: var(--accent-ink);
+}
+.theme-marketing :focus-visible {
+  outline-color: var(--mk-accent);
+}
+
+/* Masked line reveal for display headings (SplitReveal); words slide up from 100%. */
+.mk-split-word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+.mk-split-word > span {
+  display: inline-block;
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+[data-split="hidden"] .mk-split-word > span {
+  transform: translateY(105%);
+}
+
+/* Cursor-following glow on cards (--mx/--my set by CardGlow). */
+.mk-card-glow {
+  background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), var(--accent-tint), transparent 70%);
+}
+
+/* Faint grid texture for the final CTA and hero. */
+.mk-grid-texture {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.theme-marketing) {
+    scroll-behavior: auto;
+  }
+  [data-split="hidden"] .mk-split-word > span {
+    transform: none;
   }
 }

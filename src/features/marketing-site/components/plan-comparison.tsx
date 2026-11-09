@@ -5,7 +5,7 @@ import { planComparison, type MarketingPlan } from "../plans";
 export function PlanComparison({ plans }: { plans: MarketingPlan[] }) {
   const rows = planComparison(plans);
   return (
-    <div className="relative overflow-x-auto rounded-brand-lg border border-border bg-white">
+    <div className="relative overflow-x-auto rounded-brand-lg border border-border bg-surface">
       <table className="w-full min-w-[560px] text-left text-sm">
         <caption className="sr-only">Plan comparison</caption>
         <thead className="bg-brand-canvas">

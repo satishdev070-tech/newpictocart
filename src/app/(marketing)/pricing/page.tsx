@@ -65,7 +65,7 @@ export default async function PricingPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd([softwareApplicationJsonLd(siteOrigin(), plans), faqJsonLd(faqs)]) }} />
-      <section className="bg-gradient-to-b from-brand-soft/70 to-white pt-16 pb-6 sm:pt-20" aria-labelledby="pricing-title">
+      <section className="bg-gradient-to-b from-brand-soft/70 to-mk-bg pt-16 pb-6 sm:pt-20" aria-labelledby="pricing-title">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <SectionHeading as="h1" id="pricing-title" eyebrow="Pricing" title="Simple plans for every stage of your business" body={headingBody} />
           <div className="mt-12">

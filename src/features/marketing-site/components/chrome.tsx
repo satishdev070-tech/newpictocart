@@ -17,7 +17,7 @@ export function MarketingHeader({ header }: { header: LandingContent["header"] }
   const isMegaTrigger = (label: string) => mega !== null && label.trim().toLowerCase() === mega.trigger.trim().toLowerCase();
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-      <a href={`#${SECTION_IDS.main}`} className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:shadow-brand-card">
+      <a href={`#${SECTION_IDS.main}`} className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:shadow-brand-card">
         Skip to content
       </a>
       <Container className="flex h-[68px] items-center justify-between gap-4 sm:h-[76px] sm:gap-6">

@@ -22,7 +22,7 @@ export function FeaturePageView({ page }: { page: FeaturePage }) {
         </Container>
       </section>
 
-      <section className="bg-white py-16 sm:py-20">
+      <section className="bg-surface py-16 sm:py-20">
         <Container className="grid items-start gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
           <div>
             <h2 className="font-brand text-2xl font-extrabold tracking-tight text-brand-ink">Why it matters</h2>
@@ -53,7 +53,7 @@ export function FeaturePageView({ page }: { page: FeaturePage }) {
                 <img src={page.infographicUrl} alt={page.infographicAlt || page.title} className="aspect-[4/3] w-full object-cover" />
               )
             ) : (
-              <div className="grid aspect-[4/3] place-items-center bg-gradient-to-br from-brand-accent-soft via-white to-brand-mint p-10 text-center">
+              <div className="grid aspect-[4/3] place-items-center bg-gradient-to-br from-brand-accent-soft via-mk-bg to-brand-mint p-10 text-center">
                 <div>
                   <p className="font-brand text-xl font-extrabold text-brand-ink">{page.title}</p>
                   <p className="mt-2 text-sm text-muted">Infographic slot — upload from Admin → Landing → Feature pages</p>
