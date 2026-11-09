@@ -16,6 +16,22 @@ export const inter = localFont({
   preload: false,
 });
 
+/** Marketing site display face (dark editorial headings). Imported only by the (marketing) layout. */
+export const interTight = localFont({
+  src: [{ path: "../../node_modules/@fontsource-variable/inter-tight/files/inter-tight-latin-wght-normal.woff2", style: "normal", weight: "100 900" }],
+  variable: "--font-inter-tight",
+  display: "swap",
+  adjustFontFallback: "Arial",
+});
+
+/** Marketing mono labels (section eyebrows, step numbers, tags). */
+export const jetbrainsMono = localFont({
+  src: [{ path: "../../node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2", style: "normal", weight: "100 800" }],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+  preload: false,
+});
+
 export const fraunces = localFont({
   src: [{ path: "../../node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2", style: "normal", weight: "100 900" }],
   variable: "--font-fraunces",

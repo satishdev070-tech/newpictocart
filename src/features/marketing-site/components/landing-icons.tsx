@@ -99,20 +99,29 @@ export function LandingIconView({ name, className }: { name: LandingIcon; classN
   return <Icon aria-hidden className={className} />;
 }
 
+/**
+ * Dark editorial highlights for "{green:text}" CMS headings: the warm colours become the single
+ * accent (optionally underlined), the cool ones a muted grey so a headline can mix white and grey.
+ */
 export const HIGHLIGHT_CLASS: Record<HighlightColor, string> = {
-  purple: "text-brand-ink",
-  green: "text-brand-success",
-  orange: "text-brand-orange",
-  indigo: "text-brand-ink",
+  purple: "text-mk-muted",
+  green: "text-mk-accent",
+  orange: "text-mk-accent",
+  indigo: "text-mk-muted",
 };
 
-/** Renders "{green:text}" highlights from CMS headings. `onDark` uses lighter tints. */
-export function Highlighted({ text, onDark = false }: { text: string; onDark?: boolean }) {
+export function Highlighted({ text, underline = false }: { text: string; underline?: boolean }) {
   return (
     <>
       {parseHighlights(text).map((p, i) =>
         p.color ? (
-          <span key={i} className={onDark ? DARK_HIGHLIGHT[p.color] : HIGHLIGHT_CLASS[p.color]}>
+          <span
+            key={i}
+            className={cn(
+              HIGHLIGHT_CLASS[p.color],
+              underline && HIGHLIGHT_CLASS[p.color] === "text-mk-accent" && "underline decoration-mk-accent/50 decoration-[0.06em] underline-offset-[0.14em]",
+            )}
+          >
             {p.text}
           </span>
         ) : (
@@ -122,13 +131,6 @@ export function Highlighted({ text, onDark = false }: { text: string; onDark?: b
     </>
   );
 }
-
-const DARK_HIGHLIGHT: Record<HighlightColor, string> = {
-  purple: "text-white",
-  green: "text-[#86efac]",
-  orange: "text-[#fdba74]",
-  indigo: "text-white/90",
-};
 
 // ---- Brand marks (lucide v1 ships no brand icons) -------------------------------------
 

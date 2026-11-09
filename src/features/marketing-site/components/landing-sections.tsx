@@ -96,7 +96,7 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
             </p>
           ) : null}
           <h1 id="hero-title" className={cn("mt-6 font-brand text-[2.6rem] font-extrabold leading-[1.05] tracking-tight sm:text-6xl lg:text-[3.8rem]", "transition-[translate] duration-700 ease-out starting:translate-y-3")}>
-            <Highlighted text={content.titleLead} onDark />
+            <Highlighted text={content.titleLead} underline />
             {content.rotatingWords.length ? (
               <>
                 {" "}
@@ -759,7 +759,7 @@ export function LandingCta({ content }: { content: LandingContent["cta"] }) {
       <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(40%_60%_at_20%_0%,rgb(234_88_12/0.22),transparent_70%),radial-gradient(40%_60%_at_90%_100%,rgb(21_128_61/0.2),transparent_70%)]" />
       <Container>
         <h2 id="final-cta-title" className="mx-auto max-w-3xl font-brand text-3xl font-extrabold tracking-tight text-balance sm:text-5xl">
-          <Highlighted text={content.title} onDark />
+          <Highlighted text={content.title} underline />
         </h2>
         {content.body ? <p className="mx-auto mt-4 max-w-xl text-lg text-white/80">{content.body}</p> : null}
         {content.button.label ? (
