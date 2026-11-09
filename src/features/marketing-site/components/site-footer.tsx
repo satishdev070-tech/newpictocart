@@ -10,8 +10,9 @@ import { SocialIcons } from "./landing-icons";
 import { ShareButton } from "./share-button";
 
 /**
- * Dark footer for every marketing page: link columns (one link can be highlighted), then logo,
- * copyright, share button and social profiles in their brand colours. Content from the landing CMS.
+ * Dark editorial footer for every marketing page: link columns (one link can be highlighted),
+ * then logo, copyright, share button and social profiles. Oversized faded wordmark anchors the
+ * bottom. Content from the landing CMS.
  */
 
 const isExternal = (href: string) => /^https:\/\//.test(href);
@@ -22,18 +23,18 @@ export function MarketingFooter({ footer }: { footer: LandingContent["footer"] }
   const share = footer.share.enabled && footer.share.networks.length ? footer.share : null;
   return (
     <>
-      <footer className="bg-[#04041a] text-white">
-        <div className="mx-auto w-full max-w-6xl px-4 pt-14 pb-8 sm:px-6 sm:pt-16">
+      <footer className="relative overflow-hidden bg-mk-bg text-mk-text">
+        <div className="mk-container relative z-10 pt-14 pb-8 sm:pt-16">
           {footer.groups.length ? (
             <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-[repeat(var(--cols),minmax(0,1fr))]" style={{ "--cols": footer.groups.length } as React.CSSProperties}>
               {footer.groups.map((g) => (
                 <nav key={g.title} aria-label={g.title}>
-                  <p className="text-[1.05rem] font-semibold">{g.title}</p>
+                  <p className="mk-label text-mk-muted">{g.title}</p>
                   <ul className="mt-5 space-y-3 text-[0.95rem]">
                     {g.links.map((l) => {
                       const cls = cn(
-                        "rounded transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent",
-                        l.highlight ? "font-semibold text-[#b9a6ff] hover:text-[#d6cbff]" : "text-white/60 hover:text-white",
+                        "rounded transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent",
+                        l.highlight ? "font-semibold text-mk-accent hover:text-mk-accent-hover" : "text-mk-muted hover:text-mk-text",
                       );
                       return (
                         <li key={l.href + l.label}>
@@ -54,12 +55,12 @@ export function MarketingFooter({ footer }: { footer: LandingContent["footer"] }
               ))}
             </div>
           ) : null}
-          {footer.tagline ? <p className="mt-10 max-w-xl text-sm leading-relaxed text-white/45">{footer.tagline}</p> : null}
+          {footer.tagline ? <p className="mt-10 max-w-xl text-sm leading-relaxed text-mk-dim">{footer.tagline}</p> : null}
 
           {/* Room for the floating WhatsApp button so it never covers the social icons. */}
-          <div className={cn("mt-10 grid items-center gap-6 border-t border-white/10 pt-8 text-center lg:grid-cols-[auto_1fr_auto] lg:gap-8 lg:text-left", wa && "pb-16 lg:pr-16 lg:pb-0")}>
+          <div className={cn("mt-10 grid items-center gap-6 border-t border-mk-line pt-8 text-center lg:grid-cols-[auto_1fr_auto] lg:gap-8 lg:text-left", wa && "pb-16 lg:pr-16 lg:pb-0")}>
             <BrandLogo tone="light" className="justify-self-center lg:justify-self-start" />
-            <p className="text-sm text-white/60 lg:text-center">
+            <p className="text-sm text-mk-muted lg:text-center">
               © {new Date().getFullYear()} {footer.copyright || `${PLATFORM_NAME}. All rights reserved.`}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-end">
@@ -92,6 +93,12 @@ export function MarketingFooter({ footer }: { footer: LandingContent["footer"] }
             </div>
           </div>
         </div>
+        <p
+          aria-hidden
+          className="pointer-events-none relative z-0 mt-4 select-none overflow-hidden text-center font-mk-display text-[12vw] leading-none font-bold tracking-[-0.04em] text-mk-text opacity-[0.08]"
+        >
+          {PLATFORM_NAME.toUpperCase()}
+        </p>
       </footer>
       {wa ? (
         <a

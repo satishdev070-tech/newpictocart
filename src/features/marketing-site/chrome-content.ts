@@ -3,6 +3,8 @@
  * footerSchema). PURE (no I/O, no imports from landing.ts, so landing.ts can import this).
  */
 
+import { marketplaceThemeCount } from "./themes";
+
 /** Default mega-menu / hub card href for a feature title (Theme Marketplace → /themes). */
 export function featureMenuHref(title: string): string {
   if (/theme marketplace/i.test(title)) return "/themes";
@@ -209,7 +211,7 @@ export const DEFAULT_MEGA_MENU: MegaMenu = {
       subtitle: "Make it your brand",
       tone: "violet",
       items: [
-        item("palette", "Theme Marketplace", "50+ AI-crafted, 5-page premium themes", "/themes"),
+        item("palette", "Theme Marketplace", `${marketplaceThemeCount()} AI-crafted, 5-page premium themes`, "/themes"),
         item("pointer", "Drag-and-Drop Builder", "Rearrange sections, swap blocks, no code"),
         item("image", "Logo & Banner Upload", "1:1 cropper, original filenames kept"),
         item("type", "Google Fonts", "Pick from 1,000+ fonts, applied site-wide"),
