@@ -34,14 +34,14 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
 
   return (
     <>
-      <section className="bg-gradient-to-b from-brand-soft/70 to-white pt-14 pb-8 sm:pt-20" aria-labelledby="themes-title">
+      <section className="bg-gradient-to-b from-mk-bg to-mk-elev-1 pt-14 pb-8 sm:pt-20" aria-labelledby="themes-title">
         <Container>
           <div className="max-w-2xl">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Theme marketplace</p>
-            <h1 id="themes-title" className="mt-3 font-brand text-4xl font-extrabold tracking-tight text-brand-ink sm:text-5xl">
+            <p className="mk-label text-mk-accent">Theme marketplace</p>
+            <h1 id="themes-title" className="mk-display-lg mt-4 text-balance text-mk-text">
               Find a theme for your store
             </h1>
-            <p className="mt-4 text-lg text-muted">
+            <p className="mt-4 text-lg leading-relaxed text-mk-muted">
               {catalog.length} themes across {industries.length} business categories. Preview any theme on a demo store; previews never change a real store.
             </p>
           </div>
@@ -52,17 +52,20 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
               Search themes
             </label>
             <div className="relative flex-1">
-              <Search aria-hidden className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-subtle" />
+              <Search aria-hidden className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-mk-dim" />
               <input
                 id="theme-search"
                 name="q"
                 type="search"
                 defaultValue={query.q}
                 placeholder="Search by name, style or product type"
-                className="h-12 w-full rounded-full border border-border-strong bg-white pl-11 pr-4 text-[0.95rem] text-brand-ink placeholder:text-subtle focus:border-brand focus:outline-2 focus:outline-brand/30"
+                className="h-12 w-full rounded-full border border-mk-line bg-mk-elev-2 pl-11 pr-4 text-[0.95rem] text-mk-text placeholder:text-mk-dim focus:border-mk-accent focus:outline-2 focus:outline-mk-accent/30"
               />
             </div>
-            <button type="submit" className="h-12 rounded-full bg-brand px-6 text-sm font-semibold text-white hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+            <button
+              type="submit"
+              className="h-12 rounded-full bg-mk-accent px-6 text-sm font-semibold text-mk-accent-ink hover:bg-mk-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent"
+            >
               Search
             </button>
           </form>
@@ -71,9 +74,9 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
 
       <Container className="pb-20">
         <div className="grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-24 lg:self-start">
+          <aside className="rounded-mk-md border border-mk-line bg-mk-elev-1 p-4 lg:sticky lg:top-24 lg:self-start lg:border-0 lg:bg-transparent lg:p-0">
             <nav aria-label="Website type">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Website type</p>
+              <p className="mk-label text-mk-dim">Website type</p>
               <ul className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible">
                 {[
                   { value: "", label: "All templates", count: catalog.length },
@@ -81,24 +84,27 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
                 ].map((type) => (
                   <li key={type.value || "all"}>
                     <Link href={themesHref({ q: query.q, siteType: type.value as typeof query.siteType })} aria-current={query.siteType === type.value ? "page" : undefined} className={sidebarLink(query.siteType === type.value)}>
-                      <span>{type.label}</span><span className="text-xs opacity-65">{type.count}</span>
+                      <span>{type.label}</span>
+                      <span className="text-xs opacity-65">{type.count}</span>
                     </Link>
                   </li>
                 ))}
               </ul>
             </nav>
-            <nav aria-label="Theme categories" className="mt-6 border-t border-border pt-6">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">Business category</p>
+            <nav aria-label="Theme categories" className="mt-6 border-t border-mk-line pt-6">
+              <p className="mk-label text-mk-dim">Business category</p>
               <ul className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible">
                 <li>
                   <Link href={themesHref({ q: query.q, siteType: query.siteType })} aria-current={!query.industry ? "page" : undefined} className={sidebarLink(!query.industry)}>
-                    <span>All categories</span><span className="text-xs opacity-65">{catalog.length}</span>
+                    <span>All categories</span>
+                    <span className="text-xs opacity-65">{catalog.length}</span>
                   </Link>
                 </li>
                 {industries.map((i) => (
                   <li key={i.slug}>
                     <Link href={themesHref({ q: query.q, industry: i.slug, siteType: query.siteType })} aria-current={query.industry === i.slug ? "page" : undefined} className={sidebarLink(query.industry === i.slug)}>
-                      <span>{i.label}</span><span className="text-xs opacity-65">{i.count}</span>
+                      <span>{i.label}</span>
+                      <span className="text-xs opacity-65">{i.count}</span>
                     </Link>
                   </li>
                 ))}
@@ -107,40 +113,48 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
           </aside>
 
           <div>
-        <p className="text-sm text-muted" role="status">
-          {result.total === 0 ? "No themes found" : `${result.total} ${result.total === 1 ? "theme" : "themes"}`}
-          {query.q ? ` for “${query.q}”` : ""}
-          {query.industry ? ` in ${industryName(query.industry)}` : ""}
-        </p>
+            <p className="text-sm text-mk-muted" role="status">
+              {result.total === 0 ? "No themes found" : `${result.total} ${result.total === 1 ? "theme" : "themes"}`}
+              {query.q ? ` for “${query.q}”` : ""}
+              {query.industry ? ` in ${industryName(query.industry)}` : ""}
+            </p>
 
-        {result.total === 0 ? (
-          <div className="mt-8 rounded-brand-lg border border-dashed border-border-strong bg-brand-canvas px-6 py-14 text-center">
-            <p className="font-brand text-lg font-bold text-brand-ink">No themes match your search</p>
-            <p className="mt-2 text-sm text-muted">Try a different word, or browse every category.</p>
-            <ButtonLink href="/themes" variant="secondary" className="mt-6">
-              Clear filters
-            </ButtonLink>
-          </div>
-        ) : (
-          <ul className="mt-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {result.items.map((t) => (
-              <li key={t.key} className="h-full">
-                <ThemeCard theme={t} image={images.get(t.key) ?? null} headingLevel="h2" location="themes_page" />
-              </li>
-            ))}
-          </ul>
-        )}
+            {result.total === 0 ? (
+              <div className="mt-8 rounded-mk-lg border border-dashed border-mk-line-strong bg-mk-elev-1 px-6 py-14 text-center">
+                <p className="font-brand text-lg font-bold text-mk-text">No themes match your search</p>
+                <p className="mt-2 text-sm text-mk-muted">Try a different word, or browse every category.</p>
+                <ButtonLink href="/themes" variant="secondary" className="mt-6">
+                  Clear filters
+                </ButtonLink>
+              </div>
+            ) : (
+              <ul className="mt-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {result.items.map((t) => (
+                  <li key={t.key} className="h-full">
+                    <ThemeCard theme={t} image={images.get(t.key) ?? null} headingLevel="h2" location="themes_page" />
+                  </li>
+                ))}
+              </ul>
+            )}
 
-        {result.pages > 1 ? (
-          <nav aria-label="Pagination" className="mt-12 flex items-center justify-center gap-2">
-            {Array.from({ length: result.pages }, (_, i) => i + 1).map((p) => (
-              <Link key={p} href={themesHref({ ...query, page: p })} aria-current={p === result.page ? "page" : undefined} className={cn("grid size-10 place-items-center rounded-full text-sm font-semibold", p === result.page ? "bg-brand text-white" : "border border-border text-brand-ink hover:border-brand")}>
-                <span className="sr-only">Page </span>
-                {p}
-              </Link>
-            ))}
-          </nav>
-        ) : null}
+            {result.pages > 1 ? (
+              <nav aria-label="Pagination" className="mt-12 flex items-center justify-center gap-2">
+                {Array.from({ length: result.pages }, (_, i) => i + 1).map((p) => (
+                  <Link
+                    key={p}
+                    href={themesHref({ ...query, page: p })}
+                    aria-current={p === result.page ? "page" : undefined}
+                    className={cn(
+                      "grid size-10 place-items-center rounded-full text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent",
+                      p === result.page ? "bg-mk-accent text-mk-accent-ink" : "border border-mk-line text-mk-text hover:border-mk-accent hover:text-mk-accent",
+                    )}
+                  >
+                    <span className="sr-only">Page </span>
+                    {p}
+                  </Link>
+                ))}
+              </nav>
+            ) : null}
           </div>
         </div>
       </Container>
@@ -150,7 +164,7 @@ export default async function ThemesPage({ searchParams }: PageProps<"/themes">)
 
 function sidebarLink(active: boolean) {
   return cn(
-    "flex min-h-9 items-center justify-between gap-4 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
-    active ? "bg-brand text-white" : "text-brand-ink hover:bg-brand-soft hover:text-brand",
+    "flex min-h-9 items-center justify-between gap-4 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent",
+    active ? "bg-mk-accent text-mk-accent-ink" : "text-mk-text hover:bg-mk-elev-2 hover:text-mk-accent",
   );
 }

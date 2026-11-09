@@ -78,6 +78,11 @@ export function themeCountFor(slug: string, themes: readonly MarketplaceTheme[] 
   return themes.filter((t) => t.industry === slug).length;
 }
 
+/** Ecommerce themes listed on the public marketplace (mega-menu copy, stats). */
+export function marketplaceThemeCount(themes: readonly MarketplaceTheme[] = ecommerceMarketplaceThemes()): number {
+  return themes.length;
+}
+
 /** URL of the public themes page with the given filters (page 1 omitted). */
 export function themesHref(q: Partial<ThemeQuery>): string {
   const qs = new URLSearchParams();

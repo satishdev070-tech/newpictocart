@@ -142,10 +142,10 @@ export function HeroSlideshow({ slides, captions, interval, autoplay, label, cla
                 }}
                 aria-label={`Show slide ${i + 1}${captions[i] ? `: ${captions[i]}` : ""}`}
                 aria-current={i === index ? "true" : undefined}
-                className="grid h-6 place-items-center rounded-full px-0.5 focus-visible:outline-2 focus-visible:outline-white"
+                className="grid h-6 place-items-center rounded-full px-0.5 focus-visible:outline-2 focus-visible:outline-mk-accent"
               >
-                <span className={cn("relative block h-1.5 overflow-hidden rounded-full bg-white/25 transition-[width,background-color] duration-300", i === index ? "w-7" : "w-1.5 hover:bg-white/50")}>
-                  {i === index ? <span ref={bar} className="absolute inset-0 origin-left rounded-full bg-brand-orange" style={{ transform: playing ? "scaleX(0)" : "none" }} /> : null}
+                <span className={cn("relative block h-1.5 overflow-hidden rounded-full bg-white/20 transition-[width,background-color] duration-300", i === index ? "w-7" : "w-1.5 hover:bg-white/45")}>
+                  {i === index ? <span ref={bar} className="absolute inset-0 origin-left rounded-full bg-mk-accent" style={{ transform: playing ? "scaleX(0)" : "none" }} /> : null}
                 </span>
               </button>
             ))}
@@ -154,14 +154,14 @@ export function HeroSlideshow({ slides, captions, interval, autoplay, label, cla
             type="button"
             onClick={() => setUserPlaying(!playing)}
             aria-label={playing ? "Pause slideshow" : "Play slideshow"}
-            className="grid size-7 place-items-center rounded-full text-white/60 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+            className="grid size-7 place-items-center rounded-full text-mk-dim hover:bg-white/10 hover:text-mk-text focus-visible:outline-2 focus-visible:outline-mk-accent"
           >
             {playing ? <Pause aria-hidden className="size-3.5" /> : <Play aria-hidden className="size-3.5" />}
           </button>
         </div>
       ) : null}
       {captions.some(Boolean) ? (
-        <p className="mt-2 min-h-5 text-center text-sm text-white/60" aria-hidden>
+        <p className="mt-2 min-h-5 text-center text-sm text-mk-dim" aria-hidden>
           {captions[index]}
         </p>
       ) : null}

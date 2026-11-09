@@ -1,14 +1,14 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { preload } from "react-dom";
-import { ArrowRight, Check, ChevronDown, ChevronRight, Quote, Star } from "lucide-react";
+import { ArrowRight, Check, ChevronRight, Quote, Star } from "lucide-react";
 import type { ReactNode } from "react";
 import type { MarketplaceTheme } from "@/features/theme/marketplace/types";
 import type { CategoryImage } from "@/lib/unsplash";
 import { cn } from "@/lib/cn";
 import type { MarketingPlan } from "../plans";
 import { fillTokens, type LandingContent, type StepVisual } from "../landing";
-import { ButtonLink, Container } from "./ui";
+import { ButtonLink } from "./ui";
 import { ACCENT, Highlighted, LandingIconView, tagColor } from "./landing-icons";
 import { RotatingWords } from "./rotating-words";
 import { HeroSlideshow } from "./hero-slideshow";
@@ -26,27 +26,28 @@ const PricingTable = dynamic(() => import("./pricing-table").then((m) => ({ defa
 /* eslint-disable @next/next/no-img-element -- CMS images are admin-provided URLs, shown as-is */
 
 type Tone = "purple" | "orange" | "indigo" | "green" | "amber";
-const PILL: Record<Tone, string> = {
-  purple: "bg-brand-soft text-brand-ink",
-  orange: "bg-brand-accent-soft text-brand-orange-hover",
-  indigo: "bg-brand-soft text-brand-ink",
-  green: "bg-brand-mint text-brand-success",
-  amber: "bg-brand-accent-soft text-brand-orange-hover",
-};
 
-function Pill({ children, tone }: { children: ReactNode; tone: Tone }) {
-  if (!children) return null;
-  return <p className={cn("inline-flex rounded-full px-3.5 py-1 text-xs font-semibold", PILL[tone])}>{children}</p>;
+function Shell({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("mk-container", className)}>{children}</div>;
 }
 
-function Heading({ id, badge, tone, title, body, className }: { id: string; badge: string; tone: Tone; title: string; body?: string; className?: string }) {
+function Pill({ children }: { children: ReactNode }) {
+  if (!children) return null;
+  return (
+    <p className="mk-label inline-flex items-center rounded-full border border-mk-line bg-mk-elev-1 px-3.5 py-1.5 text-mk-accent">
+      {children}
+    </p>
+  );
+}
+
+function Heading({ id, badge, title, body, className }: { id: string; badge: string; tone?: Tone; title: string; body?: string; className?: string }) {
   return (
     <div className={cn("mx-auto max-w-3xl text-center", className)}>
-      <Pill tone={tone}>{badge}</Pill>
-      <h2 id={id} className="mt-4 font-brand text-3xl font-extrabold tracking-tight text-balance text-brand-ink sm:text-[2.75rem] sm:leading-[1.1]">
+      <Pill>{badge}</Pill>
+      <h2 id={id} className="mk-display-lg mt-5 text-balance text-mk-text">
         <Highlighted text={title} />
       </h2>
-      {body ? <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-muted sm:text-lg">{body}</p> : null}
+      {body ? <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-mk-muted sm:text-lg">{body}</p> : null}
     </div>
   );
 }
@@ -55,7 +56,10 @@ const isExternal = (href: string) => /^https:\/\//.test(href);
 
 function TextLink({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
   if (!href) return null;
-  const cls = cn("inline-flex items-center gap-1 text-sm font-semibold text-brand hover:underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand rounded", className);
+  const cls = cn(
+    "inline-flex items-center gap-1 rounded text-sm font-semibold text-mk-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent",
+    className,
+  );
   return isExternal(href) ? (
     <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
       {children}
@@ -66,6 +70,11 @@ function TextLink({ href, children, className }: { href: string; children: React
     </Link>
   );
 }
+
+const ctaAccent =
+  "rounded-full bg-mk-accent font-bold text-mk-accent-ink shadow-[0_12px_40px_-12px_var(--accent-glow)] hover:bg-mk-accent-hover";
+const ctaGhost =
+  "inline-flex items-center gap-2 rounded-full border border-white/20 px-6 py-3 text-sm font-semibold text-white/80 transition-colors hover:border-mk-accent hover:text-mk-accent focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white";
 
 // ---- Hero ------------------------------------------------------------------------------
 
@@ -83,59 +92,57 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
     : localShot || (firstTheme ? themeMockupHeroUrl(firstTheme, 640) : null);
   if (lcpPreload) preload(lcpPreload, { as: "image", fetchPriority: "high" });
   return (
-    <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-brand-night text-white">
-      <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_15%_10%,rgb(234_88_12/0.28),transparent_70%),radial-gradient(50%_60%_at_85%_80%,rgb(21_128_61/0.22),transparent_70%),radial-gradient(40%_40%_at_70%_20%,rgb(255_255_255/0.08),transparent_70%)]" />
-      <div aria-hidden className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,rgb(255_255_255/0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgb(255_255_255/0.04)_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]" />
-      <div aria-hidden className="absolute -top-24 left-1/3 -z-10 size-72 rounded-full bg-brand-orange/20 blur-3xl motion-safe:animate-pulse [animation-duration:6s]" />
-      <Container className="grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-[0.88fr_1.22fr] lg:gap-8 lg:py-24">
+    <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-mk-bg text-mk-text">
+      <div aria-hidden className="mk-grid-texture absolute inset-0 -z-10 opacity-60 [mask-image:radial-gradient(ellipse_at_center,black_25%,transparent_72%)]" />
+      <div aria-hidden className="absolute top-1/4 right-[8%] -z-10 size-[min(42vw,28rem)] rounded-full bg-[radial-gradient(circle,var(--accent-glow),transparent_70%)] blur-2xl" />
+      <div aria-hidden className="absolute -top-24 left-1/4 -z-10 size-72 rounded-full bg-mk-accent/10 blur-3xl motion-safe:animate-pulse [animation-duration:7s]" />
+      <Shell className="grid items-center gap-10 py-16 sm:py-20 lg:grid-cols-[0.9fr_1.1fr] lg:gap-10 lg:py-24">
         <div>
           {content.badge ? (
-            <p className={cn("inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs font-medium text-white/85 backdrop-blur", enter())}>
-              <LandingIconView name="zap" className="size-3.5 text-brand-orange" />
+            <p className={cn("mk-label inline-flex items-center gap-2 rounded-full border border-mk-line bg-mk-elev-1/80 px-3.5 py-1.5 text-mk-muted backdrop-blur", enter())}>
+              <LandingIconView name="zap" className="size-3.5 text-mk-accent" />
               {content.badge}
             </p>
           ) : null}
-          <h1 id="hero-title" className={cn("mt-6 font-brand text-[2.6rem] font-extrabold leading-[1.05] tracking-tight sm:text-6xl lg:text-[3.8rem]", "transition-[translate] duration-700 ease-out starting:translate-y-3")}>
-            <Highlighted text={content.titleLead} onDark />
+          <h1 id="hero-title" className={cn("mk-display-xl mt-6 text-balance", "transition-[translate] duration-700 ease-out starting:translate-y-3")}>
+            <Highlighted text={content.titleLead} underline />
             {content.rotatingWords.length ? (
               <>
                 {" "}
-                <span className={cn("block min-h-[2.1em]", Math.max(...content.rotatingWords.map((w) => w.length)) <= 14 && "sm:min-h-[1.05em]")}>
+                <span className={cn("block min-h-[1.05em]", Math.max(...content.rotatingWords.map((w) => w.length)) <= 14 && "sm:min-h-[1.05em]")}>
                   <RotatingWords words={content.rotatingWords} />
                 </span>
               </>
             ) : null}
           </h1>
-          {content.body ? <p className={cn("mt-6 max-w-xl text-lg leading-relaxed text-white/75", enter("delay-150"))}>{content.body}</p> : null}
-          <div className={cn("mt-8 flex flex-wrap items-center gap-x-6 gap-y-4", enter("delay-200"))}>
+          {content.body ? <p className={cn("mt-6 max-w-xl text-lg leading-relaxed text-mk-muted", enter("delay-150"))}>{content.body}</p> : null}
+          <div className={cn("mt-8 flex flex-wrap items-center gap-3 sm:gap-4", enter("delay-200"))}>
             {content.primaryCta.label ? (
-              <ButtonLink href={content.primaryCta.href || "/start"} variant="cta" size="lg" className="rounded-xl shadow-[0_12px_30px_-10px_rgb(234_88_12/0.7)]" track={{ id: "create_store", location: "hero" }}>
+              <ButtonLink href={content.primaryCta.href || "/start"} variant="cta" size="lg" className={ctaAccent} track={{ id: "create_store", location: "hero" }}>
                 {content.primaryCta.label} <ArrowRight aria-hidden className="size-4" />
               </ButtonLink>
             ) : null}
             {content.secondaryCta.label && content.secondaryCta.href ? (
-              <Link href={content.secondaryCta.href} className="group inline-flex items-center gap-1 rounded text-sm font-medium text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+              <Link href={content.secondaryCta.href} className={ctaGhost}>
                 {content.secondaryCta.label} <ChevronRight aria-hidden className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
             ) : null}
           </div>
           {stats.length ? (
-            <ul className={cn("mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-white/70", enter("delay-300"))}>
+            <ul className={cn("mt-12 flex flex-wrap items-stretch gap-0", enter("delay-300"))}>
               {content.liveLabel ? (
-                <li className="inline-flex items-center gap-1.5 rounded-full border border-brand-success/40 bg-brand-success/10 px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-brand-success">
+                <li className="mr-6 mb-4 inline-flex items-center gap-1.5 self-center rounded-full border border-mk-accent/40 bg-mk-accent-tint px-2.5 py-0.5 text-[11px] font-bold tracking-wider text-mk-accent">
                   <span className="relative grid size-1.5 place-items-center" aria-hidden>
-                    <span className="absolute size-full rounded-full bg-brand-success motion-safe:animate-ping" />
-                    <span className="size-1.5 rounded-full bg-brand-success" />
+                    <span className="absolute size-full rounded-full bg-mk-accent motion-safe:animate-ping" />
+                    <span className="size-1.5 rounded-full bg-mk-accent" />
                   </span>
                   {content.liveLabel}
                 </li>
               ) : null}
-              {stats.map((s) => (
-                <li key={s.label} className="inline-flex items-center gap-2">
-                  <LandingIconView name={s.icon} className="size-4 text-brand-orange" />
-                  <span>
-                    <strong className="font-bold text-white">{fillTokens(s.value, tokens)}</strong> {s.label}
-                  </span>
+              {stats.map((s, i) => (
+                <li key={s.label} className={cn("flex min-w-[7.5rem] flex-col gap-1 px-5 sm:px-6", i > 0 && "border-l border-mk-line")}>
+                  <span className="font-mk-display text-3xl font-bold tracking-tight text-mk-text tabular-nums sm:text-4xl">{fillTokens(s.value, tokens)}</span>
+                  <span className="mk-label text-mk-dim">{s.label}</span>
                 </li>
               ))}
             </ul>
@@ -144,18 +151,18 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
         <div className={enter("delay-200", "starting:translate-x-8", "duration-1000")}>
           <HeroVisual content={content} themes={themes} />
         </div>
-      </Container>
+      </Shell>
     </section>
   );
 }
 
 function BrowserFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_40px_80px_-30px_rgb(0_0_0/0.8)]">
-      <div className="flex items-center gap-1.5 border-b border-white/10 px-4 py-3" aria-hidden>
-        <span className="size-2.5 rounded-full bg-white/40" />
-        <span className="size-2.5 rounded-full bg-white/40" />
-        <span className="size-2.5 rounded-full bg-brand-success" />
+    <div className="overflow-hidden rounded-2xl border border-mk-line bg-mk-elev-1 shadow-brand-float">
+      <div className="flex items-center gap-1.5 border-b border-mk-line px-4 py-3" aria-hidden>
+        <span className="size-2.5 rounded-full bg-white/25" />
+        <span className="size-2.5 rounded-full bg-white/25" />
+        <span className="size-2.5 rounded-full bg-mk-accent" />
         <span className="ml-3 h-4 flex-1 rounded-full bg-white/10" />
       </div>
       {children}
@@ -171,8 +178,8 @@ function HeroVisual({ content, themes }: { content: LandingContent["hero"]; them
   const slides = content.slides.filter((s) => s.imageUrl);
   const glow = (
     <>
-      <div aria-hidden className="absolute -inset-6 -z-10 rounded-[40px] bg-brand-orange/25 blur-3xl" />
-      <div aria-hidden className="absolute inset-x-6 top-6 bottom-20 -z-10 rotate-2 rounded-2xl bg-gradient-to-br from-brand-orange/35 to-black/40 ring-1 ring-white/10" />
+      <div aria-hidden className="absolute -inset-8 -z-10 rounded-[40px] bg-[radial-gradient(circle_at_50%_40%,var(--accent-glow),transparent_65%)] blur-2xl" />
+      <div aria-hidden className="absolute inset-x-8 top-8 bottom-16 -z-10 rotate-2 rounded-2xl border border-mk-line bg-mk-elev-2/60" />
     </>
   );
   if (slides.length || content.imageUrl) {
@@ -206,7 +213,7 @@ function HeroVisual({ content, themes }: { content: LandingContent["hero"]; them
         autoplay={content.autoplay}
         captions={themes.map((t) => `${t.name} theme, with sample products`)}
         slides={themes.map((t, i) => (
-          <div key={t.key} className="relative rounded-2xl bg-white/[0.03] p-1.5 ring-1 ring-white/10 sm:p-2">
+          <div key={t.key} className="relative rounded-2xl bg-mk-elev-1 p-1.5 ring-1 ring-mk-line sm:p-2">
             <ThemeDevicePreview theme={t} size="large" eager={i === 0} />
           </div>
         ))}
@@ -221,27 +228,47 @@ function HeroVisual({ content, themes }: { content: LandingContent["hero"]; them
 const revealItem = "transition-[opacity,translate] duration-700 ease-out group-data-[reveal=hidden]/reveal:translate-y-6 group-data-[reveal=hidden]/reveal:opacity-0";
 const revealDelay = (i: number) => ({ transitionDelay: `${Math.min(i, 11) * 55}ms` });
 
+function MarqueeRow({ chips, reverse }: { chips: LandingContent["trust"]["chips"]; reverse?: boolean }) {
+  return (
+    <div className="group relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)] motion-reduce:[mask-image:none]">
+      <ul
+        className={cn(
+          "flex w-max gap-3 px-1.5 py-1 group-hover:[animation-play-state:paused] motion-reduce:mx-auto motion-reduce:w-auto motion-reduce:max-w-5xl motion-reduce:flex-wrap motion-reduce:justify-center",
+          reverse ? "motion-safe:animate-[marquee-reverse_55s_linear_infinite]" : "motion-safe:animate-[marquee_50s_linear_infinite]",
+        )}
+      >
+        {[...chips, ...chips].map((c, i) => (
+          <li
+            key={`${c.label}-${reverse ? "b" : "a"}-${i}`}
+            aria-hidden={i >= chips.length}
+            className={cn(
+              "inline-flex items-center gap-2.5 rounded-full border border-mk-line bg-mk-elev-1 py-1.5 pr-4 pl-1.5 text-sm font-medium whitespace-nowrap text-mk-text/90 transition-colors hover:border-mk-line-strong hover:bg-mk-elev-2",
+              i >= chips.length && "motion-reduce:hidden",
+            )}
+          >
+            <span className={cn("grid size-7 place-items-center rounded-full", ACCENT[c.color].chip)}>
+              <LandingIconView name={c.icon} className="size-3.5" />
+            </span>
+            {c.label}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function TrustStrip({ content }: { content: LandingContent["trust"] }) {
   const chips = content.chips.filter((c) => c.label);
   if (!chips.length) return null;
+  const mid = Math.ceil(chips.length / 2);
+  const rowA = chips.slice(0, mid);
+  const rowB = chips.slice(mid);
   return (
-    <section aria-label={content.title || "Business categories"} className="border-b border-border bg-white py-10">
-      {content.title ? <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-subtle">{content.title}</p> : null}
-      <div className="group relative mt-6 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)] motion-reduce:[mask-image:none]">
-        <ul className="flex w-max gap-3 px-1.5 py-1 motion-safe:animate-[marquee_50s_linear_infinite] group-hover:[animation-play-state:paused] motion-reduce:mx-auto motion-reduce:w-auto motion-reduce:max-w-5xl motion-reduce:flex-wrap motion-reduce:justify-center">
-          {[...chips, ...chips].map((c, i) => (
-            <li
-              key={`${c.label}-${i}`}
-              aria-hidden={i >= chips.length}
-              className={cn("inline-flex items-center gap-2.5 rounded-full border border-border bg-white py-1.5 pr-4 pl-1.5 text-sm font-medium whitespace-nowrap text-brand-ink/85 shadow-[0_1px_2px_rgb(15_23_42/0.05)] transition-colors hover:border-border-strong", i >= chips.length && "motion-reduce:hidden")}
-            >
-              <span className={cn("grid size-7 place-items-center rounded-full", ACCENT[c.color].chip)}>
-                <LandingIconView name={c.icon} className="size-3.5" />
-              </span>
-              {c.label}
-            </li>
-          ))}
-        </ul>
+    <section aria-label={content.title || "Business categories"} className="border-y border-mk-line bg-mk-elev-1/40 py-10">
+      {content.title ? <p className="mk-label text-center text-mk-dim">{content.title}</p> : null}
+      <div className="mt-6 space-y-3">
+        <MarqueeRow chips={rowA.length ? rowA : chips} />
+        {rowB.length ? <MarqueeRow chips={rowB} reverse /> : null}
       </div>
     </section>
   );
@@ -251,87 +278,72 @@ export function TrustStrip({ content }: { content: LandingContent["trust"] }) {
 
 export function Solutions({ content }: { content: LandingContent["solutions"] }) {
   return (
-    <section id="solutions" aria-labelledby="solutions-title" className="relative isolate scroll-mt-20 overflow-hidden bg-gradient-to-b from-white to-brand-canvas/60 py-20 sm:py-24">
-      <div aria-hidden className="absolute top-24 -left-32 -z-10 size-96 rounded-full bg-[#a78bfa]/15 blur-3xl" />
-      <div aria-hidden className="absolute -right-32 bottom-10 -z-10 size-96 rounded-full bg-brand-success/15 blur-3xl" />
-      <Container>
+    <section id="solutions" aria-labelledby="solutions-title" className="mk-section relative isolate scroll-mt-20 overflow-hidden bg-mk-bg">
+      <div aria-hidden className="absolute top-24 -left-32 -z-10 size-96 rounded-full bg-mk-accent/10 blur-3xl" />
+      <Shell>
         <Heading id="solutions-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
-        <Reveal as="ul" className="mt-14 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+        <Reveal as="ul" className="mt-14 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {content.items.map((item, i) => {
             const tint = ACCENT[item.color === "auto" ? tagColor(item.tag, i) : item.color];
             return (
               <li key={item.title} className={revealItem} style={revealDelay(i)}>
-                <div className="group relative h-full rounded-2xl bg-border p-px transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_24px_48px_-24px_rgb(27_29_69/0.35)] motion-reduce:hover:translate-y-0">
-                  <span aria-hidden className={cn("absolute inset-0 rounded-2xl bg-gradient-to-br opacity-0 transition-opacity duration-300 group-hover:opacity-100", tint.ring)} />
-                  <div className="relative flex h-full flex-col overflow-hidden rounded-[15px] bg-white p-4 sm:p-5">
-                    <span aria-hidden className={cn("absolute -top-10 -right-10 size-28 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100", tint.glow)} />
-                    <div className="relative flex flex-col items-start gap-3 sm:flex-row">
-                      <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 motion-reduce:group-hover:transform-none", tint.chip)}>
-                        <LandingIconView name={item.icon} className="size-5" />
-                      </span>
-                      <div>
-                        <h3 className="font-brand text-[0.95rem] leading-snug font-bold text-brand-ink">{item.title}</h3>
-                        {item.tag ? <p className={cn("mt-0.5 text-[10px] font-bold tracking-[0.14em] uppercase", tint.text)}>{item.tag}</p> : null}
-                      </div>
+                <div className="group relative h-full rounded-[var(--r-md)] border border-mk-line bg-mk-elev-1 p-4 transition-[translate,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-mk-line-strong hover:shadow-brand-card motion-reduce:hover:translate-y-0 sm:p-5">
+                  <div className="relative flex flex-col items-start gap-3 sm:flex-row">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-[var(--r-sm)] bg-mk-elev-2 text-mk-accent transition-transform duration-300 group-hover:scale-105 motion-reduce:group-hover:transform-none">
+                      <LandingIconView name={item.icon} className="size-5" />
+                    </span>
+                    <div>
+                      <h3 className="mk-h3 text-[0.95rem] text-mk-text">{item.title}</h3>
+                      {item.tag ? <p className={cn("mt-0.5 text-[10px] font-bold tracking-[0.14em] uppercase", tint.text)}>{item.tag}</p> : null}
                     </div>
-                    <p className="relative mt-3 flex-1 text-xs leading-relaxed text-muted sm:mt-4 sm:text-sm">{item.body}</p>
-                    {item.linkLabel && item.href ? (
-                      <TextLink href={item.href} className="relative mt-4 text-xs after:absolute after:-inset-[200px] after:content-['']">
-                        {item.linkLabel} <ArrowRight aria-hidden className="size-3.5 transition-transform group-hover:translate-x-1" />
-                        <span className="sr-only">: {item.title}</span>
-                      </TextLink>
-                    ) : null}
                   </div>
-                  {item.badge ? <span className="absolute -top-2.5 right-4 rounded-full bg-gradient-to-r from-brand-orange to-brand-orange-hover px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-white uppercase shadow-[0_6px_14px_-6px_rgb(234_88_12/0.8)]">{item.badge}</span> : null}
+                  <p className="relative mt-3 flex-1 text-xs leading-relaxed text-mk-muted sm:mt-4 sm:text-sm">{item.body}</p>
+                  {item.linkLabel && item.href ? (
+                    <TextLink href={item.href} className="relative mt-4 text-xs after:absolute after:-inset-[200px] after:content-['']">
+                      {item.linkLabel} <ArrowRight aria-hidden className="size-3.5 transition-transform group-hover:translate-x-1" />
+                      <span className="sr-only">: {item.title}</span>
+                    </TextLink>
+                  ) : null}
+                  {item.badge ? (
+                    <span className="absolute -top-2.5 right-4 rounded-full bg-mk-accent px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-mk-accent-ink uppercase shadow-[0_6px_14px_-6px_var(--accent-glow)]">
+                      {item.badge}
+                    </span>
+                  ) : null}
                 </div>
               </li>
             );
           })}
         </Reveal>
-      </Container>
+      </Shell>
     </section>
   );
 }
 
 // ---- Steps -------------------------------------------------------------------------------
 
-const STEP_TINT = [
-  "bg-brand-mint text-brand-success",
-  "bg-brand-accent-soft text-brand-orange-hover",
-  "bg-brand-soft text-brand-ink",
-  "bg-brand-accent-soft text-brand-orange",
-  "bg-brand-mint text-brand-success-hover",
-];
-const STEP_BG = [
-  "bg-[linear-gradient(135deg,#fff4eb,#ffffff)]",
-  "bg-[linear-gradient(135deg,#fff7ed,#ffffff)]",
-  "bg-[linear-gradient(135deg,#ffe4d6,#fff1e6)]",
-  "bg-[linear-gradient(135deg,#e8f6ee,#fff4eb,#f7f7f5)]",
-  "bg-[linear-gradient(160deg,#fff4eb,#e8f6ee,#f3f3f2)]",
-];
-
 export function Steps({ content }: { content: LandingContent["steps"] }) {
   const total = content.items.length;
   return (
-    <section id="steps" aria-labelledby="steps-title" className="scroll-mt-20 bg-brand-canvas py-20 sm:py-24">
-      <Container>
+    <section id="steps" aria-labelledby="steps-title" className="mk-section scroll-mt-20 bg-mk-elev-1/30">
+      <Shell>
         <Heading id="steps-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
         <StepsStack className="mx-auto mt-14 max-w-5xl">
           {content.items.map((step, i) => (
             <StepsStackCard key={`${step.title}-${i}`} index={i} total={total}>
               <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-10">
                 <div className="max-w-md">
-                  <div className="flex items-center gap-3">
-                    <span className={cn("grid size-11 place-items-center rounded-2xl", STEP_TINT[i % STEP_TINT.length])}>
+                  <p className="font-mk-mono text-5xl font-medium tracking-tight text-mk-accent/90 tabular-nums sm:text-6xl">
+                    {String(i + 1).padStart(2, "0")}
+                    <span className="ml-2 text-lg font-normal text-mk-dim">/ {String(total).padStart(2, "0")}</span>
+                  </p>
+                  <div className="mt-4 flex items-center gap-3">
+                    <span className="grid size-11 place-items-center rounded-[var(--r-sm)] bg-mk-elev-2 text-mk-accent">
                       <LandingIconView name={step.icon} className="size-5" />
                     </span>
-                    <span className="font-mono text-[11px] font-bold tracking-[0.18em] text-brand-orange uppercase">
-                      Step {String(i + 1).padStart(2, "0")}
-                      <span className="ml-2 font-medium tracking-normal text-subtle normal-case">of {String(total).padStart(2, "0")}</span>
-                    </span>
+                    <span className="mk-label text-mk-dim">Step {String(i + 1).padStart(2, "0")}</span>
                   </div>
-                  <h3 className="mt-5 font-brand text-2xl font-extrabold tracking-tight text-brand-ink sm:text-[1.75rem] sm:leading-tight">{step.title}</h3>
-                  <p className="mt-3 text-base leading-relaxed text-muted">{step.body}</p>
+                  <h3 className="mk-h3 mt-5 text-2xl text-mk-text sm:text-[1.75rem]">{step.title}</h3>
+                  <p className="mt-3 text-base leading-relaxed text-mk-muted">{step.body}</p>
                 </div>
                 <StepCard
                   visual={step.visual}
@@ -347,10 +359,10 @@ export function Steps({ content }: { content: LandingContent["steps"] }) {
         </StepsStack>
         {content.cta.label ? (
           <div className="mt-16 flex flex-col items-center gap-3 text-center">
-            <ButtonLink href={content.cta.href || "/start"} variant="orange" size="lg" className="rounded-xl" track={{ id: "create_store", location: "steps" }}>
+            <ButtonLink href={content.cta.href || "/start"} variant="orange" size="lg" className={ctaAccent} track={{ id: "create_store", location: "steps" }}>
               {content.cta.label} <ArrowRight aria-hidden className="size-4" />
             </ButtonLink>
-            {content.note ? <p className="text-xs text-subtle">{content.note}</p> : null}
+            {content.note ? <p className="text-xs text-mk-dim">{content.note}</p> : null}
             {content.link.label && content.link.href ? (
               <TextLink href={content.link.href} className="text-xs">
                 {content.link.label} <ChevronRight aria-hidden className="size-3.5" />
@@ -358,10 +370,18 @@ export function Steps({ content }: { content: LandingContent["steps"] }) {
             ) : null}
           </div>
         ) : null}
-      </Container>
+      </Shell>
     </section>
   );
 }
+
+const STEP_BG = [
+  "bg-[linear-gradient(135deg,#fff4eb,#ffffff)]",
+  "bg-[linear-gradient(135deg,#fff7ed,#ffffff)]",
+  "bg-[linear-gradient(135deg,#ffe4d6,#fff1e6)]",
+  "bg-[linear-gradient(135deg,#e8f6ee,#fff4eb,#f7f7f5)]",
+  "bg-[linear-gradient(160deg,#fff4eb,#e8f6ee,#f3f3f2)]",
+];
 
 function StepCard({
   visual,
@@ -380,7 +400,7 @@ function StepCard({
 }) {
   if (imageUrl) {
     return (
-      <div className="overflow-hidden rounded-2xl shadow-[0_24px_48px_-28px_rgb(0_0_0/0.45)] ring-1 ring-border">
+      <div className="overflow-hidden rounded-[var(--r-md)] border border-mk-line bg-mk-elev-2 shadow-brand-card">
         {mediaKind === "video" ? (
           <video
             src={imageUrl}
@@ -400,7 +420,13 @@ function StepCard({
   }
   if (visual === "none") return <div className="hidden lg:block" aria-hidden />;
   return (
-    <div aria-hidden className={cn("relative grid aspect-[4/3] place-items-center overflow-hidden rounded-2xl p-8 shadow-[0_24px_48px_-28px_rgb(0_0_0/0.35)] ring-1 ring-black/5", STEP_BG[index % STEP_BG.length])}>
+    <div
+      aria-hidden
+      className={cn(
+        "mk-light relative grid aspect-[4/3] place-items-center overflow-hidden rounded-[var(--r-md)] border border-mk-line p-8 shadow-brand-card",
+        STEP_BG[index % STEP_BG.length],
+      )}
+    >
       <StepIllustration visual={visual} />
     </div>
   );
@@ -411,11 +437,11 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
   switch (visual) {
     case "signup":
       return (
-        <div className="w-full max-w-[260px] -rotate-3 rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="w-full max-w-[260px] -rotate-3 rounded-2xl bg-surface p-6 shadow-2xl">
           <p className="text-center font-brand text-lg font-extrabold text-brand-ink">Sign up</p>
           <div className="mt-4 h-9 rounded-lg bg-brand-canvas px-3 text-[11px] leading-9 text-subtle">you@business.in</div>
           <div className="mt-3 flex h-9 items-center justify-center gap-2 rounded-lg bg-brand-orange text-xs font-bold text-white">
-            <span className="grid size-4 place-items-center rounded-full bg-white text-[9px] font-black text-brand-orange">G</span> Continue with Google
+            <span className="grid size-4 place-items-center rounded-full bg-surface text-[9px] font-black text-brand-orange">G</span> Continue with Google
           </div>
           <div className="mt-3 h-9 rounded-lg bg-brand-ink text-center text-xs leading-9 font-bold text-white">Create account</div>
           <p className="mt-3 text-center text-[10px] text-subtle">No credit card required</p>
@@ -423,7 +449,7 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
       );
     case "details":
       return (
-        <div className="w-full max-w-[300px] rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="w-full max-w-[300px] rounded-2xl bg-surface p-6 shadow-2xl">
           <p className="text-center font-brand text-lg font-extrabold text-brand-ink">Tell us about your store.</p>
           <div className="mt-4 rounded-lg border border-border px-3 py-2 text-[11px] text-brand-ink">Store name · Asha&apos;s Bakes</div>
           <div className="mt-2 rounded-lg border border-border px-3 py-2 text-[11px] text-subtle">
@@ -436,7 +462,7 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
       return (
         <div className="relative">
           <span className="absolute top-10 -left-16 size-28 rounded-full bg-gradient-to-br from-[#fdba74] to-brand-orange opacity-90 blur-[1px]" />
-          <div className="relative w-[150px] rounded-[26px] border-[5px] border-brand-ink bg-white p-2.5 shadow-2xl">
+          <div className="relative w-[150px] rounded-[26px] border-[5px] border-brand-ink bg-surface p-2.5 shadow-2xl">
             <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-brand-ink" />
             <p className="text-[9px] text-subtle">Choose a category</p>
             <div className="mt-2 grid grid-cols-2 gap-1.5">
@@ -459,7 +485,7 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
             {["from-[#f97316] to-[#111111]", "from-[#fed7aa] to-[#ea580c]", "from-[#bbf7d0] to-[#15803d]", "from-[#fde68a] to-[#f97316]", "from-[#e8f6ee] to-[#15803d]", "from-[#f3f3f2] to-[#111111]"].map((g, i) => (
-              <div key={g} className={cn("rounded-md bg-white p-1", i === 0 && "ring-2 ring-brand-orange")}>
+              <div key={g} className={cn("rounded-md bg-surface p-1", i === 0 && "ring-2 ring-brand-orange")}>
                 <div className={cn("h-12 rounded bg-gradient-to-br", g)} />
                 <div className="mt-1 h-1.5 w-3/4 rounded bg-black/10" />
               </div>
@@ -475,7 +501,7 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
           ))}
           <p className="font-brand text-[11px] font-semibold tracking-widest text-white/90 uppercase drop-shadow">Your store is</p>
           <p className="font-brand text-6xl font-black tracking-tight text-white drop-shadow-[0_6px_20px_rgb(0_0_0/0.15)]">LIVE</p>
-          <p className="mx-auto mt-3 w-fit rounded-md bg-white px-3 py-1.5 font-mono text-[11px] text-brand-ink shadow">myshop.pictocart.in</p>
+          <p className="mx-auto mt-3 w-fit rounded-md bg-surface px-3 py-1.5 font-mono text-[11px] text-brand-ink shadow">myshop.pictocart.in</p>
           <p className="mx-auto mt-3 w-fit rounded-full bg-brand-orange px-5 py-2 text-xs font-bold text-white shadow-lg">Share on WhatsApp</p>
         </div>
       );
@@ -489,17 +515,23 @@ function StepIllustration({ visual }: { visual: StepVisual }) {
 export function LandingFaq({ content }: { content: LandingContent["faq"] }) {
   if (!content.items.length) return null;
   return (
-    <section id="faq" aria-labelledby="faq-title" className="scroll-mt-20 bg-white pb-20 sm:pb-24">
-      <Container>
+    <section id="faq" aria-labelledby="faq-title" className="mk-section scroll-mt-20 bg-mk-bg">
+      <Shell>
         <Heading id="faq-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
-        <div className="mx-auto mt-10 max-w-3xl divide-y divide-border rounded-2xl border border-border bg-white shadow-brand-card">
+        <div className="mx-auto mt-10 max-w-3xl divide-y divide-mk-line border-y border-mk-line">
           {content.items.map((f) => (
-            <details key={f.question} className="group px-5 [&_summary::-webkit-details-marker]:hidden">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded py-4 text-[0.95rem] font-semibold text-brand-ink focus-visible:outline-2 focus-visible:outline-brand">
+            <details key={f.question} className="group [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded py-5 text-[0.95rem] font-semibold text-mk-text focus-visible:outline-2 focus-visible:outline-mk-accent">
                 {f.question}
-                <ChevronDown aria-hidden className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+                <span
+                  aria-hidden
+                  className="relative grid size-6 shrink-0 place-items-center text-mk-muted transition-colors group-open:text-mk-accent"
+                >
+                  <span className="absolute h-px w-3.5 bg-current transition-transform duration-300 group-open:rotate-45 motion-reduce:transition-none" />
+                  <span className="absolute h-3.5 w-px bg-current transition-transform duration-300 group-open:rotate-45 motion-reduce:transition-none" />
+                </span>
               </summary>
-              <p className="pb-5 text-sm leading-relaxed whitespace-pre-line text-muted">{f.answer}</p>
+              <p className="pb-5 text-sm leading-relaxed whitespace-pre-line text-mk-muted">{f.answer}</p>
             </details>
           ))}
         </div>
@@ -510,7 +542,7 @@ export function LandingFaq({ content }: { content: LandingContent["faq"] }) {
             </TextLink>
           </p>
         ) : null}
-      </Container>
+      </Shell>
     </section>
   );
 }
@@ -521,22 +553,22 @@ export function Features({ content }: { content: LandingContent["features"] }) {
   const [first, second, ...rest] = content.items;
   const side = [first, second].filter((x): x is NonNullable<typeof x> => Boolean(x));
   return (
-    <section id="features" aria-labelledby="features-title" className="scroll-mt-20 bg-brand-canvas py-20 sm:py-24">
-      <Container>
+    <section id="features" aria-labelledby="features-title" className="mk-section scroll-mt-20 bg-mk-elev-1/20">
+      <Shell>
         <Heading id="features-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
-        <div className="mt-14 grid gap-5 lg:grid-cols-3">
-          <div className="relative overflow-hidden rounded-3xl bg-[linear-gradient(135deg,#111111,#292524)] p-8 text-white shadow-[0_30px_60px_-30px_rgb(0_0_0/0.55)] sm:p-10 lg:col-span-2">
-            <span aria-hidden className="absolute -top-16 -right-16 size-56 rounded-full bg-white/10" />
-            <span aria-hidden className="absolute -bottom-24 left-1/3 size-56 rounded-full bg-white/5" />
-            <span className="relative grid size-12 place-items-center rounded-xl bg-white/15">
+        <div className="mt-14 grid gap-4 lg:grid-cols-3">
+          <div className="relative overflow-hidden rounded-[var(--r-lg)] border border-mk-line bg-mk-elev-1 p-8 shadow-brand-card sm:p-10 lg:col-span-2">
+            <span aria-hidden className="absolute -top-20 -right-16 size-56 rounded-full bg-mk-accent/15 blur-3xl" />
+            <span aria-hidden className="mk-grid-texture absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_at_top_right,black,transparent_70%)]" />
+            <span className="relative grid size-12 place-items-center rounded-[var(--r-sm)] bg-mk-elev-2 text-mk-accent">
               <LandingIconView name={content.highlight.icon} className="size-6" />
             </span>
-            <h3 className="relative mt-6 font-brand text-2xl font-extrabold sm:text-3xl">{content.highlight.title}</h3>
-            <p className="relative mt-3 max-w-lg leading-relaxed text-white/80">{content.highlight.body}</p>
+            <h3 className="mk-h3 relative mt-6 text-2xl text-mk-text sm:text-3xl">{content.highlight.title}</h3>
+            <p className="relative mt-3 max-w-lg leading-relaxed text-mk-muted">{content.highlight.body}</p>
             {content.highlight.tags.length ? (
               <ul className="relative mt-6 flex flex-wrap gap-2">
                 {content.highlight.tags.map((t) => (
-                  <li key={t} className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
+                  <li key={t} className="rounded-full border border-mk-line bg-mk-elev-2 px-3 py-1 text-xs font-medium text-mk-muted">
                     {t}
                   </li>
                 ))}
@@ -544,7 +576,7 @@ export function Features({ content }: { content: LandingContent["features"] }) {
             ) : null}
           </div>
           {side.length ? (
-            <ul className="grid gap-5">
+            <ul className="grid gap-4">
               {side.map((f) => (
                 <FeatureCard key={f.title} {...f} />
               ))}
@@ -552,35 +584,35 @@ export function Features({ content }: { content: LandingContent["features"] }) {
           ) : null}
         </div>
         {rest.length ? (
-          <ul className="mt-5 grid gap-5 sm:grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
+          <ul className="mt-4 grid gap-4 sm:grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
             {rest.map((f) => (
               <FeatureCard key={f.title} {...f} />
             ))}
           </ul>
         ) : null}
         {content.mini.length ? (
-          <ul className="mt-5 grid grid-cols-2 gap-5 md:grid-cols-[repeat(auto-fit,minmax(160px,1fr))]">
+          <ul className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-[repeat(auto-fit,minmax(160px,1fr))]">
             {content.mini.map((m) => (
-              <li key={m.title} className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-white px-4 py-5 text-center">
-                <LandingIconView name={m.icon} className="size-5 text-brand" />
-                <span className="text-sm font-semibold text-brand-ink">{m.title}</span>
+              <li key={m.title} className="flex flex-col items-center gap-2 rounded-[var(--r-md)] border border-mk-line bg-mk-elev-1 px-4 py-5 text-center transition-colors hover:border-mk-line-strong">
+                <LandingIconView name={m.icon} className="size-5 text-mk-accent" />
+                <span className="text-sm font-semibold text-mk-text">{m.title}</span>
               </li>
             ))}
           </ul>
         ) : null}
-      </Container>
+      </Shell>
     </section>
   );
 }
 
 function FeatureCard({ icon, title, body }: LandingContent["features"]["items"][number]) {
   return (
-    <li className="rounded-2xl border border-border bg-white p-6">
-      <span className="grid size-10 place-items-center rounded-xl bg-brand-soft text-brand">
+    <li className="rounded-[var(--r-md)] border border-mk-line bg-mk-elev-1 p-6 transition-colors hover:border-mk-line-strong">
+      <span className="grid size-10 place-items-center rounded-[var(--r-sm)] bg-mk-elev-2 text-mk-accent">
         <LandingIconView name={icon} className="size-5" />
       </span>
-      <h3 className="mt-4 font-brand font-bold text-brand-ink">{title}</h3>
-      <p className="mt-1 text-sm text-muted">{body}</p>
+      <h3 className="mt-4 font-brand font-bold text-mk-text">{title}</h3>
+      <p className="mt-1 text-sm text-mk-muted">{body}</p>
     </li>
   );
 }
@@ -590,8 +622,8 @@ function FeatureCard({ icon, title, body }: LandingContent["features"]["items"][
 export function LandingThemes({ content, themes, images }: { content: LandingContent["themes"]; themes: MarketplaceTheme[]; images?: Map<string, CategoryImage> }) {
   if (!themes.length) return null;
   return (
-    <section id="themes" aria-labelledby="themes-title" className="scroll-mt-20 bg-white py-20 sm:py-24">
-      <Container>
+    <section id="themes" aria-labelledby="themes-title" className="mk-section scroll-mt-20 bg-mk-bg">
+      <Shell>
         <Heading id="themes-title" badge={content.badge} tone="green" title={content.title} body={content.body} />
         <ul className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 [content-visibility:auto] [contain-intrinsic-size:auto_420px]">
           {themes.map((t, i) => (
@@ -603,7 +635,7 @@ export function LandingThemes({ content, themes, images }: { content: LandingCon
                 <WhenVisible
                   placeholder={
                     <div
-                      className="aspect-[4/3] w-full animate-pulse rounded-brand-md border border-border bg-brand-canvas"
+                      className="aspect-[4/3] w-full animate-pulse rounded-[var(--r-md)] border border-mk-line bg-mk-elev-1"
                       style={{ background: t.preset.tokens.colors.background }}
                       aria-hidden
                     />
@@ -617,12 +649,17 @@ export function LandingThemes({ content, themes, images }: { content: LandingCon
         </ul>
         {content.button.label ? (
           <div className="mt-12 text-center">
-            <ButtonLink href={content.button.href || "/themes"} variant="primary" track={{ id: "all_themes", location: "home_themes" }}>
+            <ButtonLink
+              href={content.button.href || "/themes"}
+              variant="primary"
+              className="rounded-full border border-mk-line-strong bg-mk-elev-1 text-mk-text hover:border-mk-accent hover:text-mk-accent"
+              track={{ id: "all_themes", location: "home_themes" }}
+            >
               {content.button.label} <ArrowRight aria-hidden className="size-4" />
             </ButtonLink>
           </div>
         ) : null}
-      </Container>
+      </Shell>
     </section>
   );
 }
@@ -632,19 +669,18 @@ export function LandingThemes({ content, themes, images }: { content: LandingCon
 export function LandingCategories({ content }: { content: LandingContent["categories"] }) {
   const items = content.items.filter((c) => c.label);
   return (
-    <section id="categories" aria-labelledby="categories-title" className="relative isolate scroll-mt-20 overflow-hidden bg-brand-canvas py-20 sm:py-24">
-      <div aria-hidden className="absolute -top-20 left-1/4 -z-10 size-80 rounded-full bg-brand-orange/15 blur-3xl" />
-      <div aria-hidden className="absolute right-1/4 -bottom-24 -z-10 size-80 rounded-full bg-brand-success/15 blur-3xl" />
-      <Container>
+    <section id="categories" aria-labelledby="categories-title" className="mk-section relative isolate scroll-mt-20 overflow-hidden bg-mk-elev-1/25">
+      <div aria-hidden className="absolute -top-20 left-1/4 -z-10 size-80 rounded-full bg-mk-accent/10 blur-3xl" />
+      <Shell>
         <Heading id="categories-title" badge="" tone="orange" title={content.title} body={content.body} />
-        <Reveal as="ul" className="mx-auto mt-12 grid max-w-6xl grid-cols-3 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-5">
+        <Reveal as="ul" className="mx-auto mt-12 flex max-w-5xl flex-wrap justify-center gap-3">
           {items.map((c, i) => (
             <li key={`${c.label}-${i}`} className={revealItem} style={revealDelay(i)}>
               <CategoryTile item={c} />
             </li>
           ))}
         </Reveal>
-      </Container>
+      </Shell>
     </section>
   );
 }
@@ -654,44 +690,29 @@ function CategoryTile({ item }: { item: LandingContent["categories"]["items"][nu
   const body = (
     <>
       {item.imageUrl ? (
-        <span className="relative block aspect-[4/3] w-full overflow-hidden rounded-xl">
+        <span className="relative block size-10 overflow-hidden rounded-full sm:size-11">
           <img src={item.imageUrl} alt="" loading="lazy" decoding="async" className="size-full object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:group-hover:scale-100" />
-          <span className={cn("absolute bottom-2 left-2 grid size-8 place-items-center rounded-lg bg-gradient-to-br text-white shadow-lg", tint.solid)}>
-            <LandingIconView name={item.icon} className="size-4" />
-          </span>
         </span>
       ) : (
-        <span className="relative grid size-14 place-items-center sm:size-16">
-          <span aria-hidden className={cn("absolute inset-0 rounded-2xl bg-gradient-to-br opacity-90 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6 motion-reduce:group-hover:transform-none", tint.solid)} />
-          <span aria-hidden className="absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_30%_25%,rgb(255_255_255/0.45),transparent_60%)]" />
-          <LandingIconView name={item.icon} className="relative size-6 text-white drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5 sm:size-7" />
+        <span className={cn("grid size-9 place-items-center rounded-full bg-gradient-to-br text-white sm:size-10", tint.solid)}>
+          <LandingIconView name={item.icon} className="size-4" />
         </span>
       )}
-      <span className="mt-3 text-center text-xs leading-snug font-semibold text-brand-ink sm:text-sm">{item.label}</span>
+      <span className="text-sm font-semibold text-mk-text">{item.label}</span>
     </>
   );
-  const cls = cn(
-    "group relative flex h-full flex-col items-center overflow-hidden rounded-2xl border border-border bg-white p-3 transition-[translate,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-transparent hover:shadow-[0_20px_40px_-20px_rgb(27_29_69/0.35)] motion-reduce:hover:translate-y-0 sm:p-4",
-    !item.imageUrl && "justify-center py-5 sm:py-6",
-  );
-  const glow = <span aria-hidden className={cn("pointer-events-none absolute -bottom-12 left-1/2 size-24 -translate-x-1/2 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100", tint.glow)} />;
+  const cls =
+    "group inline-flex items-center gap-2.5 rounded-full border border-mk-line bg-mk-elev-1 py-2 pr-4 pl-2 transition-[border-color,background-color,translate] duration-300 hover:-translate-y-0.5 hover:border-mk-accent/50 hover:bg-mk-elev-2 motion-reduce:hover:translate-y-0";
   if (!item.href) {
-    return (
-      <div className={cls}>
-        {glow}
-        {body}
-      </div>
-    );
+    return <div className={cls}>{body}</div>;
   }
-  const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+  const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent";
   return isExternal(item.href) ? (
     <a href={item.href} target="_blank" rel="noopener noreferrer" className={cn(cls, focus)}>
-      {glow}
       {body}
     </a>
   ) : (
     <Link href={item.href} className={cn(cls, focus)}>
-      {glow}
       {body}
     </Link>
   );
@@ -701,19 +722,19 @@ function CategoryTile({ item }: { item: LandingContent["categories"]["items"][nu
 
 export function LandingPricing({ content, plans }: { content: LandingContent["pricing"]; plans: MarketingPlan[] }) {
   return (
-    <section id="pricing" aria-labelledby="pricing-title" className="scroll-mt-20 bg-white py-20 sm:py-24">
-      <Container>
+    <section id="pricing" aria-labelledby="pricing-title" className="mk-section scroll-mt-20 bg-mk-bg">
+      <Shell>
         <Heading id="pricing-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
         <div className="mx-auto mt-14 max-w-5xl">
           <PricingTable plans={plans} />
         </div>
         {content.note || content.noteLink.label ? (
-          <p className="mt-10 text-center text-sm text-muted">
+          <p className="mt-10 text-center text-sm text-mk-muted">
             {content.note}{" "}
             {content.noteLink.label && content.noteLink.href ? <TextLink href={content.noteLink.href}>{content.noteLink.label}</TextLink> : null}
           </p>
         ) : null}
-      </Container>
+      </Shell>
     </section>
   );
 }
@@ -723,30 +744,30 @@ export function LandingPricing({ content, plans }: { content: LandingContent["pr
 export function Testimonials({ content }: { content: LandingContent["testimonials"] }) {
   if (!content.items.length) return null;
   return (
-    <section id="testimonials" aria-labelledby="testimonials-title" className="scroll-mt-20 bg-brand-canvas py-20 sm:py-24">
-      <Container>
+    <section id="testimonials" aria-labelledby="testimonials-title" className="mk-section scroll-mt-20 bg-mk-elev-1/20">
+      <Shell>
         <Heading id="testimonials-title" badge={content.badge} tone="amber" title={content.title} />
         <ul className={cn("mx-auto mt-12 grid gap-6", content.items.length === 1 ? "max-w-2xl" : content.items.length === 2 ? "max-w-5xl md:grid-cols-2" : "lg:grid-cols-3")}>
           {content.items.map((t) => (
-            <li key={t.name + t.quote.slice(0, 20)} className="relative flex flex-col rounded-2xl border border-border bg-white p-7 shadow-brand-card">
-              <Quote aria-hidden className="absolute top-6 right-6 size-8 text-brand-soft" />
+            <li key={t.name + t.quote.slice(0, 20)} className="relative flex flex-col rounded-[var(--r-md)] border border-mk-line bg-mk-elev-1 p-7 sm:p-8">
+              <Quote aria-hidden className="absolute top-6 right-6 size-8 text-mk-accent/25" />
               <p className="flex gap-0.5" aria-label={`${t.rating} out of 5 stars`}>
                 {Array.from({ length: 5 }, (_, i) => (
-                  <Star key={i} aria-hidden className={cn("size-4", i < t.rating ? "fill-[#fbbf24] text-[#fbbf24]" : "text-border-strong")} />
+                  <Star key={i} aria-hidden className={cn("size-4", i < t.rating ? "fill-mk-accent text-mk-accent" : "text-mk-line-strong")} />
                 ))}
               </p>
-              <blockquote className="mt-4 flex-1 text-[1.05rem] leading-relaxed text-brand-ink">&ldquo;{t.quote}&rdquo;</blockquote>
-              <div className="mt-6 flex flex-wrap items-end justify-between gap-3">
+              <blockquote className="mt-5 flex-1 font-mk-display text-xl leading-snug tracking-tight text-mk-text sm:text-2xl">&ldquo;{t.quote}&rdquo;</blockquote>
+              <div className="mt-8 flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-brand-ink">{t.name}</p>
-                  {t.business ? <p className="text-sm text-muted">{t.business}</p> : null}
+                  <p className="font-semibold text-mk-text">{t.name}</p>
+                  {t.business ? <p className="mt-0.5 text-sm text-mk-dim">{t.business}</p> : null}
                 </div>
-                {t.result ? <span className="rounded-full bg-brand-mint px-3 py-1 text-xs font-semibold text-brand-success">{t.result}</span> : null}
+                {t.result ? <span className="rounded-full bg-mk-accent-tint px-3 py-1 text-xs font-semibold text-mk-accent">{t.result}</span> : null}
               </div>
             </li>
           ))}
         </ul>
-      </Container>
+      </Shell>
     </section>
   );
 }
@@ -755,27 +776,27 @@ export function Testimonials({ content }: { content: LandingContent["testimonial
 
 export function LandingCta({ content }: { content: LandingContent["cta"] }) {
   return (
-    <section aria-labelledby="final-cta-title" className="relative isolate overflow-hidden bg-[linear-gradient(120deg,#0a0a0a,#292524_55%,#111111)] py-20 text-center text-white sm:py-24">
-      <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(40%_60%_at_20%_0%,rgb(234_88_12/0.22),transparent_70%),radial-gradient(40%_60%_at_90%_100%,rgb(21_128_61/0.2),transparent_70%)]" />
-      <Container>
-        <h2 id="final-cta-title" className="mx-auto max-w-3xl font-brand text-3xl font-extrabold tracking-tight text-balance sm:text-5xl">
-          <Highlighted text={content.title} onDark />
+    <section aria-labelledby="final-cta-title" className="relative isolate overflow-hidden bg-mk-bg py-20 text-center text-mk-text sm:py-28">
+      <div aria-hidden className="mk-grid-texture absolute inset-0 -z-10 opacity-70" />
+      <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(45%_55%_at_50%_0%,var(--accent-glow),transparent_70%)] opacity-60" />
+      <Shell>
+        <h2 id="final-cta-title" className="mk-display-lg mx-auto max-w-3xl text-balance">
+          <Highlighted text={content.title} underline />
         </h2>
-        {content.body ? <p className="mx-auto mt-4 max-w-xl text-lg text-white/80">{content.body}</p> : null}
+        {content.body ? <p className="mx-auto mt-4 max-w-xl text-lg text-mk-muted">{content.body}</p> : null}
         {content.button.label ? (
           <div className="mt-8 flex justify-center">
-            <ButtonLink href={content.button.href || "/start"} variant="cta" size="lg" className="rounded-xl" track={{ id: "create_store", location: "final_cta" }}>
+            <ButtonLink href={content.button.href || "/start"} variant="cta" size="lg" className={ctaAccent} track={{ id: "create_store", location: "final_cta" }}>
               {content.button.label} <ArrowRight aria-hidden className="size-4" />
             </ButtonLink>
           </div>
         ) : null}
         {content.note ? (
-          <p className="mt-5 inline-flex items-center gap-1.5 text-xs text-white/70">
-            <Check aria-hidden className="size-3.5" /> {content.note}
+          <p className="mt-5 inline-flex items-center gap-1.5 text-xs text-mk-dim">
+            <Check aria-hidden className="size-3.5 text-mk-accent" /> {content.note}
           </p>
         ) : null}
-      </Container>
+      </Shell>
     </section>
   );
 }
-

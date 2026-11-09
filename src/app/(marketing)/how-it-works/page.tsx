@@ -6,7 +6,7 @@ import { siteOrigin, storeRootDomain } from "@/features/marketing-site/site";
 import { entryPlan, isFreeForeverPlan, signupTrialDays } from "@/features/marketing-site/plans";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { CTA_CREATE, PRICING_HREF, SIGNUP_HREF, THEMES_HREF } from "@/features/marketing-site/content";
-import { ButtonLink, Container, SectionHeading } from "@/features/marketing-site/components/ui";
+import { ButtonLink, Container } from "@/features/marketing-site/components/ui";
 import { FinalCta } from "@/features/marketing-site/components/home-sections";
 
 export const revalidate = 3600;
@@ -50,9 +50,13 @@ export default async function HowItWorksPage() {
   const steps = guide(storeRootDomain());
   return (
     <>
-      <section className="bg-gradient-to-b from-brand-soft/70 to-white pt-16 pb-10 sm:pt-20">
+      <section className="bg-gradient-to-b from-mk-bg to-mk-elev-1 pt-16 pb-10 sm:pt-20">
         <Container>
-          <SectionHeading as="h1" eyebrow="How it works" title="Your store, step by step" body="What setting up a Pictocart store involves, including what you need to have ready." />
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="mk-label text-mk-accent">How it works</p>
+            <h1 className="mk-display-lg mt-4 text-balance text-mk-text">Your store, step by step</h1>
+            <p className="mt-4 text-lg leading-relaxed text-mk-muted">What setting up a Pictocart store involves, including what you need to have ready.</p>
+          </div>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <ButtonLink href={SIGNUP_HREF} size="lg" track={{ id: "create_store", location: "how_it_works_page" }}>
               {CTA_CREATE}
@@ -63,23 +67,26 @@ export default async function HowItWorksPage() {
           </div>
         </Container>
       </section>
-      <section className="pb-20" aria-label="Setup steps">
+      <section className="bg-mk-bg pb-20" aria-label="Setup steps">
         <Container className="max-w-3xl">
-          <ol className="relative space-y-6 border-l-2 border-brand-soft pl-8 sm:pl-10">
+          <ol className="relative space-y-6 border-l-2 border-mk-line pl-8 sm:pl-10">
             {steps.map((s, i) => (
               <li key={s.title} className="relative">
-                <span className="absolute -left-[3.05rem] top-5 grid size-9 place-items-center rounded-full bg-brand font-brand text-sm font-bold text-white ring-4 ring-white sm:-left-[3.55rem]" aria-hidden>
+                <span
+                  className="absolute -left-[3.05rem] top-5 grid size-9 place-items-center rounded-full bg-mk-accent font-brand text-sm font-bold text-mk-accent-ink ring-4 ring-mk-bg sm:-left-[3.55rem]"
+                  aria-hidden
+                >
                   {i + 1}
                 </span>
-                <article className="rounded-brand-lg border border-border bg-white p-6">
-                  <h2 className="font-brand text-xl font-bold text-brand-ink">
+                <article className="rounded-mk-lg border border-mk-line bg-mk-elev-1 p-6">
+                  <h2 className="font-brand text-xl font-bold text-mk-text">
                     <span className="sr-only">Step {i + 1}: </span>
                     {s.title}
                   </h2>
-                  <p className="mt-2 leading-relaxed text-muted">{s.body}</p>
+                  <p className="mt-2 leading-relaxed text-mk-muted">{s.body}</p>
                   {s.needs ? (
-                    <p className="mt-4 flex gap-2.5 rounded-brand-md bg-brand-accent-soft px-4 py-3 text-sm text-brand-ink">
-                      <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+                    <p className="mt-4 flex gap-2.5 rounded-mk-md border border-mk-line bg-mk-accent-tint px-4 py-3 text-sm text-mk-text">
+                      <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-mk-accent" />
                       <span>
                         <strong className="font-semibold">Before you start: </strong>
                         {s.needs}
@@ -87,7 +94,10 @@ export default async function HowItWorksPage() {
                     </p>
                   ) : null}
                   {s.link ? (
-                    <Link href={s.link.href} className="mt-4 inline-block text-sm font-semibold text-brand underline-offset-4 hover:underline">
+                    <Link
+                      href={s.link.href}
+                      className="mt-4 inline-block text-sm font-semibold text-mk-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent"
+                    >
                       {s.link.label} →
                     </Link>
                   ) : null}

@@ -14,6 +14,7 @@ import { themePreviewHref } from "../themes";
 import { DeferredAfterLcp } from "./deferred-after-lcp";
 import type { ReactNode } from "react";
 import type { CategoryImage } from "@/lib/unsplash";
+import { cn } from "@/lib/cn";
 
 /** LiveFrame / ClickToLive only when `live` is on — keep them out of home ThemeCard bundles. */
 const LiveFrame = dynamic(() => import("./live-frame").then((m) => ({ default: m.LiveFrame })));
@@ -92,8 +93,8 @@ function Devices({ desktop, phone, size }: { desktop: ReactNode; phone: ReactNod
     // Fixed 4:3 stage: the phone is sized by the stage height and pinned inside it, so it never
     // overhangs the card and every card's preview is exactly the same height.
     return (
-      <div className="relative aspect-[4/3] w-full" aria-hidden>
-        <div className="absolute inset-0 flex flex-col overflow-hidden rounded-brand-md border border-border bg-white shadow-brand-card">
+      <div className="mk-light relative aspect-[4/3] w-full" aria-hidden>
+        <div className="absolute inset-0 flex flex-col overflow-hidden rounded-[var(--r-md)] border border-border bg-surface shadow-brand-card">
           {DOTS}
           <div className="relative min-h-0 flex-1 overflow-hidden">{desktop}</div>
         </div>
@@ -105,8 +106,8 @@ function Devices({ desktop, phone, size }: { desktop: ReactNode; phone: ReactNod
   }
   // Large (hero): desktop fills the stage; phone is height-capped so it reads as a handset, not a tall strip.
   return (
-    <div className="relative w-full" aria-hidden>
-      <div className="overflow-hidden rounded-brand-md border border-border bg-white shadow-brand-card">
+    <div className="mk-light relative w-full" aria-hidden>
+      <div className="overflow-hidden rounded-[var(--r-md)] border border-border bg-surface shadow-brand-card">
         {DOTS}
         {desktop}
       </div>
@@ -152,7 +153,7 @@ export function ThemeDevicePreview({ theme, previewUrl = null, size = "card", ea
 function PhotoCredit({ image }: { image: CategoryImage }) {
   const link = "underline decoration-white/50 underline-offset-2 hover:decoration-white focus-visible:outline-2 focus-visible:outline-white";
   return (
-    <p className="absolute bottom-2.5 left-2.5 max-w-[62%] truncate rounded-full bg-black/55 px-2 py-0.5 text-[10px] leading-4 text-white backdrop-blur-sm">
+    <p className="absolute bottom-2.5 left-2.5 z-10 max-w-[62%] truncate rounded-full bg-black/55 px-2 py-0.5 text-[10px] leading-4 text-white backdrop-blur-sm">
       Photo:{" "}
       {image.photographer ? (
         <>
@@ -182,30 +183,72 @@ export function ThemeCard({ theme, headingLevel = "h3", location, image = null }
   const H = headingLevel;
   const photo = themeSiteType(theme) === "informative" ? null : image && !themeShot(theme.key, "desktop") ? image : null;
   return (
-    <article className="group flex h-full flex-col rounded-brand-lg border border-border bg-white p-4 transition duration-300 ease-out hover:-translate-y-1 hover:border-brand/30 hover:shadow-brand-card motion-reduce:transition-none motion-reduce:hover:translate-y-0">
-      <div className="relative">
-        <Link href={`/themes/${theme.key}`} className="block rounded-brand-md" tabIndex={-1} aria-hidden>
+    <article
+      className={cn(
+        "group flex h-full flex-col rounded-[var(--r-lg)] border border-mk-line bg-mk-elev-1 p-4",
+        "transition duration-300 ease-out hover:-translate-y-1 hover:border-mk-line-strong hover:shadow-brand-card",
+        "motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+      )}
+    >
+      <div className="relative overflow-hidden rounded-[var(--r-md)]">
+        <Link href={`/themes/${theme.key}`} className="block rounded-[var(--r-md)]" tabIndex={-1} aria-hidden>
           <ThemeDevicePreview theme={theme} image={photo} />
         </Link>
         {photo ? <PhotoCredit image={photo} /> : null}
+        {/* Hover overlay CTAs — same destinations as the footer buttons; kept for discoverability on desktop. */}
+        <div className="pointer-events-none absolute inset-0 z-[1] flex items-end justify-center bg-gradient-to-t from-black/70 via-black/20 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:pointer-events-auto group-hover:opacity-100 motion-reduce:hidden">
+          <div className="flex w-full gap-2">
+            <Link
+              href={themePreviewHref(theme.key)}
+              prefetch={false}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonClass("secondary", "sm", "flex-1 rounded-full border-white/30 bg-white/10 text-white backdrop-blur hover:border-mk-accent hover:bg-mk-accent hover:text-mk-accent-ink")}
+              {...analyticsAttributes("theme_preview", theme.key, location)}
+            >
+              <Eye aria-hidden className="size-3.5" /> Preview
+            </Link>
+            <Link
+              href={`/themes/${theme.key}/use`}
+              prefetch={false}
+              className={buttonClass("cta", "sm", "flex-1 rounded-full bg-mk-accent font-bold text-mk-accent-ink hover:bg-mk-accent-hover")}
+              {...analyticsAttributes("cta_click", `use_${theme.key}`, location)}
+            >
+              Use
+            </Link>
+          </div>
+        </div>
       </div>
       <div className="mt-4 flex flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`${PILL} bg-brand-ink/8 text-brand-ink`}>{themeSiteType(theme) === "informative" ? "Informative" : "Online store"}</span>
-          <span className={`${PILL} bg-brand-soft text-brand`}>{industryShort(theme.industry)}</span>
-          <span className={`${PILL} bg-brand-canvas text-muted`}>{THEME_STYLE_LABELS[theme.style]}</span>
+          <span className={`${PILL} bg-mk-elev-2 text-mk-muted`}>{themeSiteType(theme) === "informative" ? "Informative" : "Online store"}</span>
+          <span className={`${PILL} bg-mk-accent-tint text-mk-accent`}>{industryShort(theme.industry)}</span>
+          <span className={`${PILL} bg-mk-elev-2 text-mk-dim`}>{THEME_STYLE_LABELS[theme.style]}</span>
         </div>
-        <H className="mt-3 font-brand text-lg leading-snug font-bold text-brand-ink">
-          <Link href={`/themes/${theme.key}`} className="rounded-sm transition-colors hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+        <H className="mt-3 font-brand text-lg leading-snug font-bold text-mk-text">
+          <Link href={`/themes/${theme.key}`} className="rounded-sm transition-colors hover:text-mk-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent">
             {theme.name}
           </Link>
         </H>
-        <p className="mt-1 line-clamp-2 min-h-[2lh] text-sm text-muted">{theme.tagline}</p>
+        <p className="mt-1 line-clamp-2 min-h-[2lh] text-sm text-mk-muted">{theme.tagline}</p>
         <div className="mt-auto grid gap-2 pt-5">
-          <Link href={themePreviewHref(theme.key)} prefetch={false} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary", "sm", "w-full")} {...analyticsAttributes("theme_preview", theme.key, location)}>
-            <Eye aria-hidden className="size-3.5" /> Preview Theme <ExternalLink aria-hidden className="size-3" /><span className="sr-only">: {theme.name} (opens in a new tab)</span>
+          <Link
+            href={themePreviewHref(theme.key)}
+            prefetch={false}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonClass("secondary", "sm", "w-full rounded-full border-mk-line-strong bg-transparent text-mk-text hover:border-mk-accent hover:text-mk-accent")}
+            {...analyticsAttributes("theme_preview", theme.key, location)}
+          >
+            <Eye aria-hidden className="size-3.5" /> Preview Theme <ExternalLink aria-hidden className="size-3" />
+            <span className="sr-only">: {theme.name} (opens in a new tab)</span>
           </Link>
-          <Link href={`/themes/${theme.key}/use`} prefetch={false} className={buttonClass("primary", "sm", "w-full")} {...analyticsAttributes("cta_click", `use_${theme.key}`, location)}>
+          <Link
+            href={`/themes/${theme.key}/use`}
+            prefetch={false}
+            className={buttonClass("primary", "sm", "w-full rounded-full bg-mk-accent font-bold text-mk-accent-ink hover:bg-mk-accent-hover")}
+            {...analyticsAttributes("cta_click", `use_${theme.key}`, location)}
+          >
             Use This Theme<span className="sr-only">: {theme.name}</span>
           </Link>
         </div>
