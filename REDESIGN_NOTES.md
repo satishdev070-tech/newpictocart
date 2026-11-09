@@ -1,21 +1,25 @@
 # Marketing dark editorial redesign
 
-Branch: `cursor/redesign-dark-editorial-c73e`
+Branches: `cursor/redesign-dark-editorial-c73e` (initial), `cursor/marketing-orange-sheryians-c73e` (orange + closer Sheryians pass).
 
 Inspiration-only restyle of the public marketing site (Sheryians-like dark editorial mood). Not a clone — Pictocart copy, logos, imagery, and URLs unchanged. Seller auth/onboarding, dashboard, and storefronts keep the light `.theme-brand` palette.
 
 ## What changed
 
-1. **Tokens** — `.theme-marketing` remapped to near-black surfaces, off-white text, single mint accent `#24CFA6` (&lt;10% of screen). Utilities: `mk-container`, `mk-section`, fluid `mk-display-*` / `mk-label`. `.mk-light` islands keep theme mockups/screenshots on a light storefront palette.
-2. **Typography** — Inter Tight (display) + JetBrains Mono (labels) via `@fontsource-variable` + `next/font/local` (ADR-019). Inter remains body.
-3. **Primitives** — Button/CTA glow, Card + cursor glow, Pill, Marquee, Accordion (+/×), PricingToggle, CountUp, SplitReveal, MagneticButton. No GSAP/Lenis (LCP/GTmetrix budget); CSS + IntersectionObserver; `prefers-reduced-motion` respected.
-4. **Chrome** — Sticky header (blur after scroll, hide on scroll-down), dark mega menu, full-screen mobile nav, footer with oversized faded `PICTOCART` wordmark.
-5. **Homepage + pages** — Hero, marquees, bento features, sticky steps, themes, industries, pricing (Growth raised), testimonials, FAQ, final CTA; same system on `/pricing`, `/themes`, `/features`, `/how-it-works`, legal.
+1. **Tokens** — `.theme-marketing` near-black surfaces, off-white text, single **Pictocart orange** accent `#ea580c` / hover `#c2410c` (white ink on filled CTAs). Utilities: `mk-container`, `mk-section`, fluid `mk-display-*` / `mk-label`. `.mk-light` islands keep theme mockups on a light storefront palette.
+2. **Typography** — **Manrope** (display, Sheryians-like) + JetBrains Mono (labels) via `@fontsource-variable` + `next/font/local` (ADR-019). Inter remains body.
+3. **Primitives** — Button/CTA glow, Card + cursor glow, Pill, Marquee, Accordion (+/×), PricingToggle, CountUp, SplitReveal, MagneticButton. No GSAP/Lenis; CSS + IntersectionObserver; `prefers-reduced-motion` respected.
+4. **Chrome** — Sticky header (blur after scroll, hide on scroll-down), dark mega menu, full-screen mobile nav, footer with oversized faded `PICTOCART` wordmark; Start Free orange pill.
+5. **Homepage + pages** — Hero (sparse stack, orange rotating word, large stat strip), marquees, features, sticky steps, themes, industries, pricing, testimonials, FAQ, final CTA; same system on `/pricing`, `/themes`, `/features`, `/how-it-works`, legal.
+
+## Follow-up (2026-11-09)
+
+Mint `#24CFA6` replaced with brand orange after live review; Inter Tight replaced with Manrope; hero/section density tightened toward Sheryians editorial feel while keeping CMS content.
 
 ## New dependencies
 
-- `@fontsource-variable/inter-tight`
 - `@fontsource-variable/jetbrains-mono`
+- Manrope already present via `@fontsource-variable/manrope` (also used by storefront themes)
 
 ## Content inconsistency (flagged)
 
@@ -26,16 +30,13 @@ Inspiration-only restyle of the public marketing site (Sheryians-like dark edito
 | Full theme catalog (incl. informative) | catalog + informative | **196** (10 informative, discovery-hidden) |
 | Home Themes grid | CMS `limit` | typically **8** |
 
-Mega-menu body still says “5-page premium themes” (structure, not count). Confirm with product whether marketing should say `186`, `186+`, or something else.
+## Intentional skips
 
-## Open questions / intentional skips
-
-- No Sheryians screenshots were attached; accent defaults to the brief’s `#24CFA6`. Re-sample if screenshots arrive.
-- Custom cursor was skipped (behind a flag in the brief; not shipped).
-- Pinned horizontal ScrollTrigger journey replaced by sticky vertical step cards (existing pattern, dark restyle).
-- Auth/onboarding intentionally stay light indigo brand.
+- No cloning of Sheryians copy, courses, campus blocks, or assets.
+- Custom cursor skipped; no GSAP/Lenis.
+- Auth/onboarding stay light indigo brand.
 
 ## Verify
 
-- `pnpm check` green on this branch.
-- Smoke: `/`, `/pricing`, `/themes`, `/features`, `/how-it-works`, `/privacy`, `/terms`.
+- `pnpm check` green.
+- Smoke: `/`, `/pricing`, `/themes`, `/features`, `/how-it-works`, `/privacy`, `/terms` — CTAs/highlights orange.
