@@ -5,184 +5,178 @@ _Companion to [`PRODUCTION_VERIFICATION_CHECKLIST.md`](./PRODUCTION_VERIFICATION
 | Phase | When (Asia/Kolkata) | Scope |
 |---|---|---|
 | **Phase 1** | 2026-11-09 22:07 IST | Classify checklist; safe public/code/unit probes |
-| **Phase 2** | 2026-11-09 22:20–22:23 IST | Resolve four Wave A blockers with evidence |
+| **Phase 2** | 2026-11-09 22:20–22:23 IST | First pass on four Wave A blockers |
+| **Phase 2b** | 2026-11-10 20:29–20:31 IST | Seller mint UI, staging inspection, secrets inventory deepening |
 
-**Rules followed:** No application code changes · no deploy · no migrations · **no production data writes** · secrets never printed · no PASS without evidence · architecture preserved.
+**Rules followed:** No application code changes · no deploy · no migrations · **no production data writes** · secrets never printed · no PASS without evidence · no security bypasses · architecture preserved.
 
-**Environments touched:** Production Worker `pictocart` / `www.pictocart.in` (read-only HTTPS); production Supabase project referenced by local `.env.local` (read-only REST selects + in-process crypto only). Local platform root remains `localhost` (not used as a full staging app in this phase).
+**Status vocabulary:** **PASS** (verified) · **Partial PASS** · **BLOCKED** · **WAIVED**
 
 ---
 
-## Final decision (Phase 2)
+## Final decision (Phase 2b)
 
 | Question | Answer |
 |---|---|
-| Are all **four** blockers resolved? | **No** — **2 of 4** resolved; **2 remain human/ops** |
+| Production verification complete? | **No** |
 | Wave A **application code** approved? | **No — NOT APPROVED** |
-| Production **deployment** approved? | **No — NOT APPROVED** (and out of scope: this phase did not deploy) |
+| Production **deployment** approved? | **No — NOT APPROVED** |
 | Wave A **docs-only** (A2/A3/A4)? | **Yes — may proceed** |
-| Wave B / C? | **Not approved** |
+| Production readiness claim? | **Not claimed** — mandatory gaps remain without evidence or signed waiver |
 
-### Four blockers — status summary
+### Blocker / task scoreboard
 
-| # | Blocker | Status | Owner |
+| # | Item | Status | Notes |
 |---|---|---|---|
-| 1 | Authenticated `mintVerify` | **PASS** | — |
-| 2 | Seller Theme Editor preview (token / preflight / cookie / CSP / Bot Fight / isolation / invalid+expired) | **PASS** (HTTP/crypto path) with residual **seller-dashboard mint UI** not browser-tested | Seller QA optional for UI chrome |
-| 3 | Publish → storefront → rollback | **BLOCKED** | Human on disposable test store |
-| 4 | Worker secrets inventory + known-good version + Redis waiver | **PARTIAL** — core secrets **PASS** by behavior; CF version id + full name listing + Redis posture **NOT VERIFIED / WAIVED candidate** | Ops (CF dashboard) |
+| 1 | Authenticated `mintVerify` | **PASS** | Reconfirmed 2026-11-10 20:30 IST |
+| 2a | Preview server path (cookie/CSP/deny/expiry/isolation/Bot Fight behavioral) | **PASS** | Phase 2 evidence stands |
+| 2b | **Seller dashboard mint UI** (complete workflow) | **BLOCKED** | No usable seller session; see Task 1 |
+| 2 complete workflow | Theme Editor preview end-to-end | **Partial PASS** | Server path PASS + dashboard mint BLOCKED |
+| 3 | Publish → storefront → rollback | **BLOCKED** | No isolated staging Supabase; see Task 2 |
+| 4a | Core Worker secrets (behavior) | **Partial PASS** | APP_SECRET / CRON_SECRET / Supabase proven live |
+| 4b | CF Worker version UUID + dashboard name list | **BLOCKED** | No CF API token / GH secrets list 403 |
+| 4c | Redis L1-only formal alternative | **WAIVED** (architecture) — **ops countersign pending** | ADR-010; see Task 3 |
 
-### Human actions still required before Wave A application code
+### Human actions still required
 
-1. **Publish / rollback smoke** on an explicitly owned disposable store (candidate slug `test2test` exists and returns **200**, but was **not** mutated here because it shares the production Supabase project).  
-2. **Cloudflare Worker** dashboard: record current **version UUID**; confirm secret **names** inventory (esp. `EMAIL_FROM`, optional Redis/Resend); either set Upstash pair **or** sign **L1-only waiver**.  
-3. Optional: signed-in Theme Editor open on a test store to confirm canvas preflight UX (server preview path already evidenced).
+1. Seller with `theme.edit` on a disposable store: open `/dashboard/theme`, confirm canvas mint (`POST /api/theme/preview-token` **200**) + iframe load.  
+2. Explicit approval **or** isolated staging project for publish/rollback smoke (not production customer data).  
+3. Cloudflare dashboard: record Worker **version UUID**; tick secret **names**; countersign Redis L1-only waiver **or** confirm Upstash pair names present.
 
 ---
 
-## Phase 2 — Blocker detail
+## Task 1 — Seller Theme Editor preview-token mint UI
 
-### 1. Authenticated `mintVerify` — PASS
+### Flow traced (code — not a UI Pass)
 
-| Field | Content |
-|---|---|
-| **Status** | **PASS** |
-| **Environment** | Production `https://www.pictocart.in` |
-| **Auth mechanism** | `GET /api/cron/preview-token-self-test` requires `Authorization: Bearer <CRON_SECRET>`; compare via SHA-256 + `timingSafeEqual` (`src/features/domains/cron-auth.ts`). Unset/short secret never authorizes. Handler mints+verifies in-process with Worker `APP_SECRET` (no DB write). |
-| **Requirements** | Worker must have `CRON_SECRET` ≥24 chars and `APP_SECRET` ≥32; same values used by mint+verify. |
-| **Test performed** | Loaded `CRON_SECRET` from local `.env.local` into curl **without printing**; called production self-test. |
-| **Evidence** | HTTP **200**; JSON `ok: true`, `mintVerify: "ok"`, `appSecretPresent: true`, `controls.wrongTenant: "tenant_mismatch"`, `controls.garbage: "sig_fail"` · **2026-11-09 22:20:42 IST** |
-| **Remaining risks** | Local `.env.local` `CRON_SECRET` matches production today; rotation without updating local ops notes would break this probe. Do not commit secrets. |
-| **Required action** | None for this blocker. Re-run after every Worker secrets deploy. |
-
-**Command (ops; do not echo secret):**
-
-```bash
-curl -fsS -H "Authorization: Bearer $CRON_SECRET" \
-  "https://www.pictocart.in/api/cron/preview-token-self-test"
-# Expect: "mintVerify":"ok"
+```
+Theme Editor canvas / top-bar
+  → mintPreviewEntry()  (preview-entry.ts)
+      → POST /api/theme/preview-token  (credentials: same-origin, 3 retries)
+          → requireTenant() + assertPermission(theme.edit)
+          → createPreviewToken(tenantId, userId)  // APP_SECRET HMAC
+          → JSON { ok, url: previewEntryUrl(storeOrigin, token), expiresAt }
+      → fallback refreshPreviewUrlAction() if API fails
+  → iframe navigates to {store}/preview?token=…&parent=…
+  → /preview sets httpOnly sf_preview + 307 to path
+  → 403 deny HTML postMessage {source:pictocart-preview,type:denied,reason}
 ```
 
----
+Evidence paths: `src/features/theme/site-builder/preview-entry.ts`, `canvas-frame.tsx`, `src/app/api/theme/preview-token/route.ts`, `src/app/store/[host]/preview/route.ts`.  
+Unit tests: `tests/unit/theme/preview-entry.test.ts` + `preview-token.test.ts` → **15 passed** (2026-11-10 20:31 IST).
 
-### 2. Seller Theme Editor preview — PASS (server path)
+### Dashboard mint UI attempt
 
 | Field | Content |
 |---|---|
-| **Status** | **PASS** for mint/verify alignment, `/preview` cookie, CSP `frame-ancestors`, deny reasons, expired/invalid/tenant isolation, Bot Fight behavioral check. **NOT VERIFIED** for signed-in dashboard `POST /api/theme/preview-token` UI session. |
-| **Environment** | Production storefront `nuts-fruits-store.pictocart.in` (read-only preview probes); production self-test for external token diagnose. |
-| **Tests performed** | See table below. Tokens minted with local `APP_SECRET` (proven aligned to Worker) — **token values never logged**. |
+| **Status** | **BLOCKED** (complete workflow not PASS) |
+| **Environment** | Production `www.pictocart.in` / `www.pictocartdev.in`; hosted Supabase `ugbjlpdhktrlkyuijkfc` (read-only membership lookup) |
+| **Test performed** | 1) Unauthenticated `POST /api/theme/preview-token` on www + canary. 2) Reconfirm `mintVerify`. 3) Inspect whether any agent-usable seller session exists (seed users / test store ownership). 4) **Did not** password-login to real Gmail owner accounts. |
+| **Evidence** | Unauth mint → HTTP **307** `Location: /login?next=%2Fdashboard` (both www + pictocartdev) · **2026-11-10 20:30 IST**. Seed `owner@aangan.test` exists on hosted Auth but **0** `tenant_memberships` (cannot `theme.edit`). Tenant `aangan` **absent** on hosted. `test2test` owner email is a personal Gmail — **no credentials available; not attempted**. |
+| **Cookie / CSP / Bot Fight / isolation** | Prior Phase 2 **PASS** on storefront `/preview` probes remains valid; does **not** substitute for dashboard mint UI. |
+| **Remaining risk** | Dashboard session cookie / SameSite / Workers route-handler mint path unproven in a real browser session on current build `a23f80d177018561933d7fe01457fe1b`. |
+| **Required human action** | Sign in as seller with `theme.edit` → open Theme Editor → DevTools: `POST /api/theme/preview-token` **200** with `ok:true` (do not paste token) → canvas loads store preview. |
 
-| Sub-check | Result | Evidence |
-|---|---|---|
-| Local `APP_SECRET` ↔ Worker | **PASS** | External diagnose on self-test: fresh token `external.ok: true` (**22:22 IST**) |
-| Expired token (diagnose) | **PASS** | `external.reason: "expired"` |
-| Wrong tenant (diagnose) | **PASS** | `external.reason: "tenant_mismatch"` |
-| Garbage / missing / malformed `/preview` | **PASS** | `403` + `data-preview-error` = `sig_fail` / `missing_token` / `sig_fail`; `unknown_host` on `aangan.pictocart.in` |
-| Valid token → cookie | **PASS** | `307` → `/`; `Set-Cookie: sf_preview` **httpOnly**, **Secure**, **SameSite=Lax**, `Max-Age=7200` (with `parent=https://www.pictocart.in` also Lax) |
-| Expired on `/preview` | **PASS** | `403` `expired`; no cookie set |
-| Wrong tenant on `/preview` | **PASS** | `403` `tenant_mismatch`; no cookie |
-| CSP `frame-ancestors` | **PASS** | Storefront allows `'self'` + `www.pictocart.in` + canary/workers.dev origins |
-| Bot Fight on preview | **PASS** (behavioral) | No `cf-mitigated`, no challenge HTML on `/preview` 403 or storefront **200**; CF dashboard Fight Mode toggle **not** inspected |
-| Seller mint API (session) | **NOT VERIFIED** | Unauthenticated `POST /api/theme/preview-token` → **307**; no seller session in this agent |
-| Canvas preflight UX | **NOT VERIFIED** (UI) | Preflight logic is code-backed; server `/preview` outcomes above are what preflight consumes |
-
-| Remaining risks | Required action |
-|---|---|
-| Bot Fight could still be toggled on later; dashboard cross-site (`pictocartdev.in`) needs Partitioned cookie path in a browser | Optional seller QA on Theme Editor; ops keep Fight Mode off |
+**Verdict for Task 1:** complete Theme Editor preview workflow = **Partial PASS** (server path **PASS** + dashboard mint UI **BLOCKED**). Per instructions: **do not mark complete preview workflow PASS**.
 
 ---
 
-### 3. Publish → storefront → rollback — BLOCKED
+## Task 2 — Publish / storefront / rollback
+
+### Staging / isolation inspection
+
+| Probe | Result |
+|---|---|
+| `.env.local` `NEXT_PUBLIC_SUPABASE_URL` host | `ugbjlpdhktrlkyuijkfc.supabase.co` — documented production hosted project (`v2pictocart`) |
+| Second / staging Supabase project in env or docs | **Not found** (`.env.example` has single placeholder; no `STAGING_SUPABASE_*`) |
+| Local Supabase stack (`supabase status`) | **Unavailable** in this environment |
+| `pictocartdev.in` | Canary **DNS/Worker alias** to the **same** Worker + same Supabase — **not** an isolated DB |
+| Candidate slug `test2test` | Live **200** on production hostname; memberships exist — still **production data** |
 
 | Field | Content |
 |---|---|
 | **Status** | **BLOCKED** |
-| **Environment tested** | None for mutations. Read-only discovery only. |
-| **Exact reason** | Safety rules forbid **modifying production data**. Local `.env.local` `NEXT_PUBLIC_SUPABASE_URL` host is `*.supabase.co` and serves live Pictocart tenants (e.g. `nuts-fruits-store`, `november-two`). Publishing/rolling back would write `theme_versions` in that project. No isolated staging database or approved disposable-store waiver was provided. |
-| **Candidate test store (not used)** | Slug `test2test` — HTTP **200** on `https://test2test.pictocart.in/` · still on the **same** production Supabase project → **not** mutated without explicit human ownership. |
-| **Code path evidence (not a Pass)** | `publishThemeAction` / `rollback_theme` → `revalidateStorefront` in `src/features/theme/actions.ts` |
-| **Remaining risks** | Untested publish→cache→rollback on current Worker build |
-| **Required owner/action** | Human seller/ops on an **explicitly disposable** store: draft edit → publish → hard-refresh storefront → rollback → confirm live theme. Record timestamps. Do **not** use customer stores (`nuts-fruits-store`, etc.). |
+| **Environment tested** | Inspection only (no mutations) |
+| **Exact test performed** | Confirmed single hosted project; listed tenants include customer stores + `test2test`; no separate staging project URL/keys present. |
+| **Evidence** | Phase 2b membership/tenant reads; `docs/IMPLEMENTATION_STATUS.md` / EMAIL OTP notes naming project `ugbjlpdhktrlkyuijkfc`; platform root in local env is `localhost` but API URL points at hosted prod. |
+| **Why publish was not executed** | Would `INSERT`/`UPDATE` `theme_versions` and call `publish_theme` / `rollback_theme` on production. Forbidden by phase safety rules without isolated env or explicit human approval of a disposable store. |
+| **Remaining risk** | Publish → `revalidateStorefront` → live visibility → rollback unverified on current Worker build. |
+| **Required environment / approval** | Either (A) a dedicated staging Supabase project + Worker pointing at it, **or** (B) written human approval naming a disposable tenant slug whose theme may be published/rolled back, plus a seller session. |
 
-**Manual steps (human):**
-
-1. Sign in as owner of disposable store (e.g. only if `test2test` is confirmed internal).  
-2. `/dashboard/theme` → change a harmless heading → wait autosave.  
-3. Publish with label `verify-phase2`.  
-4. Incognito storefront hard-refresh → heading visible.  
-5. Rollback to prior version → storefront matches prior.  
-6. Confirm draft-only edits never appear on incognito before publish.
+**Manual steps (only after A or B):** draft edit → publish label → incognito storefront confirms → rollback → storefront restored → draft-only never public.
 
 ---
 
-### 4. Worker secrets inventory — PARTIAL
+## Task 3 — Worker secrets inventory
 
 | Field | Content |
 |---|---|
-| **Status** | **PARTIAL** — behavioral proof for core runtime secrets; CF name listing + version UUID + Redis **unverified** |
-| **Environment** | Production Worker behavior + deploy workflow/docs + local key **presence** (no values) |
+| **Status** | **Partial PASS** (core runtime) + **BLOCKED** (CF version UUID / full dashboard name list) + Redis **WAIVED** (architecture; ops sign-off pending) |
+| **Environment** | Production Worker behavior; `.github/workflows/deploy-cloudflare-workers.yml`; `docs/DEPLOY_CLOUDFLARE_WORKERS.md`; ADR-010; local key **presence** only |
+| **Timestamp** | 2026-11-10 20:30–20:31 IST |
 
-#### Required names (from `.github/workflows/deploy-cloudflare-workers.yml` secrets file)
+### Required / optional names (values never printed)
 
-| Name | Role | This-phase evidence |
-|---|---|---|
-| `APP_SECRET` | Preview HMAC / crypto | **PASS** — `appSecretPresent: true` + local-minted token verifies on Worker |
-| `CRON_SECRET` | `/api/cron/*` Bearer | **PASS** — authenticated self-test **200** |
-| `SUPABASE_SECRET_KEY` | Server Supabase | **PASS** (indirect) — `/api/health/ready` supabase `ok` |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase API URL | **PASS** (indirect) — ready probe |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Anon/publishable | **PASS** (indirect) — ready / storefronts **200** |
-| `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` | Host routing | Expected `pictocart.in` (baked in GHA JSON) — storefronts resolve |
-| `NEXT_PUBLIC_PLATFORM_URL` | Platform URL | Expected `https://www.pictocart.in` |
-| `PLATFORM_HOST_ALIASES` | Canary hosts | Optional w/ GHA default |
-| `WORKERS_DEV_HOST` | workers.dev alias | Optional w/ GHA default |
-| `EMAIL_FROM` | Mail from | Schema default exists; **name on Worker NOT VERIFIED** (local `.env.local` absent) |
-| `UPSTASH_REDIS_REST_URL` + `_TOKEN` | Optional L2 | **NOT VERIFIED** on Worker; absent locally → **L1-only waiver candidate** |
-| `RESEND_API_KEY` | Optional email send | **NOT VERIFIED** |
-| `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | GHA deploy only | **NOT** in agent env; GH secrets list API **403** |
+| Name | Required? | Source | Presence evidence this phase |
+|---|---|---|---|
+| `APP_SECRET` | **Yes** (runtime) | GHA secrets file + schema min 32 | **PASS** — `appSecretPresent: true`; aligned local mint verifies on Worker |
+| `CRON_SECRET` | **Yes** (cron) | GHA + schema min 24 | **PASS** — self-test HTTP **200** `mintVerify: ok` (reconfirmed) |
+| `SUPABASE_SECRET_KEY` | **Yes** | GHA | **PASS** (indirect) — `/api/health/ready` supabase ok |
+| `NEXT_PUBLIC_SUPABASE_URL` | **Yes** | GHA | **PASS** (indirect) — ready + Auth admin reachable |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | **Yes** | GHA | **PASS** (indirect) — storefronts 200 |
+| `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` | **Yes** | Baked `pictocart.in` in GHA JSON | **PASS** (behavioral) — `*.pictocart.in` routing |
+| `NEXT_PUBLIC_PLATFORM_URL` | **Yes** | Baked `https://www.pictocart.in` | **PASS** (behavioral) |
+| `PLATFORM_HOST_ALIASES` | Optional (defaulted in GHA) | Deploy docs | **Partial PASS** — canary hosts respond |
+| `WORKERS_DEV_HOST` | Optional (defaulted) | Deploy docs | **NOT VERIFIED** on Worker bindings list |
+| `EMAIL_FROM` | Optional (schema default) | schema / `.env.example` | **NOT VERIFIED** on Worker (absent in local `.env.local`) |
+| `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | Optional pair | ADR-010 | **NOT VERIFIED**; local absent → L1-only **WAIVED** path |
+| `RESEND_API_KEY` | Optional | `.env.example` | **NOT VERIFIED** |
+| `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | GHA deploy only | workflow | **BLOCKED** to list — not in agent env; `gh secret list` **403** |
 
-#### Known-good Worker configuration/version
+**No production secret values were read into the report or modified.**
+
+### Known-good Worker configuration / version
 
 | Signal | Value | Status |
 |---|---|---|
-| `x-vinext-build-id` (response header) | `a23f80d177018561933d7fe01457fe1b` | Observed Phase 1+2 |
-| Cloudflare Worker **version UUID** | — | **NOT VERIFIED** (no CF API token; recent GHA deploy runs on `main` show **failure**) |
-| Historical docs versions | e.g. `0a274bfc-…`, `7e11567d-…` | Stale relative to current build id — do not treat as current rollback target without dashboard confirm |
+| `x-vinext-build-id` | `a23f80d177018561933d7fe01457fe1b` | Observed Phase 1, 2, 2b on ready + canary |
+| Cloudflare Worker **version UUID** | — | **BLOCKED** — no CF dashboard/API access |
+| Recent GHA “Deploy Cloudflare Workers” | conclusions **failure** (2026-11-07) | Do not treat GHA as last known-good upload |
+| Historical version UUIDs in status docs | Older than current build id | **Stale** — not rollback targets |
 
-#### Redis L1-only — supported alternative (waiver text)
+### Redis L1-only — formal alternative (**WAIVED**)
 
-Per ADR-010 / `public-cache.ts`: unset Upstash env → L1 `unstable_cache` only; Redis errors fail open (300ms). **Limitations:** no cross-isolate L2; storefront stale window up to **120s**; marketplace demo origins up to **300s** without tag revalidate. **Not** used for dashboard/private data or rate limits (ADR-025 Postgres).
-
-**Waiver (unsigned — needs ops signature):**  
-> Production Worker `pictocart` may run **without** `UPSTASH_REDIS_REST_*` (L1-only). We accept fail-open behavior and TTL stale windows above. This is not an architecture defect.
-
-| Remaining risks | Required action |
+| Field | Content |
 |---|---|
-| Incomplete `--secrets-file` can wipe bindings on next deploy | Ops: dashboard name inventory before any deploy; never upload partial secrets |
-| No recorded CF version UUID for instant rollback | Ops: copy version id from CF dashboard into runbook |
-| Redis posture unknown | Sign L1-only waiver **or** confirm Upstash names present |
+| **Status** | **WAIVED** as an **architecture-supported** production mode (ADR-010). **Not** an ops-signed production attestation that Worker Redis bindings are intentionally unset. |
+| **Support evidence** | ADR-010: unset Upstash = previous L1-only behaviour; `public-cache.ts` fail-open 300ms; rate limits stay Postgres (ADR-025). `.env.example` documents optional Redis. |
+| **Limitations** | No cross-isolate L2; storefront stale ≤**120s**; marketplace demo origins ≤**300s** without tag revalidate; no Redis for dashboard/cart/session. |
+| **Remaining risk** | Actual Worker may or may not have Upstash set — unverified without CF dashboard. |
+| **Required human action** | Countersign: “Worker `pictocart` runs L1-only by choice” **or** confirm both `UPSTASH_REDIS_REST_*` **names** present on Worker. |
 
 ---
 
-## Phase 1 carry-forward (unchanged conclusions unless superseded)
+## Phase 2 carry-forward (server preview path — still PASS)
 
-Phase 1 public probes and unit evidence remain valid:
-
-- `/api/health/ready` **200**; storefronts **200**; CSP `frame-ancestors` present  
-- Code/unit **PASS**: optional Redis schema, prefixes/TTLs, embeds XSS downgrade, maps/href/CMS tenant, autosave conflict gate  
-- §3 publish mutations, §4 RLS `test:db`, §5/§8 browser CONFLICT, §7 LCP — still open / not Wave A code gates except publish smoke (blocker 3)
+| Sub-check | Status | Evidence (Phase 2) |
+|---|---|---|
+| `mintVerify` | **PASS** | Reconfirmed Phase 2b |
+| APP_SECRET alignment | **PASS** | External diagnose `ok: true` |
+| Valid token → `sf_preview` cookie | **PASS** | 307; httpOnly Secure Lax Max-Age 7200 |
+| Expired / wrong tenant / garbage | **PASS** | 403 reasons `expired` / `tenant_mismatch` / `sig_fail` / `missing_token` / `unknown_host` |
+| CSP `frame-ancestors` | **PASS** | Includes www + pictocartdev allowlist on storefront |
+| Bot Fight behavioral | **PASS** | No challenge HTML / `cf-mitigated` on probed URLs |
 
 ---
 
-## Approval matrix (authoritative)
+## Approval matrix (authoritative after Phase 2b)
 
 | Track | Decision | Evidence basis |
 |---|---|---|
-| Wave A **application code** | **NOT APPROVED** | Blocker 3 (publish/rollback) still **BLOCKED**; blocker 4 incomplete (version id / Redis waiver unsigned) |
-| Wave A **docs/copy** (A2/A3/A4) | **APPROVED to proceed** | Plan allows parallel; no architecture change |
-| Production **deployment** | **NOT APPROVED** | Not requested; GHA deploy history failing; secrets inventory incomplete; no new deploy in this phase |
-| Wave B | **NOT APPROVED** | No §7.4 pain evidence |
-| Wave C | **NOT APPROVED** | No product ADR |
+| Wave A **application code** | **NOT APPROVED** | Dashboard mint UI **BLOCKED**; publish/rollback **BLOCKED**; CF version id **BLOCKED** |
+| Wave A **docs/copy** (A2/A3/A4) | **APPROVED to proceed** | Plan parallel gate |
+| Production **deployment** | **NOT APPROVED** | Secrets inventory incomplete; no deploy in this phase; GHA deploy history failing |
+| Wave B / C | **NOT APPROVED** | Unchanged |
 
 ---
 
@@ -190,9 +184,10 @@ Phase 1 public probes and unit evidence remain valid:
 
 **Production verification remains incomplete.**
 
-Resolved with evidence in Phase 2: authenticated **`mintVerify: ok`**, preview token security/cookie/CSP/isolation/expiry paths, behavioral Bot Fight clear, core Worker secret **presence** via runtime behavior.
+| Verified **PASS** | Authenticated `mintVerify`; preview **server** cookie/CSP/deny/isolation/expiry; core secret **behavior** |
+|---|---|
+| **Partial PASS** | Theme Editor preview **complete** workflow (server PASS + dashboard mint BLOCKED); Worker secrets inventory (core PASS + CF list/version BLOCKED) |
+| **BLOCKED** | Seller dashboard mint UI session; publish→rollback (no isolated staging); CF Worker version UUID / full binding name listing |
+| **WAIVED** | Redis L1-only as ADR-010-supported mode (ops countersign still required before treating Redis posture as closed) |
 
-Still blocking Wave A application code / claiming production-ready verification:
-
-1. Human publish → storefront → rollback on a disposable store (no production customer stores).  
-2. Ops: CF Worker version UUID + secrets **name** inventory + Redis L1-only waiver **or** Upstash confirmation.
+Do **not** treat the platform as production-verification-complete or approve Wave A application code / production deployment until BLOCKED items are cleared with evidence or explicitly signed waivers.
