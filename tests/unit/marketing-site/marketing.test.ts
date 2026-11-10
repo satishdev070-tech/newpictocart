@@ -3,7 +3,8 @@ import { FALLBACK_PLANS, findPlan, hasYearlyBilling, normalizePlans, parsePlanRo
 import { serializeJsonLd } from "@/features/marketing-site/seo";
 import { buildFaqs, FOOTER_GROUPS, NAV_LINKS, signupHref } from "@/features/marketing-site/content";
 import { filterThemes, findTheme, isThemeKey, parseThemeQuery, showcaseThemes, themeIndustries, themesHref, THEMES_PER_PAGE } from "@/features/marketing-site/themes";
-import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { ecommerceMarketplaceThemes, MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { themeSiteType } from "@/features/theme/marketplace/types";
 
 const row = { code: "growth", name: "Growth", description: null, price_monthly: "999.00", price_yearly: 9990, currency: "INR", limits: { products: 500 }, features: { blog: true }, trial_days: 14, sort_order: 1, active: true };
 
@@ -72,37 +73,45 @@ describe("marketing content & seo", () => {
 });
 
 describe("public theme catalogue", () => {
+  const publicCatalog = ecommerceMarketplaceThemes();
+
   it("parses untrusted query params", () => {
     expect(parseThemeQuery({ q: "  Minimal ", industry: "fashion", page: "2" })).toEqual({ q: "Minimal", industry: "fashion", siteType: "", page: 2 });
     expect(parseThemeQuery({ industry: "weapons", page: "-4" })).toEqual({ q: "", industry: "", siteType: "", page: 1 });
     expect(parseThemeQuery({ q: ["a", "b"], page: "9999" }).page).toBe(50);
+    // Informative filter is ignored while that site mode is hidden from marketing.
+    expect(parseThemeQuery({ type: "informative" }).siteType).toBe("");
+    expect(parseThemeQuery({ type: "ecommerce" }).siteType).toBe("ecommerce");
   });
-  it("filters by category and search text, and paginates", () => {
+  it("filters by category and search text, and paginates (ecommerce discovery only)", () => {
     const all = filterThemes({ q: "", industry: "", page: 1 });
-    expect(all.total).toBe(MARKETPLACE_THEMES.length);
-    expect(all.items).toHaveLength(Math.min(THEMES_PER_PAGE, MARKETPLACE_THEMES.length));
+    expect(all.total).toBe(publicCatalog.length);
+    expect(all.items).toHaveLength(Math.min(THEMES_PER_PAGE, publicCatalog.length));
+    expect(all.items.every((t) => themeSiteType(t) !== "informative")).toBe(true);
     const beauty = filterThemes({ q: "", industry: "beauty", page: 1 });
     expect(beauty.total).toBeGreaterThan(0);
     expect(beauty.items.every((t) => t.industry === "beauty")).toBe(true);
     expect(filterThemes({ q: "zzzz-no-match", industry: "", page: 1 }).total).toBe(0);
-    const informative = filterThemes({ q: "", industry: "", siteType: "informative", page: 1 });
-    expect(informative.total).toBeGreaterThan(0);
-    expect(informative.items.every((t) => t.siteType === "informative")).toBe(true);
     const last = filterThemes({ q: "", industry: "", page: 50 });
     expect(last.page).toBe(last.pages);
   });
-  it("lists only industries that have themes", () => {
+  it("lists only industries that have ecommerce themes", () => {
     const list = themeIndustries();
-    expect(list.reduce((n, i) => n + i.count, 0)).toBe(MARKETPLACE_THEMES.length);
+    expect(list.reduce((n, i) => n + i.count, 0)).toBe(publicCatalog.length);
   });
-  it("validates theme keys and builds showcase picks from the real catalogue", () => {
-    const first = MARKETPLACE_THEMES[0]!;
+  it("validates theme keys and builds showcase picks from the ecommerce catalogue", () => {
+    const first = publicCatalog[0]!;
     expect(isThemeKey(first.key)).toBe(true);
     expect(isThemeKey("../../etc")).toBe(false);
     expect(isThemeKey("not-a-theme")).toBe(false);
     expect(findTheme(first.key)?.name).toBe(first.name);
+    // Deep links to informative themes still resolve; discovery does not surface them.
+    const informative = MARKETPLACE_THEMES.find((t) => themeSiteType(t) === "informative");
+    expect(informative).toBeTruthy();
+    expect(findTheme(informative!.key)?.key).toBe(informative!.key);
     const picks = showcaseThemes(["fashion", "beauty", "nope"]);
     expect(picks.map((t) => t.industry)).toEqual(["fashion", "beauty"]);
+    expect(picks.every((t) => themeSiteType(t) !== "informative")).toBe(true);
     expect(themesHref({ industry: "beauty", page: 1 })).toBe("/themes?industry=beauty");
   });
 });

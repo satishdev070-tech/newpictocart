@@ -14,8 +14,38 @@ because its lettering is navy. A logo uploaded in **/admin/branding** overrides 
 
 ## Colour tokens
 
-Defined once in `src/app/globals.css` under `.theme-brand`, exposed to Tailwind as `brand-*`.
-Sampled from the logo and the earlier pictocart.in site.
+Defined in `src/app/globals.css` under `.theme-brand`, exposed to Tailwind as `brand-*`.
+
+### Marketing landing (`.theme-brand.theme-marketing`)
+
+Public marketing layout only (`src/app/(marketing)/layout.tsx`). **Black / White / Orange / Green**
+with a 60-30-10 hierarchy:
+
+| Role | Token / surface | Use |
+|---|---|---|
+| ~60% white | `--background`, `--brand-canvas` | Page canvas, cards, negative space |
+| ~30% charcoal | `--brand-ink`, `--brand-primary`, `--brand-night` | Nav, headings, dark bands, chrome buttons |
+| ~10% orange | `--brand-orange` / `--brand-cta` | Money CTAs (Start free, Create store), promo chips |
+| Green (functional) | `--brand-success`, `--brand-mint` | Trust / success chips only — not primary CTAs |
+
+Indigo/purple are not marketing accents; leftover CMS tones map to charcoal / orange / green.
+
+### Landing Steps media (Super Admin)
+
+`/admin/landing` → **5 steps** accepts JPG/PNG/WebP/**GIF**/**MP4** via `uploadLandingAssetAction` into the
+`platform-branding` bucket (`landing/…`). GIF plays as an image; MP4 renders muted looping video with
+optional poster. Built-in CSS illustrations remain when the media URL is empty.
+
+### Feature detail pages (Super Admin)
+
+`/admin/landing/features` edits the 28 `/features/{slug}` pages (key `public.marketing.feature_pages`).
+Infographics reuse the same landing media upload (image/GIF/MP4). Mega-menu items link to these
+pages; Theme Marketplace stays `/themes`.
+
+### Auth + onboarding (`.theme-brand` only)
+
+Shared indigo / peach / emerald tokens for seller login and onboarding — **unchanged** by the
+marketing overlay:
 
 | Token | Value | Use |
 |---|---|---|

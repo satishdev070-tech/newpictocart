@@ -1,7 +1,692 @@
 # Implementation Status
 
-_Last updated: 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+_Last updated: 2026-11-09 (Seller/admin login secrets restore) · 2026-11-09 (Marketing type scale polish) · 2026-11-09 (Marketing orange + Sheryians-closer pass) · 2026-11-09 (Marketing dark editorial redesign) · 2026-11-08 (Seed countryOfOrigin for /start finalize) · 2026-11-07 (Start finalize error mapping) · 2026-11-07 (GHA secrets schema guard + pause push deploy) · 2026-11-07 (GHA secrets JSON + length guard) · 2026-11-07 (CF KV strict pin for GHA deploy) · 2026-11-07 (Deploy merged theme to CF Worker) · 2026-11-07 (Theme Editor preview CORS gate) · 2026-11-07 (Theme Editor blank + CF Actions deploy) · 2026-11-07 (Theme Editor preview preflight) · 2026-11-06 (Theme preview bad_token diagnostics) · 2026-11-06 (Theme editor preview CF fix) · 2026-11-06 (Cloudflare Workers production cutover) · 2026-11-05 (Cloudflare Workers vinext canary) · 2026-11-05 (App speed: login measure + server redirect + Revenue SQL) · 2026-11-04 (Admin API Observability Center) · 2026-11-03 (Platform PayU + plan online checkout) · 2026-11-03 (React #185 + shell Link viewport prefetch) · 2026-11-03 (Dashboard / Admin load resilience) · 2026-11-03 (Catalog / Dashboard QA fixes) · 2026-11-02 (Submenu → feature page hrefs) · 2026-11-02 (Feature detail pages CMS) · 2026-11-02 (Marketing Steps stack + landing media) · 2026-11-02 (Marketing BWOG palette) · 2026-11-02 (Platform root → pictocart.in) · 2026-11-02 (Seller onboarding AI polish) · 2026-10-31 (Niche samples + theme imagery polish) · 2026-10-31 (Theme panel crash harden) · 2026-10-31 (Theme editor exit guard + Contact path + Footer settings) · 2026-10-30 (Grade A LCP + customizer preview lazy images) · 2026-10-30 (Marketing GTmetrix LCP/JS) · 2026-10-30 (Theme/store crash + 404 resilience) · 2026-10-30 (Marketing homepage perf P0–P1) · 2026-10-30 (Customizer speed model lock) · 2026-10-30 (Customizer UX fixes) · 2026-10-30 (Theme Customizer Master) · 2026-10-30 (Seller login harden) · 2026-10-29 (Theme pages + popups Phase E) · 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
 
+## Seller/admin login secrets restore (2026-11-09, branch `cursor/fix-login-secrets-c73e`)
+
+**Issue:** After incomplete Worker `--secrets-file` uploads (placeholder Supabase host / 9-key subset), seller OTP showed “Couldn't send a code…”, password returned UNAUTHENTICATED, Google failed. Marketing PRs were unrelated.
+
+**Fix (ops):** Restored known-good Supabase URL/keys + `APP_SECRET` (no rotation) on Worker `pictocart`; complete secrets include `EMAIL_FROM` + `GOOGLE_IDENTITY_SIGNIN`; Resend continues from Admin → Email DB decrypt. Self-test `mintVerify: ok`; Admin `generateLink` returns 6-digit OTP; Google provider authorize → `accounts.google.com`.
+
+**Harden:** `validate-worker-secrets.mts` requires wipe-safe keys (`EMAIL_FROM`, …) and Resend unless `--allow-db-resend`; GHA writes `EMAIL_FROM` (+ optional `RESEND_API_KEY` / GIS); `DEPLOY_CLOUDFLARE_WORKERS.md` documents replace-not-merge secrets behavior.
+
+## Marketing type scale polish (2026-11-09, branch `cursor/marketing-type-scale-c73e`)
+
+**Issue:** Hero display type up to `8rem` dwarfed body/nav and read unprofessional.
+
+**Change:** Retuned `mk-display-xl/lg` + `mk-h3`; hero body `lg/xl`; stats/step numbers reduced; `mk-label` for eyebrows/stat labels. Orange/Manrope unchanged.
+
+## Marketing orange + Sheryians-closer pass (2026-11-09, branch `cursor/marketing-orange-sheryians-c73e`)
+
+**Issue:** Live dark redesign still used mint CTAs/highlights and felt loosely editorial vs Sheryians.
+
+**Change:** Accent → Pictocart orange `#ea580c` (white CTA ink); display face → Manrope; hero sparse stack + orange rotating word + large stats; chrome/sections badges orange. CMS content unchanged. Notes: `REDESIGN_NOTES.md`.
+
+## Marketing dark editorial redesign (2026-11-09, branch `cursor/redesign-dark-editorial-c73e`)
+
+**Scope:** Presentation-only restyle of the public marketing site (homepage, chrome, pricing, themes, features, legal). Auth/onboarding/dashboard/storefronts unchanged.
+
+**Change:** Dark `.theme-marketing` tokens, JetBrains Mono labels, editorial primitives, sticky chrome, restyled sections/pages. CSS motion only (no GSAP/Lenis). Theme count unified via `marketplaceThemeCount()` → **186**. Follow-up swapped mint → orange (see above). Notes: `REDESIGN_NOTES.md`.
+
+## Seed countryOfOrigin for /start finalize (2026-11-08, branch `cursor/seed-country-origin-c73e`)
+
+**Issue:** After OTP, building stuck at “Adding sample products…” then toast “The store could not be finished.” Network: `VALIDATION` / “Some fields need attention.” Active products require `countryOfOrigin` (catalog schema Nov 3); onboarding seed omitted it → bare ZodError before `save_product`.
+
+**Fix:** `ensureProducts` sets `countryOfOrigin: "India"`; parse/DB failures tagged `operation: seed_save_product` for clearer finalize toasts. Unit tests lock the payload + mapping.
+
+## Start finalize error mapping (2026-11-07, branch `cursor/fix-start-finalize-c73e`)
+
+**Issue:** Sellers completing `/start` email OTP saw toast “Something went wrong” / “The store could not be finished. Try again.” OTP was succeeding; **`start.finalize`** failed and `finishError` hid the cause. Correlated with GHA uploading bad Worker secrets (self-test 500); live restored to known-good (`mintVerify: ok`).
+
+**Fix:** Extract `mapStartFinalizeError` (operation-specific messages, preserve `_form`/`slug`, `EnvValidationError` → server-config toast); `requireUserWithRetry` (uncached session re-read); `create_tenant` / theme-draft `context.operation`; keep push deploy paused until manual green deploy with matched `APP_SECRET`/`CRON_SECRET`.
+
+## GHA secrets schema guard + pause push deploy (2026-11-07, branch `cursor/cf-secrets-schema-guard-c73e`)
+
+**Issue:** After #107 (JSON secrets), GHA still deployed then self-test **500**. Prod restored again to known-good (`mintVerify: ok`). Length checks passed — remaining risk is invalid GitHub secret values (or trailing whitespace) and merges auto-deploying them.
+
+**Fix:** Trim secrets; validate JSON with `scripts/ci/validate-worker-secrets.mts` (`serverEnvSchema`, lengths only in logs); pause `push` trigger so merges cannot overwrite prod until a manual `workflow_dispatch` is green; self-test prints HTTP status + body.
+
+## GHA secrets JSON + length guard (2026-11-07, branch `cursor/cf-secrets-json-guard-c73e`)
+
+**Issue:** After #106 (KV pin), GHA deploy succeeded but post-deploy self-test got HTTP 500 (empty body). Restoring known-good Agent secrets restored `mintVerify: ok`. Likely cause: GitHub `APP_SECRET`/`CRON_SECRET` too short and/or dotenv `--secrets-file` `$VAR` expansion mangling values.
+
+**Fix:** Write `/tmp/worker-secrets.json` (no dotenv expansion); reject `APP_SECRET` &lt; 32 / `CRON_SECRET` &lt; 24 before deploy; document `openssl rand -hex 32|24`.
+
+## CF KV strict pin for GHA deploy (2026-11-07, branch `cursor/cf-kv-strict-pin-c73e`)
+
+**Issue:** After Actions secrets were present, `Deploy Cloudflare Workers` still aborted: `cf deploy` is strict by default and unpinned `VINEXT_KV_CACHE` lacked the remote KV namespace id (`2a8074bf…`).
+
+**Fix:** Pin `bindings.kv({ id: "2a8074bf01e4433d824ab34d9531cf0b" })` in `cloudflare.config.ts` so `build:vinext` emits the id into `worker.config.json`. Documented in `DEPLOY_CLOUDFLARE_WORKERS.md`. Verified with `cf deploy --prebuilt --dry-run` (binding shows pinned id; no strict abort).
+
+## Deploy merged theme to CF Worker (2026-11-07, branch `cursor/deploy-merged-theme-c73e`)
+
+**Issue:** Merges to `main` (#101/#103) did not update production: GHA `Deploy Cloudflare Workers` failed (`APP_SECRET` / other Actions secrets empty). #102 CORS fix was only on `theme-blank`, not yet on `main`.
+
+**Fix:** Merged #102 onto `main` tip; manual `pnpm build:vinext` + `cf deploy --prebuilt --secrets-file` to Airy Fact `pictocart`. Live version `0a274bfc-96a0-4f4c-b0fc-fb82864c1ad3`; self-test `mintVerify: ok`. Ops: set GitHub Actions secrets so future `main` pushes deploy.
+
+## Theme Editor preview CORS gate (2026-11-07, branch `cursor/theme-preview-cors-gate-c73e`)
+
+**Bug:** After blank-editor fix, canvas still showed “The store preview didn't connect” from `pictocartdev.in` (and any dashboard ≠ store host). PR #100 gated iframe load on cross-origin `fetch(/preview, { redirect: "manual" })`; browsers hide 307 behind CORS / opaque redirect → soft fail, no `iframe.src`. Amplifies on `pictocartdev.in` → `*.pictocart.in` (cross-site Lax cookie).
+
+**Fix:** Mint then navigate iframe (deny via 403 `postMessage`); pass `parent` origin; `sf_preview` uses None+Partitioned when parent site ≠ store site, Lax when same-site (`www.pictocart.in`).
+
+**Verified live (Worker `7e11567d-7dd8-48bf-97ee-85b6a1268e67`):** `pictocartdev.in` Kia Theme Editor canvas renders store (no CORS gate / “didn't connect”); `parent=pictocartdev.in` → `SameSite=None; Partitioned`; `parent=www.pictocart.in` → `SameSite=Lax`; self-test `mintVerify: ok`.
+
+## Theme Editor blank + CF Actions deploy (2026-11-07, branch `cursor/theme-blank-cf-deploy-c73e`)
+
+**Bug:** `/dashboard/theme` blank (shell only) after PR #100 — `dynamic(..., { ssr: false })` in a Server Component never mounts SiteBuilder. GitHub still red on Vercel (blocked) and Workers Builds `newpictocart` (wrong CF account).
+
+**Fix:** `ThemeBuilderClient` (`"use client"`) owns `ssr: false`; `vercel.json` `ignoreCommand: exit 1`; GitHub Action `Deploy Cloudflare Workers` (Airy Fact `pictocart` + secrets-file + self-test). Ops: disconnect Vercel Git; delete wrong-account Builds trigger.
+
+**Verified live (Worker `07d7657f-54a9-49c5-bd40-1e9cb89256f5`):** Kia signed-in `/dashboard/theme` mounts Site Builder chrome (not blank); cron self-test `mintVerify: ok`.
+
+## Theme Editor preview preflight (2026-11-07, branch `cursor/theme-preview-preflight-c73e`)
+
+**Bug:** Theme Editor still stuck at “Loading 92%” / “didn't connect” for Nuts & Fruits and Kia garments after PR #98. Console `/preview` **403**; deny `postMessage` missed on iframe remount; React **#418** hydration; mint `ERR_INTERNET_DISCONNECTED`.
+
+**Fix:** Preflight `/preview` (`redirect: manual`) before iframe `src`; remint once on typed deny and show `Preview blocked (reason)` immediately; mint API retries; deny postMessage accepted by origin alone + 3× fire from 403 HTML; `SiteBuilder` `ssr: false` (later moved into client wrapper); deploy gate docs for Airy Fact `--secrets-file` + self-test.
+
+## Theme preview bad_token diagnostics (2026-11-06, branch `cursor/theme-preview-bad-token-c73e`)
+
+**Diagnosis:** Live `pictocart.in` / `www` / `nuts-fruits-store` share one vinext build (`x-vinext-build-id`), NS on Cloudflare (not Vercel). `vinext-cloudflare deploy` does not pass `--secrets-file`; GitHub Workers Builds targets wrong account (`newpictocart` / `8ee184…`). Shell-minted HMAC tokens verifying while dashboard tokens 403 ⇒ treat as **APP_SECRET / deployment skew** until proven otherwise (not dual DNS).
+
+**Fix:** `/preview` `data-preview-error` now returns precise reasons (`sig_fail`, `tenant_mismatch`, `expired`, `bad_uuid`, `malformed`, `not_yet_valid`); cron self-test `GET /api/cron/preview-token-self-test` (Bearer `CRON_SECRET`) mint+verifies in-process and can diagnose an external `token`+`tenantId`. Ops: redeploy Worker with production `--secrets-file`, retarget/disable wrong Workers Builds, confirm self-test `mintVerify: ok`.
+
+## Theme editor preview token diagnose + recover (2026-11-06, branch `cursor/theme-preview-bad-token-c73e`)
+
+**Bug:** After CF cutover, Theme Editor still stuck at “Loading 92%” with `/preview` **403**. Coarse `bad_token` hid `sig_fail` vs `tenant_mismatch`. GitHub Workers Builds targets the wrong CF account (no prod deploy). Leftover CHIPS cookies could collide with Lax.
+
+**Fix:** Precise `data-preview-error` (`sig_fail` / `tenant_mismatch` / `expired` / …); cron self-test `GET /api/cron/preview-token-self-test`; mint via `POST /api/theme/preview-token` (route handler) from the canvas; 403 HTML `postMessage` so the editor renews instead of hanging; clear Partitioned cookie before setting Lax; `pnpm deploy:cf:secrets`. Verified live: self-test `mintVerify: ok`; garbage → `sig_fail`; shell-minted nuts-fruits token → 307 + Lax.
+
+## Theme editor preview on Workers (2026-11-06, branch `cursor/theme-editor-preview-cf-c73e`)
+
+**Bug:** Theme Editor stuck at “Loading 92%” with Network **403** on `{slug}.pictocart.in/preview?token=…`, postMessage origin mismatch, and `marketing/creative` **500**.
+
+**Fix:** Bot Fight confirmed off; platform-subdomain `sf_preview` uses **SameSite=Lax** (CHIPS only for custom domains); failed `/preview` returns **403 HTML** with `data-preview-error`; shared `loadSharp()` soft-fail for creative/branding/social/variants. Verified: bad token → 403 `bad_token`; good token → 307 + `SameSite=Lax` + canvas present on follow-up.
+
+## Cloudflare Workers production cutover (2026-11-06, branch `cursor/prod-cf-full-cutover-c73e`)
+
+**ADR-011:** Production frontend origin is **vinext → Cloudflare Workers** (not Pages, not OpenNext-first). Runbook: [DEPLOY_CLOUDFLARE_WORKERS.md](./DEPLOY_CLOUDFLARE_WORKERS.md).
+
+**Shipped (infra):**
+- Zone `pictocart.in` added (Airy Fact); MX/TXT/CAA (Hostinger mail, Resend, Google) imported before NS flip.
+- Worker `pictocart` env set to production: `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN=pictocart.in`, `NEXT_PUBLIC_PLATFORM_URL=https://www.pictocart.in`, `PLATFORM_HOST_ALIASES=pictocartdev.in,www.pictocartdev.in`.
+- Custom Domains: `pictocart.in`, `www.pictocart.in` (plus canary `pictocartdev.in` / `www`).
+- Wildcard: Route `*.pictocart.in/*` + proxied `AAAA * → 100::`; backup routes `pictocart.in/*`, `www.pictocart.in/*`.
+- No `domain-router` routes on the production zone.
+- Crons: Free plan = 0 Cron Triggers → HTTP `CRON_SECRET` against `https://www.pictocart.in/api/cron/*`.
+- Rollback: restore Vercel NS `ns1/ns2.vercel-dns.com` while Vercel domains remain.
+
+**Cutover verified (2026-11-06):** NS → Cloudflare; zone **active**. `www.pictocart.in` / apex `/`, `/login`, `/seller/login`, `/api/health/ready` **200** (`server: cloudflare`, `x-vinext-build-id`). Storefronts e.g. `november-two.pictocart.in` **200**. Redeployed Worker with production `NEXT_PUBLIC_*` baked in; storefront sharp static import soft-failed for Workers.
+
+## Cloudflare Workers vinext canary (2026-11-05, branch `cursor/cloudflare-workers-vinext-c73e`)
+
+**Shipped:**
+- `vinext check` ~93% compatible; `vinext init` (workers-cache + KV data-cache + Cloudflare Images, `--ignore-wrangler-config`).
+- `vite.config.ts`, `cloudflare.config.ts`, scripts `dev:vinext` / `build:vinext` / `deploy:vinext`.
+- Workers adaptations: theme `fetch-guard` without `dns.lookup` (DoH fallback); sharp soft-fail in variants; `workers.dev` host aliases.
+- `pnpm build:vinext` green; temporary-account deploy to `https://pictocart.airy-fact.workers.dev`. Local `vite preview`: `/api/health` + `/login` **200**.
+- Cron Triggers omitted on Free (0 limit); HTTP cron documented.
+- **pictocartdev.in** + **www.pictocartdev.in** mapped as Worker Custom Domains on `pictocart` (Airy Fact). Verified 2026-11-06: `/`, `/login`, `/api/health`, `/api/health/ready` all **200** on both hosts.
+
+## App speed — login measure + Revenue (2026-11-05, branch `cursor/app-speed-login-revenue-c73e`)
+
+**Root cause framing:** DevTools ~12.5s `login` is an outlier; warm admin RSC (~100–200 ms) shows Supabase is not “slow for every API.” Measure first (`docs/OBSERVABILITY.md`); do not claim login fixed without signed-in spans.
+
+**Phase A:** Anonymous prod curl baseline — `www.pictocart.in/login` cold TTFB ~0.69–0.76 s, warm ~0.29–0.38 s; `x-vercel-id` function region **bom1**; public Auth JWKS **ES256+kid**. Signed-in span cells still unknown (no session cookie in agent).
+
+**Phase B:** Signed-in panel users on `/login` / `/seller/login` use **server `redirect()`** + `clearStartDraftCookieServer()` (no client `router.replace` after a full login shell). Region OK; claims dedupe **not** applied without signed-in span proof. Ops: set `OBSERVABILITY_ENABLED=true` or `OBSERVABILITY_LOGIN_SPANS=1` (documented in `.env.example`).
+
+**Phase C (Revenue):** `/admin/revenue` no longer full-table `fetchAll`s tenants/credits/themes or dual-scans orders + `ai_generations`.
+
+- Migration `20261105007100_platform_revenue_speed.sql`: indexes `orders_placed_at_idx`, `ai_generations_created_at_idx`; SECURITY DEFINER `platform_revenue_report(p_from)` (`platform.finance.read`).
+- `getRevenueReport` + wave spans (`admin.revenue.*`); `getPlatformDashboard` timed (`admin.platform_dashboard`).
+- Streams like overview: header + `Suspense` + soft-fail (`revenue-body.tsx`). No Redis on admin (ADR-010).
+
+**Apply migration** before relying on the new Revenue RPC in deployed envs.
+
+**Re-measure (2026-11-05, pre-deploy live):** anonymous `www.pictocart.in/login` warm TTFB still ~0.33–0.37 s, region `bom1`. Signed-in before/after needs Production deploy + `OBSERVABILITY_LOGIN_SPANS=1`. Login **not** claimed fixed for the screenshot 12.5 s case.
+
+## Admin API Observability Center (2026-11-04, branch `cursor/admin-observability-center-c73e`)
+
+**Goal:** Super Admin Performance & Observability Center with sampled, async telemetry (no sync writes on auth/checkout critical path) and evidence-first login investigation.
+
+**Implemented:**
+- Lib: `src/lib/observability/*` (config, request context, sanitize, sampling, thresholds, mergeable histograms, spans, timing, async emit/`after` ingest).
+- Migration `20261104007000_observability_center.sql` — events, endpoint metrics, error groups, alerts/incidents, settings, cleanup RPC; RLS denies merchants.
+- Permissions: `platform.observability.read` / `.manage` (super_admin).
+- Admin UI `/admin/performance/*` — Overview, Live requests, detail+spans, Slow, Errors, Database (app spans), Traces, Insights, Alerts, Settings.
+- Login-path spans + Server-Timing (`proxy.claims`, `session.*`, `sign_in.*`, `landing.*`); `recordRequestEvent` via `after()` from proxy + login observe helpers.
+- Cron `/api/cron/observability` retention cleanup + alert evaluation (soft-fail); emit auto-fingerprints status ≥ 400 and ingest upserts error groups.
+- Docs: `docs/OBSERVABILITY.md` (architecture, env, rollback, optimization **candidates** only — login not claimed fixed without measured before/after).
+
+**Ops:** set `OBSERVABILITY_ENABLED=true`, apply migration, generate traffic; empty states until samples exist.
+
+## Platform PayU + plan online checkout (2026-11-03, branch `cursor/origin-plan-coupons-pay-c73e`)
+
+- **PayU platform gateway:** Admin → Credits economy → Payments can save/test PayU (key, salt, env) in `platform_app_credentials`. Preference: Razorpay → Cashfree → PayU. AI wallet `startPlatformAiCreditCheckout` opens PayU hosted checkout when it is the active gateway.
+- **Webhooks:** `/api/webhooks/platform/payu` (+ existing Razorpay/Cashfree handlers) settle AI purchases **or** plan upgrades by `provider_order_id`.
+- **Plan Pay now:** Seller Plan & billing coupon field + preview; **Pay now** when a platform gateway is configured (else offline request, coupon stored for ops). `startPlatformPlanCheckout` + `complete_plan_request_payment` activate the plan (same entitlement path as admin approve).
+- **Migration `20261103006300_platform_payu_and_plan_payments.sql`:** widens provider checks for `payu`; `plan_requests` columns `coupon_code`, `discount_percent`, `amount_paise`, `provider`, `provider_order_id`, `paid_at`; service_role complete RPC. Coupons validate via `@/features/billing/plan-coupons` (`validatePlanCoupon`).
+- **Admin plan coupons:** migration `20261103006200_platform_plan_coupons.sql` (`platform_plan_coupons`, RLS `platform.plans.manage`); Super Admin UI `/admin/plan-coupons` (create + enable/disable); pure `validatePlanCoupon(coupon, planCode, now)` + schemas/actions/server. Nav under Billing & features next to Plans.
+- **ADR-006** updated: platform gateways cover AI wallet **and** plan upgrades.
+
+
+## React #185 max update depth (2026-11-03, branch `cursor/fix-react-185-update-depth-c73e`)
+
+**Problem (screenshots):** `/dashboard/collections` blank + console React #185; `/dashboard/notifications?tab=preferences` pink “This page couldn't load” with `dashboard.route_error` / Minified React error #185 (maximum update depth).
+
+**Root cause:** `SoundPreferences` used `useSyncExternalStore` with `readSoundPrefs` / `getServerSoundPrefs` that returned a **new object every call**. React treats that as a store change → infinite re-render → #185. Tour overlay `measure()` could also nest layout updates after `scrollIntoView`.
+
+**Fix:**
+- Cache sound-pref snapshots until localStorage actually changes; stable server snapshot; skip identical writes.
+- Tour overlay: only `setState` when geometry changes; mark tour done on any close; `TourErrorBoundary` isolates overlay crashes.
+- Notification list: sync rows by id/readAt signature (not array identity).
+- Shell nav Links use `prefetch={false}` (app-shell-client + SidebarLink) so viewport prefetch does not storm RSC flights; idle allowlist + hover warm remain intentional.
+
+**Verification:** unit tests for snapshot stability + shell-nav `prefetch={false}` source guard; `pnpm check`.
+
+## Dashboard / Admin load resilience (2026-11-03, branch `cursor/dashboard-load-resilience-c73e`)
+
+**Problem:** Slow/timed-out RSC flights (idle nav prefetch storms + monolithic home/notifications awaits) replaced the page slot with pink “This page couldn't load” (`dashboard.route_error`) while OverviewSkeleton tinted cards looked “blank”. ADR-010 still forbids private Redis on dashboard lists.
+
+**Implemented:**
+- **Prefetch throttle:** `AppShellClient` idle-warms only `HEAVY_SELLER_HREFS` / `HEAVY_ADMIN_HREFS` (concurrency ~2; skip hidden / saveData / offline); hover still warms the open submenu. Stable `hrefs.join` deps.
+- **Error boundaries:** shared `PanelRouteError` (retry + reset, network/timeout copy, recover only on click). Wired on seller `dashboard/error.tsx`, admin `(console)/error.tsx`, and root `error.tsx`.
+- **Seller layout:** no longer awaits `getAiCreditCatalog` on the critical path (FAQ credit fallback); `accountAccessFor` already soft-fails (hides Admin switch).
+- **Home:** `getDashboardHome` soft-fails per RPC (`softData` / `softCount`); page streams header first, KPI/panels under Suspense + `OverviewSkeleton`.
+- **Notifications:** soft-fail inbox list + settings templates/email prefs; WhatsApp Graph under Suspense; `maskRecipient` null-safe; dedicated `settings/notifications/loading.tsx`.
+- **Admin overview:** header paints immediately; body Suspense + soft-fail per series (`overview-body.tsx`).
+
+**Verification:** unit tests for prefetch helpers, home soft helpers, route-error copy, `maskRecipient`; `pnpm check`.
+
+## Catalog / Dashboard QA fixes (2026-11-03, branch `cursor/catalog-qa-fixes-c73e`)
+
+**Asks:** Product Type filter = used types only (+ Add on editor); AI Generate photos → Media + product; sticky Status/Save; dashboard “sales last 30 days” copy; CSV import skip reasons + auto-create missing categories.
+
+**Implemented:**
+- `listUsedProductTypes` + products list Type filter from used keys; editor picker via `typesForProductEditor` (used + store + current; industry suggestions when empty) with “+ Create a new type…”.
+- `persistAiProductImagesAction` uploads Apply photos to media library (`folder: products`); attaches to `product_media` when product exists; pending paths attach on create/save.
+- Status card `lg:sticky lg:top-20`; EN/HI `pages.home.last30` → sales window wording.
+- Import: `skippedItems` in preview/apply summaries; `ensureCategoriesBySlug` auto-creates missing category handles; UI CSV limit aligned to 5 MB.
+
+**Verification:** `pnpm check`; unit tests for skip reasons + category title/auto-resolve path.
+
+## Submenu → individual feature pages (2026-11-02, branch `cursor/fix-submenu-feature-links-c73e`)
+
+**Ask:** Features mega-menu items must open `/features/{slug}` (e.g. Drag-and-Drop Builder → `/features/drag-and-drop-builder`), not the hub.
+
+**Implemented:**
+- MegaMenu + MobileNav force `normalizeMegaMenuItemHref` at render; absolute hub URLs rewritten.
+- Solutions Explore links mapped to feature pages via `SOLUTIONS_FEATURE_HREFS` on parse/save.
+- Ops: `supabase/dev/persist-landing-feature-hrefs.mjs` persisted corrected hrefs into `public.marketing.landing`.
+
+**Verification:** `pnpm check`; mega-menu → detail click; CMS raw hrefs are slug routes.
+
+## Feature detail pages + Steps stack (2026-11-02)
+
+**Asks:** Sticky stacking Steps on marketing home + GIF/MP4 landing media (PR1); 28 seeded feature detail pages with CMS + mega-menu links (PR2).
+
+**PR1 (`cursor/marketing-steps-stack-media-c73e`):** Sticky Steps stack + reduced-motion fallback; `mediaKind`/`posterUrl`; platform landing media upload (GIF/MP4) + StepsEditor picker.
+
+**PR2 (`cursor/marketing-feature-pages-c73e`):**
+- Schema + 28 EN seeds in `feature-pages.ts` (`public.marketing.feature_pages`).
+- Routes `/features/[slug]` + CMS-driven hub; mega-menu default hrefs → `/features/{slug}` (Theme Marketplace → `/themes`).
+- `parseLanding` / `validateLanding` rewrite stale CMS hub-only `/features` mega-menu item hrefs to per-feature routes.
+- Admin `/admin/landing/features` editor + `saveFeaturePagesAction` / reset; sitemap includes published slugs.
+- Infographics reuse landing media upload. Docs: `BRAND.md`.
+
+**Verification:** `pnpm check`; smoke mega-menu → detail; admin edit reflects on public page.
+
+## Marketing BWOG palette (2026-11-02, branch `cursor/marketing-bwog-palette-c73e`)
+
+**Ask:** Black / White / Orange / Green on landing + marketing subpages only (60-30-10); leave auth, dashboard, admin, storefronts alone.
+
+**Implemented:**
+- `.theme-marketing` overlay in `globals.css`; applied only on `(marketing)/layout` with `.theme-brand`.
+- Orange money CTAs; charcoal chrome; green success chips (`--brand-success`); indigo/purple hardcodes removed from marketing-site.
+- Auth/onboarding keep base `.theme-brand` indigo. Docs: `BRAND.md`.
+
+**Verification:** `pnpm check`; smoke `/` vs `/seller/login` theme classes.
+
+## Platform root promote to pictocart.in (2026-11-02, branch `cursor/promote-pictocart-root-live-c73e`)
+
+**Ask:** Admin `/admin/stores` and new merchants should use `*.pictocart.in` (full promote, not dual-root).
+
+**Ops applied on `pictocart-u7pf` / `v2pictocart`:**
+- `*.pictocart.in` already verified; env set to `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN=pictocart.in`, `NEXT_PUBLIC_PLATFORM_URL=https://www.pictocart.in`, `PLATFORM_HOST_ALIASES=pictocartdev.in,www.pictocartdev.in`; Production redeployed.
+- Ran `supabase/dev/move-platform-root.sql` → 99 verified `{slug}.pictocart.in` primaries; old `*.pictocartdev.in` rows kept non-primary.
+- Auth Site URL `https://www.pictocart.in`; redirects include `https://*.pictocart.in/**` (+ pictocartdev while aliased).
+- Docs: `DEPLOY_ROOT_PROMOTE.md`; alias doc marked superseded for production.
+
+**Verification:** see promote smoke (admin list / sample storefront / new create).
+
+## Seller onboarding AI polish (2026-11-02, branch `cursor/seller-onboarding-ai-polish-c73e`)
+
+**Asks:** Hide Informative themes publicly; quiz category UX + building theme loader; hide prompt store-setup; 5 default Business Coach tips; Pica2 FAQ generate→confirm Apply + credit kind; seller shell speed.
+
+**Implemented:**
+- Informative filtered from marketing/marketplace/onboarding theme surfaces; site-type Informative soft-hidden (“Coming soon”); live informative tenants unchanged.
+- Start quiz: subcategory copy rename, smart search/Add, multi-select → seeded categories/products; building screen shows selected ThemeDevicePreview + engaging seed progress messages.
+- Dashboard home: `StoreSetupCard` not rendered (action/registry kept). Business Coach shows 5 free EN/HI tips immediately; Get tips/Refresh still uses `business_coach` credits.
+- Pica2: structured FAQ proposal preview + Apply/Dismiss; Apply debits `generate_faq` (Super Admin Actions catalog + migration seed); cost shown on Apply; requires `content.write`.
+- Seller shell: parallel layout fetches, idle nav prefetch, products + Neural Pulse loading skeletons.
+
+**Out of scope / known:** No delete of Informative theme data; no full local-first CRUD for Products/Orders; FAQ Apply is the confirm-pattern first (product/blog apply later).
+
+**Verification:** `pnpm check` (see PR).
+
+## Niche samples + theme imagery polish (2026-10-31, branch `cursor/niche-samples-theme-polish-c73e`)
+
+**Asks:** Unique marketplace Unsplash per theme; niche-relevant sample catalogue from “What do you sell?”; About/Contact hide/typography/⋮; product handle + canonical; smaller PDP thumbs; 5 Sample-prefixed products on store-ready.
+
+**Implemented:**
+- Exclusive hero offsets via `uniqueStockOffset` + expanded POOL + `stock-peers.ts`; ThemeMockup / `themeStockSet` wired.
+- Ready-store seed: subcategory threaded; `products: 5`; niche fallback packs (no gold-thread jutti on fashion/activewear); persist `Sample ` prefix; AI prompt hardened.
+- PageContent `proseSize` sm/md/lg + chrome ⋮ visibility; product slug stays linked to title until handle edited; auto canonical preview; PDP thumbs ~80%.
+
+**Out of scope / known:** Does not re-seed already-live stores; no full CMS per-block TextLook; showcase demo stores unchanged.
+
+**Verification:** `pnpm check` (see PR).
+
+## Theme panel crash harden (2026-10-31, branch `cursor/theme-panel-crash-harden-c73e`)
+
+**Problem (screenshots):** Change design/layout stayed fast; Edit / Settings / Colours correlated with blank “A panel crashed” UI. Console: `dashboard.theme.builder_crash` + `Failed to fetch` + `POST /dashboard/theme ERR_TIMED_OUT`. Size/width showing `0` looked broken but was Theme/Auto.
+
+**Root causes:** (1) One `BuilderErrorBoundary` wrapped all of `SiteBuilder` — any throw (including uncaught `useTransition` network errors) blanked TopBar+canvas. (2) `patchTextLook` Zod `.parse` during every `TextStyleField` render could throw on partial/float input. (3) Slider/colour drag kept dirty → autosave POST storms → timeouts. (4) Preview search `autoFocus` → cross-origin console noise.
+
+**Fixes (Change-design resilience for Edit/Settings/Colours; ADR-010 kept):**
+- Nested region boundaries around PanelHost + CanvasFrame; network-aware fallback copy; try/catch on publish/preview/restore/AI/rename/embeds transitions (toast only).
+- `safePatchTextLook` + Theme/Auto display for size/width 0; defensive `ColorInput`.
+- `holdAutosave` / `useHoldAutosave` pauses idle+max-wait while dragging ranges/colours.
+- Builder preview: search `autoFocus={!sf.preview}`.
+
+**Verification:** `pnpm check` (see PR).
+
+## Theme editor exit guard + Contact path + Footer settings (2026-10-31, branch `cursor/theme-editor-exit-footer-c73e`)
+
+**Root causes:** (1) Exit only had `beforeunload` + one Back `confirm` — no save-then-leave / discard. (2) ADR-010 already owns draft autosave — no IndexedDB op-queue. (3) Contact builder iframe preferred `/contact` even when CMS `/pages/<slug>` (TemplateFrame) existed; `/contact`+`/faq` layouts already wrap `TemplateFrame("page")`. (4) Theme Settings listed Header (`config.header`) but not Footer (`layout.footer` SectionPanel).
+
+**Implemented (extend local-first; no new sync API):**
+- Exit dialog (Yes save / No discard local / Cancel) + `flushDraft` Promise + save-generation discard so in-flight autosave cannot resurrect discarded present; `AUTOSAVE_MAX_WAIT_MS` ~10s; popstate + beforeunload while gated.
+- Contact builder path prefers CMS `/pages/<slug>`; `altPath` = `/contact` for live matching.
+- Theme Settings **Footer** row → `resolveFooterSectionRef` → existing `SectionPanel` (same as Layers).
+
+**Known limitations:** Discard does not undo drafts already acknowledged on the server. CMS article body blocks remain Content-dashboard edits (PageContent marker can hide the whole body). No IndexedDB offline queue. Native unload dialog cannot show custom buttons.
+
+**Verification:** `pnpm check` (see PR).
+
+## Grade A LCP + customizer preview lazy images (2026-10-30, branch `cursor/lcp-canvas-lazy-c73e`)
+
+**Baseline after prior GTmetrix PR (C report):** Perf ~64%, Structure 99%, LCP **7.0s** (remote Unsplash inside `ThemeMockup`), TBT ~56ms. Customizer page switches hard-reload the preview iframe; heroes used `priority={i===0}` so every switch eagerly fetched images.
+
+**Marketing LCP (toward Grade A):**
+- Shipped same-origin `public/theme-previews/contemporary-ethnic-{desktop,phone}.webp` + `theme-previews.json` so `themeShot()` hits; hero `preload()` prefers the local WebP over Unsplash.
+- Large+eager hero: phone `Still` mounts only after idle (~1.5s / `requestIdleCallback`) via `DeferredAfterLcp`; phone chrome shell reserved for CLS.
+- Collage mockup: only `hero[0]` may be eager.
+- Honest ceiling: local LCP + low TBT is the path to LCP &lt;2.5s / Grade A–high B; remaining limits are GA4 + multi-section home (not more Unsplash tuning).
+
+**Customizer page-switch speed (preview only):**
+- `markStorefrontPreview(sf.preview)` in `getRenderContext`; `StoreImage` / `StoreArtImage` force `priority=false` (lazy, no high fetchPriority) and skip Unsplash stock stand-ins when preview.
+- Published storefront LCP unchanged. Soft iframe nav without remount remains a follow-on.
+
+**Verification:** `pnpm check` (see PR).
+
+## Marketing GTmetrix LCP / JS (2026-10-30, branch `cursor/marketing-gtmetrix-perf-c73e`)
+
+**Baseline (pictocartdev.in):** Performance 43%, LCP 8.0s, TBT 401ms, 1.89MB / 66 req. **Root cause:** LCP = Unsplash hero `<img>` inside first `ThemeMockup` (desktop); phone frame was also `fetchPriority=high`; hero slideshow mounted active+next; below-fold theme cards fan-out Unsplash; Inter italic declared unused.
+
+**Fixes (design preserved):**
+- Desktop-only LCP eager/high; phone stays lazy
+- Hero `ThemeMockup` `compact` skips product-rail images; `react-dom` `preload()` of LCP URL
+- Slideshow mounts **active only** until idle, then warms next
+- Themes grid: first 4 cards SSR; rest via `WhenVisible` + `content-visibility`
+- Viewports extracted from client `live-frame`; dynamic `ClickToLive`; Inter italic face dropped
+- Target after deploy: LCP &lt; 2.5s / TBT &lt; 200ms / GTmetrix **B–C** (A not promised while GA4 + multi-section home remain). Remaining: capture `theme-previews.json` WebPs to eliminate Unsplash mockups. **Follow-on:** `cursor/lcp-canvas-lazy-c73e` ships contemporary-ethnic WebP.
+
+**Verification:** `pnpm check` ✅ (155 files / 1864 tests, build).
+
+## Page content chrome + perf + resilience (2026-10-30, branch `cursor/pagecontent-perf-resilience-c73e`)
+
+- **PageContent chrome:** Canvas toolbar matches other sections (Edit · Change design · Settings · Colours · move · ⋮; Duplicate disabled for singleton). Layers always shows Eye + MoreMenu. `listKeyOf` / `SLOT_KEY_RE` treat `.chrome` like `.before`/`.after`. Hide on marker skips `TemplateFrame` children (page body).
+- See also sections below: crash/404 resilience, marketing P0–P1, locked local-first speed model.
+
+## Theme editor crash + storefront 404 resilience (2026-10-30, branch `cursor/pagecontent-perf-resilience-c73e`)
+
+- **Theme editor:** `dashboard/theme/error.tsx` (“Theme editor couldn't load — live store unchanged” + Try again + digest). `BuilderErrorBoundary` wraps `SiteBuilder` so panel crashes stay on the theme route. Soft-fail null UI from `getBuilderData` unchanged. Dashboard `error.tsx` logs digest.
+- **Storefront 404 status:** Removed `store/[host]/loading.tsx` and loadings that wrapped slug `notFound()` (`products/[slug]`, `collections`, `categories`) so the response does not stream a Suspense fallback (HTTP 200) before `notFound()`. Nav feedback remains via `RouteProgress`; `search/loading.tsx` kept (no slug 404).
+- **SEO:** `store/[host]/not-found.tsx` exports `robots: noindex`. Missing product/collection/category/page slugs return `robots: { index: false }` from `generateMetadata`. Themed `store/[host]/error.tsx` retry UI.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **155 files / 1864 tests**, build).
+
+## Marketing homepage perf P0–P1 (2026-10-30, branch `cursor/pagecontent-perf-resilience-c73e`)
+
+Target GTmetrix **C–B** (not Grade A). Storefront font rendering unchanged.
+
+- **LCP Photo:** `ThemeMockup` `Photo` honors `eager` → `loading="eager"` + `fetchPriority="high"` (hero only); threaded from `ThemeDevicePreview` / Still.
+- **Hero slideshow:** mounts active + next slide only; active slide is `relative` for frame height.
+- **Fonts:** `storefrontFontVariables` removed from root `layout.tsx`; applied on storefront `data-sf-root` only. Marketing mockups use Inter/system stacks (no `FONT_STACKS` CSS vars).
+- **GA:** `PlatformAnalytics` Scripts use `strategy="lazyOnload"`.
+- **JS weight:** dynamic `PricingTable` (below-fold); dynamic `LiveFrame` so home `ThemeCard` does not pull live-iframe code.
+
+## Customizer speed model (locked) (2026-10-30, branch `cursor/pagecontent-perf-resilience-c73e`)
+
+Locked local-first contract for the theme site builder (no private draft Redis / job queues — ADR-010):
+
+- **Edit → canvas:** `apply()` in `context.tsx` is synchronous history dispatch only (stable `presentRef` callback). Colour / slider / text edits paint the canvas on the next React commit; canvas never awaits draft save.
+- **Save draft / autosave:** Manual Save and ~2.5s idle autosave (`autosave.ts` + `top-bar.tsx`) run via `startSave` / fire-and-forget. They mark dirty clear after success; they are never awaited inside `apply()`.
+- **Publish:** Explicit Publish only; blocked while dirty. `publishThemeAction` calls `revalidateStorefront` (public storefront tags / Redis L2) — never caches or queues private drafts.
+- **Audit (this branch):** `context.tsx` / `autosave.ts` / `top-bar.tsx` match the contract; no draft-before-paint regression.
+
+## Customizer UX fixes (2026-10-30, branch `cursor/customizer-ux-fixes-c73e`)
+
+Screenshot-driven follow-on to Theme Customizer Master (A2 text everywhere · B1 Customize = open page).
+
+- **Eyebrow colour:** Hero `!text-current` gated via `textCurrentClass(look)` so set `eyebrowLook.color` wins; framed-hero CSS no longer `!important` on eyebrow.
+- **Text styles (A2):** Shared `headingFields` / `headingEditor` carry `eyebrowLook` / `headingLook` / `subheadingLook`; `SectionIntro` + `hpLooks` wire home + page section renderers (ContactInfo, BlogPosts, Gallery, Team, CallToAction, RichText, ProductGrid, etc.).
+- **Pages ⋮:** **Customize** selects the page (same as row click). **Change layout** for theme pages (`applyPageTemplate`), Home (`HOME_LAYOUT_PACKS` → `templates.home`), Contact/FAQ/content (`templates.page`), Blog (`templates.blog`).
+- **Speed:** local `apply()` → canvas; Save draft / idle autosave; Publish → `revalidateStorefront` only (ADR-010). Stable `apply` identity.
+- **Onboarding `/start/theme`:** left vertical theme list + right `ThemeMockup`; **Click to Preview** opens `themePreviewHref` in a new tab.
+- **Tests:** `site-builder-apply-builtin-layout`, text-style / autosave extensions.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **155 files / 1864 tests**, build).
+
+## Theme Customizer Master (2026-10-30, branch `cursor/theme-customizer-master-c73e`)
+
+Phased customizer depth: local-first edit paint, per-text looks, apply-layout packs on existing pages, shop/Members chrome packs, 4 popup layouts, Hindi+English fonts, negative section margin, Preset/Colours colour search. **Redis stays published/public only** (ADR-010) — draft editor never hits Redis; Publish continues to call `revalidateStorefront` → public tag/Redis invalidation only.
+
+- **Phase 0 — Stability + speed:** Members Login/Signup/Reset no longer seed account → EmptySlotInsert white band on marketplace apply (`apply.ts` account chrome seed). Pages panel dedupes product-list vs collections; canvas busy filter ignores before-tag shimmer. Local `apply()` → canvas remains non-blocking; draft autosave unchanged.
+- **Phase 1 — Per-text:** Canvas `textSelect` focuses matching `TextStyleField` (`textRole` in section panel). Hero `eyebrowLook`; `headingLook` / `subheadingLook` stay independent. Text looks rolled onto ProductGrid / BrandStory / FAQ / CTA. `fontKey` accepts concrete `FONT_KEYS` (unknown → default).
+- **Phase 2 — Pages layouts:** `applyPageTemplate` replaces section list on an open custom page (title/handle preserved). Pages panel **Change layout** packs reuse Add-page wireframe families when a custom page is selected.
+- **Phase 3 — Chrome + popups:** `PageContent.chrome` — 5 packs (`classic` | `sidebar` | `minimal` | `editorial` | `dense`) for product list / PDP / search / collections / cart. Members `accountPack` (image-left/right, stacked, minimal, brand-panel) + lifestyle media. Popups: 4th layout `corner` + Change-design cards.
+- **Phase 4 — Fonts / space / colour:** Self-hosted Noto Sans Devanagari + Hind (`@fontsource*`, ADR-019). `SECTION_BOX_LIMITS.space.min = -80` (padding ≥ 0). Preset + Colours filter via `filterPalettes` (name, hex, near-match).
+- **Tests:** `theme-page-chrome`, `site-builder-apply-page-template`, plus extensions to text-style / section-box / logo-fonts / theme / pages. QA catalog phases **M0–M4** in `docs/THEME_CUSTOMIZER_QA.md` + `scripts/dev/theme-customizer-qa/checklist.ts`.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **154 files / 1837 tests**, build).
+
+## Seller login harden (2026-10-30, branch `cursor/seller-login-harden-c73e`)
+
+- **Bug:** `/seller/login` (and shared `/login`) could take a long time after theme-marketplace growth, then fall into `(auth)/error.tsx` (“Something went wrong” / Try again) — screenshot from pictocartdev.in. Document GETs often still 200 when warm; cold paths paid for the full marketplace catalogue.
+- **Cause:** `MerchantAside` imported `MARKETPLACE_THEMES` + `ThemeMockup` (196 presets + layouts + Unsplash stock) for a decorative preview that was already hidden below ~1024px viewport height. Google availability also blocked first paint (`googleSignInAvailable` + optional GIS client id).
+- **Fix:** Drop ThemeMockup/catalogue from auth asides; stream Google behind `Suspense` (`GoogleSignInSlot` / `resolveGoogleSignInMode` fail-soft); wrap `SharedSignInPage` so unexpected errors still render the email form; auth `loading.tsx` shell; `(auth)/error.tsx` accepts `retry` or `reset`.
+- **Tests:** `tests/unit/auth/google-sign-in-slot.test.ts`.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **152 files / 1783 tests**, build).
+
+## Theme pages + popups (Phase E) (2026-10-29, branch `cursor/theme-pages-popups-c73e`)
+
+- **Add-page starters:** four layouts each for About, Contact, FAQ, Blog index, and Blog detail (`page-templates.ts` families + grouped Add-page picker). Other layouts (Collection, Gallery, Privacy, Shop, Team, Why Us, Blank) kept under “More layouts”.
+- **eCommerce / Members panel depth:** default theme seeds invisible `PageContent` markers on collection / product / collectionList / page / blog / search / cart / account templates; PageContent uses the same Edit · Change design · Settings · Colours chrome as Home (Edit explains the marker). Builtin info dialog points sellers at Layers / canvas sections.
+- **Popups:** `contentType: "newsletter" | "form"` on `popupSchema` (legacy `newsletter` boolean kept). Form shape: `form.fields[]` (`text` | `email` | `phone` | `textarea` | `select` | `radio` | `checkbox`, `required`, `options`), `submitLabel`, `successMessage`. Popup panel UI + storefront renderer; submissions via `submitPopupFormAction` → `submit_contact_message` / contact email pipeline.
+- **Out of scope here:** autosave, per-text drag-resize (other agents).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **147 files / 1747 tests**, build).
+_Last updated: 2026-10-29 (Theme local-first save) · 2026-10-29 (Hero toggle preserve) · 2026-10-29 (Quiz Continue URL sync) · 2026-10-29 (Login stay on form) · 2026-10-29 (Stuck Login/Start same-tab) · 2026-10-29 (Login vs start resume) · 2026-10-29 (Onboarding logout / online-only) · 2026-10-29 (Onboarding QA master) · 2026-10-28 (OTP/logout/onboarding UX) · 2026-10-28 (Onboarding UI polish v2) · 2026-10-28 (Login /start link + delete user/store) · 2026-10-28 (Seller AI reviews insert + product Omni vision) · 2026-10-28 (Seller AI admin UX suite) · 2026-10-28 (AI Credits Wallet page) · 2026-10-28 (platform Razorpay/Cashfree for AI wallet) · 2026-10-28 (AI credit one-time codes) · 2026-10-28 (seller guided tours + English/Hindi panel) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+## Theme site builder: local-first save / publish (2026-10-29, branch `cursor/theme-local-first-save-c73e`)
+
+- **Flow:** edit local (`apply()` → canvas) → Save draft (manual + ~2.5s idle autosave) → Publish live. Publish stays blocked while dirty. Canvas never waits on draft save.
+- **Autosave:** `AUTOSAVE_IDLE_MS` after idle when dirty; skipped while saving or on stale-draft conflict. Manual Save draft unchanged.
+- **Conflict:** `baseUpdatedAt` / `CONFLICT` → toast with Reload or Save anyway (`force`).
+- **Publish UX:** `useTransition` + pending toast; dialog closes immediately; still calls `publish_theme` RPC (no queue).
+- **Tests:** `tests/unit/site-builder-autosave.test.ts` (debounce gate, dirty helpers).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **147 files / 1682 tests**, build).
+
+## Hero / slideshow group toggle preserves content (2026-10-29, branch `cursor/hero-toggle-preserve-c73e`)
+
+- **Bug (Phase A1):** Item editor Off for Title / Description / Media / Actions called `clearGroup`, wiping merchant strings and media. Turning On could not restore them.
+- **Fix:** Off sets per-slide `showTitle` / `showDescription` / `showMedia` / `showActions` / `showSubtitle` (defaults true). Content stays on the slide; Hero renderers (`designs-a`, `variants`, overlay in `sections`) hide groups when the flag is false.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **146 files / 1677 tests**, build).
+
+## Quiz Continue URL sync (2026-10-29, branch `cursor/quiz-continue-url-sync-c73e`)
+
+- **Bug:** Finishing the quiz (`setDraft(screen: "theme")`) without `replaceStepUrl` left pathname at `/start/quiz`. URL sync then **re-adopted** `quiz` into the draft — Continue looked stuck on city (Q4). CSP `eval` in DevTools is unrelated (app CSP is frame-ancestors only).
+- **Fix:** Adopt URL → draft only on `popstate` (Back/Forward); otherwise always push URL from draft. Quiz finish also calls `replaceStepUrl("theme")`.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **145 files / 1673 tests**, build).
+
+## Login stay on form (2026-10-29, branch `cursor/login-stay-on-form-c73e`)
+
+- **Bug:** Signed-in no-store sessions hitting `/seller/login` cleared the draft then `router.replace("/start")` → `/start/lang`, so marketing Login never showed the form.
+- **Fix:** Auto-redirect from Login only to `/dashboard` or `/admin`. No-store stays on the sign-in UI (banner: continue `/start` or sign out). Marketing + mobile Login use hard `<a href>`.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **145 files / 1673 tests**, build).
+
+## Stuck Login / Start same-tab (2026-10-29, branch `cursor/fix-stuck-login-start-c73e`)
+
+- **Draft cache:** `clearStartDraftStorage` bumps a storage epoch so module `clientSnapshot` reloads from LS even with no React subscribers (Login soft-nav unmount race).
+- **Signed-in Login:** no server redirect before clear — `ClearStartDraftOnLogin` clears then `router.replace(landing)`.
+- **Shell Sign in:** hard `<a href="/login">` to avoid URL-sync fighting soft nav.
+- **URL sync:** ignore replace when pathname leaves `/start`; programmatic pending path; Back/Forward adopts step into draft.
+- **Progress:** `draftHasProgress` needs real fields (not `screen !== "lang"`) so empty deep-links after clear+Back do not re-cookie or trap sellers.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **145 files / 1673 tests**, build).
+
+## Login vs start resume (2026-10-29, branch `cursor/login-vs-start-resume-c73e`)
+
+- **Login clears draft:** `/login` and `/seller/login` mount `ClearStartDraftOnLogin` → `clearStartDraftStorage()` (LS + `pc_start_draft` cookie). Login intent abandons the wizard; Start Free / `/start` still resumes if a draft exists.
+- **Landing:** `landingFor` ignores `/start`, `/start/*`, and `/onboarding` for store owners → `/dashboard` (staff → `/admin`). Unit coverage in `tests/unit/auth/role-routing.test.ts`.
+- **Step URLs:** `lang | path | quiz | voice | business | theme | account | building | done` (`src/features/start/steps.ts`). Bare `/start` → `/start/lang` (query preserved); invalid legacy ids → `/start/lang`. `[step]` shares `StartPageContent`.
+- **Client:** `StartJourney` `initialStep` + `go()`/`draft.screen` → `router.replace(/start/${screen})`; LS progress resumes over URL; empty draft adopts URL step.
+- **Shell:** “Already have an account? Sign in” → `/login` (triggers clear).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **144 files / 1671 tests**, build).
+
+## Onboarding logout / online-only (2026-10-29, branch `cursor/onboarding-logout-online-only-c73e`)
+
+- **No-store landing:** authenticated users with no store land on `/start` (not `/onboarding`); removes `/start`↔`/onboarding` bounce loop.
+- **Informative sites:** `NEXT_PUBLIC_INFORMATIVE_SITES_ENABLED` defaults **off** (quiz + settings gated).
+- **Sign out:** shared `SignOutButton` with pending UI; popover content is submit-safe (forms work inside popovers).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **143 files / 1667 tests**, build).
+
+## Onboarding QA master (2026-10-29, branch `cursor/onboarding-qa-master-c73e`)
+
+- **Header:** logo left · progress center (step + %) · voice + language right; Done shows 100% Complete.
+- **Languages:** only `en-IN` / `hi-IN` selectable (`START_UI_LOCALES`).
+- **Path:** Voice gated by `NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED` (default off) → Coming Soon; quiz `ListChecks` icon.
+- **Quiz:** tagline step removed (5 questions); category search; multi-sub + custom keyword; Informational Website rename + icons.
+- **Done:** removed Try another look + journey timeline; capped LivePreview.
+- **Stability:** sync legacy screen remap (no empty white shell); `modeAfterThemeApply` preserves informative.
+- **Verification:** `pnpm check` ✅ prior to polish commit; typecheck after stability fixes.
+
+## OTP 6-digit + logout + Done→dashboard + onboarding nav (2026-10-28, branch `cursor/otp-logout-onboarding-c73e`)
+
+- **OTP:** App locks UI boxes + verify schemas to exactly **6** digits (`CODE_LENGTH` / `/^\d{6}$/`). Hosted Supabase Auth → Email → **Email OTP Length** must be **6** or emails still mint longer codes.
+- **Hosted fix (2026-10-28):** project `ugbjlpdhktrlkyuijkfc` (`v2pictocart`) had `mailer_otp_length=8` (root cause of 8-digit Resend emails). Patched via Management API to **`mailer_otp_length=6`**; `admin.generateLink` probe returned a **6-digit** `email_otp`. New Pictocart + store sign-in emails should show 6 digits.
+- **Logout:** `signOutAction` uses `{ scope: "local" }` so seller/admin sign-out no longer waits on global revoke.
+- **Done → Dashboard:** hard `location.assign("/dashboard")` with `leavingDone` gate; clears draft after leave so empty-draft redirect cannot send merchants back to `/start`.
+- **Draft / chrome:** clear `pc_start_draft` cookie on Done; Back/Continue sit under forms (header Back near logo removed).
+- **Verification:** `pnpm check` ✅ (143 files / 1667 tests). PR #54 merged.
+
+## Onboarding UI polish (2026-10-28, branch `cursor/onboarding-ui-polish-c73e`, PR #53)
+
+- **Theme (step 4):** Accent colour picker removed. Large live preview dominates; theme cards sit in a horizontal scroller under the preview (no side accent row).
+- **Account (step 5):** Centered simple signup/sign-in card (logo, Create Your Store, Google, email → Submit). Enriched OTP (inbox headline, 6 boxes, Didn't get it? / Resend, Verify OTP, change email). Split live-preview column and password-first form removed from this step.
+- **Done:** Left info rail (live badge, URL copy, WhatsApp, dashboard) + full-width hero storefront preview; bottom journey strip with engaging step blurbs (Language → Mode → Business → Theme → Account).
+- **Verification:** `pnpm check` (see latest commit).
+
+## Seller AI reviews insert + product Omni vision (2026-10-28, branch `cursor/seller-ai-reviews-product-fix-c73e`)
+
+- **AI Reviews:** LLM succeeded but insert hit RLS — `reviews` had no INSERT policy. Migration `20261028005100_reviews_insert_groq_model.sql` adds `reviews_staff_insert` (`reviews.moderate`). Insert failure after generate now refunds credits.
+- **Product Generate:** Photos forced a swap from working Nemotron Omni to `meta/llama-3.2-11b-vision-instruct` (HTTP 400) because `isNvidiaVisionModel` missed `omni`. Omni is treated as vision-capable; photos stay on the same model as Blog AI. True text-only NVIDIA models still swap to Llama vision.
+- **Groq:** Default + route backfill `llama-3.3-70b-versatile` → `openai/gpt-oss-120b` (retired id was HTTP 404).
+- **Verification:** `pnpm check` ✅. Hosted migration `05100` applied on `ugbjlpdhktrlkyuijkfc`.
+
+## Seller AI usable-answer fix (2026-10-28, branch `cursor/seller-ai-usable-answer-fix-c73e`)
+
+- **Root cause (hosted):** Product Generate was routed Gemini-only; Gemini returned **HTTP 403**, so every attempt refunded with `All AI providers failed: gemini: HTTP 403`. AI Reviews used NVIDIA with no fallback and occasionally hit **HTTP 503**. The UI “Write” step is only the progress timer — the LLM call failed.
+- **Hosted repair:** `generate_product` → NVIDIA primary + Groq fallback; `generate_reviews` → Groq fallback. Migration `20261028005000_seller_ai_route_fallbacks.sql` repairs Gemini-only product routes and null review fallbacks on other hosts.
+- **Code:** `routeProviders` appends the rest of the platform provider order after the Admin route so a dead key cannot hard-fail when another key works. NVIDIA text calls request `response_format: json_object`. Friendlier seller errors for 403/503/404. Coerce `priceMinor` / review `rating` from string JSON.
+- **Ops note:** Gemini credential still returns 403 — rotate/fix in Admin → Social apps. NVIDIA is working for blog/agent.
+- **Verification:** `pnpm check` ✅. Hosted migration `05000` applied on `ugbjlpdhktrlkyuijkfc`.
+
+## Seller AI admin UX suite (2026-10-28, branch `cursor/seller-ai-admin-ux-c73e`, PR #47)
+
+- **Shared progress:** `AiGenerationProgress` used by product Generate with AI, store build, AI Reviews, and Blog AI Write (steps + clearer failure copy).
+- **Product Generate with AI:** multi-image polish; NVIDIA primary + Gemini fallback seed (`20261028004900_generate_product_gemini_fallback.sql`).
+- **Build store from prompt:** dashboard card creates categories, draft products, blogs, and pending reviews in the current store (no theme apply). Progress UI; plan product-limit check before debit; refunds on failure.
+- **Reviews:** Dashboard → Reviews → **Generate AI Reviews** modal (product, count 3/5, positive tone) → `generateReviewsAction` / `generateJson` (`generate_reviews`) → pending `source=import` rows. Migration `20261028004800_generate_reviews.sql` (kind, 5 credits, NVIDIA route).
+- **Blog:** `BlogAiWrite` shows `AiGenerationProgress`; cover/hero **Generate with AI** searches Unsplash (`listUnsplashAction` / import) by title/topic with auto-pick or picker; manual upload kept. `saveDocumentAction` accepts `coverPath` from the library import.
+- **Admin → Users list:** row menu exposes Make/Remove super admin, Add customer, Reset / temporary password, Delete (same rules as user detail).
+- **Admin live search:** debounced filters on Users and Stores lists (no full page reload per keystroke).
+- **Hosted:** `04800` + `04900` applied on `ugbjlpdhktrlkyuijkfc` (2026-10-28; `04300` / `04700` already present). NVIDIA NIM + Unsplash keys required in Admin for generation / covers.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **140 files / 1,648 tests**, build).
+
+## AI Credits Wallet page (2026-10-28, branch `cursor/ai-wallet-sales-gateways-c73e`)
+
+- **Route** `/dashboard/wallet` (`marketing.read`; recharge / OTC need `billing.manage`): header with Use one-time code + Recharge; StatCards for Balance, Money saved (ledger minutes × `ai_credit_settings.freelancer_hourly`, else ₹0), Time saved; credit ledger activity + purchase history; OTC modal wired to `redeemAiCreditCodeAction`; recharge slide-over via `AiCreditBuyPanel` / `BuyCreditsDialog` (packs, custom, promo; online gateway when configured).
+- **Retargets:** topbar credit badge, home `AiWalletCard` Recharge / activity, Settings sidebar + Settings centre nav (“AI Wallet”) → `/dashboard/wallet`.
+- **Neural Pulse:** studio tabs kept; bolted `#credits` panel replaced with `AiWalletLinkBanner` link to the wallet.
+- **Code:** `src/app/dashboard/wallet/page.tsx`, `src/features/ai-credits/wallet-ui.tsx`.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **139 files / 1,637 tests**, build). PR #45. Hosted: `20261028004500` + `20261028004600` applied on `ugbjlpdhktrlkyuijkfc`.
+
+## Platform AI wallet payment gateways (2026-10-28, branch `cursor/ai-wallet-sales-gateways-c73e`)
+
+- **Admin → Credits economy → Payments:** Super Admin saves + tests **Razorpay** (key id, secret, webhook secret) and **Cashfree** (app id, secret, env) for AI credit recharge. Encrypted in `platform_app_credentials` (providers `razorpay` / `cashfree`); not `tenant_integrations`. Razorpay is preferred when both are set.
+- **Seller buy path:** when a platform gateway is configured and the seller chooses online, `requestAiCreditPurchaseAction` creates the purchase request, opens a Razorpay/Cashfree order via existing helpers in `features/payments/{razorpay,cashfree}.ts` with **platform** creds, and returns a checkout payload. Otherwise the offline / manual-approve request flow is unchanged.
+- **Webhooks:** `/api/webhooks/platform/razorpay` and `/api/webhooks/platform/cashfree` verify with platform secrets, then `complete_ai_credit_purchase_payment` (same ledger effect as `decide_ai_credit_purchase` approve).
+- **Migration `20261028004600_platform_ai_payment_gateways.sql` (applied on hosted):** widens `platform_app_credentials` provider check; adds `provider` + `provider_order_id` on `ai_credit_purchase_requests`; service_role-only complete RPC. ADR-006 notes gateway secrets are for AI wallet only.
+
+## AI credit one-time codes (2026-10-28, branch `cursor/ai-wallet-sales-gateways-c73e`)
+
+- **Migration `20261028004500_ai_credit_one_time_codes.sql`:** table `ai_credit_one_time_codes` (SHA-256 hash + last4 only; statuses unused/redeemed/revoked); platform RPCs create/list/revoke; seller `redeem_ai_credit_code` under `billing.manage` → ledger kind `otc_redeem` + balance. Widens `ai_credit_ledger_kind_check`.
+- **Admin** `/admin/ai-credits`: Generate code (plaintext once), codes table (code/credits/status/used by/created), revoke unused.
+- **Seller:** `redeemAiCreditCodeAction` + schemas in `features/ai-credits`; wallet `/dashboard/wallet` redeems via the same action.
+- **Tests:** `tests/unit/ai-credits/otc.test.ts`.
+
+## NVIDIA Nemotron Omni defaults (2026-10-28, branch `cursor/nvidia-pica2-notif-sounds-c73e`)
+
+- **In-process defaults** (`neural-pulse/server/llm.ts`): text `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`; vision (when photos + text-only route) `meta/llama-3.2-11b-vision-instruct`. Keeps `/no_think`, `<think>` strip, 60 s timeout. `extractJson` hardened (think/fence/array, reply preview); NVIDIA parse failures tagged `NVIDIA parse failure: …` in `LlmError.failures`.
+- **AI Health seeds** (migration `20261028004700_nvidia_seller_ai_default_routes.sql`): inserts NVIDIA primary routes for `generate_product`, `generate_blog`, `store_agent`, `contact_reply`, `business_coach` when unset (`on conflict do nothing`). Registry: `SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS`. `generate_product` seeds Gemini (`gemini-3.8-flash`) as fallback; Groq stays in the platform order when the route is off. Migration `20261028004900_generate_product_gemini_fallback.sql` backfills that fallback on hosts that already applied 04700 with a null fallback.
+- **Hosted:** `04300` / `04700` / `04900` applied on `ugbjlpdhktrlkyuijkfc` (NVIDIA provider + seller AI default routes + Gemini fallback).
+- Product Generate with AI + Blog AI Write stay on `runSellerAiGeneration` → `orderForImages` + credits.
+
+## Seller AI on NVIDIA NIM + store assistant (2026-10-28, branch `claude/dreamy-raman-b1149f`)
+
+- **NVIDIA NIM (Nemotron) provider** in the LLM layer (`neural-pulse/server/llm.ts`): OpenAI-compatible `integrate.api.nvidia.com/v1/chat/completions`, Bearer key, `/no_think` for Nemotron reasoning models, `<think>` blocks stripped, 60 s timeout, photos sent as `image_url` data URIs to `meta/llama-3.2-11b-vision-instruct` when the routed model is text-only. Default text model `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`. Key in **Admin → Social apps → NVIDIA NIM** (encrypted, like the other AI keys) or the `NVIDIA_API_KEY` env var. NVIDIA is first in the platform order and selectable per feature in **Admin → AI Health** (routes, prices, Test). New routes default to NVIDIA.
+- **Generate with AI** (product form): photo + hint → title, short + long description, suggested price (paise), tags, category/type (picked from the store's own categories and product types), SEO title/description. Preview shows every field; Apply fills the form and everything stays editable.
+- **Blog AI Write**: unchanged flow, verified end to end (topic → title, excerpt, tags, SEO, content blocks).
+- **Dashboard home**: AI credits wallet card (balance, credits used and time saved over 30 days from the store's ledger and `ai_credit_action_costs.minutes_saved`, Recharge / View activity → `/dashboard/wallet`); **Set up your store from a prompt** (description + up to 8 product names with optional photos → 2–5 categories and draft products in THIS store, optional best-fit marketplace theme applied to the theme DRAFT; respects the plan's product limit before spending credits; refunds on failure); **AI Business Coach** checklist from real metrics, top sellers, low stock and pending setup, written in the panel language (`pc_lang`, English / Hindi).
+- **AI Credits Wallet** (`/dashboard/wallet`): see dedicated section above (nav retargets + Neural Pulse banner).
+- **Pica2 AI Assistant** (store agent chat): floating “Pica2 AI Assistant” button (seller dashboard, `analytics.read`); taller/wider panel (`min(85dvh)` / `sm:w min(32rem)`). Each question re-reads the store's data with the seller's RLS session (dashboard home + up to 40 products, categories, plan/trial, low stock, recent-order + fulfilment summary), answers in the panel language with growth-oriented tips, and returns up to 3 links chosen by key from a `/dashboard` whitelist (`AGENT_LINKS`). Snapshot soft-capped at 8k chars. 1 credit per question, 60 questions/store/day.
+- All seller AI calls are server actions (`runAction` + `parseInput` + membership permission); keys never reach the client; failures/timeouts refund credits and show a friendly message.
+- **Migration `20261028004300_nvidia_provider_store_agent.sql` (applied on hosted):** widens the `platform_app_credentials`, `ai_feature_routes` (primary/fallback) and `ai_model_prices` provider checks to include `nvidia`, adds `store_agent` / `store_setup` to `ai_generations_kind_check`, seeds their credit costs (1 and 10).
+- Tests: `tests/unit/seller-ai/seller-ai-suite.test.ts` (NVIDIA request/response, fallback, vision ordering, prompts + language, agent link whitelist, coach/setup parsing, slugs, snapshot, wallet).
+
+## My Profile pages + Admin ⇄ Seller panel switch (2026-10-28, branch `claude/dreamy-raman-b1149f`)
+
+- **Seller My Profile** `/dashboard/profile`: header (initial avatar, name, email, role badge, Store Live / draft, member since), Personal information (name + phone on the person's own `profiles` row; email read-only), Store overview (name, category from `stores.category_id`, storefront URL, created), Subscription (current plan + status, live trial-expiry countdown, plan comparison cards, upgrade → Settings → Plan), Partner connection (store's `partner_referrals` row, ADR-006 addition), Security (change password with the person's own session, 5/hour), Data & privacy: JSON export (`/dashboard/profile/export`, own data only, RLS session, 10/hour) and a deletion request (audited `account.deletion_requested` at platform + store level, confirmation email; a super admin completes it from Admin → Users). Strings in the `profile` i18n namespace (English + Hindi).
+- **Admin Profile** `/admin/profile`: Super Admin badge, platform totals (users, stores, orders, products), personal information, change password, session information (user id, last sign-in, providers, email verified, from `auth.getUser()`).
+- **Sidebar footer + account menu** in both panels: My Profile; and, only for platform staff who also belong to a store (`canSwitchPanels`), **Admin Panel** (dashboard → `/admin`) / **Seller Dashboard** (console → `/dashboard`). The console sidebar footer also gained a Sign out button.
+- Code: `features/account/{schemas,server,actions,components}.ts(x)`, `components/app-shell/sidebar-link.tsx`. Tests: `tests/unit/account/account.test.ts` (countdown, profile/password schemas, export shape, avatar initial, panel switch rule). No migration.
+
+## One sign-in page + Admin → Users actions (2026-10-28, branch `claude/dreamy-raman-b1149f`)
+
+- **One login URL** (ADR-040): `/login` is the shared page for sellers and platform staff (email code, password, Google). `/seller/login` renders the same page (no redirect: the old `/login → /seller/login` 308 is cached by browsers); `/admin/login` 307-redirects to `/login?next=…`.
+  - The account decides the panel (`lib/auth/role-routing.ts`, pure): active platform membership → `/admin`, store member → `/dashboard`, else `/onboarding`. A requested `?next` is honoured only when the account can use that panel (a seller asking for `/admin/*` lands on the dashboard; no console is revealed).
+  - Password, email code (OTP), Google redirect + Google Identity Services, and the `/auth/callback` / `/auth/confirm` email links all go through `landingPathFor(userId, next)`; flows no longer bake in `/dashboard`. Rate limits, email confirmation and the no-enumeration messages are unchanged. Sign-out goes to `/login`.
+- **Admin → Users → user detail** gains: Make super admin / Remove super admin (RLS session on `platform_memberships`; the last-super-admin DB guard still applies), Add customer role (shopper record in a chosen store, linked to the account), Temporary password (generated, shown once, never logged), and Delete user (type `DELETE`; deletes the stores the person owns alone, keeps shared ones, then the auth user; audited at platform level so the entry survives). Rules are pure in `features/platform-users/rules.ts`; the server re-reads the target before every write. Credential, role and delete actions are super-admin only; platform staff and your own account are never targets (except the super-admin grant/revoke pair).
+- **Tests:** `tests/unit/auth/role-routing.test.ts`, `tests/unit/platform-users/rules.test.ts`.
+- **Not done:** files in Storage of a deleted store are not removed (rows cascade; objects stay until a cleanup job exists).
+
+## Seller panel: guided tours + English / Hindi (2026-10-28, branch `claude/seller-tour-i18n-1bacef`)
+
+- **Guided tours (coach marks)** like the old app: the page is dimmed, the element is ringed, and a popover shows a title, short text, "1 of N", Back, Next / Got it and ×.
+  - Tours are data: `features/dashboard-ui/tours/routes.ts` (path → tour), `steps.ts` (steps → `data-tour` ids) and `text/<locale>.ts` (title and text).
+  - 20 pages: home, products list / new / edit, orders list / detail, categories, collections, inventory, settings general, payments, shipping & COD, checkout, domains, SEO, team, theme marketplace, theme editor, coupons and social.
+  - Auto-starts on a seller's first visit to a page (remembered per page in `localStorage` as `pc_tour_done:<tour>`; storage errors are ignored), but not during a super-admin support sign-in. The topbar **?** button ("Take the tour") replays it.
+  - A step whose target is missing or hidden (permissions, empty states, phone layout) is skipped. If no target appears within 15 s (the page may still be streaming), an auto-started tour closes quietly and isn't marked done.
+  - Keyboard: Esc closes, ← → move, Tab stays in the popover, and focus returns afterwards. It's a `role="dialog"` with a polite live step count, docks as a bottom sheet under 640 px, and uses panel tokens, so it works in dark mode.
+  - Bundle: only `routes.ts` and the small launcher are always loaded. The overlay and steps load through `next/dynamic` (`ssr: false`) when a tour runs, and each language's text is its own chunk.
+  - Shared hooks: `PageHeader` (`page-header` / `page-actions`), `Table` (`table`), `EmptyState` (`empty`), `FilterBar` (`filters`), `SettingsNav`, and `Card`'s new `tour` prop. No restyling.
+- **Language (English default, Hindi):**
+  - The choice is kept in cookie `pc_lang`, with no DB column or migration (`lib/i18n/config.ts`, `parseLocale`).
+  - Server components read it with `getI18n()` (`lib/i18n/server.ts`, which returns `{ locale, m, t }`). Dictionaries are typed objects (`lib/i18n/messages/{en,hi}.ts`, `hi: Messages`), and `t()` takes dotted keys with `{placeholders}`.
+  - Switcher: the account menu and Settings → General. It writes the cookie, then calls `router.refresh()`.
+  - Translated: the sidebar nav (groups keep their English `id` for DOM ids; items keep `alt` so ⌘K finds "Orders" in Hindi), the settings menu, topbar / shell labels, breadcrumbs, the account menu, trial / suspended banners, the main page headers, and all tour text. The panel root gets `lang`.
+  - Adding Marathi, Gujarati, Tamil, Telugu or Bengali means adding the code to `LOCALES` plus two files. `Record<Locale, …>` makes typecheck demand them.
+  - Storefront and emails are unchanged.
+- **Tests:** `tests/unit/i18n.test.ts` (cookie parse, key and placeholder parity, nav coverage, `t()`) and `tests/unit/tours.test.ts` (route matching, unique step ids, every target present in the source, text parity per locale, popover placement).
+_Last updated: 2026-10-28 (Redis L2 for public catalogues) · 2026-10-28 (seller AI suite) · 2026-10-27 (seller/admin Phase 1 speed) · 2026-10-27 (optional Upstash Redis L2 for storefront) · 2026-10-27 (storefront performance: cache scope, fewer DB waves, zod out of the client) · 2026-10-27 (team roles: Owner / Manager / Sales Associate) · 2026-10-26 (theme editor reliability) · 2026-10-25 (Unsplash API key in Admin → Media library)_
+
+
+## Redis L2 for seller/admin public catalogues (2026-10-28, Part A)
+
+Extends optional Upstash Redis behind Next Data Cache to **public** platform catalogues only (ADR-010). Private dashboard / Super Admin list reads stay live.
+
+- **Shared helper:** `cachedPublic` + `revalidatePublicTags` in `src/lib/cache/public-cache.ts` (production L1 `unstable_cache` + optional Redis L2, fail-open, tag → Redis index-set delete). Storefront refactored to call it with prefix `sf:v1` (public API unchanged).
+- **Wired (`pub:v1`):** marketplace custom themes + demo origins, platform `product_types`, public platform config, marketing landing, and `feature_flags` defaults only (used by `getEntitlements`; tenant overrides stay live).
+- **Invalidation tags:** `marketplace-custom-themes`, `marketplace-demo-origins`, `platform-product-types`, `platform-public-config`, `platform-landing`, `platform-feature-flag-defaults` (+ existing storefront tags). Flag create/update/delete actions call `revalidatePublicTags(FEATURE_FLAG_DEFAULTS_TAG)` then `revalidateAllStorefronts()`.
+- **Tests:** `tests/unit/public-cache.test.ts` (L2 hit/miss/tag delete); storefront cache tests updated for shared helper.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **137 files / 1,623 tests**, build).
+- **Branch:** `cursor/seller-admin-redis-public-c73e`.
+
+## Seller AI suite (2026-10-28)
+
+Product Generate with AI, Blog AI Write, contact reply drafts, and Business Coach. Next.js owns auth, permissions (`runAction` + membership), credits, and **in-process** LLM calls via neural-pulse `generateJson` (same Admin → Social apps keys as AI Health). Edge Functions remain optional (`invokeSellerAi`).
+
+- **Happy path:** `runSellerAiGeneration` → `loadProviders` (SETUP only when empty) → debit → `generateJson` (+ `orderForImages` when vision) → refund on fail → `ai_generations`. Prompts in `src/features/seller-ai/prompts.ts`.
+- **False SETUP fix:** `invoke.ts` no longer maps every HTTP 503 to SETUP; only `error === "not_configured"` (or Next with zero providers). Other 502/503 → distinct edge-unavailable message. Invoke sends `apikey` + `Authorization`.
+- **Edge functions (optional):** `supabase/functions/generate-product`, `generate-blog`, `generate-contact-reply`, `business-coach`, `merchant-assistant` (+ `_shared` auth/LLM with NVIDIA NIM).
+- **UI:** Products editor “Generate with AI”; Blog “AI Write”; Messages “Draft AI reply”; Dashboard Business Coach card.
+- **Credits / registry:** Migration `20261028004200_seller_ai_suite.sql`; features in `ai-health/registry.ts`.
+- **Hosted:** Edge + migration applied on `ugbjlpdhktrlkyuijkfc` (2026-10-28).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **130 files / 1,546 tests**, build). Seller-ai unit tests under `tests/unit/seller-ai/`.
+- **Branch (backend fix):** `cursor/seller-ai-false-setup-ui-c73e`.
+
+## NVIDIA Edge LLM + merchant-assistant (2026-10-28, branch `cursor/nvidia-pica2-notif-sounds-c73e`)
+
+- **Edge `_shared/llm.ts`:** NVIDIA NIM provider (parity with Next `neural-pulse/server/llm.ts`): `integrate.api.nvidia.com/v1/chat/completions`, Bearer key, `/no_think` for Nemotron, `<think>` stripped, vision as `image_url` data URIs, `extractJson`. `normalizeProviders` accepts `nvidia`.
+- **`merchant-assistant` Edge Function:** store-agent parity — JSON `{ answer, links }` from snapshot + messages; link keys whitelisted like Next `AGENT_LINK_KEYS`.
+- **Fallback:** `askStoreAgentAction` keeps in-process `generateJson` primary; on provider exhaustion, `runSellerAiGeneration` may invoke `merchant-assistant` via `invokeSellerAi` before refunding.
+- **Redeploy (hosted project `ugbjlpdhktrlkyuijkfc`):**
+  ```bash
+  supabase functions deploy generate-product generate-blog generate-contact-reply business-coach merchant-assistant --project-ref ugbjlpdhktrlkyuijkfc
+  ```
+  Optional: `supabase secrets set AI_EDGE_INVOKE_SECRET=… --project-ref ugbjlpdhktrlkyuijkfc` (same value as app env).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **140 files / 1,648 tests**, build). PR #46. Hosted: apply `04300` then `04700`; redeploy Edge functions above.
+
+## Seller pages speed / crash fix (2026-10-28, ADR-010-safe)
+
+Fixes slow skeletons and pink **"This page couldn't load"** on Products, product detail, Theme marketplace, and Theme editor. Private lists stay live (no Redis). Store assistant AI quality is out of scope.
+
+- **Redis L2 timeout (~300ms):** `withTimeout` in `src/lib/cache/public-cache.ts` wraps get / pipeline exec / smembers / del; hang → miss / fail-open so `/dashboard/themes` cannot stick forever. Tests: timeout-as-miss in `tests/unit/public-cache.test.ts`.
+- **Theme marketplace:** module-scoped `demo-origins:showcase` loader; catalogue cards ship slim `mockup` (full `preset` on apply/detail); demos stream under Suspense.
+- **Theme editor:** `getBuilderData` soft-fails to null → inline retry UI (no `dashboard/error.tsx`); lean pickers; menus/pickers/AI gate degrade; no Redis on drafts.
+- **Products:** see section below (lean list/detail + `updated_at` index).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **137 files / 1,625 tests**, build).
+- **Branch:** `cursor/seller-pages-speed-crash-c73e` (PR #44). Hosted: apply migration `20261028004400_products_list_updated_at_idx.sql`.
+
+## Products list/detail speed (2026-10-28, ADR-010 — no Redis on private products)
+
+Lean live queries for Seller **Products** (no Data Cache / Redis on private tenant lists).
+
+- **List (`listProducts`):** drop unused `attributes` JSONB from the select; PostgREST `estimated` count when unfiltered (exact when filters apply); soft-fail `stockTotals` when `inventory.read` / embed fails (stock cell shows "—", list still loads).
+- **Index:** migration `20261028004400_products_list_updated_at_idx.sql` — `(tenant_id, updated_at desc)` for default `updated_desc` sort.
+- **Editor options:** lean category (`id, parent_id, name, position, size_chart_id`) and size-chart (`id, name`) selects; soft-fail non-critical detail embeds (collections, inventory levels); `[id]/loading.tsx` FormSkeleton.
+- **`countProducts`:** request-memoized via `React.cache` (plan limits / import).
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **137 files / 1,625 tests**, build).
+- **Branch:** `cursor/seller-pages-speed-crash-c73e`.
+
+## Seller / admin Part B — stream shell chrome (2026-10-28)
+
+Cut skeleton time for Seller dashboard and Admin console **without** caching private data (ADR-010). No Redis on private RPCs (`dashboard_home`, `platform_overview`, users directory).
+
+- **Dashboard layout:** `requireTenant` + site mode / i18n / cookies / panel-switch stay blocking; bell + alerts + AI credits and the trial banner stream under `<Suspense>` (`SellerTopbarChrome` / `SellerTrialBanner`). Child routes use existing `loading.tsx` skeletons and are no longer blocked on chrome reads.
+- **Admin console layout:** `requirePlatform` + nav + panel-switch stay blocking; `platform_overview` attention chips, inbox bell, and support-session banner stream under Suspense.
+- **Dedupe:** shared request-cached `countOrdersToFulfil` for layout alerts + home; `getBellData` React.cache’d on primitives so home “Recent activity” reuses the layout bell read.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, **137 files / 1,623 tests**, build). Commit `f54609c`.
+- **Branch:** `cursor/seller-admin-redis-public-c73e` (Part B; Redis agent owns `src/lib/cache/*`).
+
+## Seller / admin Phase 1 speed (2026-10-27)
+
+Dashboard and Super Admin stay **live** (no Data Cache on private tenant product/order lists — ADR-010). Phase 1 cuts serial DB waves and caches only public catalogues (marketplace themes, open demo origins, platform `product_types`).
+
+- **Dashboard layout:** `getStoreSiteMode` runs in the same `Promise.all` as alerts / bell / trial (was a solo query before those).
+- **Theme marketplace:** catalogue + tenant keys/entitlements/industry paint first; open demos stream under Suspense for Live Preview URLs. `liveDemoOrigins` uses one module-scoped `demo-origins:showcase` loader (tag `MARKETPLACE_DEMO_ORIGINS_TAG`) instead of a new factory per request. Catalogue cards ship slim `mockup` (tokens/layout) — full `preset` only on apply/detail. `publishedCustomThemes` still uses production `unstable_cache`; theme builder `refresh()` calls `revalidateMarketplaceCatalogue()`.
+- **Theme editor:** menus load in the first `Promise.all` (embedded `menus→menu_items`, filter by handles after); `hasAiProviderConfigured()` gates AI without decrypting secrets; `SiteBuilder` is a `next/dynamic` import with a loading skeleton.
+- **Admin signup chart:** `getSignupSeries` one `tenants.created_at` range select + `bucketCounts` (was 12 head counts).
+- **Products list:** unused category/collection/SKU prep already skipped; filter picker uses lean `listCategoryFilterOptions`; `platformRows()` cached in production (tag `platform-product-types`, 600 s) with write-path revalidate.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, 126 files / 1,531 tests, build). Branch `cursor/seller-admin-speed-phase1-c73e`.
+
+## Optional Upstash Redis L2 for public storefront cache (2026-10-27)
+
+- **Why:** cold Vercel instances miss Next Data Cache and re-hit Supabase for directory/theme/profile. Free-tier Upstash shares those public reads across instances.
+- **How:** `@upstash/redis` behind `cachedStorefront` → shared `cachedPublic` (`src/lib/cache/public-cache.ts` + `redis.ts`; storefront prefix `sf:v1`). L1 stays `unstable_cache`; L2 is Redis when `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` are set (both optional; unset = previous behaviour). Invalidation deletes indexed Redis keys with `revalidateStorefront` / `revalidateTenantDirectory` / `revalidateAllStorefronts` (via `revalidatePublicTags`).
+- **Scope:** public storefront loaders only in the original slice; Part A (2026-10-28) also covers public platform catalogues under `pub:v1`. Not cart, session, dashboard private lists, secrets, or catalog/product/price/stock. Rate limits stay Postgres (ADR-025).
+- **Ops:** create an Upstash DB near Mumbai, set the two env vars on Vercel. Aim to stay on the free tier; upgrade only if commands approach the daily cap.
+- **Verification:** unit tests in `storefront-cache.test.ts` and `public-cache.test.ts` (env-off, L2 hit/miss, indexed delete).
 
 ## Storefront performance: cache scope, fewer DB waves, zod out of the client (2026-10-27)
 
@@ -28,7 +713,7 @@ Measured audit and before/after numbers are in `docs/PERFORMANCE_AUDIT.md`.
 ## Team roles: Store Admin (Owner) / Manager / Sales Associate (2026-10-27, QA #2 #3)
 
 - **Three standard roles** instead of twelve: **Store Admin (Owner)** (the registering merchant, all access, can't be removed or changed by others), **Manager** (everything except billing; manages the team and roles but can't touch the owner) and **Sales Associate** (orders incl. cancel, customers, products view/edit, inventory; no settings, payments, domains, team, refunds, publish or delete). Invite and role pickers list only Manager, Sales Associate and the store's own custom roles; default is Sales Associate.
-- **Migration `20261027004150_team_roles.sql`** (⏳ not yet applied to the hosted project): maps existing members and invitations (Store Admin, Store Manager, Catalog/Order/Inventory/Marketing/Content Manager → Manager; Analyst, Support Agent, Staff, Viewer → Sales Associate), reseeds `role_permissions`, tightens the role CHECK constraints, moves platform support sessions to the internal read-only `support_viewer` set, and reorders `list_tenant_members`. Seed user `staff@aangan.test` is now a Sales Associate.
+- **Migration `20261027004150_team_roles.sql`** (applied on hosted): maps existing members and invitations (Store Admin, Store Manager, Catalog/Order/Inventory/Marketing/Content Manager → Manager; Analyst, Support Agent, Staff, Viewer → Sales Associate), reseeds `role_permissions`, tightens the role CHECK constraints, moves platform support sessions to the internal read-only `support_viewer` set, and reorders `list_tenant_members`. Seed user `staff@aangan.test` is now a Sales Associate.
 - **Team page:** change role per member (Save role), deactivate/reactivate, remove (confirmed), resend / cancel invite (confirmed), plus a Roles card explaining each role. Custom roles (create / edit / delete) stay under Settings → Roles & permissions. All actions keep the `members.manage` / `roles.manage` server checks and DB escalation guards.
 - **Verification:** unit tests for the matrix, SQL ↔ matrix seed and CHECK lists, role choice; `pnpm test:db` (24 files / 181 tests) ✅ on Postgres 17, including new manager/sales-associate/owner-protection/retired-role tests; migration checked on a DB with all 12 old roles (7 → Manager, 4 → Sales Associate, owner untouched).
 
@@ -117,12 +802,52 @@ Plan, gap analysis and decisions: [SUPER_ADMIN_PORT.md](SUPER_ADMIN_PORT.md). Re
 - **Add with AI:** when Gemini, Groq, and Anthropic are missing or fail, `generateSectionAction` asks Sarvam for one JSON section, sanitizes it, and inserts it like any other section. One AI credit is debited before the model call and refunded only if every model fails. If Sarvam is also unset, the panel shows the existing setup sentence.
 - **Verification:** `pnpm check` ✅ (typecheck, lint, 99 files / 1,277 tests, build). The local dev server returns `EnvValidationError` because Supabase env vars are unset, so the register, `/start`, contact, and site-builder screens were not clicked through in a browser. Apply the contact migration, then finish `/start` again so an existing store receives About and Contact.
 
+## Login Create store link + Admin delete user/store (2026-10-28, branch `cursor/login-start-delete-user-c73e`)
+
+- **Login:** "Create your store" on `/login` (and seller sign-in footer) links to `/start` instead of `/seller/register`.
+- **Delete user/store:** Root cause — deleting a tenant cascaded into append-only `audit_logs`, which the trigger blocked. Migration `20261028005200_audit_logs_tenant_set_null.sql` sets `tenant_id` to null on store delete (FK SET NULL + trigger depth guard). `deleteAccount` also removes ownerless stores this user `created_by`, recovering prior partial deletes.
+- **Hosted:** `05200` applied on `ugbjlpdhktrlkyuijkfc`.
+
+## Five-screen `/start` rebuild — Phase 2 (journey wiring)
+
+- **Graph:** lang → path → (voice | quiz | business) → theme → account → building → done.
+  Path choice patches `path` + `voice.mode`; `nextScreenAfterPath` mounts Voice (ai+talk), Quiz
+  (ai+quiz), or Business (manual) as step 3. Voice/quiz/business continue to **ThemeScreen**, then
+  account; account create → building → finalize unchanged.
+- **No legacy mounts:** welcome / intent / products / mood / payment are remapped in-journey and
+  never rendered. Back uses `backTarget`; progress from `progressFor`.
+- **BusinessScreen:** subcategory chips from `subcategoriesFor(category)` + products/services field;
+  Continue requires `businessComplete` (name + category + subcategory).
+- **QuizScreen:** asks subcategory after category (6 questions); finish uses `voiceFactsComplete`.
+- **AccountScreen:** compact summary (store, category · subcategory, theme, language) above signup/signin.
+- **Verification:** `pnpm check` ✅ (typecheck, lint, tests, build).
+
+## Five-screen `/start` rebuild — Phase 1 (data + flow)
+
+- **Draft v2:** `emptyStartDraft` starts at `lang`; `parseStartDraft` migrates v1 (screen remap +
+  `business.subcategory` / `productsServices` + voice fact mirrors). Helper `draftSubcategory` /
+  `draftProductsServices`.
+- **Subcategories:** `src/features/stores/subcategories.ts` — 4–8 `{slug,label}` per `IndustrySlug`;
+  `subcategoriesFor` / `isSubcategory` / `subcategoryLabel`.
+- **Flow (Step N of 5):** lang=1, path=2, business|voice|quiz=3, theme=4, account=5.
+  `businessComplete` / `voiceFactsComplete` require name+category+subcategory; theme optional at finalize.
+  `nextScreenAfterPath(path, mode)` → voice | quiz | business.
+- **Brief:** seed brief includes subcategory + products/services.
+- **Voice facts:** Tara prompt/schemas collect `subcategory` + `productsServices`;
+  `mapCategoryInput` / `suggestSubcategory` map free-text to industry + subcategory;
+  `factsComplete` requires name+category+subcategory.
+- **`/onboarding` thin:** email-verify + existing-owner chooser kept; `pc_start_draft` or no-store
+  sellers redirect to `/start` (`?resume=1`); store-scoped ready/building/theme/plan unchanged;
+  `seedReadyStore` retained.
+- **Tests:** `tests/unit/stores/subcategories.test.ts`, updated `tests/unit/start/{draft,flow,brief}.test.ts`,
+  `tests/unit/onboarding/voice-facts.test.ts`.
+
 ## Cache-first `/start` journey (2026-10-19)
 
 - **`/start`** is a full prototype-order onboarding flow with **no database writes until the seller
   has a verified account**. Progress lives in **`localStorage`** (`pictocart.start.draft.v1`) and a
   **`pc_start_draft=1`** cookie (set after welcome) so signed-in users can return to finalize.
-- **Screens:** Welcome → Language → Intent → Path (AI vs Manual) → **AI:** Tara voice → Building →
+- **Screens (legacy, being replaced by five-screen rebuild):** Welcome → Language → Intent → Path (AI vs Manual) → **AI:** Tara voice → Building →
   Account (if needed) → persist → Done · **Manual:** Business → Products → Mood → Payment → Building →
   Account → persist → Done.
 - **`finalizeStartDraftAction`** creates or reuses the owned store, applies payment/WhatsApp/city prefs,
@@ -585,7 +1310,7 @@ rewrites origin-host redirects, strips `x-middleware-rewrite`. Cross-tested agai
 5. Email/Shiprocket/Cloudflare adapters are implemented against their APIs but untested against live accounts.
 6. Subscription billing for plans (charging sellers) is out of scope; plans are assigned by admins/onboarding.
 7. No media library UI yet (`media_assets` + upload pipeline exist); theme image fields take uploads directly.
-8. Unknown product/collection slugs render not-found with `noindex` but HTTP 200 (store `loading.tsx` streams first).
+8. ~~Unknown product/collection slugs render not-found with `noindex` but HTTP 200 (store `loading.tsx` streams first).~~ Fixed 2026-10-30: removed host/slug `loading.tsx` wrappers so leaf `notFound()` can emit HTTP 404.
 9. Browser end-to-end tests (Playwright) not yet written; flows were verified manually.
 10. Responsive screenshot sweep across 320–1920 px not completed.
 
@@ -756,9 +1481,16 @@ pnpm db:types                     # regenerate src/lib/supabase/database.types.t
   mark read on click, mark all as read, keeps the "needs attention" counters, link to the page), `/dashboard/notifications`
   and `/admin/notifications` (all/unread + group filters, pagination, mark unread, per-type in-app preferences at
   `?tab=preferences`), "Recent activity" card on the dashboard home. Live via Supabase Realtime + 60 s polling fallback.
+  `stock.low` / `stock.out` are in the catalog and mute UI; rows are produced by the `inventory_levels` DB trigger
+  (`app.notify_on_stock`) when available stock crosses the low threshold or hits zero — no app-level emit required.
+- **Sounds** — when the tab is visible and unread rises for `order.new`, `payment.received`, `stock.low`, or
+  `stock.out`, the seller bell plays a short tone (`public/sounds/*.wav`). Sound on/off + tone (chime / ping / soft /
+  bright / alert) live in `localStorage` (`pc_notification_sound`); type mutes stay in `notification_preferences`.
+  `AudioContext` unlocks on the first dashboard pointer/key/touch. Prefs UI: `?tab=preferences` → Notification sounds.
 - **Tests** — `tests/rls/notifications.test.ts` (RLS, producers, recipients by permission, mutes, dedupe, cart recovery,
   reminders, function grants), `tests/unit/notifications/inbox.test.ts` (catalog ↔ SQL producers, AI limit sync, link
-  safety, relative time, server-resolved audience in actions, preferences).
+  safety, relative time, server-resolved audience in actions, preferences),
+  `tests/unit/notifications/sound-prefs.test.ts` (tone ids, parse/serialize, beep gating).
 - **Not done** — migration not applied to the remote Supabase project; e-mail/WhatsApp copies of these alerts.
 
 ## Demo stores: 2 live stores per category (2026-10-17)
@@ -1020,10 +1752,10 @@ above and in `docs/THEME_BUILDER.md`):
 - **#14.2 / #15 "You don't have permission".** The canvas render is authorised by the 2 h preview cookie. A FORBIDDEN render
   now reports `code: "forbidden"`; the builder mints a new preview token and reloads the canvas, re-sending unsaved edits.
 - **#14.1 margin back to 0.** Spacing CSS handles 0 correctly (section-box.ts); the stale preview was the render backlog above.
-- **#0.5 Google sign-in shows `ugbjlpdhktrlkyuijkfc.supabase.co`.** Configuration, not code: Google names the domain that
-  handles the OAuth callback. Fix = Supabase **Custom Domain** add-on (e.g. `auth.pictocart.in`, Supabase Pro), then update
-  the Google OAuth client's authorised redirect URI and `NEXT_PUBLIC_SUPABASE_URL`. Also set the app name/logo/home page on
-  the Google OAuth consent screen (Google Cloud → APIs & Services → OAuth consent screen).
+- **#0.5 Google sign-in shows `ugbjlpdhktrlkyuijkfc.supabase.co` (storefront / redirect OAuth only).** Merchant login on
+  platform hosts uses GIS (`GOOGLE_IDENTITY_SIGNIN=on`); live smoke 2026-11-02 shows One Tap as **pictocart.in** /
+  **pictocartdev.in**. Alias PKCE mismatch (`?error=link`) fixed via `authRequestOrigin()` + Auth redirect URLs for both
+  hosts. Store sites still use redirect OAuth → Supabase project URL until Supabase **Custom Domain** (Pro).
 - **#4 (from PR #19) still open on the live DB:** the `free` plan has `trial_days = 90` on v2pictocart, so new stores open as
   trials. Migration `20261023003600_free_plan.sql` sets it to 0 and makes `create_tenant` open trial-less plans as active.
 - Tests: `tests/unit/bugs-2-0-builder.test.ts`, `tests/unit/site-builder-sections.test.ts` (changedLists).
@@ -1044,11 +1776,10 @@ above and in `docs/THEME_BUILDER.md`):
   `components/auth/email-code-flow.tsx` (platform + store tones).
 - **Onboarding quiz:** new first step "What are you building?" (Informative website / E-commerce store), saved as
   `onboarding_site_mode` and pre-selecting the site mode in the form and Tara voice paths (existing store setup unchanged).
-- **Google consent shows the Supabase URL:** `GoogleIdentityButton` (Google Identity Services + `signInWithIdToken`, nonce) makes the
-  merchant sign-in run on pictocartdev.in so Google shows that domain. Enable with `GOOGLE_IDENTITY_SIGNIN=on` after adding
-  `https://pictocartdev.in` to the OAuth client's *Authorised JavaScript origins* (client id auto-read from Supabase's authorize
-  redirect, or `NEXT_PUBLIC_GOOGLE_SIGNIN_CLIENT_ID`). Store sites keep the redirect flow (wildcard origins aren't allowed by Google);
-  for those the only full fix is the Supabase Custom Domain add-on.
+- **Google consent on merchant login:** `GoogleIdentityButton` + `GOOGLE_IDENTITY_SIGNIN=on` on `pictocart-u7pf`; JS origins
+  cover pictocart.in and pictocartdev.in (verified). `googleSignInAction` uses `authRequestOrigin()` so alias hosts keep
+  PKCE on the same host. Store sites keep redirect OAuth (wildcard JS origins aren't allowed by Google); full storefront
+  hostname fix still needs Supabase Custom Domain.
 - **Product form overflow:** `lg:grid-cols-[1fr_320px]` → `minmax(0,1fr)` (variants table scrolls inside its card); same fix on
   customers, returns, festive and shared dashboard forms.
 - **Builder:** green "Updating 45%" chip + green progress bar, "✓ Updated" on success, amber + warning toast after 6 s, error toast.

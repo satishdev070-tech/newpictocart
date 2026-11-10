@@ -1,5 +1,17 @@
 import { z } from "zod";
-import { DEFAULT_FOOTER_SHARE, DEFAULT_MEGA_MENU, MENU_ICONS, MENU_TONES, SHARE_NETWORKS, SOCIAL_KEYS, type SocialKey } from "./chrome-content";
+import {
+  DEFAULT_FOOTER_SHARE,
+  DEFAULT_MEGA_MENU,
+  MENU_ICONS,
+  MENU_TONES,
+  SHARE_NETWORKS,
+  SOCIAL_KEYS,
+  normalizeMegaMenuItemHref,
+  normalizeSolutionsItemHref,
+  SOLUTIONS_FEATURE_HREFS,
+  type MegaMenu,
+  type SocialKey,
+} from "./chrome-content";
 
 /**
  * Landing page CMS (super admin → Landing page). The whole home page, header navigation and
@@ -102,6 +114,19 @@ export const SECTION_LABELS: Record<SectionKey, string> = {
 export const STEP_VISUALS = ["signup", "details", "category", "theme", "live", "none"] as const;
 export type StepVisual = (typeof STEP_VISUALS)[number];
 
+/** Media kind for step (and landing) assets uploaded via Super Admin. */
+export const STEP_MEDIA_KINDS = ["image", "gif", "video"] as const;
+export type StepMediaKind = (typeof STEP_MEDIA_KINDS)[number];
+
+/** Infer kind from a URL when CMS omits mediaKind (older documents). */
+export function inferStepMediaKind(url: string, explicit?: string | null): StepMediaKind {
+  if (explicit === "image" || explicit === "gif" || explicit === "video") return explicit;
+  const path = url.split("?")[0]?.toLowerCase() ?? "";
+  if (path.endsWith(".mp4") || path.endsWith(".webm") || path.endsWith(".m4v")) return "video";
+  if (path.endsWith(".gif")) return "gif";
+  return "image";
+}
+
 // ---- Field schemas --------------------------------------------------------------------
 
 const str = (max: number) => z.string().trim().max(max);
@@ -189,7 +214,20 @@ export const stepsSchema = z.object({
   badge: str(60),
   title: str(160),
   body: str(300),
-  items: z.array(z.object({ icon, title: str(60), body: str(240), visual: z.enum(STEP_VISUALS), imageUrl, imageAlt: str(120) })).max(8),
+  items: z
+    .array(
+      z.object({
+        icon,
+        title: str(60),
+        body: str(240),
+        visual: z.enum(STEP_VISUALS),
+        imageUrl,
+        imageAlt: str(120),
+        mediaKind: z.enum(STEP_MEDIA_KINDS).optional().default("image"),
+        posterUrl: imageUrl.optional().default(""),
+      }),
+    )
+    .max(8),
   cta: link,
   note: str(120),
   link,
@@ -393,17 +431,17 @@ export const DEFAULT_LANDING: LandingContent = {
     title: "Now {purple:what to sell} and {green:where to sell} — we have a solution for both.",
     body: "From your storefront to GST invoices, we ship every tool a modern Indian seller needs.",
     items: [
-      { icon: "palette", title: "Theme Marketplace", tag: "Design", body: "Ready-made themes for every category, edited visually", linkLabel: "Explore this feature", href: "/themes", badge: "", color: "auto" },
-      { icon: "message-circle", title: "WhatsApp & Social", tag: "Channels", body: "Order updates on WhatsApp and a social media planner", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "link", title: "Custom Domain + SSL", tag: "Design", body: "yourbrand.in with an automatically issued certificate", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "credit-card", title: "Razorpay / UPI / COD", tag: "Operate", body: "All payment modes, paid straight to your account", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "truck", title: "Shipping", tag: "Operate", body: "Your own rates and PIN code rules, or Delhivery / Shiprocket", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "file-text", title: "GST-Ready Invoices", tag: "Operate", body: "A GST invoice for every order, ready for your CA", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "ticket", title: "Coupons & Discounts", tag: "Operate", body: "Usage caps, minimum order and expiry rules", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "star", title: "Reviews & Ratings", tag: "Operate", body: "1–5 star reviews you approve before they appear", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
-      { icon: "search", title: "SEO Tools", tag: "Channels", body: "Page titles, descriptions and an automatic sitemap", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "palette", title: "Theme Marketplace", tag: "Design", body: "Ready-made themes for every category, edited visually", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["Theme Marketplace"]!, badge: "", color: "auto" },
+      { icon: "message-circle", title: "WhatsApp & Social", tag: "Channels", body: "Order updates on WhatsApp and a social media planner", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["WhatsApp & Social"]!, badge: "", color: "auto" },
+      { icon: "link", title: "Custom Domain + SSL", tag: "Design", body: "yourbrand.in with an automatically issued certificate", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["Custom Domain + SSL"]!, badge: "", color: "auto" },
+      { icon: "credit-card", title: "Razorpay / UPI / COD", tag: "Operate", body: "All payment modes, paid straight to your account", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["Razorpay / UPI / COD"]!, badge: "", color: "auto" },
+      { icon: "truck", title: "Shipping", tag: "Operate", body: "Your own rates and PIN code rules, or Delhivery / Shiprocket", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS.Shipping!, badge: "", color: "auto" },
+      { icon: "file-text", title: "GST-Ready Invoices", tag: "Operate", body: "A GST invoice for every order, ready for your CA", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["GST-Ready Invoices"]!, badge: "", color: "auto" },
+      { icon: "ticket", title: "Coupons & Discounts", tag: "Operate", body: "Usage caps, minimum order and expiry rules", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["Coupons & Discounts"]!, badge: "", color: "auto" },
+      { icon: "star", title: "Reviews & Ratings", tag: "Operate", body: "1–5 star reviews you approve before they appear", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["Reviews & Ratings"]!, badge: "", color: "auto" },
+      { icon: "search", title: "SEO Tools", tag: "Channels", body: "Page titles, descriptions and an automatic sitemap", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS["SEO Tools"]!, badge: "", color: "auto" },
       { icon: "image", title: "Creative Studio", tag: "Grow", body: "Turn product photos into ready-to-post creatives", linkLabel: "Explore this feature", href: "/features", badge: "New", color: "auto" },
-      { icon: "bar-chart", title: "Analytics", tag: "Grow", body: "Visitors, orders, sales and conversion over time", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
+      { icon: "bar-chart", title: "Analytics", tag: "Grow", body: "Visitors, orders, sales and conversion over time", linkLabel: "Explore this feature", href: SOLUTIONS_FEATURE_HREFS.Analytics!, badge: "", color: "auto" },
       { icon: "users", title: "Team Access", tag: "Operate", body: "Invite staff with owner, manager or viewer roles", linkLabel: "Explore this feature", href: "/features", badge: "", color: "auto" },
     ],
   },
@@ -413,11 +451,11 @@ export const DEFAULT_LANDING: LandingContent = {
     title: "From Sign-Up to First Sale — in {orange:5 Steps}",
     body: "Every screen you'll see, in the order you'll see them. No surprises, no setup calls, no developer needed.",
     items: [
-      { icon: "users", title: "Sign Up Free", body: "Create your account with email or Google. No credit card required.", visual: "signup", imageUrl: "", imageAlt: "" },
-      { icon: "store", title: "Tell Us About Your Store", body: "Pick a name and a free store web address. That's it — one minute, one screen.", visual: "details", imageUrl: "", imageAlt: "" },
-      { icon: "tag", title: "Choose Your Category", body: "Fashion, food, electronics, beauty, services… pick what you sell and we suggest the right themes.", visual: "category", imageUrl: "", imageAlt: "" },
-      { icon: "palette", title: "Pick a Beautiful Theme", body: "Choose a theme made for your category, then change colours, fonts and sections without code.", visual: "theme", imageUrl: "", imageAlt: "" },
-      { icon: "rocket", title: "Your Store Goes Live", body: "One tap publishes the store. Share it on WhatsApp, Instagram or Facebook.", visual: "live", imageUrl: "", imageAlt: "" },
+      { icon: "users", title: "Sign Up Free", body: "Create your account with email or Google. No credit card required.", visual: "signup", imageUrl: "", imageAlt: "", mediaKind: "image", posterUrl: "" },
+      { icon: "store", title: "Tell Us About Your Store", body: "Pick a name and a free store web address. That's it — one minute, one screen.", visual: "details", imageUrl: "", imageAlt: "", mediaKind: "image", posterUrl: "" },
+      { icon: "tag", title: "Choose Your Category", body: "Fashion, food, electronics, beauty, services… pick what you sell and we suggest the right themes.", visual: "category", imageUrl: "", imageAlt: "", mediaKind: "image", posterUrl: "" },
+      { icon: "palette", title: "Pick a Beautiful Theme", body: "Choose a theme made for your category, then change colours, fonts and sections without code.", visual: "theme", imageUrl: "", imageAlt: "", mediaKind: "image", posterUrl: "" },
+      { icon: "rocket", title: "Your Store Goes Live", body: "One tap publishes the store. Share it on WhatsApp, Instagram or Facebook.", visual: "live", imageUrl: "", imageAlt: "", mediaKind: "image", posterUrl: "" },
     ],
     cta: { label: "Start Your Journey — It's Free", href: "/start" },
     note: "No credit card · Free to start · 5-minute setup",
@@ -544,6 +582,32 @@ export const DEFAULT_LANDING: LandingContent = {
 
 // ---- Parsing --------------------------------------------------------------------------
 
+function withNormalizedMegaMenuHrefs(header: LandingContent["header"]): LandingContent["header"] {
+  const megaMenu: MegaMenu = {
+    ...header.megaMenu,
+    columns: header.megaMenu.columns.map((col) => ({
+      ...col,
+      items: col.items.map((it) => ({ ...it, href: normalizeMegaMenuItemHref(it.title, it.href) })),
+    })),
+  };
+  return { ...header, megaMenu };
+}
+
+function withNormalizedSolutionsHrefs(solutions: LandingContent["solutions"]): LandingContent["solutions"] {
+  return {
+    ...solutions,
+    items: solutions.items.map((it) => ({ ...it, href: normalizeSolutionsItemHref(it.title, it.href) })),
+  };
+}
+
+function withNormalizedLandingHrefs(content: LandingContent): LandingContent {
+  return {
+    ...content,
+    header: withNormalizedMegaMenuHrefs(content.header),
+    solutions: withNormalizedSolutionsHrefs(content.solutions),
+  };
+}
+
 /** Reads a stored document, falling back to the default for each missing or invalid part. */
 export function parseLanding(value: unknown): LandingContent {
   const raw = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -556,14 +620,14 @@ export function parseLanding(value: unknown): LandingContent {
   // Sections missing from a stored order (e.g. added in a later release) are appended, hidden
   // only if their own `enabled` says so.
   out.order = order.success ? [...order.data, ...SECTION_KEYS.filter((k) => !order.data.includes(k))] : DEFAULT_LANDING.order;
-  return out as LandingContent;
+  return withNormalizedLandingHrefs(out as LandingContent);
 }
 
 /** Strict validation for saving: returns the cleaned document or field-path errors. */
 export function validateLanding(value: unknown): { ok: true; value: LandingContent } | { ok: false; errors: { path: string; message: string }[] } {
   const parsed = landingSchema.safeParse(value);
-  if (parsed.success) return { ok: true, value: parsed.data };
-  return { ok: false, errors: parsed.error.issues.slice(0, 20).map((i) => ({ path: i.path.join("."), message: i.message })) };
+  if (!parsed.success) return { ok: false, errors: parsed.error.issues.slice(0, 20).map((i) => ({ path: i.path.join("."), message: i.message })) };
+  return { ok: true, value: withNormalizedLandingHrefs(parsed.data) };
 }
 
 // ---- Heading highlights ---------------------------------------------------------------

@@ -34,7 +34,7 @@ export const startEmailCodeSchema = z.object({
 });
 export const verifyStartCodeSchema = z.object({
   email,
-  token: z.string().trim().regex(/^\d{6,10}$/, "Enter the code from the email"),
+  token: z.string().trim().regex(/^\d{6}$/, "Enter the code from the email"),
   type: z.enum(["signup", "email"]),
   next: z.string().optional(),
 });
@@ -43,11 +43,11 @@ export const forgotSchema = z.object({ email });
 export const merchantCodeSchema = startEmailCodeSchema.extend({ mode: z.enum(["signup", "signin"]).catch("signin") });
 export const verifyMerchantCodeSchema = z.object({
   email,
-  token: z.string().trim().regex(/^\d{6,10}$/, "Enter the code from the email"),
+  token: z.string().trim().regex(/^\d{6}$/, "Enter the code from the email"),
   next: z.string().optional(),
 });
 /** Password reset by the code in the reset email (the link in the same email also works). */
-export const verifyResetCodeSchema = z.object({ email, token: z.string().trim().regex(/^\d{6,10}$/, "Enter the code from the email") });
+export const verifyResetCodeSchema = z.object({ email, token: z.string().trim().regex(/^\d{6}$/, "Enter the code from the email") });
 export const resetSchema = z
   .object({ password, confirm: z.string() })
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "Passwords don't match" });

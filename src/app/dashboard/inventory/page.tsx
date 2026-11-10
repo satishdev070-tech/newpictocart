@@ -10,18 +10,20 @@ import { inventorySummary, listInventory } from "@/features/inventory/server/inv
 import { inventoryListQuerySchema } from "@/features/inventory/schemas";
 import { INVENTORY_PAGE_SIZE } from "@/features/catalog/constants";
 import { StockActions } from "@/features/catalog/components/catalog-forms";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Inventory" };
 
 export default async function InventoryPage({ searchParams }: PageProps<"/dashboard/inventory">) {
   const ctx = await requireTenantPermission("inventory.read");
+  const { t } = await getI18n();
   const f = inventoryListQuerySchema.parse(await searchParams);
   const [{ rows, total }, summary] = await Promise.all([listInventory(ctx.tenantId, f), inventorySummary(ctx.tenantId)]);
   const writable = can(ctx, "inventory.write");
   return (
     <div className="space-y-6">
-      <PageHeader title="Inventory" description="Stock per variant at your default location. Every change is recorded." />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <PageHeader title={t("pages.inventory.title")} description={t("pages.inventory.description")} />
+      <div data-tour="inventory-stats" className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Tracked variants" value={summary.tracked} />
         <StatCard label="Low stock" value={summary.low} />
         <StatCard label="Out of stock" value={summary.out} />

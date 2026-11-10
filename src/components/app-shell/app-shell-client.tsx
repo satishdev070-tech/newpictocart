@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, CornerDownLeft, Menu as MenuIcon, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
@@ -9,6 +9,40 @@ import type { NavGroup, NavItem } from "@/components/dashboard/nav";
 import { NAV_ICONS, NAV_ICON_STROKE } from "./icons";
 import { activeGroupFor, activeHrefFor, breadcrumbsFor, flyoutTop, isSubmenu, submenuId, type Crumb } from "./nav-tree";
 import { sidebarCookie, type SidebarPanel } from "./sidebar-cookie";
+import { idlePrefetchHrefs, runPrefetchQueue, shouldSkipIdlePrefetch } from "./prefetch";
+
+/** Shell chrome labels (the seller panel passes translations; the admin panel uses English). */
+export type ShellText = {
+  mainNav: string;
+  navigation: string;
+  openNav: string;
+  closeNav: string;
+  expandSidebar: string;
+  collapseSidebar: string;
+  searchPlaceholder: string;
+  search: string;
+  searchPages: string;
+  jumpTo: string;
+  breadcrumb: string;
+  /** Breadcrumb labels for path segments after a nav item ("new", "edit", ids → "details"...). */
+  segments?: Record<string, string>;
+};
+
+const EN_TEXT: ShellText = {
+  mainNav: "Main",
+  navigation: "Navigation",
+  openNav: "Open navigation",
+  closeNav: "Close navigation",
+  expandSidebar: "Expand sidebar",
+  collapseSidebar: "Collapse sidebar",
+  searchPlaceholder: "Search features, settings, pages…",
+  search: "Search",
+  searchPages: "Search pages",
+  jumpTo: "Jump to…",
+  breadcrumb: "Breadcrumb",
+};
+
+const TextContext = createContext<ShellText>(EN_TEXT);
 
 type Props = {
   groups: NavGroup[];
@@ -22,6 +56,9 @@ type Props = {
   storageKey: string;
   panel: SidebarPanel;
   initialCollapsed: boolean;
+  text?: ShellText;
+  /** `lang` of the panel (the seller's chosen language). */
+  lang?: string;
   children: ReactNode;
 };
 
@@ -105,9 +142,10 @@ function ExpandedNav({ groups, active, storageKey, onNavigate, onAfterNavigate }
   };
   // Warm the router cache for a submenu's pages as soon as the pointer or focus reaches it.
   const warm = (g: NavGroup) => g.items.forEach((i) => router.prefetch(i.href));
+  const text = useContext(TextContext);
   const row = (item: NavItem, nested = false) => (
     <NavRow
-      key={item.href}
+      key={item.label}
       item={item}
       nested={nested}
       active={item.href === active}
@@ -119,13 +157,13 @@ function ExpandedNav({ groups, active, storageKey, onNavigate, onAfterNavigate }
   );
 
   return (
-    <nav aria-label="Main" onKeyDown={onArrowKeys}>
+    <nav aria-label={text.mainNav} onKeyDown={onArrowKeys}>
       <ul className="space-y-1">
         {groups.map((g) => {
           if (!isSubmenu(g)) return row(g.items[0]!);
           const expanded = isOpen(g.label);
           const Icon = NAV_ICONS[g.icon ?? g.items[0]!.icon];
-          const id = submenuId(storageKey, g.label);
+          const id = submenuId(storageKey, g.id ?? g.label);
           const hasActive = g.label === activeGroup;
           return (
             <li key={g.label}>
@@ -174,6 +212,7 @@ function NavRow({ item, active, nested, onClick }: { item: NavItem; active: bool
     <li>
       <Link
         href={item.href}
+        prefetch={false}
         onClick={onClick}
         aria-current={active ? "page" : undefined}
         className={cn(
@@ -227,6 +266,7 @@ type RailNavProps = { groups: NavGroup[]; active: string | null; storageKey: str
 
 /** Icon rail: one icon per section; sections with children open a flyout submenu on hover or click. */
 function RailNav({ groups, active, storageKey, onNavigate, tip }: RailNavProps) {
+  const text = useContext(TextContext);
   const router = useRouter();
   const pathname = usePathname();
   const activeGroup = activeGroupFor(active, groups);
@@ -296,7 +336,7 @@ function RailNav({ groups, active, storageKey, onNavigate, tip }: RailNavProps) 
     cn("relative grid size-11 place-items-center rounded-xl transition-colors", on ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-secondary hover:text-foreground");
 
   return (
-    <nav ref={navRef} aria-label="Main" onKeyDown={onArrowKeys}>
+    <nav ref={navRef} aria-label={text.mainNav} onKeyDown={onArrowKeys}>
       <ul className="flex flex-col items-center gap-1">
         {groups.map((g) => {
           const Icon = NAV_ICONS[g.icon ?? g.items[0]!.icon];
@@ -305,7 +345,7 @@ function RailNav({ groups, active, storageKey, onNavigate, tip }: RailNavProps) 
             const item = g.items[0]!;
             return (
               <li key={g.label}>
-                <Link href={item.href} aria-current={item.href === active ? "page" : undefined} onClick={(e) => onNavigate(item.href, e)} className={iconClass(on)} {...tip.bind(item.label)}>
+                <Link href={item.href} prefetch={false} aria-current={item.href === active ? "page" : undefined} onClick={(e) => onNavigate(item.href, e)} className={iconClass(on)} {...tip.bind(item.label)}>
                   <Icon aria-hidden strokeWidth={NAV_ICON_STROKE} className="size-5" />
                   <span className="sr-only">{item.label}</span>
                 </Link>
@@ -313,7 +353,7 @@ function RailNav({ groups, active, storageKey, onNavigate, tip }: RailNavProps) 
             );
           }
           const expanded = flyout?.label === g.label;
-          const id = submenuId(`${storageKey}-rail`, g.label);
+          const id = submenuId(`${storageKey}-rail`, g.id ?? g.label);
           return (
             <li key={g.label}>
               <button
@@ -361,7 +401,7 @@ function RailNav({ groups, active, storageKey, onNavigate, tip }: RailNavProps) 
       {flyout && openGroup ? (
         <div
           ref={panel}
-          id={submenuId(`${storageKey}-rail`, openGroup.label)}
+          id={submenuId(`${storageKey}-rail`, openGroup.id ?? openGroup.label)}
           role="menu"
           aria-label={openGroup.label}
           style={{ top: top || flyout.top, left: flyout.left }}
@@ -390,10 +430,11 @@ function RailNav({ groups, active, storageKey, onNavigate, tip }: RailNavProps) 
               const Icon = NAV_ICONS[item.icon];
               const isActive = item.href === active;
               return (
-                <li key={item.href} role="none">
+                <li key={item.label} role="none">
                   <Link
                     role="menuitem"
                     href={item.href}
+                    prefetch={false}
                     aria-current={isActive ? "page" : undefined}
                     onClick={(e) => {
                       onNavigate(item.href, e);
@@ -424,12 +465,13 @@ function RailNav({ groups, active, storageKey, onNavigate, tip }: RailNavProps) 
 function CommandSearch({ groups }: { groups: NavGroup[] }) {
   const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
+  const text = useContext(TextContext);
   const [q, setQ] = useState("");
   const [cursor, setCursor] = useState(0);
   const items = useMemo(() => groups.flatMap((g) => g.items.map((i) => ({ ...i, group: g.label }))), [groups]);
   const results = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return t ? items.filter((i) => i.label.toLowerCase().includes(t) || i.group.toLowerCase().includes(t)) : items;
+    return t ? items.filter((i) => i.label.toLowerCase().includes(t) || i.alt?.toLowerCase().includes(t) || i.group.toLowerCase().includes(t)) : items;
   }, [q, items]);
   const open = useCallback(() => {
     setQ("");
@@ -455,18 +497,19 @@ function CommandSearch({ groups }: { groups: NavGroup[] }) {
       <button
         type="button"
         onClick={open}
+        data-tour="search"
         className="hidden h-10 w-full max-w-md items-center gap-2.5 rounded-lg border border-border bg-surface-secondary/70 px-3 text-small text-subtle transition-colors hover:border-border-strong hover:bg-surface md:flex"
       >
         <Search aria-hidden className="size-4" strokeWidth={NAV_ICON_STROKE} />
-        <span className="flex-1 truncate text-left">Search features, settings, pages…</span>
+        <span className="flex-1 truncate text-left">{text.searchPlaceholder}</span>
         <kbd className="rounded border border-border bg-surface px-1.5 text-caption text-muted">⌘K</kbd>
       </button>
-      <button type="button" onClick={open} aria-label="Search" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-surface-secondary md:hidden">
+      <button type="button" onClick={open} aria-label={text.search} data-tour="search" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-surface-secondary md:hidden">
         <Search aria-hidden className="size-4" strokeWidth={NAV_ICON_STROKE} />
       </button>
       <dialog
         ref={dialog}
-        aria-label="Search"
+        aria-label={text.search}
         className="m-auto mt-[12vh] w-[min(92vw,560px)] overflow-hidden rounded-xl border border-border bg-surface p-0 text-foreground shadow-lg backdrop:bg-black/40"
         onClick={(e) => e.target === dialog.current && dialog.current?.close()}
       >
@@ -491,12 +534,12 @@ function CommandSearch({ groups }: { groups: NavGroup[] }) {
                 go(results[cursor].href);
               }
             }}
-            placeholder="Jump to…"
-            aria-label="Search pages"
+            placeholder={text.jumpTo}
+            aria-label={text.searchPages}
             role="combobox"
             aria-expanded="true"
             aria-controls="cmd-results"
-            aria-activedescendant={results[cursor] ? `cmd-${results[cursor].href}` : undefined}
+            aria-activedescendant={results[cursor] ? `cmd-${results[cursor].label}` : undefined}
             className="h-12 flex-1 bg-transparent text-body outline-none placeholder:text-subtle"
           />
           <kbd className="rounded border border-border px-1.5 text-caption text-muted">Esc</kbd>
@@ -506,7 +549,7 @@ function CommandSearch({ groups }: { groups: NavGroup[] }) {
             results.map((r, i) => {
               const Icon = NAV_ICONS[r.icon];
               return (
-                <li key={r.href} id={`cmd-${r.href}`} role="option" aria-selected={i === cursor}>
+                <li key={r.label} id={`cmd-${r.label}`} role="option" aria-selected={i === cursor}>
                   <button
                     type="button"
                     onMouseEnter={() => setCursor(i)}
@@ -531,9 +574,10 @@ function CommandSearch({ groups }: { groups: NavGroup[] }) {
 }
 
 function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
+  const text = useContext(TextContext);
   if (crumbs.length < 2) return null;
   return (
-    <nav aria-label="Breadcrumb" className="mb-4">
+    <nav aria-label={text.breadcrumb} className="mb-4">
       <ol className="flex min-w-0 items-center gap-1.5 text-small">
         {crumbs.map((c, i) => (
           <li key={`${c.label}-${i}`} className={cn("flex min-w-0 items-center gap-1.5", i < crumbs.length - 2 && "hidden sm:flex")}>
@@ -556,29 +600,71 @@ function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
 
 /* ------------------------------------------------------------------ shell */
 
-export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFooter, topbarStart, topbarEnd, banner, storageKey, panel, initialCollapsed, children }: Props) {
+export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFooter, topbarStart, topbarEnd, banner, storageKey, panel, initialCollapsed, text = EN_TEXT, lang, children }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const drawer = useRef<HTMLDialogElement>(null);
-  const crumbs = useMemo(() => breadcrumbsFor(pathname, groups, homeHref), [pathname, groups, homeHref]);
+  const crumbs = useMemo(() => breadcrumbsFor(pathname, groups, homeHref, text.segments), [pathname, groups, homeHref, text.segments]);
   const { active, onNavigate } = useActiveHref(groups, homeHref);
   const tip = useRailTip();
+  // Stable key so idle warm does not re-fire from a new `groups` array identity each layout render.
+  const idleHrefsKey = useMemo(() => idlePrefetchHrefs(panel).join("\0"), [panel]);
 
   useEffect(() => {
     drawer.current?.close();
   }, [pathname]);
+
+  // After first paint, warm only a small allowlist (hover still warms open submenus).
+  useEffect(() => {
+    const hrefs = idleHrefsKey ? idleHrefsKey.split("\0") : [];
+    let cancelled = false;
+    const warm = () => {
+      if (cancelled) return;
+      const conn = typeof navigator !== "undefined" ? (navigator as Navigator & { connection?: { saveData?: boolean } }).connection : undefined;
+      if (
+        shouldSkipIdlePrefetch({
+          hidden: typeof document !== "undefined" ? document.hidden : false,
+          saveData: conn?.saveData,
+          onLine: typeof navigator !== "undefined" ? navigator.onLine : true,
+        })
+      ) {
+        return;
+      }
+      void runPrefetchQueue(hrefs, (href) => router.prefetch(href), {
+        concurrency: 2,
+        isCancelled: () => cancelled,
+      });
+    };
+    const ric = window.requestIdleCallback?.bind(window);
+    if (ric) {
+      const id = ric(warm, { timeout: 2500 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback?.(id);
+      };
+    }
+    const t = window.setTimeout(warm, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [idleHrefsKey, router]);
+
   const toggle = () => {
     const next = !collapsed;
     tip.hide();
     setCollapsed(next);
     document.cookie = sidebarCookie(panel, next);
   };
-  const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  const toggleLabel = collapsed ? text.expandSidebar : text.collapseSidebar;
 
   return (
-    <div className="theme-panel flex min-h-dvh flex-1 bg-background">
+    <TextContext value={text}>
+    <div lang={lang} className="theme-panel flex min-h-dvh flex-1 bg-background">
       <aside
         data-collapsed={collapsed || undefined}
+        data-tour="nav"
         className={cn("sticky top-0 z-40 hidden h-dvh shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 ease-out lg:flex", collapsed ? "w-[76px]" : "w-64")}
       >
         <div className={cn("flex shrink-0", collapsed ? "flex-col items-center gap-2 px-2 pb-1 pt-3" : "h-16 items-center gap-2 pl-4 pr-3")}>
@@ -622,7 +708,7 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
 
       <dialog
         ref={drawer}
-        aria-label="Navigation"
+        aria-label={text.navigation}
         className="theme-panel m-0 h-dvh max-h-none w-[min(86vw,300px)] max-w-none border-0 border-r border-border bg-surface p-0 text-foreground backdrop:bg-black/40 open:animate-[shell-in_200ms_ease-out]"
         onClick={(e) => e.target === drawer.current && drawer.current?.close()}
       >
@@ -630,7 +716,7 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
         <div className="flex h-full flex-col bg-surface">
           <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
             <div className="min-w-0 flex-1 overflow-hidden">{brand}</div>
-            <button type="button" onClick={() => drawer.current?.close()} aria-label="Close navigation" className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-secondary">
+            <button type="button" onClick={() => drawer.current?.close()} aria-label={text.closeNav} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-secondary">
               <X aria-hidden className="size-4" />
             </button>
           </div>
@@ -643,7 +729,7 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-surface/85 px-3 backdrop-blur supports-[backdrop-filter]:bg-surface/75 sm:gap-3 sm:px-6">
-          <button type="button" onClick={() => drawer.current?.showModal()} aria-label="Open navigation" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-surface-secondary lg:hidden">
+          <button type="button" onClick={() => drawer.current?.showModal()} aria-label={text.openNav} className="grid size-9 place-items-center rounded-lg text-muted hover:bg-surface-secondary lg:hidden">
             <MenuIcon aria-hidden className="size-5" strokeWidth={NAV_ICON_STROKE} />
           </button>
           {brandMark ? <div className="shrink-0 lg:hidden">{brandMark}</div> : null}
@@ -660,5 +746,6 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
         </main>
       </div>
     </div>
+    </TextContext>
   );
 }

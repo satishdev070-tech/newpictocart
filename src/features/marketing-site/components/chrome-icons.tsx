@@ -27,12 +27,12 @@ export function MenuIconView({ name, className }: { name: MenuIcon; className?: 
 
 /** Per column: eyebrow text, icon chip (tint + glyph) and the chip on hover. */
 export const MENU_TONE_CLASS: Record<MenuTone, { title: string; chip: string }> = {
-  indigo: { title: "text-indigo-600", chip: "bg-indigo-50 text-indigo-600 ring-indigo-100 group-hover:bg-indigo-600 group-hover:text-white" },
-  sky: { title: "text-sky-600", chip: "bg-sky-50 text-sky-600 ring-sky-100 group-hover:bg-sky-600 group-hover:text-white" },
-  violet: { title: "text-violet-600", chip: "bg-violet-50 text-violet-600 ring-violet-100 group-hover:bg-violet-600 group-hover:text-white" },
-  emerald: { title: "text-emerald-600", chip: "bg-emerald-50 text-emerald-600 ring-emerald-100 group-hover:bg-emerald-600 group-hover:text-white" },
-  amber: { title: "text-amber-600", chip: "bg-amber-50 text-amber-600 ring-amber-100 group-hover:bg-amber-500 group-hover:text-white" },
-  rose: { title: "text-rose-600", chip: "bg-rose-50 text-rose-600 ring-rose-100 group-hover:bg-rose-600 group-hover:text-white" },
+  indigo: { title: "text-brand-ink", chip: "bg-brand-soft text-brand-ink ring-border group-hover:bg-brand-ink group-hover:text-white" },
+  sky: { title: "text-brand-ink", chip: "bg-brand-soft text-brand-ink ring-border group-hover:bg-brand group-hover:text-white" },
+  violet: { title: "text-brand-ink", chip: "bg-brand-soft text-brand-ink ring-border group-hover:bg-brand-ink group-hover:text-white" },
+  emerald: { title: "text-brand-success", chip: "bg-brand-mint text-brand-success ring-brand-mint group-hover:bg-brand-success group-hover:text-white" },
+  amber: { title: "text-brand-orange", chip: "bg-brand-accent-soft text-brand-orange ring-brand-accent-soft group-hover:bg-brand-orange group-hover:text-white" },
+  rose: { title: "text-brand-orange-hover", chip: "bg-brand-accent-soft text-brand-orange-hover ring-brand-accent-soft group-hover:bg-brand-orange-hover group-hover:text-white" },
 };
 
 // ---- Brand marks not in landing-icons ---------------------------------------------------

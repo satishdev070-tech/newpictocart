@@ -10,6 +10,7 @@ import { logger } from "@/lib/observability/logger";
 import { AddDomainForm, MoveDomainButton, RemoveDomainButton, SetPrimaryButton, VerifyDomainButton } from "@/features/domains/components/domain-controls";
 import { DnsInstructions, DomainStatusBadge, ProviderStatusBadge, SslStatusBadge, VercelDnsInstructions } from "@/features/domains/components/domain-display";
 import { parseStoredDnsRecords } from "@/features/domains/vercel-status";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Domains" };
 
@@ -35,6 +36,7 @@ export default async function DomainsSettingsPage({ searchParams }: PageProps<"/
   const movedParam = (await searchParams).moved;
   const moved = typeof movedParam === "string" && /^[a-z0-9.-]{3,253}$/.test(movedParam) ? movedParam : null;
   const ctx = await requireTenantPermission("store.read");
+  const { t } = await getI18n();
   const canManage = can(ctx, "domains.manage");
   // Other stores this seller can move a domain to (domains.manage there too).
   const moveTargets = ctx.memberships
@@ -48,7 +50,7 @@ export default async function DomainsSettingsPage({ searchParams }: PageProps<"/
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Domains"
+          title={t("pages.settings.domains.title")}
           back={
             <Link href="/dashboard/settings" className="text-muted hover:text-foreground">
               ← Settings
@@ -71,8 +73,8 @@ export default async function DomainsSettingsPage({ searchParams }: PageProps<"/
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Domains"
-        description="Your store is always available on its platform address. Connect your own domain to give shoppers a branded web address."
+        title={t("pages.settings.domains.title")}
+        description={t("pages.settings.domains.description")}
         back={
           <Link href="/dashboard/settings" className="text-muted hover:text-foreground">
             ← Settings
@@ -91,7 +93,7 @@ export default async function DomainsSettingsPage({ searchParams }: PageProps<"/
         </p>
       ) : null}
 
-      <Card title="Platform address" description="Always works, even if you connect a custom domain.">
+      <Card tour="domain-platform" title="Platform address" description="Always works, even if you connect a custom domain.">
         <ul className="space-y-3">
           {platform.map((d) => (
             <li key={d.id} className="flex flex-wrap items-center justify-between gap-3">
@@ -111,6 +113,7 @@ export default async function DomainsSettingsPage({ searchParams }: PageProps<"/
       </Card>
 
       <Card
+        tour="domain-custom"
         title="Custom domains"
         description={
           allowance?.enabled

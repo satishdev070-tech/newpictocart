@@ -54,14 +54,14 @@ describe("auth code emails", () => {
   });
 });
 
-describe("code length follows the emailed code (Supabase 'Email OTP Length')", () => {
-  it("shows as many boxes as the code has digits, 6 by default", async () => {
+describe("code length is fixed at 6 digits", () => {
+  it("always shows 6 boxes regardless of reported length", async () => {
     const { boxCount } = await import("@/components/auth/email-code-flow");
     expect(boxCount(undefined)).toBe(6);
     expect(boxCount(6)).toBe(6);
-    expect(boxCount(8)).toBe(8);
-    expect(boxCount(12)).toBe(10);
+    expect(boxCount(8)).toBe(6);
+    expect(boxCount(12)).toBe(6);
     expect(boxCount(4)).toBe(6);
-    expect(cleanCode("2191 4449", 8)).toBe("21914449");
+    expect(cleanCode("2191 4449")).toBe("219144");
   });
 });

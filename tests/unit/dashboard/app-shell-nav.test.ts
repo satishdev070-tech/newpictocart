@@ -24,17 +24,17 @@ describe.each([
 ])("%s nav tree", (_name, groups) => {
   const items = groups.flatMap((g) => g.items);
 
-  it("links every item to a real page, once", () => {
+  it("links every item to a real page", () => {
     for (const i of items) expect(pageExists(i.href), i.href).toBe(true);
-    expect(new Set(items.map((i) => i.href)).size).toBe(items.length);
   });
 
   it("gives every group and item a known icon and a unique label", () => {
     for (const g of groups) {
       expect(NAV_ICONS[g.icon ?? g.items[0]!.icon], g.label).toBeDefined();
-      for (const i of g.items) expect(NAV_ICONS[i.icon], i.href).toBeDefined();
+      for (const i of g.items) expect(NAV_ICONS[i.icon], i.label).toBeDefined();
     }
     expect(new Set(groups.map((g) => g.label)).size).toBe(groups.length);
+    expect(new Set(items.map((i) => i.label)).size).toBe(items.length);
   });
 
   it("makes every multi-item group a submenu with its own group icon", () => {
@@ -45,6 +45,32 @@ describe.each([
 describe("seller nav", () => {
   it("has the expected submenus", () => {
     expect(seller.filter(isSubmenu).map((g) => g.label)).toEqual(["Catalog", "Sales", "Accounts", "Marketing", "Storefront", "Settings"]);
+  });
+
+  it("regroups Sales like Pic To Cart, with aliases onto existing pages", () => {
+    const sales = seller.find((g) => g.label === "Sales")!;
+    expect(sales.items.map((i) => [i.label, i.href])).toEqual([
+      ["Orders", "/dashboard/orders"],
+      ["Returns", "/dashboard/returns"],
+      ["Exchanges", "/dashboard/returns"],
+      ["Refunds", "/dashboard/payments"],
+      ["Shipments", "/dashboard/orders"],
+      ["Reviews", "/dashboard/reviews"],
+      ["My Customers", "/dashboard/customers"],
+      ["Contact Messages", "/dashboard/content/messages"],
+      ["Coupons", "/dashboard/discounts"],
+      ["Payments", "/dashboard/payments"],
+    ]);
+    expect(seller.find((g) => g.label === "Accounts")!.items.map((i) => i.label)).toEqual(["Team", "Roles & permissions", "Plan & billing"]);
+    expect(seller.find((g) => g.label === "Marketing")!.items.map((i) => i.label)).not.toContain("Reviews");
+    expect(seller.find((g) => g.label === "Marketing")!.items.map((i) => i.label)).not.toContain("Coupons");
+  });
+});
+
+describe("admin nav uniqueness", () => {
+  it("keeps a unique href per item", () => {
+    const items = admin.flatMap((g) => g.items);
+    expect(new Set(items.map((i) => i.href)).size).toBe(items.length);
   });
 });
 

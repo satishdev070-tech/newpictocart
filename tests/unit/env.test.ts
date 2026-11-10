@@ -39,6 +39,17 @@ describe("env validation", () => {
     expect(() => parseEnv(serverEnvSchema, { ...valid, PLATFORM_HOST_ALIASES: "*.vercel.app" })).toThrow(EnvValidationError);
   });
 
+  it("accepts optional Upstash Redis REST credentials", () => {
+    const env = parseEnv(serverEnvSchema, {
+      ...valid,
+      UPSTASH_REDIS_REST_URL: "https://example.upstash.io",
+      UPSTASH_REDIS_REST_TOKEN: "upstash-token-xxxxxxxxxxxx",
+    });
+    expect(env.UPSTASH_REDIS_REST_URL).toBe("https://example.upstash.io");
+    expect(env.UPSTASH_REDIS_REST_TOKEN).toBeDefined();
+    expect(parseEnv(serverEnvSchema, { ...valid, UPSTASH_REDIS_REST_URL: "" }).UPSTASH_REDIS_REST_URL).toBeUndefined();
+  });
+
   it("reduces a pasted URL in NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN to the bare root domain", () => {
     const root = (v: string) => parseEnv(serverEnvSchema, { ...valid, NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: v }).NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN;
     expect(root("https://pictocart.in")).toBe("pictocart.in");

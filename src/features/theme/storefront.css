@@ -2377,7 +2377,8 @@ a.sf-spot-add-square {
 
 /* Hero: framed */
 .sf-hero-frame-card { background: var(--sf-bg); color: var(--sf-text); border-radius: calc(var(--sf-radius-card) + 6px); }
-.sf-hero-frame-card .sf-eyebrow { color: var(--sf-muted) !important; }
+/* No !important: an inline TextLook colour on the eyebrow must win over the frame default. */
+.sf-hero-frame-card .sf-eyebrow { color: var(--sf-muted); }
 
 /* Rails */
 .sf-rail-item { scroll-snap-align: start; }
@@ -2537,6 +2538,80 @@ a.sf-spot-add-square {
   .sf-logo-lg { max-height: var(--sf-logo-max-h); }
 }
 
+/* PageContent shop chrome (TemplateFrame / PageChrome wrappers; PAGE_CHROME_VARIANTS). */
+.sf-page-chrome {
+  display: block;
+  /* Keep builder outlines / ⋮ menu from clipping against chrome descendants. */
+  overflow: visible;
+  --sf-page-prose: 1.02rem;
+  --sf-page-prose-lead: 1.75;
+}
+.sf-page-chrome-classic { /* default storefront rhythm */ }
+.sf-page-chrome-sidebar .sf-container {
+  max-width: min(var(--sf-container), 86rem);
+}
+.sf-page-chrome-sidebar .sf-section {
+  /* Hint a filters rail: slightly wider canvas; listing grids stay fluid. */
+  padding-inline: 0;
+}
+.sf-page-chrome-minimal .sf-section {
+  padding-block: calc(var(--sf-section-y) * 1.25);
+}
+.sf-page-chrome-minimal .sf-heading {
+  letter-spacing: 0.02em;
+}
+.sf-page-chrome-editorial .sf-section {
+  padding-block: calc(var(--sf-section-y) * 1.45);
+}
+.sf-page-chrome-editorial .sf-container {
+  max-width: min(var(--sf-container), 72rem);
+}
+.sf-page-chrome-editorial .sf-heading {
+  letter-spacing: 0.03em;
+}
+.sf-page-chrome-dense .sf-section {
+  padding-block: calc(var(--sf-section-y) * 0.65);
+}
+.sf-page-chrome-dense .sf-container {
+  max-width: min(var(--sf-container), 90rem);
+}
+
+/* PageContent body prose scale (About / Contact / CMS copy under TemplateFrame). */
+.sf-page-prose-sm {
+  --sf-page-prose: 0.9rem;
+  --sf-page-prose-lead: 1.65;
+}
+.sf-page-prose-md {
+  --sf-page-prose: 1.02rem;
+  --sf-page-prose-lead: 1.75;
+}
+.sf-page-prose-lg {
+  --sf-page-prose: 1.175rem;
+  --sf-page-prose-lead: 1.8;
+}
+.sf-page-chrome .sf-prose {
+  font-size: var(--sf-page-prose);
+  line-height: var(--sf-page-prose-lead);
+}
+.sf-page-chrome .sf-prose h2 {
+  font-size: calc(var(--sf-page-prose) * 1.72);
+}
+.sf-page-chrome .sf-prose h3 {
+  font-size: calc(var(--sf-page-prose) * 1.32);
+}
+.sf-page-chrome .sf-prose h4 {
+  font-size: calc(var(--sf-page-prose) * 1.08);
+}
+.sf-page-chrome .sf-prose blockquote {
+  font-size: calc(var(--sf-page-prose) * 1.23);
+}
+/* About fallback + contact intro body (outside .sf-prose). */
+.sf-page-chrome article.sf-section > p,
+.sf-page-chrome article.sf-section .leading-relaxed {
+  font-size: var(--sf-page-prose);
+  line-height: var(--sf-page-prose-lead);
+}
+
 /* Footer: statement wordmark */
 .sf-footer-wordmark { margin: 0; padding-inline: 0.5rem; overflow: hidden; white-space: nowrap; text-align: center; font-size: clamp(3rem, 15cqi, 14rem); line-height: 0.9; letter-spacing: -0.02em; opacity: 0.92; }
 
@@ -2603,4 +2678,16 @@ html[data-builder-canvas] [data-preview-banner] {
   [data-sf-mt]:not(.contents) { margin-top: var(--sf-mt-m); }
   .contents[data-sf-mb] > :last-child,
   [data-sf-mb]:not(.contents) { margin-bottom: var(--sf-mb-m); }
+}
+
+/* Phase D: per-text box width. Desktop uses the inline width; phones clamp to the column and a
+   readable floor (40%) so a narrow desktop box does not become unreadably thin on mobile. */
+[data-pc-text][data-pc-text-width] {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 767px) {
+  [data-pc-text][data-pc-text-width] {
+    width: clamp(40%, var(--pc-text-w, 100%), 100%) !important;
+  }
 }

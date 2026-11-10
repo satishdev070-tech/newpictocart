@@ -6,11 +6,13 @@ import { listCategories } from "@/features/catalog/server/categories";
 import { listSizeCharts } from "@/features/catalog/server/size-charts";
 import { categoryLabel } from "@/features/catalog/category-tree";
 import { CategoryForm, DeleteCategory } from "@/features/catalog/components/catalog-forms";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Categories" };
 
 export default async function CategoriesPage() {
   const ctx = await requireTenantPermission("catalog.read");
+  const { t } = await getI18n();
   const [cats, charts] = await Promise.all([listCategories(ctx.tenantId, { withCounts: true }), listSizeCharts(ctx.tenantId)]);
   const sizeCharts = charts.map((c) => ({ id: c.id, label: c.name }));
   const chartName = new Map(charts.map((c) => [c.id, c.name]));
@@ -18,16 +20,16 @@ export default async function CategoriesPage() {
   const parents = cats.map((c) => ({ id: c.id, label: categoryLabel(c) }));
   return (
     <div className="space-y-6">
-      <PageHeader title="Categories" description="Your catalogue's navigation tree (e.g. Women › Kurtas › Straight)." />
+      <PageHeader title={t("pages.categories.title")} description={t("pages.categories.description")} />
       {writable ? (
-        <Card title="Add category">
+        <Card tour="category-add" title="Add category">
           <CategoryForm parents={parents} sizeCharts={sizeCharts} />
         </Card>
       ) : null}
       {cats.length === 0 ? (
         <EmptyState title="No categories yet" description="Categories power store navigation and filters." />
       ) : (
-        <ul className="space-y-2">
+        <ul data-tour="category-list" className="space-y-2">
           {cats.map((c) => (
             <li key={c.id} className="rounded-lg border border-border bg-surface" style={{ marginLeft: `${c.depth * 1.5}rem` }}>
               <details>

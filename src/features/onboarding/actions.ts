@@ -17,6 +17,7 @@ import { clientIpKey, rateLimit } from "@/lib/rate-limit";
 import { audit } from "@/lib/audit";
 import { logger } from "@/lib/observability/logger";
 import { isIndustry } from "@/features/stores/industries";
+import { informativeSitesEnabled } from "@/features/stores/informative-flag";
 import { DEFAULT_SITE_MODE, SITE_MODES } from "@/features/stores/site-mode";
 import { isThemeKey } from "@/features/marketing-site/themes";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
@@ -118,7 +119,10 @@ export async function saveBusinessAction(_prev: ActionResult | null, fd: FormDat
       await setCategory(tenantId, input.category);
     }
     if (!tenantId) throw new AppError("INTERNAL");
-    await setSiteMode(tenantId, input.siteMode);
+    // New stores: Informational Website gated — coerce to ecommerce when the flag is off.
+    const siteMode =
+      !informativeSitesEnabled() && input.siteMode === "informative" ? DEFAULT_SITE_MODE : input.siteMode;
+    await setSiteMode(tenantId, siteMode);
     await setActiveTenant(tenantId);
     // Optional tagline / locale from voice confirm.
     if (typeof raw.tagline === "string" && raw.tagline.trim()) {
@@ -139,6 +143,8 @@ const seedSchema = z.object({
   store: z.string().regex(UUID_RE),
   locale: z.string().optional(),
   brief: z.string().max(4000).optional(),
+  subcategory: z.string().trim().min(1).max(80).optional(),
+  niche: z.string().trim().min(1).max(300).optional(),
   skip: z.string().optional(),
   plan: choiceSchema.plan,
   theme: choiceSchema.theme,
@@ -182,6 +188,8 @@ export async function seedReadyStoreAction(_prev: ActionResult | null, fd: FormD
       tenantId: ctx.tenantId,
       storeName: owned.name,
       industry: owned.category,
+      subcategory: input.subcategory,
+      niche: input.niche,
       brief: input.brief,
       locale: typeof locale === "string" ? locale : undefined,
       applyTheme: true,

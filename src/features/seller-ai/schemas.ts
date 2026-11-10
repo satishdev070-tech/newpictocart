@@ -1,0 +1,356 @@
+import { z } from "zod";
+import { contentBlockSchema } from "@/features/content/blocks";
+import { AI_PROVIDERS } from "@/features/neural-pulse/schemas";
+import { slugify } from "@/features/catalog/variants";
+
+const httpsUrl = z.string().url().refine((u) => u.startsWith("https://"), "Image URLs must be https");
+
+export const generateProductInputSchema = z.object({
+  imageUrls: z.array(httpsUrl).max(4).default([]),
+  hint: z.string().trim().max(500).optional(),
+  locale: z.string().trim().max(40).optional(),
+});
+
+/** LLM JSON only — provider/model/tokens are attached by the server after generateJson. */
+export const generateProductContentSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(8000),
+  shortDescription: z.string().trim().max(500),
+  tags: z.array(z.string().trim().min(1).max(40)).max(12),
+  // Coerce so "129900" from a model still validates as paise.
+  priceMinor: z.coerce.number().int().min(0).max(99_999_999_00),
+  productTypeHint: z.string().trim().max(60).nullable().optional(),
+  categoryHint: z.string().trim().max(80).nullable().optional(),
+  seoTitle: z.string().trim().max(120).optional().default(""),
+  seoDescription: z.string().trim().max(320).optional().default(""),
+});
+
+const generationMetaSchema = z.object({
+  provider: z.enum(AI_PROVIDERS),
+  model: z.string().max(100),
+  tokens: z.number().nullable().optional(),
+});
+
+export const generateProductResultSchema = generateProductContentSchema.merge(generationMetaSchema);
+export type GenerateProductResult = z.infer<typeof generateProductResultSchema>;
+
+export const generateBlogInputSchema = z.object({
+  topic: z.string().trim().min(3, "Enter a topic").max(300),
+  locale: z.string().trim().max(40).optional(),
+});
+
+const blogBlockSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("heading"), level: z.union([z.literal(2), z.literal(3), z.literal(4)]).default(2), text: z.string().trim().min(1).max(200) }),
+  z.object({ type: z.literal("paragraph"), text: z.string().trim().min(1).max(5000) }),
+  z.object({ type: z.literal("list"), style: z.enum(["bullet", "number"]).default("bullet"), items: z.array(z.string().trim().min(1).max(500)).min(1).max(50) }),
+  z.object({ type: z.literal("quote"), text: z.string().trim().min(1).max(1000), cite: z.string().trim().max(120).optional() }),
+]);
+
+export const generateBlogContentSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  excerpt: z.string().trim().max(500),
+  tags: z.array(z.string().trim().min(1).max(40)).max(12),
+  seoTitle: z.string().trim().max(120),
+  seoDescription: z.string().trim().max(320),
+  blocks: z.array(blogBlockSchema).min(1).max(20),
+});
+export const generateBlogResultSchema = generateBlogContentSchema.merge(generationMetaSchema);
+export type GenerateBlogResult = z.infer<typeof generateBlogResultSchema>;
+
+/** Soften AI blocks into store content blocks (drops invalid ones). */
+export function toContentBlocks(blocks: z.infer<typeof blogBlockSchema>[]) {
+  const out: z.infer<typeof contentBlockSchema>[] = [];
+  for (const b of blocks) {
+    const r = contentBlockSchema.safeParse(b);
+    if (r.success) out.push(r.data);
+  }
+  return out;
+}
+
+export const contactReplyInputSchema = z.object({
+  messageId: z.uuid(),
+  name: z.string().trim().min(1).max(120),
+  email: z.string().trim().email().max(200),
+  subject: z.string().trim().max(200).optional().default(""),
+  message: z.string().trim().min(2).max(4000),
+});
+
+export const contactReplyContentSchema = z.object({
+  reply: z.string().trim().min(1).max(4000),
+  subject: z.string().trim().max(200),
+});
+export const contactReplyResultSchema = contactReplyContentSchema.merge(generationMetaSchema);
+export type ContactReplyResult = z.infer<typeof contactReplyResultSchema>;
+
+export const businessCoachContentSchema = z.object({
+  headline: z.string().trim().min(1).max(120),
+  focus: z.string().trim().max(280),
+  tips: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(80),
+        detail: z.string().trim().min(1).max(320),
+        priority: z.enum(["high", "medium", "low"]),
+      }),
+    )
+    .min(1)
+    .max(6),
+});
+export const businessCoachResultSchema = businessCoachContentSchema.merge(generationMetaSchema);
+export type BusinessCoachResult = z.infer<typeof businessCoachResultSchema>;
+
+export const generateReviewsInputSchema = z.object({
+  productId: z.uuid(),
+  count: z.union([z.literal(3), z.literal(5)]),
+  tone: z.enum(["positive"]).default("positive"),
+});
+
+export const generateReviewsContentSchema = z.object({
+  reviews: z
+    .array(
+      z.object({
+        authorName: z.string().trim().min(1).max(80),
+        rating: z.coerce.number().int().min(4).max(5),
+        title: z.string().trim().min(1).max(120),
+        body: z.string().trim().min(1).max(3000),
+      }),
+    )
+    .min(1)
+    .max(5),
+});
+export const generateReviewsResultSchema = generateReviewsContentSchema.merge(generationMetaSchema);
+export type GenerateReviewsResult = z.infer<typeof generateReviewsResultSchema>;
+
+export const SELLER_AI_CREDIT_KINDS = [
+  "generate_product",
+  "generate_blog",
+  "contact_reply",
+  "business_coach",
+  "store_agent",
+  "store_setup",
+  "generate_reviews",
+  "generate_faq",
+] as const;
+export type SellerAiCreditKind = (typeof SELLER_AI_CREDIT_KINDS)[number];
+
+export const SELLER_AI_KIND_LABELS: Record<SellerAiCreditKind, string> = {
+  generate_product: "Product from image",
+  generate_blog: "Blog AI Write",
+  contact_reply: "Contact reply draft",
+  business_coach: "Business coach",
+  store_agent: "Pica2 AI Assistant",
+  store_setup: "Build your store from a prompt",
+  generate_reviews: "Generate AI product reviews",
+  generate_faq: "Apply AI store FAQs",
+};
+
+/** Default Q&A count for FAQ proposals (generate → confirm Apply). */
+export const FAQ_PROPOSAL_COUNT = 5;
+
+// ---- Store agent chat ------------------------------------------------------------------------
+
+/**
+ * Dashboard pages the store agent may link to. The model only returns a key; the href comes from
+ * this table, so a reply can never point outside the seller dashboard.
+ */
+export const AGENT_LINKS = {
+  home: "/dashboard",
+  products: "/dashboard/products",
+  new_product: "/dashboard/products/new",
+  categories: "/dashboard/categories",
+  collections: "/dashboard/collections",
+  inventory: "/dashboard/inventory",
+  low_stock: "/dashboard/inventory?stock=low",
+  orders: "/dashboard/orders",
+  unfulfilled_orders: "/dashboard/orders?fulfillment=unfulfilled",
+  customers: "/dashboard/customers",
+  discounts: "/dashboard/discounts",
+  analytics: "/dashboard/analytics",
+  reviews: "/dashboard/reviews",
+  blog: "/dashboard/content/blog",
+  theme: "/dashboard/theme",
+  themes: "/dashboard/themes",
+  ai_marketing: "/dashboard/marketing/neural-pulse",
+  payments: "/dashboard/settings/payments",
+  shipping: "/dashboard/settings/shipping",
+  domains: "/dashboard/settings/domains",
+  seo: "/dashboard/settings/seo",
+  plan: "/dashboard/settings/plan",
+  store_settings: "/dashboard/settings",
+  faqs: "/dashboard/content/faqs",
+} as const;
+export type AgentLinkKey = keyof typeof AGENT_LINKS;
+export const AGENT_LINK_KEYS = Object.keys(AGENT_LINKS) as AgentLinkKey[];
+
+export const AGENT_MAX_TURNS = 8;
+
+/** Soft cap for the store snapshot text fed into Pica2 (kept in sync in snapshot + prompt). */
+export const STORE_SNAPSHOT_MAX_CHARS = 8000;
+
+/** How many catalogue rows to include in the agent snapshot (plus separate low-stock lines). */
+export const AGENT_PRODUCT_SNAPSHOT_LIMIT = 40;
+
+export const agentChatInputSchema = z.object({
+  messages: z
+    .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(2000) }))
+    .min(1)
+    .max(AGENT_MAX_TURNS * 2)
+    .refine((m) => m[m.length - 1]?.role === "user", "The last message must be the seller's question"),
+});
+export type AgentChatInput = z.infer<typeof agentChatInputSchema>;
+
+export const faqProposalItemSchema = z.object({
+  question: z.string().trim().min(1).max(300),
+  answer: z.string().trim().min(1).max(3000),
+});
+
+export const faqProposalSchema = z.object({
+  type: z.literal("faq"),
+  groupName: z.string().trim().min(1).max(60).catch("General").default("General"),
+  items: z.array(faqProposalItemSchema).min(3).max(8),
+});
+export type FaqProposal = z.infer<typeof faqProposalSchema>;
+
+/** Dedicated generate-FAQ content (always 5 Q&As). */
+export const generateFaqContentSchema = z.object({
+  groupName: z.string().trim().min(1).max(60).catch("General").default("General"),
+  items: z.array(faqProposalItemSchema).length(FAQ_PROPOSAL_COUNT),
+});
+export const generateFaqResultSchema = generateFaqContentSchema.merge(generationMetaSchema);
+export type GenerateFaqResult = z.infer<typeof generateFaqResultSchema>;
+
+export const generateFaqInputSchema = z.object({
+  hint: z.string().trim().max(500).optional(),
+});
+
+export const applyFaqProposalInputSchema = z.object({
+  groupName: z.string().trim().min(1).max(60).default("General"),
+  items: z.array(faqProposalItemSchema).min(1).max(8),
+});
+export type ApplyFaqProposalInput = z.infer<typeof applyFaqProposalInputSchema>;
+
+/** Soften optional agent FAQ proposal — bad shapes become null (never fail the whole answer). */
+const agentFaqProposalSchema = z
+  .object({
+    type: z.literal("faq").catch("faq"),
+    groupName: z.string().trim().min(1).max(60).catch("General").default("General"),
+    items: z.array(faqProposalItemSchema).min(3).max(8),
+  })
+  .nullable()
+  .optional()
+  .catch(null)
+  .transform((p): FaqProposal | null => {
+    if (!p?.items?.length) return null;
+    return { type: "faq", groupName: p.groupName || "General", items: p.items.slice(0, 8) };
+  });
+
+/** Model reply: unknown link keys are dropped (never fail the whole answer for a bad link). */
+export const agentReplyContentSchema = z.object({
+  answer: z.string().trim().min(1).max(3000),
+  links: z
+    .array(z.object({ key: z.string(), label: z.string().trim().min(1).max(60) }))
+    .max(6)
+    .catch([])
+    .default([])
+    .transform((links) => {
+      const seen = new Set<string>();
+      const out: { key: AgentLinkKey; label: string; href: string }[] = [];
+      for (const l of links) {
+        if (!(l.key in AGENT_LINKS) || seen.has(l.key)) continue;
+        seen.add(l.key);
+        out.push({ key: l.key as AgentLinkKey, label: l.label, href: AGENT_LINKS[l.key as AgentLinkKey] });
+      }
+      return out.slice(0, 4);
+    }),
+  /** When the seller asks for store FAQs, the model may attach a structured proposal for confirm-Apply. */
+  proposal: agentFaqProposalSchema,
+});
+export const agentReplyResultSchema = agentReplyContentSchema.merge(generationMetaSchema).extend({
+  /** Credits that Apply will debit (from ai_credit_action_costs); attached by the server. */
+  applyCredits: z.number().int().min(0).max(10_000).optional(),
+});
+export type AgentReplyResult = z.infer<typeof agentReplyResultSchema>;
+
+// ---- Build your store from a prompt ----------------------------------------------------------
+
+export const STORE_SETUP_MAX_PRODUCTS = 8;
+export const STORE_SETUP_MAX_BLOGS = 3;
+export const STORE_SETUP_MIN_BLOGS = 1;
+export const STORE_SETUP_MAX_REVIEWS = 8;
+export const STORE_SETUP_MIN_REVIEWS = 3;
+
+export const storeSetupInputSchema = z.object({
+  prompt: z.string().trim().min(10, "Describe your shop in a sentence or two").max(1000),
+  products: z.array(z.string().trim().max(120)).max(STORE_SETUP_MAX_PRODUCTS).default([]),
+});
+
+const setupSlug = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .transform((v) => v.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80))
+  .pipe(z.string().min(1));
+
+export const storeSetupContentSchema = z.object({
+  industry: z.string().trim().max(40).nullable().catch(null).default(null),
+  categories: z
+    .array(z.object({ name: z.string().trim().min(1).max(80), slug: setupSlug, description: z.string().trim().max(500).catch("").default("") }))
+    .min(1)
+    .max(6),
+  products: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(200),
+        categorySlug: setupSlug,
+        shortDescription: z.string().trim().max(280).catch("").default(""),
+        description: z.string().trim().max(4000).catch("").default(""),
+        priceMinor: z.number().int().min(100).max(100_000_000),
+        tags: z.array(z.string().trim().toLowerCase().min(1).max(40)).max(8).catch([]).default([]),
+        seoTitle: z.string().trim().max(70).catch("").default(""),
+        seoDescription: z.string().trim().max(160).catch("").default(""),
+      }),
+    )
+    .min(1)
+    .max(STORE_SETUP_MAX_PRODUCTS),
+  blogs: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1).max(200),
+        slug: setupSlug,
+        excerpt: z.string().trim().max(500).catch("").default(""),
+        paragraphs: z.array(z.string().trim().min(1).max(5000)).min(1).max(8),
+        tags: z.array(z.string().trim().toLowerCase().min(1).max(40)).max(8).catch([]).default([]),
+        seoTitle: z.string().trim().max(120).catch("").default(""),
+        seoDescription: z.string().trim().max(320).catch("").default(""),
+      }),
+    )
+    .min(STORE_SETUP_MIN_BLOGS)
+    .max(STORE_SETUP_MAX_BLOGS)
+    .catch([])
+    .default([]),
+  reviews: z
+    .array(
+      z.object({
+        productTitle: z.string().trim().min(1).max(200),
+        authorName: z.string().trim().min(1).max(80),
+        rating: z.number().int().min(1).max(5),
+        title: z.string().trim().max(120).catch("").default(""),
+        body: z.string().trim().min(1).max(1000),
+      }),
+    )
+    .min(STORE_SETUP_MIN_REVIEWS)
+    .max(STORE_SETUP_MAX_REVIEWS)
+    .catch([])
+    .default([]),
+});
+export type StoreSetupContent = z.infer<typeof storeSetupContentSchema>;
+export type StoreSetupResult = { categories: number; products: number; blogs: number; reviews: number; skipped: number };
+
+/** Next free slug: `kurta`, `kurta-2`, `kurta-3`… (adds the result to `taken`). */
+export function uniqueSlug(base: string, taken: Set<string>): string {
+  const root = slugify(base, 100) || "item";
+  let candidate = root;
+  for (let n = 2; taken.has(candidate); n++) candidate = `${root}-${n}`;
+  taken.add(candidate);
+  return candidate;
+}

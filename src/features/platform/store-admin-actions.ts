@@ -82,5 +82,5 @@ export async function loginAsStoreAction(_prev: ActionResult | null, fd: FormDat
 /** Called from the seller dashboard banner while signed in as a store member. */
 export async function endSupportLoginAction(): Promise<void> {
   const marker = await endSupportLogin();
-  redirect(marker ? `/admin/login?next=${encodeURIComponent(`/admin/tenants/${marker.tenantId}`)}` : "/admin/login");
+  redirect(marker ? `/login?next=${encodeURIComponent(`/admin/tenants/${marker.tenantId}`)}` : "/login?next=%2Fadmin");
 }

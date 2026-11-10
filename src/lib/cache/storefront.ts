@@ -1,17 +1,22 @@
 import "server-only";
-import { revalidateTag, unstable_cache } from "next/cache";
+import { cachedPublic, redisEntryKey as publicRedisEntryKey, revalidatePublicTags } from "@/lib/cache/public-cache";
 
 /**
  * Cross-request cache for the storefront's per-tenant lookups (ADR-010 addendum): the hostname
  * directory, the published theme, the store profile and the feature flags. Cache Components stays
- * off, so this uses `unstable_cache` (the Data Cache). Rules:
+ * off, so this uses `unstable_cache` (the Data Cache) as L1 via `cachedPublic`. When Upstash env is
+ * set, Redis is L2 so cold Vercel instances share public storefront reads without re-hitting
+ * Supabase.
+ *
+ * Rules:
  * - Only PUBLIC data, never anything read from cookies/headers or a user session (preview drafts
  *   and Live Preview are resolved outside these functions and are never cached).
  * - The cache key always includes the tenant id or the hostname (function arguments are part of
  *   the key), so tenants can't be mixed.
- * - Mutations invalidate with `revalidateStorefront(tenantId)`; out-of-band DB edits (scripts)
- *   show up after `STOREFRONT_CACHE_SECONDS` at most.
+ * - Mutations invalidate with `revalidateStorefront(tenantId)` (L1 tag + Redis keys); out-of-band
+ *   DB edits (scripts) show up after `STOREFRONT_CACHE_SECONDS` at most.
  * - Off in development, so `next dev` always reads the database.
+ * - Redis errors fail open: the request continues from L1/DB.
  */
 
 export const STOREFRONT_CACHE_SECONDS = 120;
@@ -20,12 +25,20 @@ export const TENANT_DIRECTORY_TAG = "tenant-directory";
 export const ALL_STOREFRONTS_TAG = "storefront-all";
 export const storefrontTag = (tenantId: string) => `tenant:${tenantId}:storefront`;
 
-const enabled = process.env.NODE_ENV === "production";
+const REDIS_KEY_PREFIX = "sf:v1";
+
+/** Redis entry key for storefront L2 (tests + diagnostics). */
+export function redisEntryKey(name: string, args: string[]): string {
+  return publicRedisEntryKey(REDIS_KEY_PREFIX, name, args);
+}
 
 /** Cache `fn(...args)` across requests under `name` + args, tagged for on-demand invalidation. */
 export function cachedStorefront<A extends string[], R>(name: string, fn: (...args: A) => Promise<R>, tags: (...args: A) => string[]) {
-  if (!enabled) return fn;
-  return (...args: A): Promise<R> => unstable_cache(fn, ["sf", name], { tags: [ALL_STOREFRONTS_TAG, ...tags(...args)], revalidate: STOREFRONT_CACHE_SECONDS })(...args);
+  return cachedPublic(name, fn, {
+    keyPrefix: REDIS_KEY_PREFIX,
+    revalidateSeconds: STOREFRONT_CACHE_SECONDS,
+    tags: (...args: A) => [ALL_STOREFRONTS_TAG, ...tags(...args)],
+  });
 }
 
 /**
@@ -35,7 +48,7 @@ export function cachedStorefront<A extends string[], R>(name: string, fn: (...ar
  * identity: slug, status, name, primary host); other stores keep their cache.
  */
 export function revalidateStorefront(tenantId: string) {
-  revalidateTag(storefrontTag(tenantId), { expire: 0 });
+  revalidatePublicTags(storefrontTag(tenantId));
 }
 
 /**
@@ -44,10 +57,14 @@ export function revalidateStorefront(tenantId: string) {
  * this; each store's next request then re-runs its host lookup once.
  */
 export function revalidateTenantDirectory() {
-  revalidateTag(TENANT_DIRECTORY_TAG, { expire: 0 });
+  revalidatePublicTags(TENANT_DIRECTORY_TAG);
 }
 
-/** Platform-wide change (a plan's features, a global feature flag): every store re-reads once. */
+/**
+ * Platform-wide change (a plan's features, a global feature flag): every store re-reads once.
+ * L1 drops immediately via the global tag; Redis L2 clears the tracked key index (or expires in
+ * `STOREFRONT_CACHE_SECONDS` if Redis is unreachable).
+ */
 export function revalidateAllStorefronts() {
-  revalidateTag(ALL_STOREFRONTS_TAG, { expire: 0 });
+  revalidatePublicTags(ALL_STOREFRONTS_TAG);
 }

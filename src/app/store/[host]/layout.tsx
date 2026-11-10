@@ -25,6 +25,7 @@ import { pendingDomainState } from "@/lib/tenant/directory";
 import { isHiddenDraft } from "@/features/stores/launch";
 import { PreviewEscapeBridge } from "@/features/storefront/components/preview-escape";
 import { RouteProgress } from "@/features/storefront/components/route-progress";
+import { storefrontFontVariables } from "@/app/storefront-fonts";
 import "@/features/theme/storefront.css";
 import "@/features/theme/designs-a.css";
 
@@ -88,7 +89,7 @@ export default async function StorefrontLayout({ children, params }: LayoutProps
   const festive = ctx.sf.preview || ctx.sf.themePreview ? null : activeFestive;
   const tracking = ctx.sf.preview || ctx.sf.themePreview ? null : activeTracking;
   return (
-    <div data-sf-root data-heading-align={ctx.sf.theme.tokens.sectionHeadingAlign} className="sf-root">
+    <div data-sf-root data-heading-align={ctx.sf.theme.tokens.sectionHeadingAlign} className={`sf-root ${storefrontFontVariables}`}>
       <ThemeTokensStyle tokens={ctx.sf.theme.tokens} />
       <RouteProgress />
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:bg-white focus:p-2">

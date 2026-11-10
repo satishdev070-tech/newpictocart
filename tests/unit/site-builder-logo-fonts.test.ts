@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { FONT_KEYS, FONT_STACKS, LOGO_LIMITS, headerSettingsSchema, tokensSchema } from "@/features/theme/schema/tokens";
+import { FONT_GROUP_LABELS, FONT_GROUPS, FONT_KEYS, FONT_STACKS, LOGO_LIMITS, fontKeysInGroup, headerSettingsSchema, tokensSchema } from "@/features/theme/schema/tokens";
 import { AUTO_LOGO_HEIGHT, hasCustomLogoPosition, hasCustomLogoSize, logoImageProps, resolveLogoPositions, splitMenu } from "@/features/theme/render/logo-layout";
 
 const OLD_HEADER = { logoPath: "", logoAlt: "", logoMaxWidth: 200, menuHandle: "main", showSearch: true, showAccount: true, showWishlist: true, showCart: true, sticky: true };
@@ -80,7 +80,17 @@ describe("theme fonts", () => {
 
   it("includes the requested fonts", () => {
     const names = FONT_KEYS.map((k) => FONT_STACKS[k].label.split(" (")[0]);
-    for (const n of ["Asap Sharp", "Open Sans", "Arimo", "Roboto Condensed", "Roboto", "DM Sans", "Isometra", "Rubik", "Playfair Display", "Outfit", "Poppins", "Montserrat"]) expect(names).toContain(n);
+    for (const n of ["Asap Sharp", "Open Sans", "Arimo", "Roboto Condensed", "Roboto", "DM Sans", "Isometra", "Rubik", "Playfair Display", "Outfit", "Poppins", "Montserrat", "Noto Sans Devanagari", "Hind"]) expect(names).toContain(n);
+  });
+
+  it("groups fonts as English vs Hindi for pickers", () => {
+    expect(FONT_GROUPS).toEqual(["english", "hindi"]);
+    expect(FONT_GROUP_LABELS.hindi).toBe("Hindi");
+    const hindi = fontKeysInGroup("hindi");
+    expect(hindi).toEqual(expect.arrayContaining(["noto-sans-devanagari", "hind"]));
+    expect(fontKeysInGroup("english")).toContain("modern-sans");
+    expect(fontKeysInGroup("english")).not.toContain("hind");
+    for (const k of FONT_KEYS) expect(FONT_GROUPS).toContain(FONT_STACKS[k].group);
   });
 
   it("every font variable a stack uses is declared as a self-hosted font", () => {

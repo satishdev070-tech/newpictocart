@@ -7,28 +7,32 @@ import { Card, PageHeader } from "@/components/ui/layout";
 import { getStoreProfile } from "@/features/settings/queries";
 import { storePrimaryHost } from "@/features/integrations/server/store";
 import { SeoSettingsForm } from "@/features/settings/ui/seo-form";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "SEO" };
 
 export default async function SeoSettingsPage() {
   const ctx = await requireTenantPermission("store.read");
+  const { t } = await getI18n();
   const [store, host] = await Promise.all([getStoreProfile(ctx.tenantId), storePrimaryHost(ctx.tenantId)]);
   const seo = (store.seo ?? {}) as Record<string, unknown>;
   const s = (k: string) => (typeof seo[k] === "string" ? (seo[k] as string) : "");
   const origin = host ? storeOrigin(host) : "";
   return (
     <div className="space-y-6">
-      <PageHeader title="SEO" description="Search engine and social sharing settings for your whole store. Each product, collection, category, page and blog post also has its own listing fields." />
-      {can(ctx, "settings.write") ? (
-        <SeoSettingsForm
-          storeName={store.name}
-          origin={origin || "your-store"}
-          v={{ seoTitle: s("title"), seoDescription: s("description"), noindex: seo.noindex === true, googleVerification: s("google_verification"), bingVerification: s("bing_verification"), ogImageUrl: assetUrl(s("og_image_path") || null) }}
-        />
-      ) : (
-        <p className="text-small text-muted">You can view but not change SEO settings.</p>
-      )}
-      <Card title="Generated for you">
+      <PageHeader title={t("pages.settings.seo.title")} description={t("pages.settings.seo.description")} />
+      <div data-tour="seo-form">
+        {can(ctx, "settings.write") ? (
+          <SeoSettingsForm
+            storeName={store.name}
+            origin={origin || "your-store"}
+            v={{ seoTitle: s("title"), seoDescription: s("description"), noindex: seo.noindex === true, googleVerification: s("google_verification"), bingVerification: s("bing_verification"), ogImageUrl: assetUrl(s("og_image_path") || null) }}
+          />
+        ) : (
+          <p className="text-small text-muted">You can view but not change SEO settings.</p>
+        )}
+      </div>
+      <Card tour="seo-generated" title="Generated for you">
         <ul className="space-y-2 text-small">
           <li>
             <span className="text-muted">Sitemap: </span>

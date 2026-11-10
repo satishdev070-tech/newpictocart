@@ -9,23 +9,24 @@ import { splitAtPageContent } from "@/features/theme/render/split";
  *   layout.header | layout.footer               the shared header / footer groups
  *   templates.<key>                             a whole template (home, or a template without PageContent)
  *   templates.<key>.before | .after             the parts of a template around the page's own content
+ *   templates.<key>.chrome                      preview marker for the page body (PageContent); same list
  *   pages.<pageId>                              a site-builder page
  *   templates.home                              "/": the home template, or the sections of the page set
  *                                               as the homepage (config.homePageId; list pages.<id>)
  *   handle.<handle>                             /pages/<handle> in the preview when the server had no
  *                                               such theme page yet (an unsaved new page)
  *
- * A slot belongs to one section LIST (the slot key without .before/.after); the builder edits the
- * list and the canvas re-renders every slot of that list.
+ * A slot belongs to one section LIST (the slot key without .before/.after/.chrome); the builder edits
+ * the list and the canvas re-renders every slot of that list.
  */
 
-export const SLOT_KEY_RE = /^(layout\.(header|footer)|templates\.[a-zA-Z]{2,20}(\.(before|after))?|pages\.[a-z0-9][a-z0-9-]{2,39}|handle\.[a-z0-9][a-z0-9-]{0,59})$/;
+export const SLOT_KEY_RE = /^(layout\.(header|footer)|templates\.[a-zA-Z]{2,20}(\.(before|after|chrome))?|pages\.[a-z0-9][a-z0-9-]{2,39}|handle\.[a-z0-9][a-z0-9-]{0,59})$/;
 
 export type ListKey = `layout.${LayoutKey}` | `templates.${TemplateKey}` | `pages.${string}`;
 
 export function listKeyOf(slot: string): ListKey | null {
   if (!SLOT_KEY_RE.test(slot) || slot.startsWith("handle.")) return null;
-  return slot.replace(/\.(before|after)$/, "") as ListKey;
+  return slot.replace(/\.(before|after|chrome)$/, "") as ListKey;
 }
 
 export function getList(config: ThemeConfig, key: ListKey): SectionInstance[] | null {

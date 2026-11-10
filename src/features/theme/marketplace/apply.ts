@@ -151,6 +151,13 @@ export function applyThemePreset(current: ThemeConfig, preset: ThemePreset): unk
     layoutHeader.push({ ...m, visibility: { desktop: true, mobile: false } });
   }
 
+  /** Chrome templates (cart/account/search/…) keep their PageContent marker so the builder canvas does not show an empty-slot white band after a marketplace apply. */
+  const chrome = (key: "collectionList" | "page" | "blog" | "search" | "cart" | "account"): SectionInstance[] => {
+    const list = current.templates[key];
+    if (list.length) return list;
+    return [{ id: uid(`${key}-pc`, 1), type: "PageContent" as SectionType, settings: defaultSettings("PageContent" as SectionType), visibility: { desktop: true, mobile: true } }];
+  };
+
   return {
     schemaVersion: current.schemaVersion,
     tokens: { ...current.tokens, ...preset.tokens, colors: { ...current.tokens.colors, ...preset.tokens.colors } },
@@ -162,6 +169,12 @@ export function applyThemePreset(current: ThemeConfig, preset: ThemePreset): unk
       home: [...home, ...pool.unusedSlots().filter((x) => current.templates.home.includes(x)).map((x) => ({ ...x, visibility: { ...HIDDEN } }))],
       collection: preset.collection ? buildTemplate(preset.collection, current.templates.collection, "collection") : current.templates.collection,
       product: preset.product ? buildTemplate(preset.product, current.templates.product, "product") : current.templates.product,
+      collectionList: chrome("collectionList"),
+      page: chrome("page"),
+      blog: chrome("blog"),
+      search: chrome("search"),
+      cart: chrome("cart"),
+      account: chrome("account"),
     },
   };
 }

@@ -46,8 +46,8 @@ const IGNORE = new Set((process.env.SNAPSHOT_IGNORE_COLUMNS ?? "").split(",").ma
 const strip = (table: string) => (r: unknown) => (r && typeof r === "object" && !Array.isArray(r) ? Object.fromEntries(Object.entries(r as Record<string, unknown>).filter(([k]) => !IGNORE.has(`${table}.${k}`))) : r);
 
 const snapshot: Record<string, { count: number; sha256: string }> = {};
-const tenantRow = await (await fetch(`${URL_}/rest/v1/tenants?select=*&id=eq.${tenantId}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } })).json();
-snapshot.tenants = { count: tenantRow.length, sha256: createHash("sha256").update(JSON.stringify(canon((tenantRow as unknown[]).map(strip("tenants"))))).digest("hex") };
+const tenantRow = (await (await fetch(`${URL_}/rest/v1/tenants?select=*&id=eq.${tenantId}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } })).json()) as unknown[];
+snapshot.tenants = { count: tenantRow.length, sha256: createHash("sha256").update(JSON.stringify(canon(tenantRow.map(strip("tenants"))))).digest("hex") };
 for (const t of TABLES) {
   const r = await rows(t);
   if (r === null) continue;

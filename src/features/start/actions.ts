@@ -5,15 +5,18 @@ import { runAction, type ActionResult } from "@/lib/actions/result";
 import { formToObject } from "@/lib/actions/form";
 import { parseInput } from "@/lib/validation/common";
 import { AppError } from "@/lib/errors";
-import { requireUser } from "@/lib/auth/session";
+import { EnvValidationError } from "@/lib/env/schema";
+import { requireUserWithRetry } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mapDbError } from "@/lib/supabase/errors";
 import { publicEnv } from "@/lib/env/public";
+import { mapStartFinalizeError } from "@/features/start/finalize-error";
 import { isValidStoreSlug } from "@/lib/tenant/host";
 import { setActiveTenant } from "@/lib/tenant/active";
 import { clientIpKey, rateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/observability/logger";
 import { isIndustry, type IndustrySlug } from "@/features/stores/industries";
+import { informativeSitesEnabled } from "@/features/stores/informative-flag";
 import { DEFAULT_SITE_MODE } from "@/features/stores/site-mode";
 import { isThemeKey } from "@/features/marketing-site/themes";
 import { isSarvamConfigured, chatTurn } from "@/lib/sarvam/client";
@@ -25,22 +28,45 @@ import { assertEmailVerifiedForOnboarding } from "@/features/onboarding/email-ga
 import { listOwnedStores, ownerContext } from "@/features/onboarding/server";
 import { seedReadyStore } from "@/features/onboarding/seed/pipeline";
 import { backfillSeedImages } from "@/features/onboarding/seed/persist";
+import { pickBestMarketplaceTheme, listRankedMarketplaceThemes } from "@/features/onboarding/seed/theme-pick";
 import { suggestSlugFromName } from "@/features/onboarding/voice/facts";
 import { parseTaraHistory, runTaraTurn } from "@/features/onboarding/voice/turn";
 import { voiceTurnInputSchema } from "@/features/onboarding/voice/schemas";
 import type { VoiceTurnData } from "@/features/onboarding/voice/actions";
-import { EMPTY_FACTS, mergeFacts, mapCategoryToIndustry, mapSiteMode, type VoiceFacts } from "@/features/onboarding/voice/facts";
+import {
+  EMPTY_FACTS,
+  mergeFacts,
+  mapCategoryInput,
+  mapCategoryToIndustry,
+  mapSiteMode,
+  suggestSubcategory,
+  type VoiceFacts,
+} from "@/features/onboarding/voice/facts";
+import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import { themeSiteType } from "@/features/theme/marketplace/types";
+import { themeShot } from "@/features/marketing-site/theme-shots";
+import { themeStockThumbUrl } from "@/features/theme/layouts/imagery";
 import { isStartIntentId } from "./intents";
 import { buildSeedBrief } from "./brief";
-import { startDraftSchema, draftCategory, draftSiteMode, draftStoreName, type StartDraft } from "./draft/schema";
+import { parseStartDraft, draftCategory, draftSiteMode, draftStoreName, draftSeedSubcategory, draftProductsServices, type StartDraft } from "./draft/schema";
+import { selectStartThemeOptions, type StartThemeOptions } from "./theme-options";
 
 function parseFactsJson(raw: unknown): VoiceFacts {
   if (typeof raw !== "string" || !raw.trim()) return { ...EMPTY_FACTS };
   try {
     const parsed = JSON.parse(raw) as Partial<VoiceFacts>;
+    const mapped = mapCategoryInput(typeof parsed.category === "string" ? parsed.category : null);
+    const category = mapped.category ?? mapCategoryToIndustry(typeof parsed.category === "string" ? parsed.category : null);
+    const subcategoryRaw = typeof parsed.subcategory === "string" ? parsed.subcategory : null;
+    const subcategory =
+      (category && subcategoryRaw ? suggestSubcategory(category, subcategoryRaw) : null) ??
+      mapped.subcategory ??
+      (typeof subcategoryRaw === "string" ? subcategoryRaw : null);
     return mergeFacts(EMPTY_FACTS, {
       name: typeof parsed.name === "string" ? parsed.name : null,
-      category: mapCategoryToIndustry(typeof parsed.category === "string" ? parsed.category : null),
+      category,
+      subcategory,
+      productsServices: typeof parsed.productsServices === "string" ? parsed.productsServices : null,
       siteMode: mapSiteMode(typeof parsed.siteMode === "string" ? parsed.siteMode : null),
       tagline: typeof parsed.tagline === "string" ? parsed.tagline : null,
       city: typeof parsed.city === "string" ? parsed.city : null,
@@ -256,46 +282,89 @@ async function createOrResumeStore(userId: string, name: string, slug: string): 
     if (error.code === "54000") {
       throw new AppError("VALIDATION", { fieldErrors: { _form: ["You've reached the maximum number of stores for one account."] } });
     }
-    throw mapDbError(error);
+    throw mapDbError(error, { operation: "create_tenant" });
   }
   const tenantId = data;
-  if (!tenantId) throw new AppError("INTERNAL");
+  if (!tenantId) throw new AppError("INTERNAL", { context: { operation: "create_tenant" } });
   return { tenantId, slug };
 }
 
 function finishError(err: unknown): never {
-  const context = err instanceof AppError ? err.context : undefined;
+  const mapped = mapStartFinalizeError(err);
   logger.error("start.finalize_failed", {
-    code: err instanceof AppError ? err.code : "throw",
-    context,
+    code: err instanceof AppError ? err.code : err instanceof EnvValidationError ? "env_invalid" : "throw",
+    mappedCode: mapped.code,
+    context: mapped.context ?? (err instanceof AppError ? err.context : undefined),
     message: err instanceof Error ? err.message.slice(0, 300) : "unknown",
   });
-  if (err instanceof AppError) {
-    const line = err.fieldErrors?._form?.[0] ?? err.fieldErrors?.slug?.[0];
-    if (line) throw err;
-    throw new AppError(err.code === "INTERNAL" ? "VALIDATION" : err.code, {
-      fieldErrors: { _form: [err.code === "INTERNAL" ? "The store could not be finished. Try again." : err.publicMessage] },
-      context,
-    });
-  }
-  throw new AppError("VALIDATION", { fieldErrors: { _form: ["The store could not be finished. Try again."] } });
+  throw mapped;
 }
 
 export type FinalizeStartResult = { slug: string; name: string };
+
+const listThemeOptionsSchema = z.object({
+  industry: z.string().max(64).nullable().optional(),
+  preferredTheme: z.string().max(80).nullable().optional(),
+});
+
+/**
+ * AI-recommended marketplace theme + a few alternatives for the start Theme screen.
+ * Uses the same industry ranking as `pickBestMarketplaceTheme` (ecommerce only). No secrets.
+ */
+export async function listStartThemeOptionsAction(input: {
+  industry?: string | null;
+  preferredTheme?: string | null;
+}): Promise<ActionResult<StartThemeOptions>> {
+  return runAction("start.listThemeOptions", async () => {
+    const parsed = parseInput(listThemeOptionsSchema, input);
+    const industry = parsed.industry && isIndustry(parsed.industry) ? parsed.industry : "general";
+    // Assert non-empty catalogue for this industry (throws INTERNAL like seed theme-pick).
+    pickBestMarketplaceTheme(industry);
+    const ranked = listRankedMarketplaceThemes(industry);
+    const preferredKey = parsed.preferredTheme?.trim() || null;
+    const preferred =
+      preferredKey && isThemeKey(preferredKey)
+        ? (MARKETPLACE_THEMES.find((t) => t.key === preferredKey && themeSiteType(t) === "ecommerce") ?? null)
+        : null;
+
+    return selectStartThemeOptions(ranked, preferred, (key) => {
+      const shot = themeShot(key, "desktop");
+      if (shot) return shot;
+      const theme = MARKETPLACE_THEMES.find((t) => t.key === key);
+      return theme ? themeStockThumbUrl(theme) : null;
+    });
+  });
+}
 
 export async function finalizeStartDraftAction(
   _prev: ActionResult<FinalizeStartResult> | null,
   fd: FormData,
 ): Promise<ActionResult<FinalizeStartResult>> {
   return runAction("start.finalize", async () => {
-    const user = await requireUser("/start");
+    let user;
+    try {
+      // Uncached retry: post-OTP cookie can miss on the first read of this action.
+      user = await requireUserWithRetry("/start");
+    } catch (err) {
+      if (err instanceof EnvValidationError) {
+        logger.error("start.finalize_env_invalid", { issues: err.issues.slice(0, 8) });
+        throw new AppError("INTERNAL", {
+          fieldErrors: { _form: ["Server configuration error — contact support."] },
+          context: { reason: "env_invalid" },
+        });
+      }
+      throw err;
+    }
     await assertEmailVerifiedForOnboarding();
     await rateLimit("start-finalize", user.id, 10, 3600);
     const { draftJson } = parseInput(finalizeSchema, formToObject(fd));
-    let draft: StartDraft;
+    let draft: StartDraft | null = null;
     try {
-      draft = startDraftSchema.parse(JSON.parse(draftJson));
+      draft = parseStartDraft(JSON.parse(draftJson));
     } catch {
+      draft = null;
+    }
+    if (!draft) {
       throw new AppError("VALIDATION", { fieldErrors: { _form: ["Your saved journey looks invalid. Start again from /start."] } });
     }
 
@@ -307,7 +376,10 @@ export async function finalizeStartDraftAction(
     if (!isIndustry(industry)) {
       throw new AppError("VALIDATION", { fieldErrors: { _form: ["Choose a business category."] } });
     }
-    const siteMode = draftSiteMode(draft) ?? DEFAULT_SITE_MODE;
+    // New flows: Informational Website is gated; always persist ecommerce when the flag is off.
+    const siteMode = informativeSitesEnabled()
+      ? (draftSiteMode(draft) ?? DEFAULT_SITE_MODE)
+      : DEFAULT_SITE_MODE;
     const slugWanted = resolveSlug(storeName);
 
     let tenantId: string;
@@ -346,6 +418,8 @@ export async function finalizeStartDraftAction(
           tenantId,
           storeName: name,
           industry,
+          subcategory: draftSeedSubcategory(draft),
+          niche: draftProductsServices(draft) || null,
           brief: buildSeedBrief(draft),
           locale: draft.locale,
           applyTheme: true,

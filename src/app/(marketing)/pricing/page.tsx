@@ -5,7 +5,7 @@ import { entryPlan, isFreeForeverPlan, signupTrialDays } from "@/features/market
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { PricingTable } from "@/features/marketing-site/components/pricing-table";
 import { PlanComparison } from "@/features/marketing-site/components/plan-comparison";
-import { Section, SectionHeading } from "@/features/marketing-site/components/ui";
+import { Section } from "@/features/marketing-site/components/ui";
 import { FaqSection, FinalCta } from "@/features/marketing-site/components/home-sections";
 import type { Faq } from "@/features/marketing-site/content";
 
@@ -65,20 +65,38 @@ export default async function PricingPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd([softwareApplicationJsonLd(siteOrigin(), plans), faqJsonLd(faqs)]) }} />
-      <section className="bg-gradient-to-b from-brand-soft/70 to-white pt-16 pb-6 sm:pt-20" aria-labelledby="pricing-title">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <SectionHeading as="h1" id="pricing-title" eyebrow="Pricing" title="Simple plans for every stage of your business" body={headingBody} />
+      <section className="bg-gradient-to-b from-mk-bg to-mk-elev-1 pt-16 pb-6 sm:pt-20" aria-labelledby="pricing-title">
+        <div className="mk-container">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="mk-label inline-flex items-center justify-center gap-2 text-mk-accent">
+              <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+              Pricing
+            </p>
+            <h1 id="pricing-title" className="mk-display-lg mt-4 text-balance text-mk-text">
+              Simple plans for every stage of your business
+            </h1>
+            <p className="mt-4 text-lg leading-relaxed text-mk-muted">{headingBody}</p>
+          </div>
           <div className="mt-12">
             <PricingTable plans={plans} headingLevel="h2" />
           </div>
         </div>
       </section>
       <Section labelledBy="compare-title">
-        <SectionHeading id="compare-title" title="Compare plans" body="Limits and features per plan, as enforced in your store." />
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="mk-label inline-flex items-center justify-center gap-2 text-mk-accent">
+            <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+            Compare
+          </p>
+          <h2 id="compare-title" className="mk-display-lg mt-4 text-balance text-mk-text">
+            Compare plans
+          </h2>
+          <p className="mt-4 text-lg leading-relaxed text-mk-muted">Limits and features per plan, as enforced in your store.</p>
+        </div>
         <div className="mt-10">
           <PlanComparison plans={plans} />
         </div>
-        <p className="mt-4 text-center text-sm text-muted">All plans include the theme editor, checkout, order management, discounts, GST invoices and cash on delivery.</p>
+        <p className="mt-4 text-center text-sm text-mk-muted">All plans include the theme editor, checkout, order management, discounts, GST invoices and cash on delivery.</p>
       </Section>
       <FaqSection faqs={faqs} title="Plans and billing" />
       <FinalCta trialDays={trialDays} freeForever={freeForever} />

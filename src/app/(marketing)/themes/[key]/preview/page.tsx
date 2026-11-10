@@ -11,7 +11,8 @@ import { ThemePreviewStage } from "@/features/marketing-site/components/theme-pr
 import { ThemeSampleStore, type SamplePhoto } from "@/features/marketing-site/components/theme-sample-store";
 import { industryUnsplashPhotos } from "@/features/media/unsplash/server";
 import { sizedUnsplashUrl } from "@/features/media/unsplash/photos";
-import { getCategoryImage } from "@/lib/unsplash";
+import { sizedStockUrl } from "@/lib/unsplash-stock";
+import { themeCardImage, themeUnsplashImages } from "@/features/theme/layouts/imagery";
 import { industryShort } from "@/features/stores/industries";
 
 export const revalidate = 3600;
@@ -32,24 +33,37 @@ export async function generateMetadata({ params }: PageProps<"/themes/[key]/prev
 export default async function ThemePreviewPage({ params }: PageProps<"/themes/[key]/preview">) {
   const t = findTheme((await params).key);
   if (!t) notFound();
-  const [live, category, extra] = await Promise.all([livePreviewUrls([t]), getCategoryImage(t.industry), industryUnsplashPhotos(t.industry, 7)]);
+  const [live, extra] = await Promise.all([livePreviewUrls([t]), industryUnsplashPhotos(t.industry, 7)]);
+  const category = themeCardImage(t, 1600);
   const liveUrl = live.get(t.key) ?? null;
+  const themeStock = themeUnsplashImages(t);
   const photos: SamplePhoto[] = [
-    { url: category.url.replace(/w=800&h=500/, "w=1600&h=900"), alt: category.alt },
-    ...extra.filter((p) => !category.url.startsWith(p.base.split("?")[0]!)).map((p) => ({ url: sizedUnsplashUrl(p.base, 640), alt: p.alt })),
+    ...(category ? [{ url: category.url, alt: category.alt }] : []),
+    ...themeStock
+      .filter((p) => p.slot !== "hero")
+      .slice(0, 4)
+      .map((p) => ({ url: sizedStockUrl(p.url, 640), alt: p.alt })),
+    ...extra
+      .filter((p) => !category?.url.includes(p.base.split("?")[0] ?? "\0"))
+      .map((p) => ({ url: sizedUnsplashUrl(p.base, 640), alt: p.alt })),
   ];
-  const credits = [category.photographer?.name, ...extra.map((p) => p.photographer?.name)].filter((n): n is string => !!n);
+  const credits = [category?.photographer?.name, ...themeStock.map((p) => p.photographer?.name), ...extra.map((p) => p.photographer?.name)].filter(
+    (n): n is string => !!n,
+  );
 
   return (
-    <section className="bg-gradient-to-b from-brand-soft/60 to-white pt-6 pb-14" aria-labelledby="preview-title">
+    <section className="bg-mk-bg pt-6 pb-14" aria-labelledby="preview-title">
       <Container>
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-mk-line pb-5">
           <div>
-            <Link href={`/themes/${t.key}`} className="inline-flex items-center gap-1.5 rounded text-sm font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">
+            <Link
+              href={`/themes/${t.key}`}
+              className="inline-flex items-center gap-1.5 rounded text-sm font-semibold text-mk-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent"
+            >
               <ArrowLeft aria-hidden className="size-4" /> Theme details
             </Link>
-            <h1 id="preview-title" className="mt-1 font-brand text-2xl font-extrabold tracking-tight text-brand-ink sm:text-3xl">
-              {t.name} <span className="font-semibold text-muted">· {industryShort(t.industry)}</span>
+            <h1 id="preview-title" className="mt-2 font-brand text-2xl font-extrabold tracking-tight text-mk-text sm:text-3xl">
+              {t.name} <span className="font-semibold text-mk-muted">· {industryShort(t.industry)}</span>
             </h1>
           </div>
           <ButtonLink href={`/themes/${t.key}/use`} prefetch={false} track={{ id: `use_${t.key}`, location: "theme_preview" }}>
@@ -59,13 +73,18 @@ export default async function ThemePreviewPage({ params }: PageProps<"/themes/[k
         <div className="mt-5">
           <ThemePreviewStage liveUrl={liveUrl} title={`${t.name} theme preview`} sample={<ThemeSampleStore theme={t} photos={photos} />} />
         </div>
-        <p className="mt-4 text-xs text-muted">
+        <p className="mt-4 text-xs text-mk-muted">
           Your own text, images and products replace the samples.
           {!liveUrl && photos.length ? (
             <>
               {" "}
               Sample photos from{" "}
-              <a href={category.unsplashUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+              <a
+                href={category?.unsplashUrl ?? "https://unsplash.com/?utm_source=pictocart&utm_medium=referral"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-mk-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent"
+              >
                 Unsplash
               </a>
               {credits.length ? ` by ${[...new Set(credits)].slice(0, 6).join(", ")}` : ""}.

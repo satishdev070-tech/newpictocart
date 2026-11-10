@@ -28,6 +28,11 @@ export type HistoryAction =
   | { type: "redo" }
   /** After a successful save: `config` (the document that was sent) becomes the saved baseline. Edits made meanwhile stay. */
   | { type: "saved"; config?: ThemeConfig }
+  /**
+   * Discard local unsynced edits: restore `present` to the last `saved` baseline and clear
+   * undo/redo. Does not touch drafts already written on the server.
+   */
+  | { type: "discard" }
   /** Replace everything (e.g. reload after a conflict). */
   | { type: "reset"; config: ThemeConfig };
 
@@ -56,6 +61,10 @@ export function historyReducer(state: HistoryState, action: HistoryAction): Hist
     }
     case "saved": {
       return { ...state, saved: action.config ?? state.present, lastKey: null };
+    }
+    case "discard": {
+      if (state.present === state.saved && state.past.length === 0 && state.future.length === 0) return state;
+      return { ...state, past: [], present: state.saved, future: [], lastKey: null, lastAt: 0 };
     }
     case "reset":
       return initHistory(action.config);

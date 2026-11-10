@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ExternalLink, Search } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { requirePlatform } from "@/lib/platform/access";
-import { STORE_SORTS, STORE_TYPE_LABEL, STORE_TYPES, storeListFilterSchema } from "@/features/platform/schemas";
+import { STORE_TYPE_LABEL, storeListFilterSchema } from "@/features/platform/schemas";
 import { listPlans, listStores } from "@/features/platform/server/queries";
+import { StoresListFilters } from "@/features/platform/components/stores-filters";
 import { Badge, PageHeader } from "@/components/ui/layout";
 import { EmptyState } from "@/components/ui/states";
 import { Pagination } from "@/components/ui/pagination";
@@ -13,9 +14,7 @@ import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
 
 export const metadata: Metadata = { title: "Stores" };
 const TONE = { trial: "accent", active: "success", suspended: "error", cancelled: "neutral" } as const;
-const ctl = "h-9 rounded-md border border-border bg-surface px-3 text-small";
 const TYPE_TONE = { real: "success", demo: "info", test: "warning" } as const;
-const SORT_LABEL: Record<(typeof STORE_SORTS)[number], string> = { newest: "Newest", oldest: "Oldest", revenue: "Revenue", orders: "Orders", products: "Products", activity: "Last activity" };
 
 export default async function StoresPage({ searchParams }: PageProps<"/admin/stores">) {
   const ctx = await requirePlatform("platform.tenants.read");
@@ -39,59 +38,7 @@ export default async function StoresPage({ searchParams }: PageProps<"/admin/sto
           ) : null
         }
       />
-      <form className="mb-4 grid gap-2 sm:flex sm:flex-wrap sm:items-end" role="search">
-        <div className="relative sm:min-w-72 sm:flex-1">
-          <label className="sr-only" htmlFor="q">Search stores</label>
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" aria-hidden />
-          <input id="q" name="q" defaultValue={f.q ?? ""} placeholder="Store, owner email, domain or tenant ID" className={`${ctl} w-full pl-9`} />
-        </div>
-        <label className="sr-only" htmlFor="status">Status</label>
-        <select id="status" name="status" defaultValue={f.status ?? ""} className={ctl}>
-          <option value="">All statuses</option>
-          {Object.keys(TONE).map((s) => (
-            <option key={s} value={s}>{s[0]!.toUpperCase() + s.slice(1)}</option>
-          ))}
-        </select>
-        <label className="sr-only" htmlFor="plan">Plan</label>
-        <select id="plan" name="plan" defaultValue={f.plan ?? ""} className={ctl}>
-          <option value="">All plans</option>
-          {plans.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-        {typed ? (
-          <>
-            <label className="sr-only" htmlFor="type">Store type</label>
-            <select id="type" name="type" defaultValue={type ?? ""} className={ctl}>
-              <option value="">All types</option>
-              {STORE_TYPES.map((s) => (
-                <option key={s} value={s}>{STORE_TYPE_LABEL[s]}</option>
-              ))}
-            </select>
-            <label className="sr-only" htmlFor="category">Category</label>
-            <select id="category" name="category" defaultValue={category ?? ""} className={ctl}>
-              <option value="">All categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </>
-        ) : null}
-        <label className="flex items-center gap-1 text-caption text-muted">
-          From <input type="date" name="from" defaultValue={f.from ?? ""} className={ctl} />
-        </label>
-        <label className="flex items-center gap-1 text-caption text-muted">
-          To <input type="date" name="to" defaultValue={f.to ?? ""} className={ctl} />
-        </label>
-        <label className="sr-only" htmlFor="sort">Sort</label>
-        <select id="sort" name="sort" defaultValue={f.sort} className={ctl}>
-          {STORE_SORTS.map((s) => (
-            <option key={s} value={s}>Sort: {SORT_LABEL[s]}</option>
-          ))}
-        </select>
-        <button className={`${ctl} font-medium`}>Apply</button>
-        {filtered ? <Link href="/admin/stores" className="text-small text-accent hover:underline">Clear</Link> : null}
-      </form>
+      <StoresListFilters plans={plans} categories={categories} />
       {rows.length ? (
         // Compact list: the essentials on one line; select a row to see everything else.
         <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface" aria-label="Stores">

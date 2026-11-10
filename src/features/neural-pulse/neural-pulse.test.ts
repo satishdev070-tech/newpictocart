@@ -107,7 +107,14 @@ describe("output schemas", () => {
   it("extracts JSON from fenced or chatty replies", () => {
     expect(extractJson('```json\n{"a":1}\n```')).toEqual({ a: 1 });
     expect(extractJson('Sure! {"a":2} hope it helps')).toEqual({ a: 2 });
-    expect(() => extractJson("no json")).toThrow();
+    expect(extractJson('<think>plan</think>\n{"a":3}')).toEqual({ a: 3 });
+    expect(extractJson("array: [1,2]")).toEqual([1, 2]);
+    expect(() => extractJson("no json")).toThrow(/reply was not valid JSON \(got:/);
+  });
+
+  it("uses Nemotron Omni as the NVIDIA default model", () => {
+    expect(DEFAULT_MODELS.nvidia).toBe("nvidia/nemotron-3-nano-omni-30b-a3b-reasoning");
+    expect(resolveModel("nvidia", null)).toBe(DEFAULT_MODELS.nvidia);
   });
 });
 
@@ -129,7 +136,7 @@ describe("provider calls", () => {
     await generateJson([P("groq")], ideasPrompt(ctx), ideasOutput, fetchMock as unknown as typeof fetch);
     const groqBody = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
     expect(fetchMock.mock.calls[0]![0]).toBe("https://api.groq.com/openai/v1/chat/completions");
-    expect(groqBody).toMatchObject({ model: "llama-3.3-70b-versatile", response_format: { type: "json_object" } });
+    expect(groqBody).toMatchObject({ model: "openai/gpt-oss-120b", response_format: { type: "json_object" } });
     expect((fetchMock.mock.calls[0]![1].headers as Record<string, string>).authorization).toBe("Bearer secret-groq-key");
 
     const r = await generateJson([P("anthropic")], ideasPrompt(ctx), ideasOutput, fetchMock as unknown as typeof fetch);

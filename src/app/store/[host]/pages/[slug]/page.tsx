@@ -43,7 +43,8 @@ export async function generateMetadata({ params }: PageProps<"/store/[host]/page
       noindex: sf.preview,
     });
   }
-  if (!page) return {};
+  // Missing slug: noindex so crawlers don't keep a soft URL even if status streams as 200.
+  if (!page) return { robots: { index: false, follow: false } };
   return buildPageMetadata({ primaryHost: sf.tenant.primaryHost, path: paths.page(page.slug), title: page.seo.title || page.title, description: page.seo.description, siteName: sf.store.name, noindex: page.seo.noindex });
 }
 

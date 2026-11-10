@@ -20,6 +20,18 @@ export function HeroSlideshow({ slides, captions, interval, autoplay, label, cla
   const [focused, setFocused] = useState(false);
   const [onScreen, setOnScreen] = useState(true);
   const [tabHidden, setTabHidden] = useState(false);
+  /** After first idle, allow mounting the next slide for smooth autoplay. */
+  const [warmNext, setWarmNext] = useState(false);
+  /** Slides the user jumped to (dots) stay mounted once visited. Updated only from event handlers. */
+  const [visited, setVisited] = useState<ReadonlySet<number>>(() => new Set([0]));
+  const markVisited = (i: number) => {
+    setVisited((prev) => {
+      if (prev.has(i)) return prev;
+      const next = new Set(prev);
+      next.add(i);
+      return next;
+    });
+  };
   const root = useRef<HTMLDivElement>(null);
   const bar = useRef<HTMLSpanElement>(null);
   const anim = useRef<Animation | null>(null);
@@ -37,10 +49,21 @@ export function HeroSlideshow({ slides, captions, interval, autoplay, label, cla
     const el = root.current;
     const io = el && "IntersectionObserver" in window ? new IntersectionObserver(([e]) => setOnScreen(Boolean(e?.isIntersecting))) : null;
     if (el) io?.observe(el);
+    // Defer next-slide mount until after LCP (idle or ~1.5s fallback).
+    const warm = () => setWarmNext(true);
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (typeof requestIdleCallback === "function") {
+      idleId = requestIdleCallback(warm, { timeout: 2000 });
+    } else {
+      timeoutId = setTimeout(warm, 1500);
+    }
     return () => {
       mq.removeEventListener("change", sync);
       document.removeEventListener("visibilitychange", vis);
       io?.disconnect();
+      if (idleId !== undefined && typeof cancelIdleCallback === "function") cancelIdleCallback(idleId);
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
 
@@ -81,19 +104,29 @@ export function HeroSlideshow({ slides, captions, interval, autoplay, label, cla
       }}
     >
       <div className="relative" aria-live={playing ? "off" : "polite"}>
-        {slides.map((slide, i) => (
-          <div
-            key={i}
-            role="group"
-            aria-roledescription="slide"
-            aria-label={`${i + 1} of ${count}${captions[i] ? `: ${captions[i]}` : ""}`}
-            aria-hidden={i !== index}
-            inert={i !== index}
-            className={cn("transition-[opacity,transform] duration-700 ease-out", i === 0 ? "relative" : "absolute inset-0", i === index ? "z-[1] scale-100 opacity-100" : "pointer-events-none scale-[1.015] opacity-0")}
-          >
-            {slide}
-          </div>
-        ))}
+        {slides.map((slide, i) => {
+          // Mount only the active slide for LCP. Prefetch the next slide after idle so autoplay
+          // stays smooth without competing with the LCP image on first paint.
+          const next = (index + 1) % count;
+          const mounted = i === index || (warmNext && i === next) || visited.has(i);
+          const active = i === index;
+          return (
+            <div
+              key={i}
+              role="group"
+              aria-roledescription="slide"
+              aria-label={`${i + 1} of ${count}${captions[i] ? `: ${captions[i]}` : ""}`}
+              aria-hidden={!active}
+              inert={!active}
+              className={cn(
+                "transition-[opacity,transform] duration-700 ease-out",
+                active ? "relative z-[1] scale-100 opacity-100" : "pointer-events-none absolute inset-0 scale-[1.015] opacity-0",
+              )}
+            >
+              {mounted ? slide : null}
+            </div>
+          );
+        })}
       </div>
       {count > 1 ? (
         <div className="mt-5 flex items-center justify-center gap-3">
@@ -102,13 +135,17 @@ export function HeroSlideshow({ slides, captions, interval, autoplay, label, cla
               <button
                 key={i}
                 type="button"
-                onClick={() => setIndex(i)}
+                onClick={() => {
+                  setWarmNext(true);
+                  markVisited(i);
+                  setIndex(i);
+                }}
                 aria-label={`Show slide ${i + 1}${captions[i] ? `: ${captions[i]}` : ""}`}
                 aria-current={i === index ? "true" : undefined}
-                className="grid h-6 place-items-center rounded-full px-0.5 focus-visible:outline-2 focus-visible:outline-white"
+                className="grid h-6 place-items-center rounded-full px-0.5 focus-visible:outline-2 focus-visible:outline-mk-accent"
               >
-                <span className={cn("relative block h-1.5 overflow-hidden rounded-full bg-white/25 transition-[width,background-color] duration-300", i === index ? "w-7" : "w-1.5 hover:bg-white/50")}>
-                  {i === index ? <span ref={bar} className="absolute inset-0 origin-left rounded-full bg-[#34d399]" style={{ transform: playing ? "scaleX(0)" : "none" }} /> : null}
+                <span className={cn("relative block h-1.5 overflow-hidden rounded-full bg-white/20 transition-[width,background-color] duration-300", i === index ? "w-7" : "w-1.5 hover:bg-white/45")}>
+                  {i === index ? <span ref={bar} className="absolute inset-0 origin-left rounded-full bg-mk-accent" style={{ transform: playing ? "scaleX(0)" : "none" }} /> : null}
                 </span>
               </button>
             ))}
@@ -117,14 +154,14 @@ export function HeroSlideshow({ slides, captions, interval, autoplay, label, cla
             type="button"
             onClick={() => setUserPlaying(!playing)}
             aria-label={playing ? "Pause slideshow" : "Play slideshow"}
-            className="grid size-7 place-items-center rounded-full text-white/60 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+            className="grid size-7 place-items-center rounded-full text-mk-dim hover:bg-white/10 hover:text-mk-text focus-visible:outline-2 focus-visible:outline-mk-accent"
           >
             {playing ? <Pause aria-hidden className="size-3.5" /> : <Play aria-hidden className="size-3.5" />}
           </button>
         </div>
       ) : null}
       {captions.some(Boolean) ? (
-        <p className="mt-2 min-h-5 text-center text-sm text-white/60" aria-hidden>
+        <p className="mt-2 min-h-5 text-center text-sm text-mk-dim" aria-hidden>
           {captions[index]}
         </p>
       ) : null}

@@ -25,7 +25,7 @@ export const resetPasswordSchema = z
   .object({ password, confirm: z.string().max(128) })
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "Passwords don't match" });
 export const otpRequestSchema = z.object({ email, next: z.string().max(2048).optional() });
-export const otpVerifySchema = z.object({ email, token: z.string().trim().regex(/^\d{6,10}$/, "Enter the code from the email"), next: z.string().max(2048).optional() });
+export const otpVerifySchema = z.object({ email, token: z.string().trim().regex(/^\d{6}$/, "Enter the code from the email"), next: z.string().max(2048).optional() });
 
 export const profileSchema = z.object({
   firstName: z.string().trim().min(1, "Enter your first name").max(80),

@@ -9,7 +9,7 @@ import { storeGoogleSignInAction } from "@/features/customer-account/actions";
 import { GoogleButton, OrDivider } from "@/components/auth/google-button";
 import { googleSignInAvailable } from "@/features/auth/google";
 
-import { StoreAuthSplit, heroImageOf } from "@/features/customer-account/components/store-auth-split";
+import { StoreAuthSplit, accountAuthVisual } from "@/features/customer-account/components/store-auth-split";
 
 export const metadata: Metadata = { title: "Sign in", robots: { index: false } };
 
@@ -23,8 +23,9 @@ export default async function StoreLogin({ params, searchParams }: PageProps<"/s
   // `?error=blocked` comes from a rejected session (auth callback / account pages); the live check
   // covers a still-signed-in blocked shopper. Neither says anything about other emails.
   const blocked = sp.error === "blocked" || (await getStoreCustomerAccess(sf.tenant.tenantId)) === "blocked";
+  const auth = accountAuthVisual(sf.theme);
   return (
-    <StoreAuthSplit image={heroImageOf(sf.theme)} storeName={sf.store.name} heading="Welcome back" text="Sign in to track orders, see your wishlist and check out faster.">
+    <StoreAuthSplit image={auth.image} pack={auth.pack} storeName={sf.store.name} heading="Welcome back" text="Sign in to track orders, see your wishlist and check out faster.">
       <div className="mb-6 space-y-1.5">
         <h1 className="sf-heading text-3xl">Sign in</h1>
         <p className="sf-muted text-sm">to your {sf.store.name} account</p>

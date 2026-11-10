@@ -1,12 +1,15 @@
 import "server-only";
 import type { Metadata } from "next";
 import { cache } from "react";
-import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { publicEnv } from "@/lib/env/public";
 import { logger } from "@/lib/observability/logger";
+import { logSpan, timeAsync } from "@/lib/observability/timing";
 import { PLATFORM_ICON } from "@/config/platform";
+import { cachedPublic, revalidatePublicTags } from "@/lib/cache/public-cache";
 import { LANDING_KEY } from "@/features/marketing-site/landing";
+import { FEATURE_PAGES_KEY } from "@/features/marketing-site/feature-pages";
 import { DEFAULT_PUBLIC_CONFIG, brandImageUrl, parsePublicConfig, type BrandImage, type PublicPlatformConfig } from "../public-config";
 
 export const PUBLIC_CONFIG_TAG = "platform-public-config";
@@ -15,7 +18,14 @@ class PublicConfigUnavailable extends Error {}
 
 async function load(): Promise<PublicPlatformConfig> {
   // Anon client + RLS (platform_settings_public_select): only `public.*` keys are visible.
-  const { data, error } = await createSupabasePublicClient().from("platform_settings").select("key, value").like("key", "public.%").neq("key", LANDING_KEY).limit(100);
+  // Skip large CMS blobs (landing + feature pages) — they have dedicated loaders.
+  const { data, error } = await createSupabasePublicClient()
+    .from("platform_settings")
+    .select("key, value")
+    .like("key", "public.%")
+    .neq("key", LANDING_KEY)
+    .neq("key", FEATURE_PAGES_KEY)
+    .limit(100);
   if (error) {
     logger.warn("platform.public_config_unavailable", { code: error.code });
     throw new PublicConfigUnavailable(); // not cached; defaults are used below
@@ -23,12 +33,19 @@ async function load(): Promise<PublicPlatformConfig> {
   return parsePublicConfig(data ?? []);
 }
 
-const cached = process.env.NODE_ENV === "production" ? unstable_cache(load, ["platform-public-config"], { tags: [PUBLIC_CONFIG_TAG], revalidate: 300 }) : load;
+const cached = cachedPublic("platform-public-config", load, {
+  tags: [PUBLIC_CONFIG_TAG],
+  revalidateSeconds: 300,
+  keyPrefix: "pub:v1",
+});
 
 /** Logos, favicon, GA4 id and switches. Never throws: any failure means today's defaults. */
 export const getPublicPlatformConfig = cache(async (): Promise<PublicPlatformConfig> => {
   try {
-    return await cached();
+    const { result, ms } = await timeAsync("public_config.load", () => cached());
+    // L1/L2 hit vs miss is inside cachedPublic; wall time still shows cache warmth.
+    logSpan({ span: "public_config.load", ms, cache: "l1_or_l2_or_db" });
+    return result;
   } catch {
     return DEFAULT_PUBLIC_CONFIG;
   }
@@ -47,7 +64,7 @@ export function brandImageView(image: BrandImage | null): BrandImageView | null 
 
 /** After any public.* change: refresh the cached config and every page that renders it. */
 export function revalidatePublicConfig() {
-  revalidateTag(PUBLIC_CONFIG_TAG, { expire: 0 });
+  revalidatePublicTags(PUBLIC_CONFIG_TAG);
   revalidatePath("/", "layout");
 }
 

@@ -1,4 +1,4 @@
-import { lookup as dnsLookup, type LookupAddress } from "node:dns";
+import { promises as dnsPromises, type LookupAddress } from "node:dns";
 import { request as httpsRequest } from "node:https";
 import { BlockList, isIP, type LookupFunction } from "node:net";
 import type { IncomingMessage } from "node:http";
@@ -108,7 +108,51 @@ export function assertSafeUrl(raw: string | URL): URL {
 type LookupCallback = (err: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void;
 export type Resolver = (hostname: string, cb: (err: NodeJS.ErrnoException | null, addresses: LookupAddress[]) => void) => void;
 
-const systemResolver: Resolver = (hostname, cb) => dnsLookup(hostname, { all: true, verbatim: true }, (err, addresses) => cb(err, addresses ?? []));
+/**
+ * Resolve A/AAAA without `dns.lookup` (unimplemented on workerd). Prefer `dns.promises`,
+ * then Cloudflare DNS-over-HTTPS so theme-builder SSRF checks still work on Workers.
+ */
+async function resolveHostnameAddresses(hostname: string): Promise<LookupAddress[]> {
+  try {
+    const [v4, v6] = await Promise.all([
+      dnsPromises.resolve4(hostname).catch(() => [] as string[]),
+      dnsPromises.resolve6(hostname).catch(() => [] as string[]),
+    ]);
+    const addrs: LookupAddress[] = [
+      ...v4.map((address) => ({ address, family: 4 as const })),
+      ...v6.map((address) => ({ address, family: 6 as const })),
+    ];
+    if (addrs.length > 0) return addrs;
+  } catch {
+    // fall through to DoH
+  }
+
+  const doh = async (type: "A" | "AAAA"): Promise<LookupAddress[]> => {
+    try {
+      const res = await fetch(
+        `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`,
+        { headers: { accept: "application/dns-json" }, signal: AbortSignal.timeout(5_000) },
+      );
+      if (!res.ok) return [];
+      const json = (await res.json()) as { Answer?: Array<{ type: number; data: string }> };
+      const want = type === "A" ? 1 : 28;
+      return (json.Answer ?? [])
+        .filter((a) => a.type === want && typeof a.data === "string")
+        .map((a) => ({ address: a.data.replace(/\.$/, ""), family: (type === "A" ? 4 : 6) as 4 | 6 }));
+    } catch {
+      return [];
+    }
+  };
+
+  const [a, aaaa] = await Promise.all([doh("A"), doh("AAAA")]);
+  return [...a, ...aaaa];
+}
+
+const systemResolver: Resolver = (hostname, cb) => {
+  void resolveHostnameAddresses(hostname)
+    .then((addresses) => cb(null, addresses))
+    .catch((err: NodeJS.ErrnoException) => cb(err, []));
+};
 
 /** A socket `lookup` that refuses to connect when ANY resolved address is non-public. */
 export function guardedLookup(resolve: Resolver = systemResolver): LookupFunction {

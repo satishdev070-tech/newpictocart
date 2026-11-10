@@ -1,5 +1,5 @@
 import presets from "./presets.json";
-import type { MarketplaceTheme, ThemePreset } from "./types";
+import { themeSiteType, type MarketplaceTheme, type ThemePreset } from "./types";
 import { withLayout } from "../layouts/apply-layout";
 import { ELECTRONICS_THEMES } from "./themes/electronics";
 import { BEAUTY_THEMES } from "./themes/beauty";
@@ -10,6 +10,7 @@ import { JEWELLERY_THEMES } from "./themes/jewellery";
 import { FOOTWEAR_THEMES } from "./themes/footwear";
 import { HEALTH_THEMES } from "./themes/health";
 import { SPORTS_THEMES } from "./themes/sports";
+import { GYM_THEMES } from "./themes/gym";
 import { KIDS_THEMES } from "./themes/kids";
 import { BOOKS_THEMES } from "./themes/books";
 import { PETS_THEMES } from "./themes/pets";
@@ -94,7 +95,7 @@ const ORIGINAL_THEMES: MarketplaceTheme[] = [
   },
 ];
 
-const RAW_THEMES: MarketplaceTheme[] = [...INFORMATIVE_THEMES, ...FASHION_THEMES, ...ORIGINAL_THEMES, ...ELECTRONICS_THEMES, ...BEAUTY_THEMES, ...FURNITURE_THEMES, ...GROCERY_THEMES, ...JEWELLERY_THEMES, ...FOOTWEAR_THEMES, ...HEALTH_THEMES, ...SPORTS_THEMES, ...KIDS_THEMES, ...BOOKS_THEMES, ...PETS_THEMES, ...AUTOMOTIVE_THEMES, ...SMART_HOME_THEMES, ...BAGS_THEMES, ...WATCHES_THEMES, ...ORGANIC_THEMES, ...GOURMET_THEMES, ...EXTENDED_THEMES, ...GENERAL_THEMES];
+const RAW_THEMES: MarketplaceTheme[] = [...INFORMATIVE_THEMES, ...FASHION_THEMES, ...ORIGINAL_THEMES, ...ELECTRONICS_THEMES, ...BEAUTY_THEMES, ...FURNITURE_THEMES, ...GROCERY_THEMES, ...JEWELLERY_THEMES, ...FOOTWEAR_THEMES, ...HEALTH_THEMES, ...SPORTS_THEMES, ...GYM_THEMES, ...KIDS_THEMES, ...BOOKS_THEMES, ...PETS_THEMES, ...AUTOMOTIVE_THEMES, ...SMART_HOME_THEMES, ...BAGS_THEMES, ...WATCHES_THEMES, ...ORGANIC_THEMES, ...GOURMET_THEMES, ...EXTENDED_THEMES, ...GENERAL_THEMES];
 
 /**
  * Every theme gets its layout (section variants, header style, footer layout) from its industry's
@@ -111,6 +112,19 @@ function withLayouts(themes: MarketplaceTheme[]): MarketplaceTheme[] {
 }
 
 export const MARKETPLACE_THEMES: readonly MarketplaceTheme[] = withLayouts(RAW_THEMES);
+/** Lightweight count for marketing tokens — avoids importing the full catalogue where only length is needed. */
+export const MARKETPLACE_THEME_COUNT = MARKETPLACE_THEMES.length;
+
+/**
+ * Themes shown on public marketing, seller marketplace browse, and onboarding theme pick.
+ * Informative (brochure) presets stay in `MARKETPLACE_THEMES` for existing tenants / apply paths
+ * but are temporarily hidden from discovery surfaces.
+ */
+export function ecommerceMarketplaceThemes(
+  themes: readonly MarketplaceTheme[] = MARKETPLACE_THEMES,
+): MarketplaceTheme[] {
+  return themes.filter((t) => themeSiteType(t) !== "informative");
+}
 
 export function findMarketplaceTheme(key: string): MarketplaceTheme | null {
   return MARKETPLACE_THEMES.find((t) => t.key === key) ?? null;

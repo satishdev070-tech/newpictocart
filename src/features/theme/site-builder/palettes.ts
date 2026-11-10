@@ -49,6 +49,73 @@ export function isPaletteActive(tokens: ThemeTokens, palette: Palette): boolean 
   return COLOR_KEYS.every((k) => tokens.colors[k].toLowerCase() === palette.colors[k].toLowerCase());
 }
 
+/** Normalise a colour search term (trim, lower-case, optional leading # stripped for hex matches). */
+export function normalizeColourQuery(query: string): string {
+  return query.trim().toLowerCase();
+}
+
+/**
+ * Build a searchable string from a palette / theme colour set: name, colour role labels
+ * (primary, accent…), and hex values with and without `#`.
+ */
+export function colourSearchHaystack(opts: {
+  name?: string;
+  colors?: Partial<Record<string, string>> | null;
+  extra?: readonly string[];
+}): string {
+  const parts: string[] = [];
+  if (opts.name) parts.push(opts.name);
+  if (opts.colors) {
+    for (const [k, v] of Object.entries(opts.colors)) {
+      if (typeof v !== "string") continue;
+      const label = COLOR_LABELS[k as ColorKey];
+      if (label) parts.push(label, k);
+      else parts.push(k);
+      const hex = v.trim().toLowerCase();
+      parts.push(hex);
+      if (hex.startsWith("#")) parts.push(hex.slice(1));
+    }
+  }
+  if (opts.extra) parts.push(...opts.extra);
+  return parts.join(" ").toLowerCase();
+}
+
+/** True when `query` is empty or appears in the haystack (hex / name / role label). */
+export function matchesColourSearch(query: string, haystack: string): boolean {
+  const term = normalizeColourQuery(query);
+  if (!term) return true;
+  const h = haystack.toLowerCase();
+  if (h.includes(term)) return true;
+  // Allow matching "#abc" against haystack that stores "abc" (and vice versa).
+  const bare = term.startsWith("#") ? term.slice(1) : term;
+  return bare.length > 0 && (h.includes(bare) || h.includes(`#${bare}`));
+}
+
+/** Filter curated palettes by hex, colour role name, or palette name. */
+export function filterPalettes(palettes: readonly Palette[], query: string): Palette[] {
+  const term = normalizeColourQuery(query);
+  if (!term) return [...palettes];
+  return palettes.filter((p) => matchesColourSearch(term, colourSearchHaystack({ name: p.name, colors: p.colors, extra: [p.key] })));
+}
+
+/** Filter marketplace themes by name / tagline / industry / style plus colour hexes and roles. */
+export function filterThemesByColourSearch<
+  T extends { name: string; tagline?: string; industry?: string; style?: string; preset: { tokens: { colors?: Partial<Record<string, string>> } } },
+>(themes: readonly T[], query: string): T[] {
+  const term = normalizeColourQuery(query);
+  if (!term) return [...themes];
+  return themes.filter((t) =>
+    matchesColourSearch(
+      term,
+      colourSearchHaystack({
+        name: t.name,
+        colors: t.preset.tokens.colors,
+        extra: [t.tagline ?? "", t.industry ?? "", t.style ?? ""],
+      }),
+    ),
+  );
+}
+
 /** Design tokens a theme preset may change (never typography overrides or stock-photo choice). */
 export const PRESET_TOKEN_KEYS = ["headingFont", "bodyFont", "headingCase", "buttonShape", "buttonVariant", "cardRadius", "containerWidth", "spacing", "sectionHeadingAlign", "finish"] as const;
 

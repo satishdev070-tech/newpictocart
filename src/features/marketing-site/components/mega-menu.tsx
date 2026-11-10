@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { MegaMenu as MegaMenuContent } from "../chrome-content";
-import { MenuIconView, MENU_TONE_CLASS } from "./chrome-icons";
+import { normalizeMegaMenuItemHref, type MegaMenu as MegaMenuContent } from "../chrome-content";
+import { MenuIconView } from "./chrome-icons";
 
 /**
  * Desktop "Features ▾" mega menu. A disclosure: opens on hover, focus or click; Escape, a link,
@@ -81,8 +81,8 @@ export function MegaMenu({ label, href, menu }: { label: string; href: string; m
           else show();
         }}
         className={cn(
-          "inline-flex items-center gap-1 rounded-full px-4 py-2 font-medium text-brand-ink/80 transition-colors hover:bg-brand-canvas hover:text-brand-ink focus-visible:outline-2 focus-visible:outline-brand",
-          open && "bg-brand-soft text-brand hover:bg-brand-soft hover:text-brand",
+          "inline-flex items-center gap-1 rounded-full px-4 py-2 font-medium text-mk-muted transition-colors hover:bg-mk-elev-2 hover:text-mk-text focus-visible:outline-2 focus-visible:outline-mk-accent",
+          open && "bg-mk-elev-2 text-mk-text",
         )}
       >
         {label}
@@ -96,49 +96,53 @@ export function MegaMenu({ label, href, menu }: { label: string; href: string; m
           open ? "visible translate-y-0 opacity-100" : "invisible -translate-y-2 opacity-0",
         )}
       >
-        <div className="mx-auto flex max-h-[calc(100dvh-6rem)] max-w-[1240px] flex-col overflow-hidden rounded-[22px] border border-border bg-white shadow-[0_30px_80px_-24px_rgb(27_29_69/0.35)]">
-          <div className="grid min-h-0 grid-cols-3 divide-border overflow-y-auto overscroll-contain xl:grid-cols-6 xl:divide-x">
-            {menu.columns.map((col) => {
-              const tone = MENU_TONE_CLASS[col.tone];
-              return (
-                <div key={col.title} className="px-5 py-4 xl:px-4 xl:py-6 2xl:px-5">
-                  <p className={cn("text-[0.72rem] font-bold tracking-[0.14em] uppercase", tone.title)}>{col.title}</p>
-                  {col.subtitle ? <p className="mt-1 text-[0.8rem] leading-snug text-brand-ink/50">{col.subtitle}</p> : null}
-                  <ul className="mt-4 space-y-1">
-                    {col.items.map((it) => (
-                      <li key={it.title + it.href}>
+        <div className="mx-auto flex max-h-[calc(100dvh-6rem)] max-w-[1240px] flex-col overflow-hidden rounded-mk-lg border border-mk-line bg-mk-elev-1 shadow-brand-float">
+          <div className="grid min-h-0 grid-cols-3 divide-mk-line overflow-y-auto overscroll-contain xl:grid-cols-6 xl:divide-x">
+            {menu.columns.map((col) => (
+              <div key={col.title} className="px-5 py-4 xl:px-4 xl:py-6 2xl:px-5">
+                <p className="mk-label text-mk-muted">{col.title}</p>
+                {col.subtitle ? <p className="mt-1 text-[0.8rem] leading-snug text-mk-dim">{col.subtitle}</p> : null}
+                <ul className="mt-4 space-y-1">
+                  {col.items.map((it) => {
+                    const itemHref = normalizeMegaMenuItemHref(it.title, it.href);
+                    return (
+                      <li key={it.title + itemHref}>
                         <Link
-                          href={it.href}
+                          href={itemHref}
                           prefetch
                           onClick={() => setOpen(false)}
-                          className="group -mx-2 flex gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-brand-canvas focus-visible:bg-brand-canvas focus-visible:outline-2 focus-visible:outline-brand"
+                          className="group -mx-2 flex gap-3 rounded-mk-sm px-2 py-2 transition-colors hover:bg-mk-accent-tint/40 focus-visible:bg-mk-accent-tint/40 focus-visible:outline-2 focus-visible:outline-mk-accent"
                         >
-                          <span className={cn("mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg ring-1 transition-colors duration-150", tone.chip)}>
+                          <span className="relative mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-mk-elev-2 text-mk-muted ring-1 ring-mk-line transition-colors duration-150 group-hover:bg-mk-accent-tint group-hover:text-mk-accent group-hover:ring-mk-accent/40">
                             <MenuIconView name={it.icon} className="size-4" />
+                            <span
+                              aria-hidden
+                              className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-mk-accent opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                            />
                           </span>
                           <span className="min-w-0">
-                            <span className="block text-[0.88rem] leading-snug font-semibold text-brand-ink">{it.title}</span>
-                            {it.body ? <span className="mt-0.5 line-clamp-2 block text-[0.78rem] leading-snug text-brand-ink/55">{it.body}</span> : null}
+                            <span className="block text-[0.88rem] leading-snug font-semibold text-mk-text">{it.title}</span>
+                            {it.body ? <span className="mt-0.5 line-clamp-2 block text-[0.78rem] leading-snug text-mk-muted">{it.body}</span> : null}
                           </span>
                         </Link>
                       </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </div>
           {menu.footerLead || menu.footerText || menu.footerLink.label ? (
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-gradient-to-r from-brand-soft via-white to-brand-mint px-6 py-3.5 text-sm">
-              <p className="text-brand-ink/70">
-                {menu.footerLead ? <strong className="font-semibold text-brand-ink">{menu.footerLead}</strong> : null} {menu.footerText}
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-mk-line bg-mk-elev-2/60 px-6 py-3.5 text-sm">
+              <p className="text-mk-muted">
+                {menu.footerLead ? <strong className="font-semibold text-mk-text">{menu.footerLead}</strong> : null} {menu.footerText}
               </p>
               <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-                <Link href={href} prefetch onClick={() => setOpen(false)} className="font-semibold text-brand-ink/70 hover:text-brand-ink">
+                <Link href={href} prefetch onClick={() => setOpen(false)} className="font-semibold text-mk-muted hover:text-mk-text">
                   All {label.toLowerCase()}
                 </Link>
                 {menu.footerLink.label && menu.footerLink.href ? (
-                  <Link href={menu.footerLink.href} prefetch onClick={() => setOpen(false)} className="group inline-flex items-center gap-1 font-semibold text-brand hover:text-brand-hover">
+                  <Link href={menu.footerLink.href} prefetch onClick={() => setOpen(false)} className="group inline-flex items-center gap-1 font-semibold text-mk-accent hover:text-mk-accent-hover">
                     {menu.footerLink.label}
                     <ArrowRight aria-hidden className="size-4 transition-transform group-hover:translate-x-0.5" />
                   </Link>

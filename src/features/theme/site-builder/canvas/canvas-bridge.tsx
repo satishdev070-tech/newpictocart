@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import { renderCanvasAction } from "../canvas-actions";
-import { CANVAS_TAG, parseHostMessage, type CanvasMessage, type SectionAction } from "../protocol";
+import { CANVAS_TAG, parseHostMessage, TEXT_ROLES, type CanvasMessage, type ProtocolTextRole, type SectionAction } from "../protocol";
 import { listKeyOf, slotListOf } from "../slots";
 import { setSlotOverrides } from "./store";
 import { EMPTY_SLOT_INSERT_EVENT } from "./empty-slot";
@@ -28,15 +28,42 @@ import { themeCss } from "../../tokens-style";
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 type Box = Rect;
 type Target = { id: string; slot: string; pageContent: boolean; type: string };
-type Boxes = { hover: Box | null; selected: Box | null; header: Box | null; busy: Box[]; toolbar: { w: number; h: number } };
+type TextTarget = { sectionId: string; slot: string; role: ProtocolTextRole; itemIndex?: number };
+type Boxes = { hover: Box | null; selected: Box | null; header: Box | null; busy: Box[]; toolbar: { w: number; h: number }; text: Box | null };
 
 const Z = 2147483000;
-const NO_BOXES: Boxes = { hover: null, selected: null, header: null, busy: [], toolbar: { w: 0, h: 32 } };
+const NO_BOXES: Boxes = { hover: null, selected: null, header: null, busy: [], toolbar: { w: 0, h: 32 }, text: null };
 /** At most this many sections shimmer while a slot re-renders. */
 const MAX_SHIMMER = 12;
 
 function sectionEl(id: string): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-section-id="${CSS.escape(id)}"]`);
+}
+
+function textRoleOf(v: string | undefined): ProtocolTextRole | null {
+  return v && (TEXT_ROLES as readonly string[]).includes(v) ? (v as ProtocolTextRole) : null;
+}
+
+/** Find a `data-pc-text` node for a section + role (+ optional slide index). */
+function textEl(sectionId: string, role: ProtocolTextRole, itemIndex?: number): HTMLElement | null {
+  const root = sectionEl(sectionId);
+  if (!root) return null;
+  const nodes = Array.from(root.querySelectorAll<HTMLElement>(`[data-pc-text="${CSS.escape(role)}"]`));
+  if (typeof itemIndex === "number") {
+    return nodes.find((n) => n.dataset.pcTextItem === String(itemIndex)) ?? nodes[itemIndex] ?? null;
+  }
+  return nodes[0] ?? null;
+}
+
+function textTargetOf(el: Element | null): (TextTarget & { section: Target }) | null {
+  const node = el?.closest<HTMLElement>("[data-pc-text]");
+  if (!node) return null;
+  const section = targetOf(node);
+  const role = textRoleOf(node.dataset.pcText);
+  if (!section || !role) return null;
+  const raw = node.dataset.pcTextItem;
+  const itemIndex = raw !== undefined && /^\d+$/.test(raw) ? Number(raw) : undefined;
+  return { section, sectionId: section.id, slot: section.slot, role, ...(itemIndex !== undefined ? { itemIndex } : {}) };
 }
 
 /** Bounding box of a section wrapper; wrappers are often display:contents, so union the children. */
@@ -125,11 +152,13 @@ const CHROME_CSS = `
   background:linear-gradient(#fff,#fff) padding-box,linear-gradient(90deg,#f97316,#ec4899 55%,#8b5cf6) border-box}
 [data-builder-chrome] .pcb-ai:hover{color:#1c1917;background:linear-gradient(#fff7ed,#fff7ed) padding-box,linear-gradient(90deg,#f97316,#ec4899 55%,#8b5cf6) border-box}
 [data-builder-chrome] .pcb-ai svg{color:#ec4899}
-[data-builder-chrome] .pcb-menu{position:absolute;right:0;display:flex;flex-direction:column;min-width:160px;padding:4px;background:#fff;
+[data-builder-chrome] .pcb-menu{position:absolute;right:0;z-index:2;display:flex;flex-direction:column;min-width:160px;padding:4px;background:#fff;
   border:1px solid rgba(28,25,23,.08);border-radius:12px;box-shadow:0 16px 36px -8px rgba(28,25,23,.25)}
 [data-builder-chrome] .pcb-item{box-sizing:border-box;margin:0;height:34px;padding:0 10px;display:flex;align-items:center;gap:9px;border:0;border-radius:8px;
   background:transparent;color:#1c1917;font:500 12.5px/1 system-ui,-apple-system,"Segoe UI",sans-serif;text-align:left;cursor:pointer;white-space:nowrap}
 [data-builder-chrome] .pcb-item:hover{background:#fff7ed;color:#c2410c}
+[data-builder-chrome] .pcb-item:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+[data-builder-chrome] .pcb-item:disabled:hover{background:transparent;color:#1c1917}
 [data-builder-chrome] .pcb-danger{color:#b91c1c}
 [data-builder-chrome] .pcb-danger:hover{background:#fef2f2;color:#991b1b}
 [data-builder-chrome] .pcb-chip{display:inline-flex;align-items:center;gap:6px;max-width:260px;padding:5px 10px;border-radius:999px;
@@ -169,8 +198,10 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
   const previewToken = useRef<string | undefined>(undefined);
   const [hover, setHover] = useState<Target | null>(null);
   const [selected, setSelected] = useState<Target | null>(null);
+  const [textSel, setTextSel] = useState<TextTarget | null>(null);
   const [boxes, setBoxes] = useState<Boxes>(NO_BOXES);
   const [menuOpen, setMenuOpen] = useState(false);
+  const dragRef = useRef<{ startX: number; startW: number; parentW: number; role: ProtocolTextRole; sectionId: string; slot: string; itemIndex?: number } | null>(null);
   /** Slots re-rendering right now ("all" = a theme-wide change), or null. */
   const [busy, setBusy] = useState<string[] | "all" | null>(null);
   const [labels, setLabels] = useState<Record<string, string>>({});
@@ -196,11 +227,12 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
     if (!styleEl.current) {
       styleEl.current = document.createElement("style");
       styleEl.current.dataset.builderTokens = "";
-      document.querySelector("[data-sf-root]")?.prepend(styleEl.current);
+      const sfRoot = document.querySelector("[data-sf-root]");
+      sfRoot?.insertBefore(styleEl.current, sfRoot.firstChild);
     }
     const root = document.querySelector("[data-sf-root]");
     const server = root?.querySelector("style:not([data-builder-tokens])");
-    if (server && styleEl.current.previousElementSibling !== server) server.after(styleEl.current);
+    if (server && styleEl.current.previousElementSibling !== server) server.parentNode?.insertBefore(styleEl.current, server.nextSibling);
     if (styleEl.current.textContent !== css) styleEl.current.textContent = css;
   }, []);
 
@@ -218,7 +250,7 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
       if (!marker && parsed.data.finish === "refined") {
         marker = document.createElement("i");
         marker.hidden = true;
-        styleEl.current?.after(marker);
+        styleEl.current?.parentNode?.insertBefore(marker, styleEl.current.nextSibling);
       }
       if (marker) marker.dataset.sfFinish = parsed.data.finish;
     },
@@ -283,13 +315,14 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
       const css = document.createElement("style");
       css.id = "pc-builder-canvas-css";
       css.textContent = "html[data-builder-canvas] [data-preview-banner]{display:none!important}";
-      document.head.append(css);
+      document.head.appendChild(css);
     }
     const t = window.setTimeout(() => {
       setFramed(true);
       hoverId.current = null;
       setHover(null);
       setSelected(null);
+      setTextSel(null);
       post({ type: "ready", path: location.pathname + location.search, slots: pageSlots() });
     }, 30);
     return () => clearTimeout(t);
@@ -316,10 +349,30 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
         return;
       }
       if (msg.type === "select") {
-        if (!msg.sectionId) return setSelected(null);
+        if (!msg.sectionId) {
+          setSelected(null);
+          setTextSel(null);
+          return;
+        }
         const el = sectionEl(msg.sectionId);
         const t = targetOf(el);
         setSelected(t);
+        return;
+      }
+      if (msg.type === "textSelect") {
+        if (!msg.sectionId || !msg.role) {
+          setTextSel(null);
+          return;
+        }
+        const el = sectionEl(msg.sectionId);
+        const t = targetOf(el);
+        if (t) setSelected(t);
+        setTextSel({
+          sectionId: msg.sectionId,
+          slot: t?.slot ?? "",
+          role: msg.role,
+          ...(msg.itemIndex !== undefined ? { itemIndex: msg.itemIndex } : {}),
+        });
         return;
       }
       if (msg.type === "scrollTo") {
@@ -405,11 +458,29 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
     const onClick = (e: MouseEvent) => {
       const el = e.target as Element;
       if (el.closest("[data-builder-chrome]")) return;
+      const text = textTargetOf(el);
+      if (text) {
+        e.preventDefault();
+        e.stopPropagation();
+        setSelected(text.section);
+        setTextSel({ sectionId: text.sectionId, slot: text.slot, role: text.role, ...(text.itemIndex !== undefined ? { itemIndex: text.itemIndex } : {}) });
+        setMenuOpen(false);
+        post({ type: "select", slot: text.slot, sectionId: text.sectionId });
+        post({
+          type: "textSelect",
+          slot: text.slot,
+          sectionId: text.sectionId,
+          role: text.role,
+          ...(text.itemIndex !== undefined ? { itemIndex: text.itemIndex } : {}),
+        });
+        return;
+      }
       const t = targetOf(el);
       if (!t) return;
       e.preventDefault();
       e.stopPropagation();
       setSelected(t);
+      setTextSel(null);
       setMenuOpen(false);
       post({ type: "select", slot: t.slot, sectionId: t.id });
     };
@@ -440,12 +511,16 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
       const h = hover ? sectionEl(hover.id) : null;
       const s = selected ? sectionEl(selected.id) : null;
       const selectedBox = s ? boxOf(s) : null;
+      const textNode = textSel ? textEl(textSel.sectionId, textSel.role, textSel.itemIndex) : null;
+      const textBox = textNode ? boxOf(textNode) : null;
       // Shimmer: the selected section when its slot is re-rendering, else every section of the busy slots.
       let busyBoxes: Box[] = [];
       if (Array.isArray(busy) && busy.length) {
         if (selected && selectedBox && busy.includes(selected.slot)) busyBoxes = [selectedBox];
         else {
-          const els = busy.flatMap((slot) => Array.from(document.querySelectorAll<HTMLElement>(`[data-builder-slot-item="${CSS.escape(slot)}"]`)));
+          const els = busy.flatMap((slot) =>
+            Array.from(document.querySelectorAll<HTMLElement>(`[data-builder-slot-item="${CSS.escape(slot)}"]`)).filter((el) => !el.hasAttribute("data-builder-page-content")),
+          );
           busyBoxes = els
             .slice(0, MAX_SHIMMER)
             .map(boxOf)
@@ -459,13 +534,14 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
         header: headerBox(),
         busy: busyBoxes,
         toolbar: tb ? { w: tb.offsetWidth, h: tb.offsetHeight || 32 } : NO_BOXES.toolbar,
+        text: textBox,
       };
       setBoxes((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [framed, hover, selected, busy]);
+  }, [framed, hover, selected, textSel, busy]);
 
   if (!framed) return null;
 
@@ -522,7 +598,89 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
         <div key={i} className="pcb-shimmer" style={{ position: "fixed", top: b.top, left: b.left, width: b.width, height: b.height, pointerEvents: "none", zIndex: Z }} />
       ))}
       {boxes.hover && hover && hover.id !== selected?.id ? <div className="pcb-fade" style={overlay(boxes.hover, false)} /> : null}
-      {boxes.selected && selected ? <div style={overlay(boxes.selected, true)} /> : null}
+      {boxes.selected && selected && !textSel ? <div style={overlay(boxes.selected, true)} /> : null}
+      {boxes.text && textSel ? (
+        <>
+          <div
+            style={{
+              ...overlay(boxes.text, true),
+              border: "2px solid #ea580c",
+              background: "rgba(249,115,22,.06)",
+              boxShadow: "0 0 0 1px rgba(255,255,255,.7)",
+            }}
+          />
+          {/* Right-edge drag handle for text-box width */}
+          <button
+            type="button"
+            aria-label="Resize text box"
+            title="Drag to resize text width"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const parent = textEl(textSel.sectionId, textSel.role, textSel.itemIndex)?.parentElement;
+              const parentW = parent?.getBoundingClientRect().width || boxes.text!.width;
+              dragRef.current = {
+                startX: e.clientX,
+                startW: boxes.text!.width,
+                parentW: Math.max(1, parentW),
+                role: textSel.role,
+                sectionId: textSel.sectionId,
+                slot: textSel.slot,
+                ...(textSel.itemIndex !== undefined ? { itemIndex: textSel.itemIndex } : {}),
+              };
+              const onMove = (ev: PointerEvent) => {
+                const d = dragRef.current;
+                if (!d) return;
+                const nextW = Math.round(((d.startW + (ev.clientX - d.startX)) / d.parentW) * 100);
+                const widthPct = Math.min(100, Math.max(10, nextW));
+                post({
+                  type: "textResize",
+                  slot: d.slot,
+                  sectionId: d.sectionId,
+                  role: d.role,
+                  widthPct,
+                  ...(d.itemIndex !== undefined ? { itemIndex: d.itemIndex } : {}),
+                });
+              };
+              const onUp = () => {
+                dragRef.current = null;
+                window.removeEventListener("pointermove", onMove);
+                window.removeEventListener("pointerup", onUp);
+              };
+              window.addEventListener("pointermove", onMove);
+              window.addEventListener("pointerup", onUp);
+            }}
+            style={{
+              position: "fixed",
+              top: boxes.text.top + boxes.text.height / 2 - 12,
+              left: boxes.text.left + boxes.text.width - 6,
+              width: 12,
+              height: 24,
+              borderRadius: 6,
+              border: "2px solid #ea580c",
+              background: "#fff",
+              cursor: "ew-resize",
+              pointerEvents: "auto",
+              zIndex: Z + 4,
+              padding: 0,
+            }}
+          />
+          <span
+            className="pcb-chip"
+            data-on=""
+            style={{
+              position: "fixed",
+              top: Math.max(4, boxes.text.top - 28),
+              left: boxes.text.left,
+              zIndex: Z + 4,
+              pointerEvents: "none",
+            }}
+          >
+            <i aria-hidden />
+            {textSel.role} text
+          </span>
+        </>
+      ) : null}
       {active && activeBox ? (
         <>
           {/* Label chip (bottom-right) */}
@@ -554,64 +712,56 @@ export function CanvasBridge({ platformOrigins }: { platformOrigins: string[] })
             aria-label={`${label(active)} section`}
             style={{ position: "fixed", top: tbTop, left: tbLeft, display: "flex", alignItems: "center", gap: 6, pointerEvents: "auto", zIndex: Z + 3, flexWrap: "nowrap", visibility: boxes.toolbar.w ? "visible" : "hidden" }}
           >
-            {active.pageContent ? (
-              <span className="pcb-btn pcb-static">Page content</span>
-            ) : (
-              <>
-                <button type="button" className="pcb-btn" onClick={() => act("edit")}>
-                  <Icon d={ICONS.pencil} /> Edit
-                </button>
-                {!compact ? (
-                  <button type="button" className="pcb-btn" onClick={() => act("design")}>
-                    <Icon d={ICONS.layout} /> Change design
-                  </button>
-                ) : null}
-                <button type="button" className="pcb-btn pcb-icon" title="Section settings" aria-label="Section settings" onClick={() => act("settings")}>
-                  <Icon d={ICONS.gear} />
-                </button>
-                {!compact ? (
-                  <button type="button" className="pcb-btn pcb-icon" title="Colours" aria-label="Colours" onClick={() => act("colors")}>
-                    <Icon d={ICONS.drop} />
-                  </button>
-                ) : null}
-              </>
-            )}
+            <button type="button" className="pcb-btn" onClick={() => act("edit")}>
+              <Icon d={ICONS.pencil} /> Edit
+            </button>
+            {!compact ? (
+              <button type="button" className="pcb-btn" onClick={() => act("design")}>
+                <Icon d={ICONS.layout} /> Change design
+              </button>
+            ) : null}
+            <button type="button" className="pcb-btn pcb-icon" title="Section settings" aria-label="Section settings" onClick={() => act("settings")}>
+              <Icon d={ICONS.gear} />
+            </button>
+            {!compact ? (
+              <button type="button" className="pcb-btn pcb-icon" title="Colours" aria-label="Colours" onClick={() => act("colors")}>
+                <Icon d={ICONS.drop} />
+              </button>
+            ) : null}
             <button type="button" className="pcb-btn pcb-icon" title="Move up" aria-label="Move up" onClick={() => act("up")}>
               <Icon d={ICONS.up} />
             </button>
             <button type="button" className="pcb-btn pcb-icon" title="Move down" aria-label="Move down" onClick={() => act("down")}>
               <Icon d={ICONS.down} />
             </button>
-            {!active.pageContent ? (
-              <span style={{ position: "relative", display: "inline-flex" }}>
-                <button type="button" className="pcb-btn pcb-icon" title="More" aria-label="More actions" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
-                  <Icon d={ICONS.more} />
-                </button>
-                {menuOpen ? (
-                  <span role="menu" className="pcb-menu pcb-fade" style={menuUp ? { bottom: "calc(100% + 6px)" } : { top: "calc(100% + 6px)" }}>
-                    {compact ? (
-                      <>
-                        <button type="button" role="menuitem" className="pcb-item" onClick={() => act("design")}>
-                          <Icon d={ICONS.layout} /> Change design
-                        </button>
-                        <button type="button" role="menuitem" className="pcb-item" onClick={() => act("colors")}>
-                          <Icon d={ICONS.drop} /> Colours
-                        </button>
-                      </>
-                    ) : null}
-                    <button type="button" role="menuitem" className="pcb-item" onClick={() => act("duplicate")}>
-                      <Icon d={ICONS.copy} /> Duplicate
-                    </button>
-                    <button type="button" role="menuitem" className="pcb-item" onClick={() => act("hide")}>
-                      <Icon d={ICONS.eyeOff} /> Hide
-                    </button>
-                    <button type="button" role="menuitem" className="pcb-item pcb-danger" onClick={() => act("delete")}>
-                      <Icon d={ICONS.trash} /> Delete
-                    </button>
-                  </span>
-                ) : null}
-              </span>
-            ) : null}
+            <span style={{ position: "relative", display: "inline-flex" }}>
+              <button type="button" className="pcb-btn pcb-icon" title="More" aria-label="More actions" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+                <Icon d={ICONS.more} />
+              </button>
+              {menuOpen ? (
+                <span role="menu" className="pcb-menu pcb-fade" style={menuUp ? { bottom: "calc(100% + 6px)" } : { top: "calc(100% + 6px)" }}>
+                  {compact ? (
+                    <>
+                      <button type="button" role="menuitem" className="pcb-item" onClick={() => act("design")}>
+                        <Icon d={ICONS.layout} /> Change design
+                      </button>
+                      <button type="button" role="menuitem" className="pcb-item" onClick={() => act("colors")}>
+                        <Icon d={ICONS.drop} /> Colours
+                      </button>
+                    </>
+                  ) : null}
+                  <button type="button" role="menuitem" className="pcb-item" disabled={active.pageContent} onClick={() => act("duplicate")}>
+                    <Icon d={ICONS.copy} /> Duplicate
+                  </button>
+                  <button type="button" role="menuitem" className="pcb-item" onClick={() => act("hide")}>
+                    <Icon d={ICONS.eyeOff} /> Hide
+                  </button>
+                  <button type="button" role="menuitem" className="pcb-item pcb-danger" onClick={() => act("delete")}>
+                    <Icon d={ICONS.trash} /> Delete
+                  </button>
+                </span>
+              ) : null}
+            </span>
           </div>
           {/* Insert after */}
           {showAfter ? (

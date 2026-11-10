@@ -8,6 +8,7 @@ import type { ThemeTokens } from "@/features/theme/schema/tokens";
 import { cn } from "@/lib/cn";
 import { useBuilder, type SectionRef } from "../../context";
 import { updateSection } from "../../ops";
+import { useHoldAutosave } from "../../use-hold-autosave";
 
 /**
  * Section → Settings → "Size & spacing": content size (%), content width and margin / padding
@@ -15,7 +16,7 @@ import { updateSection } from "../../ops";
  * be reset to the theme default, and an empty box is removed so the section renders as before.
  */
 
-const { scale: SCALE, space: SPACE } = SECTION_BOX_LIMITS;
+const { scale: SCALE, space: SPACE, padding: PADDING } = SECTION_BOX_LIMITS;
 
 /** Theme section padding (px) per spacing token: [phone, desktop] (tokens-style.tsx SECTION_Y). */
 const THEME_PADDING: Record<ThemeTokens["spacing"], [number, number]> = { compact: [40, 56], comfortable: [56, 80], airy: [64, 112] };
@@ -144,8 +145,24 @@ export function SectionSizeSpacing({ section, sectionRef }: { section: SectionIn
       </div>
       {device === "mobile" ? <p className="-mt-1 text-[11px] text-muted">Unset phone values use 60% of the desktop value.</p> : null}
 
-      <SidePair title="Margin" sides={["marginTop", "marginBottom"]} shown={shown} onSet={(side, v) => setSide(side, v, device)} />
-      <SidePair title="Padding" sides={["paddingTop", "paddingBottom"]} shown={shown} onSet={(side, v) => setSide(side, v, device)} />
+      <SidePair
+        title="Margin"
+        hint={`Negative pulls sections together (${SPACE.min}–${SPACE.max}px)`}
+        sides={["marginTop", "marginBottom"]}
+        min={SPACE.min}
+        max={SPACE.max}
+        shown={shown}
+        onSet={(side, v) => setSide(side, v, device)}
+      />
+      <SidePair
+        title="Padding"
+        hint={`${PADDING.min}–${PADDING.max}px`}
+        sides={["paddingTop", "paddingBottom"]}
+        min={PADDING.min}
+        max={PADDING.max}
+        shown={shown}
+        onSet={(side, v) => setSide(side, v, device)}
+      />
       {preset && preset !== "default" ? <p className="text-[11px] text-muted">Exact padding values override the Spacing preset for that side.</p> : null}
     </section>
   );
@@ -153,12 +170,18 @@ export function SectionSizeSpacing({ section, sectionRef }: { section: SectionIn
 
 function SidePair({
   title,
+  hint,
   sides,
+  min,
+  max,
   shown,
   onSet,
 }: {
   title: string;
+  hint?: string;
   sides: readonly [SectionBoxSide, SectionBoxSide];
+  min: number;
+  max: number;
   shown: (s: SectionBoxSide) => { value: number; set: boolean; auto: boolean };
   onSet: (side: SectionBoxSide, v: number | undefined) => void;
 }) {
@@ -170,8 +193,11 @@ function SidePair({
   };
   return (
     <div className="space-y-2 rounded-lg border border-border p-2.5">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold">{title}</span>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <span className="text-xs font-semibold">{title}</span>
+          {hint ? <p className="text-[10px] text-muted">{hint}</p> : null}
+        </div>
         <button
           type="button"
           aria-pressed={linked}
@@ -189,8 +215,8 @@ function SidePair({
           <RangeRow
             key={side}
             label={i === 0 ? "Top" : "Bottom"}
-            min={SPACE.min}
-            max={SPACE.max}
+            min={min}
+            max={max}
             step={4}
             value={s.value}
             readout={`${s.value}px`}
@@ -226,6 +252,7 @@ function RangeRow({
   onReset?: () => void;
 }) {
   const id = useId();
+  const hold = useHoldAutosave();
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
@@ -253,6 +280,10 @@ function RangeRow({
         step={step}
         value={Math.min(max, Math.max(min, value))}
         onChange={(e) => onChange(Math.min(max, Math.max(min, Math.round(Number(e.target.value)))))}
+        onPointerDown={hold.onPointerDown}
+        onPointerUp={hold.onPointerUp}
+        onPointerCancel={hold.onPointerCancel}
+        onBlur={hold.onBlur}
         className="w-full accent-accent"
       />
     </div>

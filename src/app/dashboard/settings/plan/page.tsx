@@ -7,6 +7,7 @@ import { featureLabels, getStorePlanOverview } from "@/features/billing/server";
 import { PlanPicker } from "@/features/billing/components";
 import { cancelPlanRequestAction } from "@/features/billing/actions";
 import { daysUntil } from "@/features/billing/schemas";
+import { resolvePlatformPaymentGateway } from "@/features/ai-credits/platform-gateways";
 
 export const metadata: Metadata = { title: "Plan & billing" };
 
@@ -15,7 +16,7 @@ const REQUEST_TONE = { pending: "warning", approved: "success", declined: "error
 
 export default async function PlanPage() {
   const ctx = await requireTenantPermission("store.read");
-  const [o, labels] = await Promise.all([getStorePlanOverview(ctx), featureLabels()]);
+  const [o, labels, gateway] = await Promise.all([getStorePlanOverview(ctx), featureLabels(), resolvePlatformPaymentGateway()]);
   const pending = o.requests.find((r) => r.status === "pending") ?? null;
   const owner = can(ctx, "billing.manage");
   const trialDays = daysUntil(o.trialEndsAt);
@@ -69,8 +70,10 @@ export default async function PlanPage() {
           currentId={o.current?.id ?? null}
           status={o.status}
           featureLabels={labels}
-          canRequest={owner}
+          canRequest={owner && !pending}
           pendingPlanId={pending?.planId ?? null}
+          onlineCheckoutAvailable={Boolean(gateway)}
+          storeName={ctx.tenantName}
         />
       ) : (
         <p className="rounded-md border border-border bg-surface p-4 text-small text-muted">Plan requests are being set up. Please contact support to change your plan.</p>

@@ -18,7 +18,8 @@ describe("plan requests", () => {
   });
 
   it("validates inputs", () => {
-    expect(requestPlanSchema.parse({ planId: id, cycle: "yearly", note: " " })).toEqual({ planId: id, cycle: "yearly", note: undefined });
+    expect(requestPlanSchema.parse({ planId: id, cycle: "yearly", note: " " })).toEqual({ planId: id, cycle: "yearly", note: undefined, intent: "request" });
+    expect(requestPlanSchema.parse({ planId: id, cycle: "monthly", intent: "pay", couponCode: "SAVE20" })).toMatchObject({ intent: "pay", couponCode: "SAVE20" });
     expect(requestPlanSchema.safeParse({ planId: "x" }).success).toBe(false);
     expect(decidePlanRequestSchema.parse({ requestId: id, decision: "approve", months: "12" }).months).toBe(12);
     expect(decidePlanRequestSchema.safeParse({ requestId: id, decision: "maybe" }).success).toBe(false);

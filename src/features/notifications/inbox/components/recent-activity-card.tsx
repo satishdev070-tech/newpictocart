@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/layout";
-import { listNotifications, type InboxAudience } from "../server";
+import { getBellData, type InboxAudience } from "../server";
 import { NotificationList } from "./notification-list";
 
-/** Dashboard overview: the latest notifications for this member, fed by the same rows as the bell. */
+/** Dashboard overview: latest notifications — same cached getBellData read as the layout bell. */
 export async function RecentActivityCard({ audience, href }: { audience: InboxAudience; href: string }) {
-  const { items } = await listNotifications(audience, { status: "all", group: null, page: 1, pageSize: 6 }).catch(() => ({ items: [], total: 0 }));
+  const { items } = await getBellData(audience);
+  const shown = items.slice(0, 6);
   return (
     <Card
       title="Recent activity"
@@ -15,9 +16,9 @@ export async function RecentActivityCard({ audience, href }: { audience: InboxAu
         </Link>
       }
     >
-      {items.length ? (
+      {shown.length ? (
         <div className="-m-4 sm:-m-5">
-          <NotificationList scope={audience.scope} userId={audience.userId} items={items} live={false} />
+          <NotificationList scope={audience.scope} userId={audience.userId} items={shown} live={false} />
         </div>
       ) : (
         <p className="py-6 text-center text-sm text-muted">New orders, payments, reviews and stock alerts will appear here.</p>

@@ -86,7 +86,7 @@ describe("setup guide URLs", () => {
     expect(meta.webhooks.map((w) => w.url)).toEqual(["https://pictocart.in/api/webhooks/meta", "https://pictocart.in/api/webhooks/whatsapp"]);
     expect(meta.permissions.map((p) => p.name)).toEqual(expect.arrayContaining(["pages_manage_posts", "instagram_content_publish", "pages_messaging", "instagram_manage_messages", "whatsapp_business_messaging"]));
     expect(g.find((x) => x.provider === "google")!.redirectUris).toEqual(["https://pictocart.in/api/oauth/youtube/callback", "https://pictocart.in/api/oauth/google-business/callback"]);
-    expect(g.map((x) => x.provider)).toEqual(["meta", "pinterest", "google", "gemini", "groq", "anthropic"]);
+    expect(g.map((x) => x.provider)).toEqual(["meta", "pinterest", "google", "nvidia", "gemini", "groq", "anthropic"]);
   });
 });
 

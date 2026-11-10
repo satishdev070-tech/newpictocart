@@ -35,6 +35,14 @@ describe("getSessionUser resilience", () => {
     await expect(getSessionUser()).rejects.toBe(bailout);
   });
 
+  it("rethrows EnvValidationError so finalize can show a server-config toast", async () => {
+    const { EnvValidationError } = await import("@/lib/env/schema");
+    const envErr = new EnvValidationError(["APP_SECRET: Too small"]);
+    serverClient = envErr;
+    const { getSessionUser } = await import("@/lib/auth/session");
+    await expect(getSessionUser()).rejects.toBe(envErr);
+  });
+
   it("returns the user when claims and profile are healthy", async () => {
     serverClient = {
       auth: { getClaims: async () => ({ data: { claims: { sub: "u1", email: "a@example.com" } }, error: null }) },
@@ -46,10 +54,10 @@ describe("getSessionUser resilience", () => {
 });
 
 describe("landingPathFor resilience", () => {
-  it("falls back to /onboarding when membership lookups throw", async () => {
+  it("falls back to /start when membership lookups throw", async () => {
     serverClient = new Error("db unavailable");
     const { landingPathFor } = await import("@/lib/auth/landing");
-    expect(await landingPathFor("u1")).toBe("/onboarding");
+    expect(await landingPathFor("u1")).toBe("/start");
   });
 
   it("routes sellers to the dashboard when they have an active membership", async () => {

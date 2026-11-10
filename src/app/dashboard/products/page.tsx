@@ -8,33 +8,42 @@ import { SelectField, TextField } from "@/components/ui/field";
 import { Pagination } from "@/components/ui/pagination";
 import { EmptyState } from "@/components/ui/states";
 import { FilterBar, queryString } from "@/features/settings/ui/filter-bar";
-import { listProducts } from "@/features/catalog/server/products";
-import { listCategories } from "@/features/catalog/server/categories";
+import { listProducts, listUsedProductTypes } from "@/features/catalog/server/products";
+import { listCategoryFilterOptions } from "@/features/catalog/server/categories";
 import { listCollectionOptions } from "@/features/catalog/server/collections";
 import { productListQuerySchema, PRODUCT_SORT_LABELS, PRODUCT_SORTS } from "@/features/catalog/schemas";
 import { PRODUCT_PAGE_SIZE, PRODUCT_STATUSES, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_TONE } from "@/features/catalog/constants";
-import { groupTypesForPicker, typeLabel } from "@/features/catalog/product-types";
+import { typeLabel } from "@/features/catalog/product-types";
 import { getTenantTypeCatalogue } from "@/features/catalog/server/product-types";
 import { categoryLabel } from "@/features/catalog/category-tree";
 import { ProductBulkBar } from "@/features/catalog/components/catalog-forms";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Products" };
 
 export default async function ProductsPage({ searchParams }: PageProps<"/dashboard/products">) {
   const ctx = await requireTenantPermission("catalog.read");
+  const { t } = await getI18n();
   const sp = await searchParams;
   const f = productListQuerySchema.parse(sp);
-  const [{ rows, total }, categories, collections, catalogue] = await Promise.all([listProducts(ctx.tenantId, f), listCategories(ctx.tenantId), listCollectionOptions(ctx.tenantId), getTenantTypeCatalogue(ctx.tenantId)]);
-  const typeGroups = groupTypesForPicker(catalogue.types, catalogue.industry, f.type);
-  const typeOptions = [...typeGroups.store, ...typeGroups.suggested, ...typeGroups.others].map((t) => ({ value: t.key, label: t.label }));
+  const [{ rows, total }, categories, collections, catalogue, usedTypes] = await Promise.all([
+    listProducts(ctx.tenantId, f),
+    listCategoryFilterOptions(ctx.tenantId),
+    listCollectionOptions(ctx.tenantId),
+    getTenantTypeCatalogue(ctx.tenantId),
+    listUsedProductTypes(ctx.tenantId),
+  ]);
+  // Type filter shows only types actually used on products (keep a deep-linked current filter visible).
+  const typeKeys = f.type && !usedTypes.includes(f.type) ? [...usedTypes, f.type] : usedTypes;
+  const typeOptions = typeKeys.map((key) => ({ value: key, label: typeLabel(key, catalogue.types) }));
   const params = { q: f.q, status: f.status, type: f.type, category: f.category, collection: f.collection, sort: f.sort };
   const filtered = Boolean(f.q || f.status || f.type || f.category || f.collection);
   const writable = can(ctx, "catalog.write");
   return (
     <div>
       <PageHeader
-        title="Products"
-        description={`${total} ${total === 1 ? "product" : "products"}`}
+        title={t("pages.products.title")}
+        description={total === 1 ? t("pages.products.countOne") : t("pages.products.count", { count: total })}
         actions={
           <>
             <a href={`/dashboard/products/export${queryString(params)}`} className="inline-flex h-10 items-center rounded-md border border-border bg-surface px-4 text-sm font-medium" download>
@@ -109,7 +118,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
                     </td>
                     <td className={td}>{typeLabel(p.productType, catalogue.types)}</td>
                     <td className={`${td} tabular-nums`}>{p.minPrice === null ? "—" : p.maxPrice !== null && p.maxPrice !== p.minPrice ? `${formatMoney(p.minPrice)} – ${formatMoney(p.maxPrice)}` : formatMoney(p.minPrice)}</td>
-                    <td className={`${td} tabular-nums`}>{p.stockTotal === null ? "Not tracked" : `${p.stockTotal} in ${p.variantCount} variant${p.variantCount === 1 ? "" : "s"}`}</td>
+                    <td className={`${td} tabular-nums`}>{p.stockTotal === null ? "—" : `${p.stockTotal} in ${p.variantCount} variant${p.variantCount === 1 ? "" : "s"}`}</td>
                   </tr>
                 ))}
               </tbody>

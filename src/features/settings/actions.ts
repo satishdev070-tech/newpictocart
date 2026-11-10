@@ -16,6 +16,7 @@ import { mapDbError } from "@/lib/supabase/errors";
 import { audit } from "@/lib/audit";
 import { revalidateStorefront } from "@/lib/cache/storefront";
 import type { Json } from "@/lib/supabase/database.types";
+import { informativeSitesEnabled } from "@/features/stores/informative-flag";
 import { seoSettingsSchema, codSettingsSchema, notificationTemplateSchema, pincodeRuleSchema, shippingRateSchema, siteModeSchema, storeDetailsSchema, whatsappNumberSchema } from "./schemas";
 import { minorToDb } from "./fields";
 
@@ -84,6 +85,11 @@ export async function saveSiteModeAction(_prev: ActionResult | null, fd: FormDat
   const result = await runAction("settings.siteMode", async () => {
     const ctx = await settingsCtx();
     const { siteMode } = parseInput(siteModeSchema, formToObject(fd));
+    if (!informativeSitesEnabled() && siteMode === "informative") {
+      throw new AppError("VALIDATION", {
+        fieldErrors: { siteMode: ["Informational websites are temporarily unavailable"] },
+      });
+    }
     const { error } = await (await createSupabaseServerClient()).from("stores").update({ site_mode: siteMode }).eq("tenant_id", ctx.tenantId);
     if (error) throw mapDbError(error);
     await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "settings.site_mode_updated", entityType: "store", entityId: ctx.tenantId, metadata: { site_mode: siteMode } });

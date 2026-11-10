@@ -37,6 +37,8 @@ import { createStoreProductType } from "./server/product-types";
 import { collectionRulesSchema } from "./collection-rules";
 import { adjustStockSchema, setStockSchema, thresholdSchema } from "@/features/inventory/schemas";
 import { adjustStock, setLowStockThreshold, setStock } from "@/features/inventory/server/inventory";
+import { registerImportedImage } from "@/features/media/server/media";
+import { MEDIA_MAX_BYTES } from "@/features/media/rules";
 
 async function writer(permission: "catalog.write" | "catalog.delete" | "inventory.write" = "catalog.write") {
   const ctx = await requireTenant();
@@ -68,6 +70,14 @@ export async function saveProductAction(_prev: ActionResult<{ id: string }> | nu
     const { data: id, error } = await callSaveProduct(supabase, ctx.tenantId, payload);
     if (error || !id) throw catalogDbError(error, { op: "save_product" });
     await setProductCollections(ctx.tenantId, id, env.collectionIds);
+    // AI Generate photos uploaded before the product existed — attach library paths after create/save.
+    const pendingPaths = fd
+      .getAll("pendingMediaPaths[]")
+      .filter((v): v is string => typeof v === "string" && v.startsWith(`tenant/${ctx.tenantId}/media/`))
+      .slice(0, MAX_MEDIA_PER_PRODUCT);
+    if (pendingPaths.length) {
+      await attachLibraryImages(ctx.tenantId, id, pendingPaths);
+    }
     await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: input.id ? "product.updated" : "product.created", entityType: "product", entityId: id, metadata: { status: input.status } });
     if (!input.id) createdId = id;
     return { id };
@@ -150,6 +160,56 @@ export async function attachProductMediaAction(productId: string, paths: string[
     return attachLibraryImages(ctx.tenantId, v.productId, v.paths);
   });
   if (result.ok) refresh();
+  return result;
+}
+
+/**
+ * Persist Generate-with-AI local photos into the tenant media library (folder "products").
+ * When `productId` is set, also attaches them to product_media immediately.
+ */
+export async function persistAiProductImagesAction(input: {
+  productId?: string | null;
+  images: File[];
+}): Promise<ActionResult<{ paths: string[]; attached: boolean; count: number }>> {
+  const result = await runAction("catalog.persistAiImages", async () => {
+    const ctx = await writer();
+    const productId = input.productId ? parseInput(z.uuid(), input.productId) : null;
+    const images = (input.images ?? []).filter((f): f is File => f instanceof File && f.size > 0).slice(0, 4);
+    if (!images.length) throw new AppError("VALIDATION", { fieldErrors: { file: ["Choose at least one image"] } });
+    for (const f of images) {
+      if (f.size > MEDIA_MAX_BYTES) {
+        throw new AppError("VALIDATION", { fieldErrors: { file: [`${f.name || "Image"} must be 10 MB or smaller`] } });
+      }
+    }
+    const paths: string[] = [];
+    for (const file of images) {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const item = await registerImportedImage(ctx.tenantId, ctx.user.id, {
+        bytes,
+        filename: file.name || "product.jpg",
+        folder: "products",
+        alt: null,
+        width: null,
+        height: null,
+      });
+      paths.push(item.path);
+    }
+    let attached = false;
+    if (productId && paths.length) {
+      await attachLibraryImages(ctx.tenantId, productId, paths);
+      attached = true;
+    }
+    await audit({
+      tenantId: ctx.tenantId,
+      actorUserId: ctx.user.id,
+      action: "product.ai_images_saved",
+      entityType: productId ? "product" : "media",
+      entityId: productId ?? paths[0]!,
+      metadata: { count: paths.length, attached },
+    });
+    return { paths, attached, count: paths.length };
+  });
+  if (result.ok && result.data.attached) refresh();
   return result;
 }
 
@@ -324,14 +384,26 @@ export async function importProductsAction(_prev: ActionResult<ImportState> | nu
     if (mode === "preview") {
       const plan = await previewImport(ctx.tenantId, text);
       if (plan.fatal) throw new AppError("VALIDATION", { fieldErrors: { file: [plan.fatal] } });
+      const catNote = plan.categoriesCreated.length
+        ? ` · ${plan.categoriesCreated.length} categor${plan.categoriesCreated.length === 1 ? "y" : "ies"} created (${plan.categoriesCreated.slice(0, 5).join(", ")}${plan.categoriesCreated.length > 5 ? "…" : ""})`
+        : "";
       return {
         mode,
-        summary: `${plan.creates} new, ${plan.updates} updated, ${plan.invalid} with errors${plan.limit !== null ? ` · plan limit ${plan.current}/${plan.limit}` : ""}`,
-        errors: plan.rowErrors.slice(0, 50).map((e) => JSON.stringify(e)),
+        summary: `${plan.creates} new, ${plan.updates} updated, ${plan.invalid} with errors${plan.limit !== null ? ` · plan limit ${plan.current}/${plan.limit}` : ""}${catNote}`,
+        errors: [
+          ...plan.skippedItems.slice(0, 50).map((s) => `${s.handle}: ${s.errors.join("; ")}`),
+          ...plan.rowErrors.slice(0, 50).map((e) => `Row ${e.row}: ${e.messages.join("; ")}`),
+        ],
       };
     }
     const r = await applyImport(ctx.tenantId, text, { canWriteInventory: can(ctx, "inventory.write") });
-    await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "product.imported", entityType: "product", metadata: { created: r.created, updated: r.updated, failed: r.failed.length } });
+    await audit({
+      tenantId: ctx.tenantId,
+      actorUserId: ctx.user.id,
+      action: "product.imported",
+      entityType: "product",
+      metadata: { created: r.created, updated: r.updated, failed: r.failed.length, skipped: r.skipped, categoriesCreated: r.categoriesCreated },
+    });
     const parts: string[] = [];
     if (r.created) parts.push(`${r.created} created`);
     if (r.updated) {
@@ -343,12 +415,17 @@ export async function importProductsAction(_prev: ActionResult<ImportState> | nu
     }
     if (!r.created && !r.updated) parts.push("No products saved");
     if (r.stockSet) parts.push(`${r.stockSet} stock levels set`);
+    if (r.categoriesCreated.length) parts.push(`${r.categoriesCreated.length} categor${r.categoriesCreated.length === 1 ? "y" : "ies"} created`);
     if (r.failed.length) parts.push(`${r.failed.length} failed`);
     if (r.skipped) parts.push(`${r.skipped} skipped`);
     return {
       mode,
       summary: parts.join(", "),
-      errors: [...r.failed.map((x) => `${x.handle}: ${x.message}`), ...r.rowErrors.slice(0, 50).map((e) => JSON.stringify(e))],
+      errors: [
+        ...r.failed.map((x) => `${x.handle}: ${x.message}`),
+        ...r.skippedItems.slice(0, 50).map((s) => `${s.handle}: ${s.errors.join("; ")}`),
+        ...r.rowErrors.slice(0, 50).map((e) => `Row ${e.row}: ${e.messages.join("; ")}`),
+      ],
     };
   });
   if (result.ok && result.data.mode === "apply") revalidatePath("/dashboard/products");

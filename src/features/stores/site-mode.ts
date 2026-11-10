@@ -100,12 +100,12 @@ export function builderGroupVisible(group: string, mode: SiteMode | null | undef
 /**
  * Marketplace hand-off:
  * - Informative preset + empty ecommerce store → informative (brochure) mode.
- * - Ecommerce preset + informative store → restore ecommerce (theme apply undoes an accidental flip).
- * Stores with products keep ecommerce when an informative preset is applied; the seller can switch
- * in Settings → General.
+ * - Preserve merchant-chosen informative mode even when an ecommerce preset is applied during
+ *   `/start` seed (theme kind does not override an explicit informative choice).
+ * - Stores with products that are already ecommerce stay ecommerce when an informative preset is applied.
  */
 export function modeAfterThemeApply(current: SiteMode, themeKind: unknown, hasProducts: boolean): SiteMode {
-  if (themeKind === "informative" && current === "ecommerce" && !hasProducts) return "informative";
-  if (themeKind !== "informative" && current === "informative") return "ecommerce";
+  if (current === "informative") return "informative";
+  if (themeKind === "informative" && !hasProducts) return "informative";
   return current;
 }

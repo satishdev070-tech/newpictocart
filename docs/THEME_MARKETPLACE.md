@@ -236,9 +236,11 @@ family (used by the mockups for photos).
 - Large stock photos carry a visible "Photo: Name / Unsplash" credit (`PhotoCredit`).
 - For the Media Library and previews: `themeUnsplashImages(theme)` (`layouts/imagery.ts`, pure, sync) and
   `getThemeUnsplashImages(themeKey)` (`theme/server/imagery.ts`, async, API-fresh) return the photos a theme
-  uses, with slot, alt text and credit.
-- `ThemeMockup` (marketplace cards, onboarding, dashboard) now draws the theme's hero variant, product
-  layout, header style and footer layout with its category's photos.
+  uses, with slot, alt text and credit. Photos are rotated by **theme key** (`themeImagerySeed` /
+  `themeStockSet`) so themes that share a layout family still get distinct heroes for marketplace cards,
+  empty slots and onboarding thumbs (`themeCardImage` / `themeStockThumbUrl`).
+- `ThemeMockup` (marketplace cards, onboarding, dashboard) draws the theme's hero variant, product
+  layout, header style and footer layout with the category pool rotated by `themeKey`.
 
 ### Performance
 

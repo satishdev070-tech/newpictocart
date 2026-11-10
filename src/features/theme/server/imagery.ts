@@ -5,6 +5,7 @@ import { STOCK_SLOTS, getStockSet, type StockImage, type StockSet } from "@/lib/
 import { logger } from "@/lib/observability/logger";
 import type { Storefront } from "@/features/storefront/server/context";
 import { findAnyMarketplaceTheme } from "../marketplace/registry";
+import { themeStockSet } from "../layouts/imagery";
 import { PROTECTED_TENANT_IDS, SHOWCASE_STORES } from "../marketplace/showcase";
 
 /** The store's category slug (stores.category_id → store_categories), cached per tenant. */
@@ -49,11 +50,13 @@ export async function getStorefrontStock(sf: Storefront): Promise<StockSet | nul
 
 /**
  * The Unsplash photos a marketplace theme uses (API results when UNSPLASH_ACCESS_KEY is set, else
- * the curated pool), flattened in slot order with credits. Null for an unknown theme key.
+ * the curated pool), rotated per theme key so same-industry themes stay distinct. Null for an
+ * unknown theme key.
  */
 export async function getThemeUnsplashImages(themeKey: string): Promise<StockImage[] | null> {
   const theme = await findAnyMarketplaceTheme(themeKey);
   if (!theme) return null;
-  const set = await getStockSet(theme.industry);
+  const base = await getStockSet(theme.industry);
+  const set = themeStockSet(theme, base);
   return STOCK_SLOTS.flatMap((slot) => set[slot]);
 }

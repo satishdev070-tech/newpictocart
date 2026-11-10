@@ -32,26 +32,38 @@ export default async function ThemeDetailPage({ params }: PageProps<"/themes/[ke
 
   return (
     <>
-      <section className="bg-gradient-to-b from-brand-soft/70 to-white pt-10 pb-16" aria-labelledby="theme-title">
+      <section className="bg-gradient-to-b from-mk-bg to-mk-elev-1 pt-10 pb-16" aria-labelledby="theme-title">
         <Container>
-          <Link href={themesHref({ industry: t.industry })} className="inline-flex items-center gap-1.5 rounded text-sm font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand">
+          <Link
+            href={themesHref({ industry: t.industry })}
+            className="inline-flex items-center gap-1.5 rounded text-sm font-semibold text-mk-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent"
+          >
             <ArrowLeft aria-hidden className="size-4" /> {industryName(t.industry)} themes
           </Link>
           <div className="mt-8 grid items-start gap-12 lg:grid-cols-[1.25fr_1fr]">
             <div className="pb-8">
               <ThemeDevicePreview theme={t} previewUrl={previewUrl} size="large" eager live />
-              <p className="mt-12 text-sm text-muted">{previewUrl ? "Select Live preview to try the theme on a demo store, or Preview Theme for the full-size preview." : "Preview drawn from the theme's own colours, fonts and layout. Select Preview Theme for a full-size sample store."} Your text, images and products replace the samples.</p>
+              <p className="mt-12 text-sm text-mk-muted">
+                {previewUrl
+                  ? "Select Live preview to try the theme on a demo store, or Preview Theme for the full-size preview."
+                  : "Preview drawn from the theme's own colours, fonts and layout. Select Preview Theme for a full-size sample store."}{" "}
+                Your text, images and products replace the samples.
+              </p>
             </div>
             <div>
               <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                <span className="rounded-full bg-brand-soft px-2.5 py-1 text-brand">{industryName(t.industry)}</span>
-                <span className="rounded-full bg-brand-canvas px-2.5 py-1 text-muted">{THEME_STYLE_LABELS[t.style]}</span>
+                <span className="rounded-full bg-mk-accent-tint px-2.5 py-1 text-mk-accent">{industryName(t.industry)}</span>
+                <span className="rounded-full bg-mk-elev-2 px-2.5 py-1 text-mk-muted">{THEME_STYLE_LABELS[t.style]}</span>
               </div>
-              <h1 id="theme-title" className="mt-4 font-brand text-4xl font-extrabold tracking-tight text-brand-ink">
+              <p className="mk-label mt-6 inline-flex items-center gap-2 text-mk-accent">
+                <span className="size-1.5 rounded-full bg-mk-accent" aria-hidden />
+                Theme
+              </p>
+              <h1 id="theme-title" className="mk-display-lg mt-3 text-balance text-mk-text">
                 {t.name}
               </h1>
-              <p className="mt-2 text-lg font-medium text-brand-ink/80">{t.tagline}</p>
-              <p className="mt-4 leading-relaxed text-muted">{t.description}</p>
+              <p className="mt-2 text-lg font-medium text-mk-text/80">{t.tagline}</p>
+              <p className="mt-4 leading-relaxed text-mk-muted">{t.description}</p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <ButtonLink href={`/themes/${t.key}/use`} prefetch={false} size="lg" track={{ id: `use_${t.key}`, location: "theme_detail" }}>
                   Use This Theme
@@ -60,47 +72,47 @@ export default async function ThemeDetailPage({ params }: PageProps<"/themes/[ke
                   <Eye aria-hidden className="size-4" /> Preview Theme <ExternalLink aria-hidden className="size-3.5" />
                 </ButtonLink>
               </div>
-              <p className="mt-3 text-sm text-muted">Using a theme creates a draft for your store. Nothing goes live until you publish.</p>
+              <p className="mt-3 text-sm text-mk-muted">Using a theme creates a draft for your store. Nothing goes live until you publish.</p>
 
-              <dl className="mt-10 grid gap-8 sm:grid-cols-2">
+              <dl className="mt-10 grid gap-8 rounded-mk-lg border border-mk-line bg-mk-elev-1 p-6 sm:grid-cols-2">
                 <div>
-                  <dt className="text-sm font-semibold text-brand-ink">Best for</dt>
+                  <dt className="text-sm font-semibold text-mk-text">Best for</dt>
                   <dd className="mt-3">
-                    <ul className="space-y-2 text-sm text-muted">
+                    <ul className="space-y-2 text-sm text-mk-muted">
                       {t.bestFor.map((b) => (
                         <li key={b} className="flex gap-2">
-                          <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-brand" /> {b}
+                          <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-mk-accent" /> {b}
                         </li>
                       ))}
                     </ul>
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-semibold text-brand-ink">Highlights</dt>
+                  <dt className="text-sm font-semibold text-mk-text">Highlights</dt>
                   <dd className="mt-3">
-                    <ul className="space-y-2 text-sm text-muted">
+                    <ul className="space-y-2 text-sm text-mk-muted">
                       {t.features.map((f) => (
                         <li key={f} className="flex gap-2">
-                          <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-brand" /> {f}
+                          <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-mk-accent" /> {f}
                         </li>
                       ))}
                     </ul>
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-semibold text-brand-ink">Colours</dt>
+                  <dt className="text-sm font-semibold text-mk-text">Colours</dt>
                   <dd className="mt-3 flex flex-wrap gap-2">
                     {colors.map(([k, v]) => (
-                      <span key={k} className="flex items-center gap-2 rounded-full border border-border bg-white py-1 pr-3 pl-1 text-xs text-muted">
-                        <span className="size-5 rounded-full border border-border" style={{ background: v }} aria-hidden />
+                      <span key={k} className="flex items-center gap-2 rounded-full border border-mk-line bg-mk-elev-2 py-1 pr-3 pl-1 text-xs text-mk-muted">
+                        <span className="size-5 rounded-full border border-mk-line" style={{ background: v }} aria-hidden />
                         {COLOR_LABELS[k]}
                       </span>
                     ))}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-semibold text-brand-ink">Fonts</dt>
-                  <dd className="mt-3 space-y-1 text-sm text-muted">
+                  <dt className="text-sm font-semibold text-mk-text">Fonts</dt>
+                  <dd className="mt-3 space-y-1 text-sm text-mk-muted">
                     {heading ? <p style={{ fontFamily: heading.stack }}>Headings: {heading.label.split(" (")[0]}</p> : null}
                     {body ? <p style={{ fontFamily: body.stack }}>Text: {body.label.split(" (")[0]}</p> : null}
                   </dd>

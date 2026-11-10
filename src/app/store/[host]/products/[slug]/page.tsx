@@ -4,7 +4,7 @@ import { resolveStorefrontTenant } from "@/lib/tenant/resolve";
 import Link from "next/link";
 import { getRenderContext } from "@/features/theme/render/load";
 import { splitAtPageContent } from "@/features/theme/render/sections";
-import { ThemeSlot } from "@/features/theme/render/slot";
+import { PageChrome, ThemeSlot } from "@/features/theme/render/slot";
 import { categoryTrail, getAllCategories, getProductBySlug, listProducts } from "@/features/storefront/server/catalog";
 import { getProductReviews } from "@/features/storefront/server/content";
 import { redirectOrNotFound } from "@/features/storefront/server/redirects";
@@ -33,7 +33,8 @@ export async function generateMetadata({ params }: PageProps<"/store/[host]/prod
   const { host, slug } = await params;
   const { sf } = await getRenderContext(host);
   const p = await getProductBySlug(sf.tenant.tenantId, slug);
-  if (!p) return {};
+  // Missing slug: noindex so crawlers don't keep a soft URL even if status streams as 200.
+  if (!p) return { robots: { index: false, follow: false } };
   return buildPageMetadata({
     primaryHost: sf.tenant.primaryHost,
     path: paths.product(p.slug),
@@ -96,10 +97,12 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
     ratingCount: p.ratingCount,
   });
 
-  const [sectionsBefore, sectionsAfter] = splitAtPageContent(sf.theme.templates.product);
+  const productTemplate = sf.theme.templates.product;
+  const [sectionsBefore, sectionsAfter] = splitAtPageContent(productTemplate);
   return (
     <>
       <ThemeSlot slot="templates.product.before" sections={sectionsBefore} ctx={ctx} />
+      <PageChrome list={productTemplate}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(ld) }} />
       <TrackEvent
         name="view_item"
@@ -132,8 +135,8 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
           }
           panels={[
             ...(p.description || p.shortDescription ? [{ key: "desc", title: "Product Description", icon: "description" as const, open: true, content: <RichText text={(p.description || p.shortDescription)!} /> }] : []),
-            // "Other" is the catch-all for non-apparel catalogues: not worth a row.
-            ...(p.productType !== "other" || p.attributes.length ? [{
+            // "Other" is the catch-all for non-apparel catalogues: not worth a row on its own.
+            ...(p.productType !== "other" || p.attributes.length || p.countryOfOrigin ? [{
               key: "details",
               title: "Product Details",
               icon: "details" as const,
@@ -151,6 +154,12 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
                       <dd>{a.value}</dd>
                     </div>
                   ))}
+                  {p.countryOfOrigin ? (
+                    <div className="contents">
+                      <dt className="sf-muted">Country of origin</dt>
+                      <dd>{p.countryOfOrigin}</dd>
+                    </div>
+                  ) : null}
                 </dl>
               ),
             }] : []),
@@ -237,6 +246,7 @@ export default async function ProductPage({ params }: PageProps<"/store/[host]/p
         </section>
       ) : null}
       <RecentlyViewed current={{ slug: p.slug, title: p.title }} />
+      </PageChrome>
       <ThemeSlot slot="templates.product.after" sections={sectionsAfter} ctx={ctx} />
     </>
   );

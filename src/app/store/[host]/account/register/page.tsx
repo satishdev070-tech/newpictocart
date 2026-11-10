@@ -8,7 +8,7 @@ import { storeGoogleSignInAction } from "@/features/customer-account/actions";
 import { GoogleButton, OrDivider } from "@/components/auth/google-button";
 import { googleSignInAvailable } from "@/features/auth/google";
 
-import { StoreAuthSplit, heroImageOf } from "@/features/customer-account/components/store-auth-split";
+import { StoreAuthSplit, accountAuthVisual } from "@/features/customer-account/components/store-auth-split";
 
 export const metadata: Metadata = { title: "Create account", robots: { index: false } };
 
@@ -19,8 +19,9 @@ export default async function StoreRegister({ params, searchParams }: PageProps<
   const { sf } = await getRenderContext(host);
   if (await getStoreCustomer(sf.tenant.tenantId)) redirect(next);
   const google = await googleSignInAvailable("shoppers");
+  const auth = accountAuthVisual(sf.theme);
   return (
-    <StoreAuthSplit image={heroImageOf(sf.theme)} storeName={sf.store.name} heading={`Join ${sf.store.name}`} text="An account makes every order easier." showBenefits>
+    <StoreAuthSplit image={auth.image} pack={auth.pack} storeName={sf.store.name} heading={`Join ${sf.store.name}`} text="An account makes every order easier." showBenefits>
       <div className="mb-6 space-y-1.5">
         <h1 className="sf-heading text-3xl">Create account</h1>
         <p className="sf-muted text-sm">It takes less than a minute.</p>

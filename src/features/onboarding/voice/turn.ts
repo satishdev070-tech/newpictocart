@@ -6,13 +6,15 @@ import { AppError } from "@/lib/errors";
 import {
   EMPTY_FACTS,
   factsComplete,
-  mapCategoryToIndustry,
+  mapCategoryInput,
   mapSiteMode,
   mergeFacts,
+  suggestSubcategory,
   type VoiceFacts,
 } from "./facts";
 import { taraSystemPrompt, taraUserPrompt } from "./prompt";
 import { taraTurnResultSchema } from "./schemas";
+import type { IndustrySlug } from "@/features/stores/industries";
 
 export type TaraTurnOutput = {
   transcript: string;
@@ -123,9 +125,28 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
 
   if (parsed.success) {
     reply = parsed.data.reply;
+    const mapped = mapCategoryInput(parsed.data.facts.category ?? null);
+    const category = (mapped.category ?? facts.category) as IndustrySlug | null;
+    const fromSubField =
+      category && parsed.data.facts.subcategory
+        ? suggestSubcategory(category, parsed.data.facts.subcategory)
+        : null;
+    // If the model only put a niche in subcategory, still try to recover industry + sub.
+    const fromSubAlone = !category && parsed.data.facts.subcategory
+      ? mapCategoryInput(parsed.data.facts.subcategory)
+      : { category: null, subcategory: null };
+    const resolvedCategory = category ?? fromSubAlone.category;
+    const subcategory =
+      fromSubField ?? mapped.subcategory ?? fromSubAlone.subcategory ?? null;
+    const productsServices =
+      typeof parsed.data.facts.productsServices === "string"
+        ? parsed.data.facts.productsServices.trim().slice(0, 300)
+        : null;
     nextFacts = mergeFacts(facts, {
       name: parsed.data.facts.name ?? null,
-      category: mapCategoryToIndustry(parsed.data.facts.category ?? null),
+      category: resolvedCategory,
+      subcategory,
+      productsServices: productsServices || null,
       siteMode: mapSiteMode(parsed.data.facts.siteMode ?? null),
       tagline: parsed.data.facts.tagline ?? null,
       city: parsed.data.facts.city ?? null,

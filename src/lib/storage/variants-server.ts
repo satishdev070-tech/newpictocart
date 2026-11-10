@@ -1,8 +1,8 @@
 import "server-only";
-import sharp from "sharp";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/observability/logger";
+import { loadSharp } from "@/lib/storage/sharp-load";
 import { STORE_ASSETS_BUCKET, assetUrl } from "./assets";
 import { VARIANT_WIDTHS, isVariantable, variantPath, type VariantWidth } from "./variants";
 
@@ -10,6 +10,9 @@ const CACHE = "31536000"; // variants are immutable: a new upload gets a new pat
 
 /** WebP copy of `bytes` at most `width` px wide (never enlarged), EXIF-rotated. */
 export async function renderVariant(bytes: Uint8Array | Buffer, width: VariantWidth): Promise<Buffer> {
+  const sharpMod = await loadSharp();
+  if (!sharpMod) throw new Error("sharp unavailable in this runtime");
+  const sharp = sharpMod.default;
   return sharp(bytes, { failOn: "none" }).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 76 }).toBuffer();
 }
 

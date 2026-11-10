@@ -7,6 +7,7 @@ import { mapDbError } from "@/lib/supabase/errors";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/observability/logger";
 import { findMarketplaceTheme } from "../../marketplace/catalog";
+import { cachedMarketplacePublic, MARKETPLACE_CUSTOM_THEMES_TAG } from "../../marketplace/cache";
 import type { MarketplaceTheme } from "../../marketplace/types";
 import { builtThemeSchema, themeKeyFor, toMarketplaceTheme, type BuiltTheme } from "../schema";
 
@@ -43,21 +44,29 @@ export async function getCustomTheme(key: string): Promise<StoredTheme | null> {
   return data ? fromRow(data as Row) : null;
 }
 
+/** DB load for published custom themes (production Data Cache, 300 s). */
+const loadPublishedCustomThemes = cachedMarketplacePublic(
+  "custom-themes",
+  async (): Promise<MarketplaceTheme[]> => {
+    try {
+      const { data, error } = await createSupabasePublicClient().from("themes").select(COLUMNS).eq("active", true).order("position").order("published_at", { ascending: false }).limit(200);
+      if (error) throw error;
+      return (data as Row[]).flatMap((r) => {
+        const t = fromRow(r);
+        // A built-in key always wins (keys are checked on save; this guards against hand-made rows).
+        return t && !findMarketplaceTheme(t.theme.key) ? [toMarketplaceTheme(t.theme, (r.published_at ?? r.created_at).slice(0, 10))] : [];
+      });
+    } catch (err) {
+      logger.warn("theme_builder.catalogue_failed", { error: err instanceof Error ? err.message : String(err) });
+      return [];
+    }
+  },
+  [MARKETPLACE_CUSTOM_THEMES_TAG],
+  300,
+);
+
 /** Published custom themes as marketplace entries (sellers' catalogue). Never throws. */
-export const publishedCustomThemes = cache(async (): Promise<MarketplaceTheme[]> => {
-  try {
-    const { data, error } = await createSupabasePublicClient().from("themes").select(COLUMNS).eq("active", true).order("position").order("published_at", { ascending: false }).limit(200);
-    if (error) throw error;
-    return (data as Row[]).flatMap((r) => {
-      const t = fromRow(r);
-      // A built-in key always wins (keys are checked on save; this guards against hand-made rows).
-      return t && !findMarketplaceTheme(t.theme.key) ? [toMarketplaceTheme(t.theme, (r.published_at ?? r.created_at).slice(0, 10))] : [];
-    });
-  } catch (err) {
-    logger.warn("theme_builder.catalogue_failed", { error: err instanceof Error ? err.message : String(err) });
-    return [];
-  }
-});
+export const publishedCustomThemes = cache(loadPublishedCustomThemes);
 
 async function keyTaken(key: string): Promise<boolean> {
   if (findMarketplaceTheme(key)) return true;

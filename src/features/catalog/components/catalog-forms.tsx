@@ -233,7 +233,7 @@ export function ImportProducts() {
       <FormMessage state={state} />
       <label htmlFor="csv" className="block cursor-pointer rounded-lg border border-dashed border-border-strong bg-surface-secondary/40 p-5 text-center transition-colors hover:border-accent hover:bg-accent-soft/40">
         <span className="block text-sm font-semibold text-foreground">{fileName ?? "Choose a CSV file"}</span>
-        <span className="mt-1 block text-xs text-muted">One row per variant. CSV files up to 10 MB.</span>
+        <span className="mt-1 block text-xs text-muted">One row per variant. CSV files up to 5 MB.</span>
         <input
           id="csv"
           name="file"
@@ -245,7 +245,7 @@ export function ImportProducts() {
             const file = event.target.files?.[0];
             if (!file) return;
             const validType = file.name.toLowerCase().endsWith(".csv") || file.type === "text/csv";
-            const error = !validType ? "Choose a .csv file." : file.size > 10 * 1024 * 1024 ? "The CSV must be 10 MB or smaller." : null;
+            const error = !validType ? "Choose a .csv file." : file.size > 5 * 1024 * 1024 ? "The CSV must be 5 MB or smaller." : null;
             setFileName(error ? null : file.name);
             setFileError(error);
             if (error) event.target.value = "";

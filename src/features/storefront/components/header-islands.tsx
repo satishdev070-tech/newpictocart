@@ -76,7 +76,7 @@ function rememberSearch(q: string) {
 }
 
 /** Header search: overlay with live suggestions from /search/suggest (real catalog data). */
-export function SearchOverlay({ popular }: { popular: { label: string; href: string }[] }) {
+export function SearchOverlay({ popular, autoFocus = true }: { popular: { label: string; href: string }[]; /** Off in builder preview iframe to avoid cross-origin autofocus console noise. */ autoFocus?: boolean }) {
   const { ref, open, close } = useDialog();
   const router = useRouter();
   const inputId = useId();
@@ -146,7 +146,7 @@ export function SearchOverlay({ popular }: { popular: { label: string; href: str
             <input
               id={inputId}
               type="search"
-              autoFocus
+              autoFocus={autoFocus}
               autoComplete="off"
               value={q}
               onChange={(e) => setQ(e.target.value)}

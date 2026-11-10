@@ -101,7 +101,29 @@ export function blankItem(fields: readonly EditorField[]): Record<string, unknow
   return Object.fromEntries(
     fields.map((f) => [
       f.key,
-      f.kind === "toggle" ? false : f.kind === "number" ? f.min : f.kind === "multiPicker" || f.kind === "tags" ? [] : f.kind === "select" ? (f.options[0]?.value ?? "") : f.kind === "list" ? [] : "",
+      f.kind === "toggle"
+        ? false
+        : f.kind === "number"
+          ? f.min
+          : f.kind === "multiPicker" || f.kind === "tags"
+            ? []
+            : f.kind === "select"
+              ? (f.options[0]?.value ?? "")
+              : f.kind === "list"
+                ? []
+                : f.kind === "textStyle"
+                  ? {
+                      font: "default",
+                      weight: "default",
+                      size: 0,
+                      color: "",
+                      align: "default",
+                      bold: false,
+                      italic: false,
+                      underline: false,
+                      widthPct: 0,
+                    }
+                  : "",
     ]),
   );
 }
@@ -121,7 +143,17 @@ export function itemHideField(fields: readonly EditorField[]): { key: string; hi
 // -----------------------------------------------------------------------------
 
 export type ItemGroupId = "subtitle" | "title" | "description" | "media" | "actions" | "other";
-export type ItemGroup = { id: ItemGroupId; label: string; fields: EditorField[]; /** Shows an on/off toggle (OFF clears its text values). */ toggle: boolean };
+export type ItemGroup = { id: ItemGroupId; label: string; fields: EditorField[]; /** Shows an on/off toggle (OFF hides; content is kept). */ toggle: boolean };
+
+/** Persisted on list items (e.g. Hero slides). `false` hides the group; omitted/`true` shows it. */
+export type ItemGroupShowKey = "showSubtitle" | "showTitle" | "showDescription" | "showMedia" | "showActions";
+export const GROUP_SHOW_KEY: Record<Exclude<ItemGroupId, "other">, ItemGroupShowKey> = {
+  subtitle: "showSubtitle",
+  title: "showTitle",
+  description: "showDescription",
+  media: "showMedia",
+  actions: "showActions",
+};
 
 const GROUP_LABELS: Record<ItemGroupId, string> = { subtitle: "Subtitle", title: "Title", description: "Description", media: "Media", actions: "Action buttons", other: "Other" };
 const ORDER: ItemGroupId[] = ["subtitle", "title", "description", "media", "actions", "other"];
@@ -130,10 +162,16 @@ function itemGroupOf(f: EditorField, all: readonly EditorField[]): ItemGroupId {
   const k = f.key;
   if (f.kind === "image" || f.kind === "video") return "media";
   if (/^(alt|imageAlt|mediaAlt)$/i.test(k) || /Alt$/.test(k)) return all.some((x) => x.kind === "image" || x.kind === "video") ? "media" : "other";
+  if (f.kind === "textStyle") {
+    if (f.role === "eyebrow") return "subtitle";
+    if (f.role === "heading") return "title";
+    if (f.role === "subheading" || f.role === "body") return "description";
+    if (f.role === "cta") return "actions";
+  }
   if (/^(eyebrow|subtitle|kicker|tagline)$/i.test(k)) return "subtitle";
-  if (/^(heading|title|headingAccent|name)$/i.test(k)) return "title";
-  if (/^(subheading|text|description|body|quote|answer|caption)$/i.test(k)) return "description";
-  if (/^cta(Label|Href)$/i.test(k) || /^button(Label|Href)$/i.test(k)) return "actions";
+  if (/^(heading|title|headingAccent|name|headingLook)$/i.test(k)) return "title";
+  if (/^(subheading|text|description|body|quote|answer|caption|subheadingLook|bodyLook)$/i.test(k)) return "description";
+  if (/^cta(Label|Href|Look)$/i.test(k) || /^button(Label|Href)$/i.test(k)) return "actions";
   // label + href pairs ("label"/"href" alongside an action label).
   if (k === "href" && all.some((x) => x.key === "ctaLabel" || x.key === "buttonLabel")) return "actions";
   return "other";
@@ -154,12 +192,36 @@ export function itemGroups(fields: readonly EditorField[]): ItemGroup[] {
   });
 }
 
-/** Whether a group currently has content (its toggle's initial state). */
+/** Whether a group currently has content (legacy heuristic when no show* flag is set). */
 export function groupHasContent(group: ItemGroup, item: Record<string, unknown>): boolean {
   return group.fields.some((f) => CLEARABLE.has(f.kind) && typeof item[f.key] === "string" && (item[f.key] as string).trim() !== "");
 }
 
-/** Toggle OFF: clear the group's text/link/media values. */
+/** Whether a toggleable group should appear as On in the item editor. */
+export function isGroupOn(group: ItemGroup, item: Record<string, unknown>, isNew = false): boolean {
+  if (isNew || !group.toggle) return true;
+  if (group.id === "other") return true;
+  const key = GROUP_SHOW_KEY[group.id];
+  const flag = item[key];
+  if (typeof flag === "boolean") return flag;
+  return groupHasContent(group, item);
+}
+
+/**
+ * Toggle Off/On: set the group's show* flag. Does not clear title/description/media/actions values —
+ * Off hides; On restores the same strings/media.
+ */
+export function setGroupVisible(group: ItemGroup, item: Record<string, unknown>, visible: boolean): Record<string, unknown> {
+  if (!group.toggle || group.id === "other") return item;
+  return { ...item, [GROUP_SHOW_KEY[group.id]]: visible };
+}
+
+/** Storefront / preview: group is shown unless its show* flag is explicitly false. */
+export function isGroupShown(groupId: Exclude<ItemGroupId, "other">, item: Record<string, unknown>): boolean {
+  return item[GROUP_SHOW_KEY[groupId]] !== false;
+}
+
+/** @deprecated Prefer setGroupVisible — kept for callers that still need to wipe values. */
 export function clearGroup(group: ItemGroup, item: Record<string, unknown>): Record<string, unknown> {
   const next = { ...item };
   for (const f of group.fields) if (CLEARABLE.has(f.kind)) next[f.key] = "";

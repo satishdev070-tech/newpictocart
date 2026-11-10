@@ -16,7 +16,7 @@ import { TextField } from "@/components/ui/field";
  * six boxes (auto-advance, paste, backspace), Resend with a cooldown, Change email.
  */
 
-/** `codeLength`: digits in the emailed code (follows Supabase's "Email OTP Length"; 6 by default). */
+/** `codeLength` on request results is always 6 (UI and schemas are fixed; hosted Email OTP Length must be 6). */
 type RequestAction = (prev: ActionResult<{ email: string; codeLength?: number }> | null, fd: FormData) => Promise<ActionResult<{ email: string; codeLength?: number }>>;
 type VerifyAction = (prev: ActionResult | null, fd: FormData) => Promise<ActionResult>;
 
@@ -192,12 +192,29 @@ function StoreMessage({ state }: { state: ActionResult<unknown> | null }) {
   ) : null;
 }
 
-/** Number of code boxes: 6 unless the emailed code is longer (up to 10). Pure. */
-export function boxCount(n: number | undefined): number {
-  return typeof n === "number" && Number.isInteger(n) ? Math.min(10, Math.max(CODE_LENGTH, n)) : CODE_LENGTH;
+/** Always 6 boxes — OTP length is fixed app-wide (ignore any reported length). Pure. */
+export function boxCount(_n?: number): number {
+  return CODE_LENGTH;
 }
 
-function CodeBoxes({ length, value, onChange, onComplete, invalid, store }: { length: number; value: string; onChange: (v: string) => void; onComplete: () => void; invalid: boolean; store: boolean }) {
+/** Six digit boxes with paste / auto-advance. Used by EmailCodeFlow and start AccountScreen. */
+export function CodeBoxes({
+  length,
+  value,
+  onChange,
+  onComplete,
+  invalid,
+  store = false,
+  className,
+}: {
+  length: number;
+  value: string;
+  onChange: (v: string) => void;
+  onComplete: () => void;
+  invalid: boolean;
+  store?: boolean;
+  className?: string;
+}) {
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const focus = (i: number) => refs.current[Math.max(0, Math.min(length - 1, i))]?.focus();
 
@@ -234,7 +251,11 @@ function CodeBoxes({ length, value, onChange, onComplete, invalid, store }: { le
   };
 
   return (
-    <div className={cn("flex justify-center", length > 6 ? "gap-1.5 sm:gap-2" : "gap-2 sm:gap-2.5")} role="group" aria-label="Verification code">
+    <div
+      className={cn("flex justify-center", length > 6 ? "gap-1.5 sm:gap-2" : "gap-2 sm:gap-2.5", className)}
+      role="group"
+      aria-label="Verification code"
+    >
       {Array.from({ length }, (_, i) => (
         <input
           key={i}

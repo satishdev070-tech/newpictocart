@@ -1,8 +1,9 @@
-import { permanentRedirect } from "next/navigation";
+import type { Metadata } from "next";
+import { SharedSignInPage } from "@/features/auth/sign-in-page";
 
-/** Legacy URL (emails, bookmarks). Seller auth lives under /seller. Keeps ?next and ?error. */
-export default async function LegacyRedirect({ searchParams }: PageProps<"/login">) {
-  const qs = new URLSearchParams();
-  for (const [k, v] of Object.entries(await searchParams)) if (typeof v === "string" && (k === "next" || k === "error")) qs.set(k, v);
-  permanentRedirect(qs.size ? `/seller/login?${qs}` : "/seller/login");
+export const metadata: Metadata = { title: "Sign in", robots: { index: false } };
+
+/** The shared sign-in page for sellers and platform staff (see features/auth/sign-in-page.tsx). */
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  return <SharedSignInPage searchParams={await searchParams} />;
 }

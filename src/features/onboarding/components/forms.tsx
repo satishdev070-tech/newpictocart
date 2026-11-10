@@ -8,6 +8,7 @@ import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
 import { ThemeMockup } from "@/features/theme/marketplace/mockup";
 import type { ThemePreset } from "@/features/theme/marketplace/types";
 import { chooseThemeAction, choosePlanAction, saveBusinessAction } from "../actions";
+import { informativeSitesEnabled } from "@/features/stores/informative-flag";
 import { SITE_MODE_LABELS, type SiteMode } from "@/features/stores/site-mode";
 
 function slugify(v: string) {
@@ -59,21 +60,25 @@ export function BusinessForm({
         </>
       ) : (
         <>
-          <fieldset>
-            <legend className="mb-2 text-sm font-medium text-brand-ink">What are you building?</legend>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(["informative", "ecommerce"] as const).map((mode) => {
-                const option = SITE_MODE_LABELS[mode];
-                return (
-                  <label key={mode} className="cursor-pointer rounded-brand-md border border-border bg-white p-4 has-[:checked]:border-brand has-[:checked]:ring-2 has-[:checked]:ring-brand">
-                    <input type="radio" name="siteMode" value={mode} defaultChecked={(defaults.siteMode ?? "ecommerce") === mode} className="sr-only" />
-                    <span className="block font-semibold text-brand-ink">{option.title}</span>
-                    <span className="mt-1 block text-xs leading-relaxed text-muted">{option.description}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
+          {informativeSitesEnabled() ? (
+            <fieldset>
+              <legend className="mb-2 text-sm font-medium text-brand-ink">What are you building?</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(["informative", "ecommerce"] as const).map((mode) => {
+                  const option = SITE_MODE_LABELS[mode];
+                  return (
+                    <label key={mode} className="cursor-pointer rounded-brand-md border border-border bg-white p-4 has-[:checked]:border-brand has-[:checked]:ring-2 has-[:checked]:ring-brand">
+                      <input type="radio" name="siteMode" value={mode} defaultChecked={(defaults.siteMode ?? "ecommerce") === mode} className="sr-only" />
+                      <span className="block font-semibold text-brand-ink">{option.title}</span>
+                      <span className="mt-1 block text-xs leading-relaxed text-muted">{option.description}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ) : (
+            <input type="hidden" name="siteMode" value="ecommerce" />
+          )}
           <TextField
             label="Business name"
             name="name"
@@ -130,7 +135,7 @@ export function ThemeForm({ store, themes, selected, plan, backHref }: { store: 
             <label key={t.key} className={cn("cursor-pointer overflow-hidden rounded-brand-md border bg-white transition-shadow has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand", choice === t.key ? "border-brand ring-2 ring-brand" : "border-border hover:shadow-brand-card")}>
               <input type="radio" name="choice" value={t.key} checked={choice === t.key} onChange={() => setChoice(t.key)} className="sr-only" />
               <div className="h-40 overflow-hidden border-b border-border" aria-hidden>
-                <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} />
+                <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} themeKey={t.key} />
               </div>
               <span className="block p-3">
                 <span className="block font-semibold text-brand-ink">{t.name}</span>

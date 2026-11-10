@@ -7,17 +7,19 @@ import { EmptyState } from "@/components/ui/states";
 import { listDiscounts } from "@/features/marketing/queries";
 import { describeDiscount, discountStatus } from "@/features/marketing/discount-form";
 import { ToggleDiscount } from "@/features/dashboard-ui/forms";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Discounts" };
 const TONE = { active: "success", scheduled: "accent", expired: "neutral", disabled: "neutral", exhausted: "warning" } as const;
 
 export default async function DiscountsPage() {
   const ctx = await requireTenantPermission("marketing.read");
+  const { t } = await getI18n();
   const rows = await listDiscounts(ctx.tenantId);
   const writable = can(ctx, "marketing.write");
   return (
     <div>
-      <PageHeader title="Discounts" description="Codes and automatic offers applied at checkout." actions={writable ? <Link href="/dashboard/discounts/new" className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Create discount</Link> : null} />
+      <PageHeader title={t("pages.discounts.title")} description={t("pages.discounts.description")} actions={writable ? <Link href="/dashboard/discounts/new" className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Create discount</Link> : null} />
       {rows.length === 0 ? (
         <EmptyState title="No discounts yet" description="Create a code like WELCOME10 or an automatic festive offer." />
       ) : (

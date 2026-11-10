@@ -5,7 +5,8 @@ import Link from "next/link";
 import { ExternalLink, Search } from "lucide-react";
 import { InformativeThemeMockup, ThemeMockup } from "../mockup";
 import { ApplyThemeButton } from "../apply-button";
-import { THEME_STYLE_LABELS, themeSiteType, type ThemePreset, type ThemeSiteType, type ThemeStyle } from "../types";
+import { mockupAsPreset, type MarketplaceCardMockup } from "../card-mockup";
+import { THEME_STYLE_LABELS, themeSiteType, type ThemeSiteType, type ThemeStyle } from "../types";
 
 export type MarketplaceCard = {
   key: string;
@@ -18,7 +19,8 @@ export type MarketplaceCard = {
   bestFor: string[];
   added: string;
   order: number;
-  preset: ThemePreset;
+  /** Slim mockup tokens/layout — full preset loads on apply/detail only. */
+  mockup: MarketplaceCardMockup;
   /** Live Preview URL on the theme's demo store, when that store exists. */
   previewUrl: string | null;
   status: "live" | "draft" | null;
@@ -48,8 +50,9 @@ function ThemeCardPreview({ theme }: { theme: MarketplaceCard }) {
     return () => observer.disconnect();
   }, [theme.previewUrl]);
 
-  if (themeSiteType(theme) === "informative") return <InformativeThemeMockup theme={theme} />;
-  if (!theme.previewUrl) return <ThemeMockup preset={theme.preset} name={theme.name.split(" ")[0]!} tagline={theme.tagline} />;
+  const preset = mockupAsPreset(theme.mockup);
+  if (themeSiteType(theme) === "informative") return <InformativeThemeMockup theme={{ key: theme.key, name: theme.name, tagline: theme.tagline, preset }} />;
+  if (!theme.previewUrl) return <ThemeMockup preset={preset} name={theme.name.split(" ")[0]!} tagline={theme.tagline} themeKey={theme.key} />;
 
   return (
     <div ref={frame} className="relative h-full overflow-hidden bg-white" aria-hidden>
@@ -77,7 +80,7 @@ export function CurrentThemeCard({ theme }: { theme: MarketplaceCard }) {
         tabIndex={-1}
         aria-hidden
         className="block aspect-[9/10] shrink-0 overflow-hidden border-b border-border transition hover:opacity-95 sm:w-56 sm:border-r sm:border-b-0"
-        style={{ background: theme.preset.tokens.colors.background }}
+        style={{ background: theme.mockup.colors.background }}
       >
         <ThemeCardPreview theme={theme} />
       </Link>
@@ -168,7 +171,7 @@ export function MarketplaceBrowser({
         <nav aria-label="Website type">
           <p className="px-1 text-caption font-semibold uppercase tracking-wide text-muted">Website type</p>
           <div className="mt-2 flex gap-2 overflow-x-auto pb-1 xl:block xl:space-y-1 xl:overflow-visible">
-            {([ ["", "All templates"], ["informative", "Informative website"], ["ecommerce", "Online store"] ] as const).map(([type, label]) => (
+            {([ ["", "All templates"], ["ecommerce", "Online store"] ] as const).map(([type, label]) => (
               <button key={type || "all"} type="button" aria-pressed={siteType === type} onClick={() => { setSiteType(type); setIndustry(""); setStyle(""); }} className={`flex h-9 shrink-0 items-center justify-between gap-3 rounded-md px-3 text-small xl:w-full ${siteType === type ? "bg-primary text-primary-foreground" : "hover:bg-surface-secondary"}`}>
                 {label}<span className="text-caption opacity-70">{type ? themes.filter((t) => themeSiteType(t) === type).length : themes.length}</span>
               </button>
@@ -249,7 +252,7 @@ export function MarketplaceBrowser({
                 tabIndex={-1}
                 aria-hidden
                 className="block aspect-[9/10] overflow-hidden border-b border-border transition hover:opacity-95"
-                style={{ background: t.preset.tokens.colors.background }}
+                style={{ background: t.mockup.colors.background }}
               >
                 <ThemeCardPreview theme={t} />
               </Link>

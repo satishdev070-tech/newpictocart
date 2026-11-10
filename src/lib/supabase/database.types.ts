@@ -150,6 +150,70 @@ export type Database = {
           },
         ]
       }
+      ai_credit_one_time_codes: {
+        Row: {
+          code_hash: string
+          code_hint: string
+          created_at: string
+          created_by: string | null
+          credits: number
+          id: string
+          note: string | null
+          redeemed_at: string | null
+          redeemed_by_user_id: string | null
+          redeemed_tenant_id: string | null
+          status: string
+        }
+        Insert: {
+          code_hash: string
+          code_hint: string
+          created_at?: string
+          created_by?: string | null
+          credits: number
+          id?: string
+          note?: string | null
+          redeemed_at?: string | null
+          redeemed_by_user_id?: string | null
+          redeemed_tenant_id?: string | null
+          status?: string
+        }
+        Update: {
+          code_hash?: string
+          code_hint?: string
+          created_at?: string
+          created_by?: string | null
+          credits?: number
+          id?: string
+          note?: string | null
+          redeemed_at?: string | null
+          redeemed_by_user_id?: string | null
+          redeemed_tenant_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_credit_one_time_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_credit_one_time_codes_redeemed_by_user_id_fkey"
+            columns: ["redeemed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_credit_one_time_codes_redeemed_tenant_id_fkey"
+            columns: ["redeemed_tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_credit_packs: {
         Row: {
           active: boolean
@@ -238,6 +302,8 @@ export type Database = {
           pack: string
           payment_reference: string | null
           promo_code: string | null
+          provider: string | null
+          provider_order_id: string | null
           requested_by: string | null
           status: string
           tenant_id: string
@@ -255,6 +321,8 @@ export type Database = {
           pack: string
           payment_reference?: string | null
           promo_code?: string | null
+          provider?: string | null
+          provider_order_id?: string | null
           requested_by?: string | null
           status?: string
           tenant_id: string
@@ -272,6 +340,8 @@ export type Database = {
           pack?: string
           payment_reference?: string | null
           promo_code?: string | null
+          provider?: string | null
+          provider_order_id?: string | null
           requested_by?: string | null
           status?: string
           tenant_id?: string
@@ -2415,6 +2485,275 @@ export type Database = {
           },
         ]
       }
+      observability_alert_events: {
+        Row: {
+          details: Json
+          fired_at: string
+          id: string
+          incident_id: string | null
+          rule_id: string | null
+          severity: string
+          summary: string
+        }
+        Insert: {
+          details?: Json
+          fired_at?: string
+          id?: string
+          incident_id?: string | null
+          rule_id?: string | null
+          severity?: string
+          summary: string
+        }
+        Update: {
+          details?: Json
+          fired_at?: string
+          id?: string
+          incident_id?: string | null
+          rule_id?: string | null
+          severity?: string
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observability_alert_events_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "observability_incidents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observability_alert_events_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "observability_alert_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      observability_alert_rules: {
+        Row: {
+          config: Json
+          created_at: string
+          enabled: boolean
+          id: string
+          name: string
+          rule_type: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name: string
+          rule_type: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          name?: string
+          rule_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      observability_endpoint_metrics: {
+        Row: {
+          environment: string
+          error_count: number
+          id: string
+          latency_bucket_counts: number[]
+          latency_sum_ms: number
+          method: string
+          request_count: number
+          route_template: string
+          service: string
+          slow_count: number
+          time_bucket: string
+          updated_at: string
+        }
+        Insert: {
+          environment: string
+          error_count?: number
+          id?: string
+          latency_bucket_counts: number[]
+          latency_sum_ms?: number
+          method: string
+          request_count?: number
+          route_template: string
+          service: string
+          slow_count?: number
+          time_bucket: string
+          updated_at?: string
+        }
+        Update: {
+          environment?: string
+          error_count?: number
+          id?: string
+          latency_bucket_counts?: number[]
+          latency_sum_ms?: number
+          method?: string
+          request_count?: number
+          route_template?: string
+          service?: string
+          slow_count?: number
+          time_bucket?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      observability_error_groups: {
+        Row: {
+          attrs: Json
+          fingerprint: string
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          message_sample: string | null
+          occurrence_count: number
+          route_template: string | null
+          status: number | null
+        }
+        Insert: {
+          attrs?: Json
+          fingerprint: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          message_sample?: string | null
+          occurrence_count?: number
+          route_template?: string | null
+          status?: number | null
+        }
+        Update: {
+          attrs?: Json
+          fingerprint?: string
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          message_sample?: string | null
+          occurrence_count?: number
+          route_template?: string | null
+          status?: number | null
+        }
+        Relationships: []
+      }
+      observability_incidents: {
+        Row: {
+          details: Json
+          id: string
+          opened_at: string
+          resolved_at: string | null
+          status: string
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          details?: Json
+          id?: string
+          opened_at?: string
+          resolved_at?: string | null
+          status?: string
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          details?: Json
+          id?: string
+          opened_at?: string
+          resolved_at?: string | null
+          status?: string
+          summary?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      observability_request_events: {
+        Row: {
+          attrs: Json
+          duration_ms: number
+          environment: string
+          error_fingerprint: string | null
+          error_message: string | null
+          id: string
+          method: string
+          request_id: string
+          route_template: string
+          service: string
+          spans: Json
+          status: number
+          tenant_id: string | null
+          timestamp: string
+          trace_id: string
+          user_id: string | null
+        }
+        Insert: {
+          attrs?: Json
+          duration_ms: number
+          environment?: string
+          error_fingerprint?: string | null
+          error_message?: string | null
+          id?: string
+          method?: string
+          request_id: string
+          route_template: string
+          service?: string
+          spans?: Json
+          status: number
+          tenant_id?: string | null
+          timestamp?: string
+          trace_id: string
+          user_id?: string | null
+        }
+        Update: {
+          attrs?: Json
+          duration_ms?: number
+          environment?: string
+          error_fingerprint?: string | null
+          error_message?: string | null
+          id?: string
+          method?: string
+          request_id?: string
+          route_template?: string
+          service?: string
+          spans?: Json
+          status?: number
+          tenant_id?: string | null
+          timestamp?: string
+          trace_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observability_request_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      observability_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       order_events: {
         Row: {
           actor_user_id: string | null
@@ -3475,45 +3814,63 @@ export type Database = {
       }
       plan_requests: {
         Row: {
+          amount_paise: number | null
           billing_cycle: string
+          coupon_code: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
           decision_note: string | null
+          discount_percent: number | null
           from_plan_id: string | null
           id: string
           note: string | null
+          paid_at: string | null
           plan_id: string
+          provider: string | null
+          provider_order_id: string | null
           requested_by: string | null
           status: string
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          amount_paise?: number | null
           billing_cycle?: string
+          coupon_code?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
           decision_note?: string | null
+          discount_percent?: number | null
           from_plan_id?: string | null
           id?: string
           note?: string | null
+          paid_at?: string | null
           plan_id: string
+          provider?: string | null
+          provider_order_id?: string | null
           requested_by?: string | null
           status?: string
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          amount_paise?: number | null
           billing_cycle?: string
+          coupon_code?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
           decision_note?: string | null
+          discount_percent?: number | null
           from_plan_id?: string | null
           id?: string
           note?: string | null
+          paid_at?: string | null
           plan_id?: string
+          provider?: string | null
+          provider_order_id?: string | null
           requested_by?: string | null
           status?: string
           tenant_id?: string
@@ -3649,6 +4006,51 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      platform_plan_coupons: {
+        Row: {
+          active: boolean
+          applies_to_plan_codes: string[]
+          code: string
+          created_at: string
+          created_by: string | null
+          ends_at: string | null
+          id: string
+          max_uses: number | null
+          percent_off: number
+          starts_at: string | null
+          updated_at: string
+          uses: number
+        }
+        Insert: {
+          active?: boolean
+          applies_to_plan_codes?: string[]
+          code: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          id?: string
+          max_uses?: number | null
+          percent_off: number
+          starts_at?: string | null
+          updated_at?: string
+          uses?: number
+        }
+        Update: {
+          active?: boolean
+          applies_to_plan_codes?: string[]
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          id?: string
+          max_uses?: number | null
+          percent_off?: number
+          starts_at?: string | null
+          updated_at?: string
+          uses?: number
         }
         Relationships: []
       }
@@ -3934,6 +4336,7 @@ export type Database = {
           brand: string | null
           care_instructions: string | null
           category_id: string | null
+          country_of_origin: string | null
           created_at: string
           description: string | null
           featured: boolean
@@ -3965,6 +4368,7 @@ export type Database = {
           brand?: string | null
           care_instructions?: string | null
           category_id?: string | null
+          country_of_origin?: string | null
           created_at?: string
           description?: string | null
           featured?: boolean
@@ -3996,6 +4400,7 @@ export type Database = {
           brand?: string | null
           care_instructions?: string | null
           category_id?: string | null
+          country_of_origin?: string | null
           created_at?: string
           description?: string | null
           featured?: boolean
@@ -5856,6 +6261,14 @@ export type Database = {
           units: number
         }[]
       }
+      complete_ai_credit_purchase_payment: {
+        Args: { p_payment_reference?: string | null; p_request: string }
+        Returns: number
+      }
+      complete_plan_request_payment: {
+        Args: { p_payment_reference?: string | null; p_request: string }
+        Returns: undefined
+      }
       decide_ai_credit_purchase: {
         Args: { p_approve: boolean; p_note?: string | null; p_payment_reference?: string | null; p_request: string }
         Returns: number
@@ -5930,6 +6343,11 @@ export type Database = {
         }
         Returns: number
       }
+      observability_cleanup: { Args: never; Returns: Json }
+      observability_upsert_endpoint_metrics: {
+        Args: { p_rows: Json }
+        Returns: number
+      }
       platform_accrue_partner_commissions: {
         Args: {
           p_month: string
@@ -5959,6 +6377,13 @@ export type Database = {
           provider: string
           tokens: number
         }[]
+      }
+      platform_create_ai_credit_code: {
+        Args: {
+          p_credits: number
+          p_note?: string
+        }
+        Returns: string
       }
       platform_create_partner_code: {
         Args: {
@@ -6035,6 +6460,22 @@ export type Database = {
           p_unit_price: number
         }
         Returns: string
+      }
+      platform_list_ai_credit_codes: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          code_hint: string
+          created_at: string
+          created_by: string
+          credits: number
+          id: string
+          note: string
+          redeemed_at: string
+          redeemed_by_user_id: string
+          redeemed_tenant_id: string
+          status: string
+          tenant_name: string
+        }[]
       }
       platform_list_stores: {
         Args: {
@@ -6142,6 +6583,18 @@ export type Database = {
           p_partner: string
         }
         Returns: number
+      }
+      platform_revenue_report: {
+        Args: {
+          p_from?: string
+        }
+        Returns: Json
+      }
+      platform_revoke_ai_credit_code: {
+        Args: {
+          p_code: string
+        }
+        Returns: undefined
       }
       platform_revoke_partner_code: {
         Args: {
@@ -6266,6 +6719,13 @@ export type Database = {
       publish_theme: {
         Args: { p_label?: string; p_tenant: string }
         Returns: string
+      }
+      redeem_ai_credit_code: {
+        Args: {
+          p_code: string
+          p_tenant: string
+        }
+        Returns: number
       }
       redeem_partner_license: {
         Args: {

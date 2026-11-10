@@ -10,6 +10,7 @@ import {
   effectiveProductType,
   extraSpecs,
   groupTypesForPicker,
+  typesForProductEditor,
   isTypeCheckViolation,
   mergeCatalogue,
   productTypeKeySchema,
@@ -123,6 +124,19 @@ describe("catalogue merging and picker groups", () => {
     expect(groupTypesForPicker(merged, null, "legacy_thing").others[0]!.key).toBe("legacy_thing");
   });
 
+  it("narrows the product editor picker to used + store types (industry suggestions when empty)", () => {
+    const withStore = mergeCatalogue(null, [{ key: "handmade_soap", label: "Handmade soap", template: {} }]);
+    const used = typesForProductEditor(withStore, ["kurta"], "fashion", "kurta");
+    expect(used.map((t) => t.key).sort()).toEqual(["handmade_soap", "kurta"]);
+
+    const empty = typesForProductEditor(DEFAULT_PRODUCT_TYPES, [], "fashion");
+    const emptyKeys = new Set(empty.map((t) => t.key));
+    expect(emptyKeys.has("other")).toBe(true);
+    expect(emptyKeys.has(defaultTypeForIndustry("fashion"))).toBe(true);
+    // Must not dump the full catalogue.
+    expect(empty.length).toBeLessThan(DEFAULT_PRODUCT_TYPES.length / 2);
+  });
+
   it("builds keys from labels", () => {
     expect(typeKeyFromLabel("Handmade Soap")).toBe("handmade_soap");
     expect(typeKeyFromLabel("Bath & Body")).toBe("bath_and_body");
@@ -172,6 +186,7 @@ describe("pre-migration product-type fallback", () => {
       shipping_info: null,
       return_info: null,
       hsn_code: null,
+      country_of_origin: null,
       seo: {},
     };
     expect(dbToDraft(base, [], [], []).productType).toBe("kurta");

@@ -19,6 +19,7 @@ import { photoItems, signReturnPhotos } from "@/features/customer-account/server
 import { PhotoLightbox } from "@/components/ui/photo-lightbox";
 import { getShippingSetup } from "@/features/shipping/service";
 import { parseAttribution } from "@/features/tracking/items";
+import { getI18n } from "@/lib/i18n/server";
 import { BookCourierButton, CourierShipmentActions } from "@/features/shipping/components/courier-actions";
 import {
   CancelOrderButton,
@@ -47,7 +48,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   const { id } = await params;
   if (!uuid.safeParse(id).success) notFound();
   const ctx = await requireTenantPermission("orders.read");
-  const [d, store, shipping] = await Promise.all([getOrderDetail(ctx, id), getStoreProfile(ctx.tenantId), getShippingSetup(ctx.tenantId)]);
+  const [d, store, shipping, { t }] = await Promise.all([getOrderDetail(ctx, id), getStoreProfile(ctx.tenantId), getShippingSetup(ctx.tenantId), getI18n()]);
   const courier = shipping.provider.id;
   const { order: o } = d;
   const attribution = parseAttribution(JSON.stringify((o as { attribution?: unknown }).attribution ?? null));
@@ -65,11 +66,11 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Order ${number}`}
+        title={t("pages.orders.detailTitle", { number })}
         description={`Placed ${formatDateTime(o.placed_at)} · ${statusLabel(o.payment_method)}`}
         back={
           <Link href="/dashboard/orders" className="text-muted hover:text-foreground">
-            ← Orders
+            {t("pages.orders.back")}
           </Link>
         }
         actions={
@@ -114,7 +115,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <Card title={`Items (${d.items.reduce((n, i) => n + i.quantity, 0)})`}>
+          <Card tour="order-items" title={`Items (${d.items.reduce((n, i) => n + i.quantity, 0)})`}>
             <ul className="divide-y divide-border">
               {d.items.map((i) => {
                 const img = assetUrl(i.image_path);
@@ -162,7 +163,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
             </dl>
           </Card>
 
-          <Card title="Fulfilment" actions={<StatusBadge status={o.fulfillment_status} />}>
+          <Card tour="order-fulfilment" title="Fulfilment" actions={<StatusBadge status={o.fulfillment_status} />}>
             {d.shipments.length ? (
               <ul className="mb-4 space-y-2 text-sm">
                 {d.shipments.map((s) => (
@@ -204,7 +205,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
             )}
           </Card>
 
-          <Card title="Payments & refunds">
+          <Card tour="order-payments" title="Payments & refunds">
             {d.payments.length === 0 && d.refunds.length === 0 ? (
               <p className="text-sm text-muted">{o.payment_method === "cod" ? "Cash on delivery: payment is recorded when the order is delivered." : "No payment captured yet."}</p>
             ) : (
@@ -243,7 +244,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
             ) : null}
           </Card>
 
-          <Card title="Timeline">
+          <Card tour="order-timeline" title="Timeline">
             {canWrite ? (
               <div className="mb-5">
                 <TimelineNoteForm orderId={o.id} />
@@ -271,7 +272,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/dashboard/
         </div>
 
         <div className="space-y-6">
-          <Card title="Customer">
+          <Card tour="order-customer" title="Customer">
             <p className="font-medium">
               {d.customer ? (
                 <Link href={`/dashboard/customers/${d.customer.id}`} className="hover:underline">

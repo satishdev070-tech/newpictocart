@@ -3,7 +3,9 @@ import { DEFAULT_THEME_CONFIG } from "@/features/theme/default-theme";
 import { resolveThemeConfig, parseThemeConfigStrict, type ThemeConfig } from "@/features/theme/schema/config";
 import { MARKETPLACE_THEMES, findMarketplaceTheme } from "@/features/theme/marketplace/catalog";
 import { applyThemePreset, isStyleSetting } from "@/features/theme/marketplace/apply";
+import { mockupAsPreset, toMarketplaceCardMockup } from "@/features/theme/marketplace/card-mockup";
 import { THEME_STYLES } from "@/features/theme/marketplace/types";
+import { layoutSummary } from "@/features/theme/layouts/apply-layout";
 import { PROTECTED_TENANT_IDS, canPreviewThemes, isShowcaseSlug } from "@/features/theme/marketplace/showcase";
 import { isPreviewKeyShape, livePreviewUrl } from "@/features/theme/marketplace/live-preview";
 import { INDUSTRY_SLUGS, isIndustry } from "@/features/stores/industries";
@@ -36,7 +38,8 @@ describe("theme marketplace", () => {
   });
 
   it("has at least five structurally different themes per priority industry", () => {
-    for (const industry of INDUSTRY_SLUGS.filter((i) => i !== "handicrafts")) {
+    // Packs that intentionally ship fewer than five: handicrafts (heritage originals), gym (Phase B starter pair).
+    for (const industry of INDUSTRY_SLUGS.filter((i) => i !== "handicrafts" && i !== "gym")) {
       const list = MARKETPLACE_THEMES.filter((t) => t.industry === industry);
       expect(list.length, industry).toBeGreaterThanOrEqual(5);
       // Different home compositions (section order), not just colours.
@@ -45,6 +48,13 @@ describe("theme marketplace", () => {
       const headers = new Set(list.map((t) => `${t.preset.headerLayout}/${t.preset.inlineMenu}/${t.preset.menuStyle ?? "bar"}/${t.preset.tokens.headingFont}`));
       expect(headers.size, industry).toBeGreaterThanOrEqual(4);
     }
+  });
+
+  it("ships two distinct gym marketplace themes", () => {
+    const gym = MARKETPLACE_THEMES.filter((t) => t.industry === "gym");
+    expect(gym.map((t) => t.key).sort()).toEqual(["class-pulse", "iron-floor"]);
+    expect(new Set(gym.map((t) => t.preset.home.map(([type]) => type).join(">"))).size).toBe(2);
+    expect(gym[0]!.preset.tokens.colors.primary).not.toBe(gym[1]!.preset.tokens.colors.primary);
   });
 
   it("uses each named slot with one section family per industry", () => {
@@ -146,6 +156,18 @@ describe("theme marketplace", () => {
       expect(home.some((section) => section.type === "FeatureBand"), theme.key).toBe(false);
       const hero = home.find((section) => section.type === "Hero");
       expect(JSON.stringify(hero?.settings).toLowerCase(), theme.key).toContain(theme.tagline.toLowerCase());
+    }
+  });
+
+  it("slims card mockups without dropping layout/token cues ThemeMockup needs", () => {
+    for (const theme of MARKETPLACE_THEMES.slice(0, 12)) {
+      const mockup = toMarketplaceCardMockup(theme.preset);
+      expect(mockup.colors.background).toBe(theme.preset.tokens.colors.background);
+      expect(mockup.layout).toEqual(layoutSummary(theme.preset));
+      expect(JSON.stringify(mockup).length).toBeLessThan(JSON.stringify(theme.preset).length);
+      const rebuilt = mockupAsPreset(mockup);
+      expect(layoutSummary(rebuilt)).toEqual(mockup.layout);
+      expect(rebuilt.tokens.colors.primary).toBe(theme.preset.tokens.colors.primary);
     }
   });
 

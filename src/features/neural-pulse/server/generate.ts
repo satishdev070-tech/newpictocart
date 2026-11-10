@@ -13,7 +13,7 @@ import { debitAiCredit, refundAiCredit } from "@/features/ai-credits/server";
 import { loadFeatureRoute } from "@/features/ai-health/route-loader";
 import { routeProviders } from "@/features/ai-health/routing";
 
-export const SETUP_MESSAGE = "AI writing isn't set up yet. A platform admin needs to add a Gemini, Groq or Anthropic API key in Admin → Social apps.";
+export const SETUP_MESSAGE = "AI writing isn't set up yet. A platform admin needs to add an NVIDIA, Gemini, Groq or Anthropic API key in Admin → Social apps.";
 export const LIMIT_MESSAGE = `You've used today's ${DAILY_GENERATION_LIMIT} AI generations for this store. Try again tomorrow.`;
 export const FAILED_MESSAGE = "The AI service didn't return a usable answer. Please try again in a minute.";
 

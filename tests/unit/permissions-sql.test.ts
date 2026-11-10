@@ -13,6 +13,7 @@ const rbacSql = readFileSync("supabase/migrations/20260926001200_rbac.sql", "utf
 const platformSql = readFileSync("supabase/migrations/20260924000600_reference_data.sql", "utf8");
 /** Later platform keys are seeded by the migration that introduced them. */
 const platformFinanceSql = readFileSync("supabase/migrations/20261025003700_platform_finance.sql", "utf8");
+const platformObservabilitySql = readFileSync("supabase/migrations/20261104007000_observability_center.sql", "utf8");
 
 function pairs(sql: string, table: string): Set<string> {
   const block = sql.split(`insert into public.${table} (role, permission) values`)[1]!.split("on conflict")[0]!;
@@ -32,7 +33,13 @@ describe("role permissions SQL <-> matrix", () => {
   });
   it("platform roles match", () => {
     const expected = new Set(Object.entries(PLATFORM_ROLE_PERMISSIONS).flatMap(([r, ps]) => [...ps].map((p) => `${r}:${p}`)));
-    expect(new Set([...pairs(platformSql, "platform_role_permissions"), ...pairs(platformFinanceSql, "platform_role_permissions")])).toEqual(expected);
+    expect(
+      new Set([
+        ...pairs(platformSql, "platform_role_permissions"),
+        ...pairs(platformFinanceSql, "platform_role_permissions"),
+        ...pairs(platformObservabilitySql, "platform_role_permissions"),
+      ]),
+    ).toEqual(expected);
   });
   it("the custom-role permission allowlist in SQL matches the matrix", () => {
     const list = rbacSql.match(/permissions <@ array\[([^\]]+)\]/)![1]!;

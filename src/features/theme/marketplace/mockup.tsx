@@ -1,19 +1,23 @@
 import type { CSSProperties, ReactNode } from "react";
-import { FONT_STACKS, type FontKey } from "../schema/tokens";
 import { layoutSummary } from "../layouts/apply-layout";
 import { toUnsplashCategory } from "@/lib/unsplash-categories";
-import { curatedStock, sizedStockUrl, stockIndex } from "@/lib/unsplash-stock";
+import { curatedStock, sizedStockUrl, uniqueStockOffset } from "@/lib/unsplash-stock";
+import { stockPeerKeys } from "./stock-peers";
 import type { ThemePreset } from "./catalog";
 import type { MarketplaceTheme } from "./types";
 
 /**
  * Live, token-driven preview of a theme (no screenshots to go stale): header, hero, a product block
- * and footer drawn with the theme's own colours, fonts, button shape, card style AND layout (hero
+ * and footer drawn with the theme's own colours, button shape, card style AND layout (hero
  * variant, product layout, header style, footer layout), with the category's Unsplash photos.
- * Decorative only; plain <img>s at small widths, lazy-loaded.
+ * Decorative only. Uses Inter/system stacks (not storefront FONT_STACKS) so marketing pages do not
+ * pull theme webfonts; pass `eager` for LCP hero photos.
  */
 const RADIUS: Record<string, string> = { none: "0", sm: "4px", md: "8px", lg: "14px" };
 const BTN: Record<string, string> = { square: "0", rounded: "6px", pill: "999px" };
+/** Marketing-safe stacks — Inter is already on the root layout; no storefront font CSS vars. */
+const HEADING_STACK = 'var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif';
+const BODY_STACK = HEADING_STACK;
 
 /**
  * A service-site thumbnail deliberately contains no prices, products, cart or shopping UI.
@@ -21,8 +25,7 @@ const BTN: Record<string, string> = { square: "0", rounded: "6px", pill: "999px"
  */
 export function InformativeThemeMockup({ theme, size = "card" }: { theme: Pick<MarketplaceTheme, "key" | "name" | "tagline" | "preset">; size?: "card" | "large" | "phone" }) {
   const c = theme.preset.tokens.colors;
-  const t = theme.preset.tokens as Record<string, unknown>;
-  const heading = FONT_STACKS[(t.headingFont as FontKey) ?? "editorial-serif"]?.stack;
+  const heading = HEADING_STACK;
   const phone = size === "phone";
   const large = size === "large";
   const pad = large ? 22 : phone ? 9 : 12;
@@ -71,16 +74,58 @@ export function InformativeThemeMockup({ theme, size = "card" }: { theme: Pick<M
   );
 }
 
-function Photo({ src, style, radius = "0" }: { src: string; style?: CSSProperties; radius?: string }) {
-  // eslint-disable-next-line @next/next/no-img-element -- tiny decorative thumbnail, pre-sized by Unsplash
-  return <img src={src} alt="" loading="lazy" decoding="async" style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", borderRadius: radius, ...style }} />;
+/** Same Unsplash hero URL ThemeMockup uses for a large desktop frame — for `<link rel="preload">`. */
+export function themeMockupHeroUrl(theme: Pick<MarketplaceTheme, "key" | "name" | "preset">, width = 640): string | null {
+  const cat = toUnsplashCategory(theme.preset.family ?? "general");
+  const heroes = curatedStock(cat, "hero");
+  if (!heroes.length) return null;
+  const themeKey = theme.key ?? theme.name;
+  const shift = uniqueStockOffset(themeKey, stockPeerKeys(cat), heroes.length);
+  const item = heroes[shift]!;
+  return sizedStockUrl(item.url, width);
 }
 
-export function ThemeMockup({ preset, name, tagline, size = "card" }: { preset: ThemePreset; name: string; tagline?: string; size?: "card" | "large" | "phone" }) {
+function Photo({ src, style, radius = "0", eager = false }: { src: string; style?: CSSProperties; radius?: string; eager?: boolean }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- tiny decorative thumbnail, pre-sized by Unsplash
+    <img
+      src={src}
+      alt=""
+      loading={eager ? "eager" : "lazy"}
+      fetchPriority={eager ? "high" : undefined}
+      decoding="async"
+      style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", borderRadius: radius, ...style }}
+    />
+  );
+}
+
+export function ThemeMockup({
+  preset,
+  name,
+  tagline,
+  size = "card",
+  themeKey,
+  eager = false,
+  compact = false,
+}: {
+  preset: ThemePreset;
+  name: string;
+  tagline?: string;
+  size?: "card" | "large" | "phone";
+  /** Stable marketplace theme key — preferred over `name` for per-theme photo rotation. */
+  themeKey?: string;
+  /** When true, hero photos load eagerly with high fetch priority (LCP). Product thumbs stay lazy. */
+  eager?: boolean;
+  /**
+   * Hero LCP mode: skip the product rail / footer product photos so the LCP frame does not fan out
+   * extra Unsplash requests inside the same viewport.
+   */
+  compact?: boolean;
+}) {
   const t = preset.tokens as Record<string, unknown> & { colors: Record<string, string> };
   const c = t.colors;
-  const heading = FONT_STACKS[(t.headingFont as FontKey) ?? "editorial-serif"]?.stack;
-  const body = FONT_STACKS[(t.bodyFont as FontKey) ?? "modern-sans"]?.stack;
+  const heading = HEADING_STACK;
+  const body = BODY_STACK;
   const upper = t.headingCase === "uppercase";
   const radius = RADIUS[String(t.cardRadius)] ?? "0";
   const btnRadius = BTN[String(t.buttonShape)] ?? "0";
@@ -91,11 +136,17 @@ export function ThemeMockup({ preset, name, tagline, size = "card" }: { preset: 
   const center = phone || preset.headerLayout === "logo-center" || layout.headerStyle === "editorial";
   const cat = toUnsplashCategory(preset.family ?? "general");
   const w = large ? 640 : 360;
-  // Rotate the category's photos by theme name, so cards of one category don't all share a photo.
-  const shift = stockIndex(name);
-  const rotate = <T,>(list: T[]) => list.map((_, i) => list[(i + shift) % list.length]!);
-  const hero = rotate(curatedStock(cat, "hero").map((i) => sizedStockUrl(i.url, w)));
-  const prod = rotate(curatedStock(cat, "products").map((i) => sizedStockUrl(i.url, large ? 320 : 200)));
+  // Exclusive offset among marketplace peers so same-category cards get distinct heroes.
+  const key = themeKey ?? name;
+  const peers = stockPeerKeys(cat);
+  const heroStock = curatedStock(cat, "hero");
+  const productStock = curatedStock(cat, "products");
+  const heroOffset = uniqueStockOffset(key, peers, heroStock.length);
+  // Products: heroOffset + 1 into the larger products pool.
+  const prodOffset = productStock.length ? (heroOffset + 1) % productStock.length : 0;
+  const rotate = <T,>(list: T[], offset: number) => (list.length ? list.map((_, i) => list[(i + offset) % list.length]!) : list);
+  const hero = rotate(heroStock.map((i) => sizedStockUrl(i.url, w)), heroOffset);
+  const prod = rotate(productStock.map((i) => sizedStockUrl(i.url, large ? 320 : 200)), prodOffset);
   const ratio = String(preset.productCard.imageRatio) === "tall" ? "3/4.4" : String(preset.productCard.imageRatio) === "square" ? "1/1" : "3/4";
   const footerBg = preset.footerTone === "dark" ? c.primary : preset.footerTone === "muted" ? c.border : c.background;
   const heroH = large ? 210 : phone ? 150 : 104;
@@ -123,7 +174,7 @@ export function ThemeMockup({ preset, name, tagline, size = "card" }: { preset: 
     case "split":
       heroNode = (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", height: heroH, background: panel }}>
-          <Photo src={hero[0]!} />
+          <Photo src={hero[0]!} eager={eager} />
           <div style={{ display: "flex", alignItems: "center", padding: pad }}>{text(false)}</div>
         </div>
       );
@@ -133,9 +184,9 @@ export function ThemeMockup({ preset, name, tagline, size = "card" }: { preset: 
         <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 8, alignItems: "center", height: heroH, padding: `0 ${pad}px`, background: c.background }}>
           {text(false, true)}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gridTemplateRows: "repeat(2, 1fr)", gap: 4, height: heroH - 16 }}>
-            <div style={{ gridColumn: "1 / 3", gridRow: "1 / 3" }}><Photo src={hero[0]!} radius={radius} /></div>
-            <Photo src={hero[1]!} radius={radius} />
-            <Photo src={hero[2]!} radius={radius} />
+            <div style={{ gridColumn: "1 / 3", gridRow: "1 / 3" }}><Photo src={hero[0]!} radius={radius} eager={eager} /></div>
+            <Photo src={hero[1]!} radius={radius} eager={false} />
+            <Photo src={hero[2]!} radius={radius} eager={false} />
           </div>
         </div>
       );
@@ -144,14 +195,14 @@ export function ThemeMockup({ preset, name, tagline, size = "card" }: { preset: 
       heroNode = (
         <div style={{ background: c.background, padding: `${pad * 0.6}px ${pad}px 0`, height: heroH }}>
           {text(false, true, "center")}
-          <div style={{ height: heroH * 0.32, marginTop: 6 }}><Photo src={hero[0]!} radius={radius} /></div>
+          <div style={{ height: heroH * 0.32, marginTop: 6 }}><Photo src={hero[0]!} radius={radius} eager={eager} /></div>
         </div>
       );
       break;
     case "band":
       heroNode = (
         <div style={{ height: heroH, background: panel }}>
-          <div style={{ height: heroH * 0.48 }}><Photo src={hero[0]!} /></div>
+          <div style={{ height: heroH * 0.48 }}><Photo src={hero[0]!} eager={eager} /></div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", padding: `6px ${pad}px` }}>
             <div style={{ ...hType, fontSize: large ? "2.4em" : "1.6em", color: c.text }}>{heroTitle}</div>
             {button(false)}
@@ -164,7 +215,7 @@ export function ThemeMockup({ preset, name, tagline, size = "card" }: { preset: 
         <div style={{ display: "flex", gap: 6, height: heroH, padding: "8px 0", background: panel, overflow: "hidden" }}>
           {[0, 1, 2].map((i) => (
             <div key={i} style={{ position: "relative", flex: "0 0 76%", marginLeft: i === 0 ? 10 : 0, borderRadius: 10, overflow: "hidden" }}>
-              <Photo src={hero[i]!} />
+              <Photo src={hero[i]!} eager={eager && i === 0} />
               {i === 0 ? <div style={{ position: "absolute", left: 10, bottom: 8 }}>{text(true)}</div> : null}
             </div>
           ))}
@@ -174,7 +225,7 @@ export function ThemeMockup({ preset, name, tagline, size = "card" }: { preset: 
     case "framed":
       heroNode = (
         <div style={{ position: "relative", height: heroH, padding: 8, background: c.background }}>
-          <Photo src={hero[0]!} radius="10px" />
+          <Photo src={hero[0]!} radius="10px" eager={eager} />
           <div style={{ position: "absolute", left: 18, bottom: 14, padding: "8px 12px", background: c.background, borderRadius: 8, boxShadow: "0 6px 16px rgb(0 0 0 / 0.2)" }}>{text(false)}</div>
         </div>
       );
@@ -182,7 +233,7 @@ export function ThemeMockup({ preset, name, tagline, size = "card" }: { preset: 
     default:
       heroNode = (
         <div style={{ position: "relative", height: heroH }}>
-          <Photo src={hero[0]!} />
+          <Photo src={hero[0]!} eager={eager} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0.1))" }} />
           <div style={{ position: "absolute", left: pad, right: pad, bottom: pad, ...(preset.hero.align === "center" ? { textAlign: "center" } : {}) }}>{text(true, false, preset.hero.align === "center" ? "center" : "left")}</div>
         </div>
@@ -281,8 +332,10 @@ export function ThemeMockup({ preset, name, tagline, size = "card" }: { preset: 
         ) : null}
       </div>
       {heroNode}
-      <div style={{ padding: pad }}>{products}</div>
-      {layout.footerLayout === "statement" ? (
+      {compact ? null : <div style={{ padding: pad }}>{products}</div>}
+      {compact ? (
+        <div style={{ background: footerBg, height: large ? 18 : 10 }} />
+      ) : layout.footerLayout === "statement" ? (
         <div style={{ background: footerBg, color: preset.footerTone === "dark" ? "#fff" : c.text, ...hType, fontSize: large ? "4em" : "2.6em", textAlign: "center", lineHeight: 1, padding: "4px 0", overflow: "hidden", whiteSpace: "nowrap" }}>{name}</div>
       ) : (
         <div style={{ background: footerBg, height: large ? 24 : 14 }} />

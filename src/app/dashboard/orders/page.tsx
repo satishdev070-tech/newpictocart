@@ -15,6 +15,7 @@ import { FULFILLMENT_STATUSES, ORDER_STATUSES, PAYMENT_METHODS, PAYMENT_STATUSES
 import { StatusBadge } from "@/features/orders-admin/components/status-badge";
 import { SelectAllCheckbox } from "@/features/orders-admin/components/select-all";
 import { formatDateTime } from "@/features/analytics/dates";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Orders" };
 
@@ -23,6 +24,7 @@ const opts = (values: readonly string[]) => values.map((v) => ({ value: v, label
 
 export default async function OrdersPage({ searchParams }: PageProps<"/dashboard/orders">) {
   const ctx = await requireTenantPermission("orders.read");
+  const { t } = await getI18n();
   const f = parseOrderFilters(await searchParams);
   const [{ rows, total }, store] = await Promise.all([
     queryOrders(ctx, f, { offset: (f.page - 1) * ORDERS_PAGE_SIZE, limit: ORDERS_PAGE_SIZE }),
@@ -34,8 +36,8 @@ export default async function OrdersPage({ searchParams }: PageProps<"/dashboard
   return (
     <div>
       <PageHeader
-        title="Orders"
-        description="Every order placed on your store. Filter, search and export."
+        title={t("pages.orders.title")}
+        description={t("pages.orders.description")}
         actions={
           total > 0 ? (
             <a href={`/dashboard/orders/export${queryString(params)}`} className="inline-flex h-10 items-center rounded-md border border-border bg-surface px-4 text-sm font-medium hover:bg-background" download>

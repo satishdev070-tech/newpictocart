@@ -7,6 +7,7 @@ import { listIntegrationSummaries, storeHosts, toCardData } from "@/features/int
 import { onlinePaymentProviders, type OnlineProviderId } from "@/features/payments/credentials";
 import { IntegrationCard } from "@/features/integrations/components/integration-card";
 import type { ProviderId } from "@/features/integrations/registry";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Payments" };
 
@@ -20,6 +21,7 @@ const PROVIDER_NAMES: Partial<Record<ProviderId, string>> = { razorpay: "Razorpa
 
 export default async function PaymentsPage() {
   const ctx = await requireTenantPermission("payments.manage");
+  const { t } = await getI18n();
   const [summaries, hosts, liveAtCheckout] = await Promise.all([
     listIntegrationSummaries(ctx.tenantId, "payment"),
     storeHosts(ctx.tenantId),
@@ -34,7 +36,7 @@ export default async function PaymentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Payments"
+        title={t("pages.settings.payments.title")}
         description={
           <>
             Connect your own gateway accounts. Shoppers pick from every enabled gateway at checkout ({connected} active). Cash on delivery is set under{" "}
@@ -45,7 +47,7 @@ export default async function PaymentsPage() {
           </>
         }
       />
-      <div role="status" className={`rounded-md border p-4 text-small ${connected ? "border-success/30 bg-success/10" : "border-warning/30 bg-warning/10"}`}>
+      <div role="status" data-tour="payment-status" className={`rounded-md border p-4 text-small ${connected ? "border-success/30 bg-success/10" : "border-warning/30 bg-warning/10"}`}>
         {connected ? (
           <p>
             <span className="font-medium">Online payment is live at checkout</span> of <span className="font-medium">{ctx.tenantName}</span> via {live.map((p) => PROVIDER_NAMES[p] ?? p).join(", ")}.{" "}
@@ -88,22 +90,24 @@ export default async function PaymentsPage() {
           </p>
         ) : null}
       </div>
-      {summaries.map((s) => (
-        <IntegrationCard
-          key={s.provider}
-          data={toCardData(s)}
-          canManage={manage}
-          extra={
-            host && WEBHOOK_HELP[s.provider] ? (
-              <div className="rounded-md bg-surface-secondary p-3 text-small">
-                <p className="font-medium">Webhook URL</p>
-                <p className="mt-1 break-all font-mono text-caption">{`${storeOrigin(host)}/api/webhooks/${s.provider}`}</p>
-                <p className="mt-1 text-caption text-muted">{WEBHOOK_HELP[s.provider]}</p>
-              </div>
-            ) : null
-          }
-        />
-      ))}
+      <div data-tour="payment-gateways" className="space-y-6">
+        {summaries.map((s) => (
+          <IntegrationCard
+            key={s.provider}
+            data={toCardData(s)}
+            canManage={manage}
+            extra={
+              host && WEBHOOK_HELP[s.provider] ? (
+                <div className="rounded-md bg-surface-secondary p-3 text-small">
+                  <p className="font-medium">Webhook URL</p>
+                  <p className="mt-1 break-all font-mono text-caption">{`${storeOrigin(host)}/api/webhooks/${s.provider}`}</p>
+                  <p className="mt-1 text-caption text-muted">{WEBHOOK_HELP[s.provider]}</p>
+                </div>
+              ) : null
+            }
+          />
+        ))}
+      </div>
       <p className="text-caption text-muted">Payment success is always confirmed with the gateway&apos;s server API before an order is marked paid; the browser redirect alone never marks an order paid.</p>
     </div>
   );

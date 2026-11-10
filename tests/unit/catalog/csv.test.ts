@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { csvCell, groupByHandle, mergeImportIntoDraft, parseCsv, parseProductCsv, toCsv, PRODUCT_CSV_COLUMNS } from "@/features/catalog/csv";
+import { csvCell, groupByHandle, mergeImportIntoDraft, parseCsv, parseProductCsv, skippedImportItems, toCsv, PRODUCT_CSV_COLUMNS } from "@/features/catalog/csv";
+import { categoryTitleFromSlug } from "@/features/catalog/category-tree";
 import { emptyProductDraft } from "@/features/catalog/types";
 import { emptyVariant } from "@/features/catalog/variants";
 import { productInputSchema } from "@/features/catalog/schemas";
@@ -108,5 +109,37 @@ describe("mergeImportIntoDraft", () => {
     expect(msgs).toMatch(/price: required/);
     const noName = parseProductCsv([header, line({ handle: "x", title: "X", option1_value: "S", price: "1" })].join("\n"));
     expect(mergeImportIntoDraft(null, noName.rows, cats).errors[0]!.messages[0]).toMatch(/option1_name: required/);
+  });
+
+  it("resolves a category after the missing slug is auto-created (import prepare path)", () => {
+    const { rows } = parseProductCsv(
+      [header, line({ handle: "signature-bags", title: "Signature Bag", category: "Bag", option1_name: "Size", option1_value: "One", sku: "SB-1", price: "1999" })].join("\n"),
+    );
+    // CSV lowercases "Bag" → "bag"; ensureCategoriesBySlug creates it before merge.
+    const resolve = (slug: string) => (slug === "bag" ? "31000000-0000-4000-a000-000000000099" : null);
+    const { draft, errors } = mergeImportIntoDraft(null, rows, resolve);
+    expect(errors).toEqual([]);
+    expect(draft.categoryId).toBe("31000000-0000-4000-a000-000000000099");
+    expect(categoryTitleFromSlug("bag")).toBe("Bag");
+    expect(categoryTitleFromSlug("signature-bags")).toBe("Signature Bags");
+  });
+});
+
+describe("skippedImportItems", () => {
+  it("returns only invalid products with their error lists for UI skip reasons", () => {
+    const items = [
+      { handle: "ok", title: "OK", errors: [] as string[], action: "create" as const },
+      {
+        handle: "signature-bags",
+        title: "Signature Bags",
+        errors: ['Row 2: category: no category with handle "bag"'],
+        action: "create" as const,
+      },
+      { handle: "bad", title: "Bad", errors: ["title: required for a new product"], action: "create" as const },
+    ];
+    expect(skippedImportItems(items)).toEqual([
+      { handle: "signature-bags", title: "Signature Bags", errors: ['Row 2: category: no category with handle "bag"'] },
+      { handle: "bad", title: "Bad", errors: ["title: required for a new product"] },
+    ]);
   });
 });

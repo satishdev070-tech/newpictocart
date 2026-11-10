@@ -1,10 +1,21 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { AI_FEATURES, ROUTABLE_FEATURE_KEYS, findFeature } from "@/features/ai-health/registry";
+import { AI_FEATURES, ROUTABLE_FEATURE_KEYS, SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS, findFeature } from "@/features/ai-health/registry";
 import { aiHealthTab, featureRouteSchema, modelPriceSchema, testModelSchema, tokenCostMinor } from "@/features/ai-health/schemas";
+import { DEFAULT_MODELS, NVIDIA_VISION_MODEL } from "@/features/neural-pulse/server/llm";
 
 const SCHEMAS = readFileSync(new URL("../../../src/features/neural-pulse/schemas.ts", import.meta.url), "utf8");
 const MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261025003900_ai_economy.sql", import.meta.url), "utf8");
+const SELLER_AI_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261028004200_seller_ai_suite.sql", import.meta.url), "utf8");
+const NVIDIA_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261028004300_nvidia_provider_store_agent.sql", import.meta.url), "utf8");
+const NVIDIA_ROUTES_MIGRATION = [
+  readFileSync(new URL("../../../supabase/migrations/20261028004700_nvidia_seller_ai_default_routes.sql", import.meta.url), "utf8"),
+  readFileSync(new URL("../../../supabase/migrations/20261028004800_generate_reviews.sql", import.meta.url), "utf8"),
+  readFileSync(new URL("../../../supabase/migrations/20261029005400_generate_faq.sql", import.meta.url), "utf8"),
+].join("\n");
+const REVIEWS_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261028004800_generate_reviews.sql", import.meta.url), "utf8");
+const FAQ_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261029005400_generate_faq.sql", import.meta.url), "utf8");
+const COST_SEEDS = `${MIGRATION}\n${SELLER_AI_MIGRATION}\n${NVIDIA_MIGRATION}\n${REVIEWS_MIGRATION}\n${FAQ_MIGRATION}`;
 
 describe("AI feature registry", () => {
   it("lists every Neural Pulse GenerationKind plus the section, seed and voice features", () => {
@@ -23,7 +34,25 @@ describe("AI feature registry", () => {
   });
 
   it("every credit kind has a seeded action cost", () => {
-    for (const f of AI_FEATURES) if (f.creditKind) expect(MIGRATION, f.creditKind).toContain(`('${f.creditKind}',`);
+    for (const f of AI_FEATURES) if (f.creditKind) expect(COST_SEEDS, f.creditKind).toContain(`('${f.creditKind}',`);
+  });
+
+  it("registers seller AI suite features as routable with credit kinds", () => {
+    for (const k of ["generate_product", "generate_blog", "contact_reply", "business_coach"]) {
+      expect(findFeature(k)?.routable).toBe(true);
+      expect(findFeature(k)?.creditKind).toBe(k);
+      expect(ROUTABLE_FEATURE_KEYS).toContain(k);
+    }
+  });
+
+  it("seeds NVIDIA Nemotron Omni defaults for seller AI routes when unset", () => {
+    expect(DEFAULT_MODELS.nvidia).toBe("nvidia/nemotron-3-nano-omni-30b-a3b-reasoning");
+    expect(NVIDIA_VISION_MODEL).toBe("meta/llama-3.2-11b-vision-instruct");
+    for (const k of SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS) {
+      expect(findFeature(k)?.routable).toBe(true);
+      expect(NVIDIA_ROUTES_MIGRATION).toContain(`('${k}', 'nvidia', '${DEFAULT_MODELS.nvidia}'`);
+    }
+    expect(NVIDIA_ROUTES_MIGRATION).toContain(`('generate_product', 'nvidia', '${DEFAULT_MODELS.nvidia}', 'gemini', '${DEFAULT_MODELS.gemini}', true)`);
   });
 });
 
@@ -46,7 +75,9 @@ describe("AI health schemas", () => {
   it("converts ₹ per 1M tokens to paise and computes cost", () => {
     expect(modelPriceSchema.parse({ provider: "gemini", model: "gemini-3.8-flash", pricePerMillionMinor: "12.50" }).pricePerMillionMinor).toBe(1250);
     expect(modelPriceSchema.safeParse({ provider: "gemini", model: "m1", pricePerMillionMinor: "-1" }).success).toBe(false);
-    expect(modelPriceSchema.safeParse({ provider: "nvidia", model: "m1", pricePerMillionMinor: "1" }).success).toBe(false);
+    expect(modelPriceSchema.safeParse({ provider: "nvidia", model: DEFAULT_MODELS.nvidia, pricePerMillionMinor: "1" }).success).toBe(true);
+    expect(modelPriceSchema.safeParse({ provider: "nvidia", model: NVIDIA_VISION_MODEL, pricePerMillionMinor: "1" }).success).toBe(true);
+    expect(modelPriceSchema.safeParse({ provider: "openai", model: "m1", pricePerMillionMinor: "1" }).success).toBe(false);
     expect(tokenCostMinor(2_000_000, 1250)).toBe(2500);
     expect(tokenCostMinor(321, 1250)).toBe(0);
     expect(tokenCostMinor(500_000, 101)).toBe(51);

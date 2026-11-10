@@ -52,6 +52,16 @@ Inbound `x-paliya-host` headers from clients are stripped.
 
 **Addition (2026-10-25, Super Admin port):** after a `platform.users.manage` check, `features/platform-users/server.ts` uses the secret-key client to (1) create a confirmed account (Admin → Users → Add user; optional password, otherwise an emailed one-time set-password link), (2) generate a recovery link for a non-staff account, and (3) ban or unban sign-in (`ban_duration`) with `profiles.status`. After a `platform.partners.manage` check, "Create partner directly" creates the partner's auth account the same way. Platform staff accounts and the acting admin are never targeted; every write is audited. All directory reads go through SECURITY DEFINER SQL (`platform_user_directory`, `platform_user_stats`, `platform_user_detail`), not the secret key.
 
+**Addition (2026-10-28, My Profile):** `features/account/server.ts` uses the secret-key client for two reads only: (1) the store's `partner_referrals` row (+ partner name, email, code) for the tenant resolved from the seller's membership (the table is platform-only under RLS), shown as "Partner connection" on My Profile; (2) platform-wide `orders` / `products` head counts (no rows) on Admin → My Profile, after a `platform.tenants.read` check. Profile edits, password changes and the data export use the person's own session; deletion requests are audited only (a super admin deletes from Admin → Users).
+
+**Addition (2026-10-28, Admin → Users actions):** after a `platform.users.manage` check and the pure rules in `features/platform-users/rules.ts` (super admin only; never platform staff or the acting admin), `features/platform-users/server.ts` uses the secret-key client to (1) set a generated temporary password (`auth.admin.updateUserById`, returned once, never logged), (2) link an account as a customer of a store the admin picked (store re-read first; also needs `platform.tenants.manage`), and (3) delete an account (`auth.admin.deleteUser`) together with the stores it owns alone, after the admin typed `DELETE`; audited with `tenant_id` null. Super admin grant/revoke uses the admin's own RLS session.
+
+**Addition (2026-10-28, seller AI on NVIDIA):** the NVIDIA NIM key is one more `platform_app_credentials` row (`nvidia`, same encryption, read by the secret-key client as in (1) above). The seller AI `ai_generations` log write (secret-key client) now also follows a `catalog.write`, `content.write` or `analytics.read` membership check (product, blog, coach, store assistant, store setup), always with the tenant from the membership. Store data for the assistant and store setup writes use the seller's own RLS session.
+
+**Addition (2026-10-28, platform AI wallet gateways):** `platform_app_credentials` may also hold **Razorpay** and **Cashfree** secrets used only to collect AI credit recharges for the platform (not store checkout; never `tenant_integrations`). Reads/writes follow the same secret-key + `platform.settings.manage` pattern as (1). Verified platform webhooks at `/api/webhooks/platform/razorpay` and `/api/webhooks/platform/cashfree` use the secret-key client to stamp and complete `ai_credit_purchase_requests` (RPC `complete_ai_credit_purchase_payment`, service_role only).
+
+**Addition (2026-11-03, platform PayU + plan upgrades):** the same `platform_app_credentials` row shape may also hold **PayU** (merchant key + salt + environment) for platform collection. Preference order for online checkout is Razorpay → Cashfree → PayU. Verified webhooks at `/api/webhooks/platform/{razorpay,cashfree,payu}` settle **both** AI credit purchases and **plan upgrades** (`plan_requests` payment columns + RPC `complete_plan_request_payment`, service_role only; same entitlement effect as `platform_decide_plan_request` approve). Store checkout continues to use each merchant's own PayU/`tenant_integrations` keys.
+
 ## ADR-007 — Edge → origin trust via HMAC-signed host · Accepted
 The Worker forwards the original hostname with `x-paliya-edge-{host,ts,sig}` where `sig = HMAC-SHA256(EDGE_SHARED_SECRET, host + "\n" + ts)`.
 The proxy accepts it only if the signature is valid and ≤ 300 s old; otherwise it falls back to the literal Host header. Anyone hitting the origin directly cannot claim a tenant host.
@@ -72,11 +82,24 @@ Proposal: enable it at the start of Phase 7 with tags `tenant:{id}`, `tenant:{id
 
 **Update (2026-10-02):** cross-request caching is now done with `unstable_cache` (`src/lib/cache/storefront.ts`; production only): tenant directory (tags `tenant-directory`, `host:<host>`), published theme, store profile and features (`tenant:<id>:storefront`), 120 s TTL. Every mutation that changes them calls `revalidateStorefront(tenantId)`; plan/flag changes call `revalidateAllStorefronts()`. **Update (2026-10-27):** `revalidateStorefront` drops only that tenant's entries (incl. its directory identity); the host → tenant mapping is dropped only by domain changes via `revalidateTenantDirectory()`. Site mode, tracking tags (public IDs only) are cached per tenant too. Draft preview and Live Preview are never cached; product, price and stock reads are not cached.
 
-## ADR-011 — Hosting target for the Next.js app · Open (needed by Phase 11; affects nothing before)
-Options:
-1. **Vercel** for Next.js + Cloudflare in front (DNS, Cloudflare for SaaS custom hostnames, Worker). Most compatible with Next 16 features; two vendors; custom hostnames must also be added to Vercel via its API.
-2. **Cloudflare Workers via OpenNext** (`@opennextjs/cloudflare`) — one vendor, custom hostnames handled natively by Cloudflare for SaaS; some Next features lag (check Cache Components/ISR support at the time).
-Code is kept host-agnostic (Node runtime, no Vercel-only APIs) so either works.
+**Update (2026-10-27, Redis L2):** optional Upstash Redis (`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`) sits behind `unstable_cache` for the same public storefront loaders. Cold instances hit Redis before Supabase. Invalidation deletes indexed Redis keys alongside `revalidateTag`. Unset env = previous behaviour. Rate limiting stays Postgres (ADR-025); cart/session/dashboard stay uncached. Catalog/product Redis deferred until free-tier usage is measured.
+
+**Update (2026-10-27, seller/admin Phase 1):** private dashboard and Super Admin list/detail reads stay **live** (no Data Cache / Redis on tenant products, orders, customers, or admin tenant directories). Public catalogues may use Data Cache with tags and write-path `revalidateTag`: marketplace custom themes + open demo origins (`MARKETPLACE_*`), and anon-readable platform `product_types`.
+
+**Update (2026-10-28, public catalogue Redis):** shared helper `cachedPublic` / `revalidatePublicTags` (`src/lib/cache/public-cache.ts`) powers storefront (`sf:v1`) and platform public catalogues (`pub:v1`): marketplace themes/demos, platform `product_types`, marketing landing, public platform config, and `feature_flags` **defaults only** (no tenant overrides). Private admin/dashboard lists stay uncached. Feature-flag writes also invalidate `platform-feature-flag-defaults`.
+
+## ADR-011 — Hosting target for the Next.js app · Accepted (2026-11-06, Workers production)
+**Production origin:** Next.js on **Cloudflare Workers via vinext** for `pictocart.in`, `www.pictocart.in`, and `*.pictocart.in` (Worker Custom Domains for apex/www; Worker Route + proxied `AAAA * → 100::` for store wildcards).
+
+**Canary:** same Worker also serves `pictocartdev.in` / `www.pictocartdev.in` via Custom Domains + `PLATFORM_HOST_ALIASES`.
+
+**Why vinext:** official Workers guide; App Router + `proxy.ts` + Server Actions check at ~93% compatible; non-destructive alongside `next` scripts.
+
+**Constraints on Workers:** native `sharp` unavailable (soft-fail + Cloudflare Images); Cron Triggers need Workers Paid (Free = 0) — use HTTP `Authorization: Bearer $CRON_SECRET` against `/api/cron/*` until Paid; Custom Domains do not support wildcards.
+
+**Rollback:** restore Vercel nameservers (`ns1/ns2.vercel-dns.com`) while Vercel project domains remain configured. Runbook: [DEPLOY_CLOUDFLARE_WORKERS.md](./DEPLOY_CLOUDFLARE_WORKERS.md). Keep [`workers/domain-router`](../workers/domain-router) for Hostinger / SaaS custom hosts only; unused when the vinext Worker is the zone origin.
+
+OpenNext remains a fallback only if a vinext compatibility gap blocks production.
 
 ## ADR-012 — `tenants` vs `stores` · Accepted
 The blueprint has both with overlapping columns (name, slug, logo, currency, timezone). Proposal: `tenants` = account/billing/status/plan;
@@ -249,3 +272,6 @@ payment/WhatsApp/city prefs, then **`seedReadyStore`** with a seller brief. Pre-
 **Consequences.** Logged-in users without the cookie still redirect to the dashboard; with the
 cookie they can finish on `/start`. `SARVAM_API_KEY` still required for voice; manual path works
 without it.
+
+## ADR-040 — One sign-in page; the account picks the panel · Accepted
+Sellers and platform staff sign in at `/login` (`/seller/login` renders it too; `/admin/login` redirects). After sign-in, `lib/auth/role-routing.ts` sends active platform staff to `/admin`, store members to `/dashboard`, and others to onboarding, using the user's own membership rows (RLS), never the URL or a form field. A requested `next` is honoured only for a panel the account can use. Console access is still enforced by `requirePlatform` (404 otherwise), so the shared page reveals nothing. Accounts with both get a panel switch in the sidebar.

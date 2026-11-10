@@ -158,6 +158,8 @@ describe("canvas slots and protocol", () => {
     expect(slotSections(c.config, "layout.header")?.[0]!.type).toBe("Header");
     expect(slotSections(c.config, "templates.nope")).toBeNull();
     expect(listKeyOf("templates.product.after")).toBe("templates.product");
+    expect(listKeyOf("templates.page.chrome")).toBe("templates.page");
+    expect(SLOT_KEY_RE.test("templates.page.chrome")).toBe(true);
     expect(SLOT_KEY_RE.test("pages.pabout123")).toBe(true);
     expect(SLOT_KEY_RE.test("layout.header;drop")).toBe(false);
   });
@@ -166,6 +168,14 @@ describe("canvas slots and protocol", () => {
     expect(parseCanvasMessage({ tag: CANVAS_TAG, type: "action", slot: "templates.home", sectionId: "hero-1", action: "delete" })).toMatchObject({ action: "delete" });
     expect(parseCanvasMessage({ tag: CANVAS_TAG, type: "action", slot: "templates.home", sectionId: "hero-1", action: "rm -rf" })).toBeNull();
     expect(parseCanvasMessage({ tag: "other", type: "ready" })).toBeNull();
+    expect(
+      parseCanvasMessage({ tag: CANVAS_TAG, type: "textSelect", slot: "templates.home", sectionId: "hero-1", role: "heading", itemIndex: 0 }),
+    ).toMatchObject({ type: "textSelect", role: "heading", itemIndex: 0 });
+    expect(parseCanvasMessage({ tag: CANVAS_TAG, type: "textSelect", slot: "templates.home", sectionId: "hero-1", role: "script" })).toBeNull();
+    expect(
+      parseCanvasMessage({ tag: CANVAS_TAG, type: "textResize", slot: "templates.home", sectionId: "hero-1", role: "cta", widthPct: 72 }),
+    ).toMatchObject({ type: "textResize", widthPct: 72 });
+    expect(parseCanvasMessage({ tag: CANVAS_TAG, type: "textResize", slot: "templates.home", sectionId: "hero-1", role: "cta", widthPct: 180 })).toBeNull();
     expect(parseHostMessage({ tag: HOST_TAG, type: "theme", rev: 2, config: "{}", changedLists: "all" })).toMatchObject({ rev: 2 });
     expect(parseHostMessage({ tag: HOST_TAG, type: "theme", rev: "2", config: "{}", changedLists: "all" })).toBeNull();
     // The preview token travels with theme messages; anything not shaped like a signed token is dropped.

@@ -85,9 +85,9 @@ function Gallery({ media, activePath, title }: { media: ProductMedia[]; activePa
                     onClick={() => show(i)}
                     aria-label={`Show image ${i + 1}`}
                     aria-current={i === safe}
-                    className={`sf-pdp-thumb relative block aspect-square w-[4.5rem] overflow-hidden @[48rem]:w-24 ${i === safe ? "is-active" : ""}`}
+                    className={`sf-pdp-thumb relative block aspect-square w-[3.6rem] overflow-hidden @[48rem]:w-[4.8rem] ${i === safe ? "is-active" : ""}`}
                   >
-                    <Image src={u} alt="" fill sizes="96px" className="object-cover" />
+                    <Image src={u} alt="" fill sizes="77px" className="object-cover" />
                   </button>
                 </li>
               ) : null;

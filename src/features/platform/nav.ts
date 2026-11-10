@@ -29,7 +29,9 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
     items: [
       { href: "/admin/plan-requests", label: "Plan requests", permission: "platform.tenants.read", icon: "plans" },
       { href: "/admin/plans", label: "Plans", permission: "platform.plans.manage", icon: "plans" },
+      { href: "/admin/plan-coupons", label: "Plan coupons", permission: "platform.plans.manage", icon: "plans" },
       { href: "/admin/flags", label: "Feature flags", permission: "platform.flags.manage", icon: "flags" },
+
     ],
   },
   {
@@ -65,12 +67,28 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
     ],
   },
   {
+    label: "Performance & observability",
+    icon: "monitoring",
+    items: [
+      { href: "/admin/performance", label: "Overview", permission: "platform.observability.read", icon: "activity" },
+      { href: "/admin/performance/requests", label: "Live API monitor", permission: "platform.observability.read", icon: "activity" },
+      { href: "/admin/performance/slow", label: "Slow APIs", permission: "platform.observability.read", icon: "monitoring" },
+      { href: "/admin/performance/errors", label: "Error tracking", permission: "platform.observability.read", icon: "audit" },
+      { href: "/admin/performance/database", label: "Database performance", permission: "platform.observability.read", icon: "usage" },
+      { href: "/admin/performance/traces", label: "Distributed traces", permission: "platform.observability.read", icon: "tracking" },
+      { href: "/admin/performance/insights", label: "Performance insights", permission: "platform.observability.read", icon: "analytics" },
+      { href: "/admin/performance/alerts", label: "Alerts & incidents", permission: "platform.observability.read", icon: "notifications" },
+      { href: "/admin/performance/settings", label: "Monitoring settings", permission: "platform.observability.manage", icon: "settings" },
+    ],
+  },
+  {
     label: "Platform",
     icon: "settings",
     items: [
       { href: "/admin/users", label: "Users", permission: "platform.users.manage", icon: "users" },
       { href: "/admin/platform-users", label: "Platform staff", permission: "platform.users.manage", icon: "accounts" },
       { href: "/admin/landing", label: "Landing page", permission: "platform.settings.manage", icon: "pages" },
+      { href: "/admin/landing/features", label: "Feature pages", permission: "platform.settings.manage", icon: "pages" },
       { href: "/admin/themes", label: "Themes", permission: "platform.settings.manage", icon: "themes" },
       { href: "/admin/product-types", label: "Product types", permission: "platform.settings.manage", icon: "products" },
       { href: "/admin/media", label: "Media library", permission: "platform.settings.manage", icon: "media" },
@@ -91,5 +109,9 @@ export function isAdminNavActive(pathname: string, href: string): boolean {
   if (href === "/admin") return pathname === "/admin";
   // Store detail pages live under /admin/tenants/{id}.
   if (href === "/admin/stores" && pathname.startsWith("/admin/tenants")) return true;
+  // Landing CMS vs Feature pages CMS share the /admin/landing prefix.
+  if (href === "/admin/landing") return pathname === "/admin/landing";
+  // Performance overview vs Live API / Slow / Errors / … share /admin/performance.
+  if (href === "/admin/performance") return pathname === "/admin/performance";
   return pathname === href || pathname.startsWith(`${href}/`);
 }

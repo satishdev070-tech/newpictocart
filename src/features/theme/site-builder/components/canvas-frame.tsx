@@ -5,14 +5,14 @@ import { AlertTriangle, CheckCircle2, LoaderCircle, Lock, RotateCw } from "lucid
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import type { ThemeConfig } from "@/features/theme/schema/config";
-import { refreshPreviewUrlAction } from "@/features/theme/actions";
 import { previewEntryUrl } from "@/features/theme/preview";
 import { useBuilder, type SectionTab } from "../context";
-import { changePlan, duplicateSection, moveSection, removeSection, toggleHidden } from "../ops";
+import { changePlan, duplicateSection, moveSection, removeSection, setTextLookWidth, toggleHidden } from "../ops";
 import { pageForPath, type BuilderPage } from "../pages";
 import { HOST_TAG, parseCanvasMessage, type CanvasMessage, type HostMessage } from "../protocol";
 import { listKeyOf } from "../slots";
 import { sectionChipLabels } from "../chip-labels";
+import { isPreviewDeniedMessage, mintPreviewEntry, resolvePreviewEntryUrl, tokenOf } from "../preview-entry";
 
 /**
  * The canvas: the storefront (store origin) in an iframe, entered through the theme preview route so
@@ -46,19 +46,12 @@ export function originOf(url: string): string | null {
   }
 }
 
-/** Token from a preview entry URL (`/preview?token=…`). */
-export function tokenOf(url: string): string | null {
-  try {
-    return new URL(url).searchParams.get("token");
-  } catch {
-    return null;
-  }
-}
+export { tokenOf } from "../preview-entry";
 
 /** A preview entry URL (from refreshPreviewUrlAction) re-targeted at `path` on the store origin. */
-export function previewUrlFor(url: string, storeOrigin: string, path: string): string {
+export function previewUrlFor(url: string, storeOrigin: string, path: string, parentOrigin?: string | null): string {
   const token = tokenOf(url);
-  return token ? previewEntryUrl(storeOrigin, token, path) : url;
+  return token ? previewEntryUrl(storeOrigin, token, path, parentOrigin) : url;
 }
 
 /** Path without query, hash or trailing slash ("/" stays "/"). */
@@ -145,14 +138,17 @@ export function CanvasFrame() {
    * The canvas couldn't render: reload it (with a fresh preview token when the old one was rejected,
    * Bugs 2.0 #14/#15 "You don't have permission"). Unsaved edits are re-sent when it is ready again.
    * After MAX_AUTO_RECOVERIES failures in a row the error stays with a Retry button.
+   * Soft network blips (`soft: true`) remint/reload without burning the recovery budget.
    */
-  const recover = useEffectEvent(({ expired, error }: { expired: boolean; error: string }) => {
+  const recover = useEffectEvent(({ expired, error, soft }: { expired: boolean; error: string; soft?: boolean }) => {
     clearWatchdog();
-    if (recoveries.current >= MAX_AUTO_RECOVERIES) {
-      setStatus({ updating: false, error });
-      return;
+    if (!soft) {
+      if (recoveries.current >= MAX_AUTO_RECOVERIES) {
+        setStatus({ updating: false, error });
+        return;
+      }
+      recoveries.current += 1;
     }
-    recoveries.current += 1;
     if (expired) token.current = null;
     setStatus({ updating: true, error: null });
     reload();
@@ -175,15 +171,15 @@ export function CanvasFrame() {
   /**
    * A fresh preview token (renders are authorised by it, not only by the frame's cookie). Shared by
    * concurrent callers; false when it couldn't be renewed.
+   * Prefers POST /api/theme/preview-token (Workers route handler) over the RSC server action.
    */
   const renewToken = useEffectEvent((force: boolean): Promise<boolean> => {
     const t = token.current;
     if (!force && t && t.expiresAt - Date.now() / 1000 > TOKEN_MARGIN_S) return Promise.resolve(true);
-    refreshing.current ??= refreshPreviewUrlAction()
+    refreshing.current ??= mintPreviewEntry()
       .then((r) => {
-        const tok = r.ok ? tokenOf(r.data.url) : null;
-        if (!r.ok || !tok) return false;
-        token.current = { token: tok, expiresAt: r.data.expiresAt };
+        if (!r) return false;
+        token.current = r;
         return true;
       })
       .catch(() => false)
@@ -247,32 +243,43 @@ export function CanvasFrame() {
     return () => clearInterval(t);
   }, []);
 
-  // Load the canvas at `target` (first load, page changes, reload).
+  // Load the canvas at `target` (first load, page changes, reload). Mint then navigate the iframe
+  // (real document load installs the cookie). 403 HTML postMessages “denied” so we remint instead
+  // of hanging at Loading 92% — do not fetch(/preview) from the dashboard (CORS hides 307).
   useEffect(() => {
     if (!origin) return;
     let live = true;
-    /** A preview entry URL for the target path, refreshing the token when it is close to expiry. */
-    const entryUrl = async (): Promise<string | null> => {
-      const t = token.current;
-      if (t && t.expiresAt - Date.now() / 1000 > TOKEN_MARGIN_S) return previewEntryUrl(origin, t.token, target.path);
-      const r = await refreshPreviewUrlAction();
-      if (!live) return null;
-      const tok = r.ok ? tokenOf(r.data.url) : null;
-      if (!r.ok || !tok) {
-        setLoadError(r.ok ? "The preview link could not be created." : r.error.message);
-        return null;
+    void resolvePreviewEntryUrl({
+      storeOrigin: origin,
+      path: target.path,
+      existing: token.current,
+      tokenMarginS: TOKEN_MARGIN_S,
+      parentOrigin: typeof window !== "undefined" ? window.location.origin : null,
+    }).then((resolved) => {
+      if (!live) return;
+      if (!resolved.ok) {
+        token.current = null;
+        setLoadedTarget(target);
+        readyRef.current = false;
+        setReady(false);
+        setSrc(null);
+        if (resolved.soft) {
+          // Soft network failure: show the error but keep Retry cheap (no recovery burn).
+          setLoadError(resolved.error);
+          setStatus({ updating: false, error: null });
+        } else {
+          setLoadError(null);
+          setStatus({ updating: false, error: resolved.error });
+        }
+        return;
       }
-      token.current = { token: tok, expiresAt: r.data.expiresAt };
+      token.current = resolved.minted;
       setLoadError(null);
-      return previewEntryUrl(origin, tok, target.path);
-    };
-    void entryUrl().then((url) => {
-      if (!live || !url) return;
       setLoadedTarget(target);
       readyRef.current = false;
       setReady(false);
       setStatus({ updating: false, error: null });
-      setSrc(url);
+      setSrc(resolved.url);
       setLoads((n) => n + 1);
     });
     return () => {
@@ -374,6 +381,25 @@ export function CanvasFrame() {
         b.setPanel({ kind: "section", ref, tab: "edit" });
         return;
       }
+      case "textSelect": {
+        const list = listKeyOf(msg.slot);
+        if (!list) return;
+        const ref = { list, sectionId: msg.sectionId };
+        selectFromCanvas.current = true;
+        b.select(ref);
+        // Open Edit and focus the matching TextStyleField (Heading / Sub-heading / …).
+        b.setPanel({ kind: "section", ref, tab: "edit", textRole: msg.role, ...(msg.itemIndex !== undefined ? { itemIndex: msg.itemIndex } : {}) });
+        return;
+      }
+      case "textResize": {
+        const list = listKeyOf(msg.slot);
+        if (!list) return;
+        b.apply(
+          (c) => setTextLookWidth(c, list, msg.sectionId, msg.role, msg.widthPct, msg.itemIndex),
+          `sec.${msg.sectionId}.text.${msg.role}.width`,
+        );
+        return;
+      }
       case "action": {
         const list = listKeyOf(msg.slot);
         if (!list) return;
@@ -426,6 +452,13 @@ export function CanvasFrame() {
   useEffect(() => {
     if (!origin) return;
     const onMessage = (e: MessageEvent) => {
+      // Deny signal: accept by store origin alone — iframe remount (`key={loads}`) races
+      // `e.source === contentWindow` and would otherwise leave the canvas stuck at 92%.
+      if (e.origin === origin && isPreviewDeniedMessage(e.data)) {
+        const reason = typeof e.data.reason === "string" ? e.data.reason : "bad_token";
+        recover({ expired: true, error: `Preview blocked (${reason}). Retry to continue.` });
+        return;
+      }
       const win = frame.current?.contentWindow;
       if (!win || e.source !== win || e.origin !== origin) return;
       const msg = parseCanvasMessage(e.data);
@@ -438,7 +471,8 @@ export function CanvasFrame() {
   /** Manual retry: start the automatic recoveries over. */
   const retry = () => {
     recoveries.current = 0;
-    if (status.error?.includes("expired")) token.current = null;
+    token.current = null;
+    setLoadError(null);
     setStatus({ updating: true, error: null });
     reload();
   };
@@ -495,7 +529,7 @@ export function CanvasFrame() {
           <div className="grid h-full place-items-center p-6 text-center">
             <div className="space-y-2">
               <p className="text-small text-error">{loadError}</p>
-              <button type="button" onClick={reload} className="text-small font-medium text-accent hover:underline">
+              <button type="button" onClick={retry} className="text-small font-medium text-accent hover:underline">
                 Try again
               </button>
             </div>

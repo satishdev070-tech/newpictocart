@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import type { NavGroup } from "@/components/dashboard/nav";
-import { AppShellClient } from "./app-shell-client";
+import { AppShellClient, type ShellText } from "./app-shell-client";
 import { SIDEBAR_COOKIE, parseSidebarCollapsed, type SidebarPanel } from "./sidebar-cookie";
 
 type Props = {
@@ -18,6 +18,9 @@ type Props = {
   banner?: ReactNode;
   /** Namespaces the remembered submenu state (localStorage). */
   storageKey: string;
+  /** Translated chrome labels and the panel's `lang` (seller panel); English when omitted. */
+  text?: ShellText;
+  lang?: string;
   children: ReactNode;
 };
 

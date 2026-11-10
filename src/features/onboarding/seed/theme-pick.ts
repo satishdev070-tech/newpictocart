@@ -1,22 +1,25 @@
 import "server-only";
-import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
-import { themeSiteType, type MarketplaceTheme } from "@/features/theme/marketplace/types";
+import { ecommerceMarketplaceThemes, MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
+import type { MarketplaceTheme } from "@/features/theme/marketplace/types";
 import { layoutSummary } from "@/features/theme/layouts/apply-layout";
 import { layoutFamily } from "@/features/theme/layouts/personalities";
 import { applyMarketplaceThemeToDraft } from "@/features/theme/server/apply-marketplace";
 import type { TenantContext } from "@/lib/tenant/membership";
 import { AppError } from "@/lib/errors";
 
-/** Ecommerce presets only — informative (brochure) themes are never a best-fit for a shop. */
-function ecommerceCatalog(): MarketplaceTheme[] {
-  return MARKETPLACE_THEMES.filter((t) => themeSiteType(t) === "ecommerce");
-}
-
 function themePool(industry: string): MarketplaceTheme[] {
-  const catalog = ecommerceCatalog();
+  const catalog = ecommerceMarketplaceThemes();
   const own = catalog.filter((t) => t.industry === industry);
   const family = catalog.filter((t) => t.industry !== industry && layoutFamily(t.industry) === layoutFamily(industry));
   return [...own, ...family, ...catalog.filter((t) => t.industry !== industry && layoutFamily(t.industry) !== layoutFamily(industry))];
+}
+
+/**
+ * Ranked ecommerce themes for an industry (own → layout family → rest).
+ * Same order as `pickBestMarketplaceTheme` / demo `pickThemes`.
+ */
+export function listRankedMarketplaceThemes(industry: string): MarketplaceTheme[] {
+  return themePool(industry);
 }
 
 /**

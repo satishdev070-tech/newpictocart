@@ -1,26 +1,28 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import { Check, ChevronRight, LayoutTemplate, Palette as PaletteIcon, PanelTop, RectangleHorizontal, ShoppingBag, Type } from "lucide-react";
+import { Fragment, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { Check, ChevronRight, LayoutTemplate, Palette as PaletteIcon, PanelBottom, PanelTop, RectangleHorizontal, ShoppingBag, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { assetUrl } from "@/lib/storage/assets";
 import { MediaPicker } from "@/features/media/components/media-picker";
 import { IMAGE_STANDARDS, recommendedText } from "@/features/media/image-standards";
 import type { ThemeConfig } from "@/features/theme/schema/config";
-import { BUTTON_SHAPES, BUTTON_VARIANTS, CARD_RADII, CONTAINER_WIDTHS, FONT_KEYS, FONT_STACKS, LOGO_LIMITS, MENU_FONT_WEIGHTS, MENU_LETTER_SPACINGS, MENU_TEXT_CASES, SPACING_SCALES, type FontKey, type HeaderSettings, type LogoPosition, type MobileLogoPosition, type ProductCardSettings, type ThemeTokens } from "@/features/theme/schema/tokens";
+import { BUTTON_SHAPES, BUTTON_VARIANTS, CARD_RADII, CONTAINER_WIDTHS, FONT_GROUP_LABELS, FONT_GROUPS, FONT_STACKS, LOGO_LIMITS, MENU_FONT_WEIGHTS, MENU_LETTER_SPACINGS, MENU_TEXT_CASES, SPACING_SCALES, fontKeysInGroup, type FontKey, type HeaderSettings, type LogoPosition, type MobileLogoPosition, type ProductCardSettings, type ThemeTokens } from "@/features/theme/schema/tokens";
 import { AUTO_LOGO_HEIGHT } from "@/features/theme/render/logo-layout";
 import { DEFAULT_TYPE_SIZES, TYPE_FONTS, TYPE_LEVELS, TYPE_LEVEL_LABELS, TYPE_WEIGHTS, type TypeLevel, type TypeStyle } from "@/features/theme/schema/site";
 import type { MarketplaceTheme } from "@/features/theme/marketplace/types";
 import { UNSPLASH_CATEGORIES } from "@/lib/unsplash-categories";
 import { useBuilder } from "../../context";
-import { applyPalette, applyPresetTokens, COLOR_KEYS, COLOR_LABELS, isPaletteActive, PALETTES } from "../../palettes";
+import { resolveFooterSectionRef } from "../../footer-ref";
+import { applyPalette, applyPresetTokens, COLOR_KEYS, COLOR_LABELS, filterPalettes, filterThemesByColourSearch, isPaletteActive, PALETTES } from "../../palettes";
+import { useHoldAutosave } from "../../use-hold-autosave";
 import { ColorInput, Dialog, FieldRow, input, PanelFrame, Toggle } from "../ui";
 
 /**
  * Theme settings (site builder left panel): theme preset, site colours, font styles, buttons &
- * layout, header and product cards. Every change goes through apply() (undoable); rapid edits of
- * one field coalesce into one history step.
+ * layout, header, footer (opens the Footer section — same path as Layers), and product cards.
+ * Every change goes through apply() (undoable); rapid edits of one field coalesce into one history step.
  */
 
 type Tab = "preset" | "colors" | "fonts" | "layout" | "header" | "cards";
@@ -33,29 +35,59 @@ const TABS: { key: Tab; label: string; hint: string; icon: ReactNode }[] = [
   { key: "cards", label: "Product cards", hint: "Image shape, badges, prices", icon: <ShoppingBag /> },
 ];
 
+const FOOTER_NAV = { label: "Footer", hint: "Menus, contact, social links", icon: <PanelBottom /> };
+const navBtnClass =
+  "flex w-full items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2.5 text-left hover:border-border-strong hover:bg-surface-secondary";
+
 export function ThemePanel() {
-  const { setPanel } = useBuilder();
+  const { config, select, setPanel } = useBuilder();
   const [tab, setTab] = useState<Tab | null>(null);
+  const [footerEmpty, setFooterEmpty] = useState(false);
   const current = TABS.find((t) => t.key === tab);
+
+  const openFooter = () => {
+    const ref = resolveFooterSectionRef(config);
+    if (!ref) {
+      setFooterEmpty(true);
+      return;
+    }
+    select(ref);
+    setPanel({ kind: "section", ref, tab: "edit" });
+  };
+
+  if (footerEmpty) {
+    return (
+      <PanelFrame title="Footer" subtitle="Theme settings" onBack={() => setFooterEmpty(false)} onClose={() => setPanel(null)}>
+        <p className="text-small text-muted">This theme has no Footer section yet. Open Layers and add a Footer to the footer group.</p>
+      </PanelFrame>
+    );
+  }
 
   if (!current) {
     return (
       <PanelFrame title="Theme settings" subtitle="Applies to every page" onClose={() => setPanel(null)}>
         <nav className="space-y-1.5" aria-label="Theme settings">
           {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className="flex w-full items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2.5 text-left hover:border-border-strong hover:bg-surface-secondary"
-            >
-              <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-4">{t.icon}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-small font-medium">{t.label}</span>
-                <span className="block truncate text-xs text-muted">{t.hint}</span>
-              </span>
-              <ChevronRight className="size-4 text-muted" />
-            </button>
+            <Fragment key={t.key}>
+              <button type="button" onClick={() => setTab(t.key)} className={navBtnClass}>
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-4">{t.icon}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-small font-medium">{t.label}</span>
+                  <span className="block truncate text-xs text-muted">{t.hint}</span>
+                </span>
+                <ChevronRight className="size-4 text-muted" />
+              </button>
+              {t.key === "header" ? (
+                <button type="button" onClick={openFooter} className={navBtnClass}>
+                  <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent-soft text-accent [&_svg]:size-4">{FOOTER_NAV.icon}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-small font-medium">{FOOTER_NAV.label}</span>
+                    <span className="block truncate text-xs text-muted">{FOOTER_NAV.hint}</span>
+                  </span>
+                  <ChevronRight className="size-4 text-muted" />
+                </button>
+              ) : null}
+            </Fragment>
           ))}
         </nav>
       </PanelFrame>
@@ -153,16 +185,12 @@ function PresetTab() {
     };
   }, []);
 
-  const shown = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    if (!themes) return [];
-    return term ? themes.filter((t) => `${t.name} ${t.tagline} ${t.industry} ${t.style}`.toLowerCase().includes(term)) : themes;
-  }, [themes, q]);
+  const shown = useMemo(() => (themes ? filterThemesByColourSearch(themes, q) : []), [themes, q]);
 
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted">Restyles colours, fonts, buttons, corners and spacing. Your sections, text, images and menus stay as they are. You can undo it.</p>
-      <input type="search" className={input} placeholder="Search themes (name, industry, style)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search themes" />
+      <input type="search" className={input} placeholder="Search themes (name, hex, colour)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search themes" />
       {failed ? <p className="text-small text-error">Couldn&apos;t load the themes. Reload the page and try again.</p> : null}
       {!themes && !failed ? <p className="text-small text-muted">Loading themes…</p> : null}
       {themes && !shown.length ? <p className="text-small text-muted">No theme matches “{q}”.</p> : null}
@@ -228,12 +256,16 @@ function PresetTab() {
 function ColorsTab() {
   const { config, apply } = useBuilder();
   const [custom, setCustom] = useState(false);
+  const [q, setQ] = useState("");
   const tokens = config.tokens;
+  const shown = useMemo(() => filterPalettes(PALETTES, q), [q]);
   return (
     <div className="space-y-4">
       <Group title="Palettes">
+        <input type="search" className={input} placeholder="Search by name or hex (#1f1a17)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search colour palettes" />
         <div className="space-y-1.5">
-          {PALETTES.map((p) => {
+          {!shown.length ? <p className="text-small text-muted">No palette matches “{q}”.</p> : null}
+          {shown.map((p) => {
             const active = isPaletteActive(tokens, p);
             return (
               <button
@@ -316,25 +348,32 @@ function FontPicker({ label, value, sample, onChange }: { label: string; value: 
         <ChevronRight className={cn("size-4 shrink-0 text-muted transition-transform", open && "rotate-90")} />
       </button>
       {open ? (
-        <ul id={`${id}-list`} aria-labelledby={`${id}-label`} className="max-h-72 space-y-0.5 overflow-y-auto rounded-lg border border-border bg-surface p-1">
-          {FONT_KEYS.map((k) => (
-            <li key={k}>
-              <button
-                type="button"
-                aria-pressed={k === value}
-                onClick={() => {
-                  onChange(k);
-                  setOpen(false);
-                }}
-                className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left", k === value ? "bg-accent-soft text-accent" : "hover:bg-surface-secondary")}
-              >
-                <span className="min-w-0 flex-1" style={{ fontFamily: FONT_STACKS[k].stack }}>
-                  <span className="block truncate text-[15px] leading-tight">{fontName(k)}</span>
-                  <span className="block truncate text-xs opacity-70">{sample}</span>
-                </span>
-                <span className="shrink-0 text-[10px] text-muted">{fontHint(k)}</span>
-                {k === value ? <Check className="size-3.5 shrink-0" /> : null}
-              </button>
+        <ul id={`${id}-list`} aria-labelledby={`${id}-label`} className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-border bg-surface p-1">
+          {FONT_GROUPS.map((group) => (
+            <li key={group} className="space-y-0.5">
+              <span className="block px-2 pt-1 text-[10px] font-semibold uppercase tracking-wide text-muted">{FONT_GROUP_LABELS[group]}</span>
+              <ul className="space-y-0.5">
+                {fontKeysInGroup(group).map((k) => (
+                  <li key={k}>
+                    <button
+                      type="button"
+                      aria-pressed={k === value}
+                      onClick={() => {
+                        onChange(k);
+                        setOpen(false);
+                      }}
+                      className={cn("flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left", k === value ? "bg-accent-soft text-accent" : "hover:bg-surface-secondary")}
+                    >
+                      <span className="min-w-0 flex-1" style={{ fontFamily: FONT_STACKS[k].stack }}>
+                        <span className="block truncate text-[15px] leading-tight">{fontName(k)}</span>
+                        <span className="block truncate text-xs opacity-70">{group === "hindi" ? "नमस्ते · " : ""}{sample}</span>
+                      </span>
+                      <span className="shrink-0 text-[10px] text-muted">{fontHint(k)}</span>
+                      {k === value ? <Check className="size-3.5 shrink-0" /> : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </li>
           ))}
         </ul>
@@ -407,13 +446,26 @@ function FontsTab() {
 
 function TypeEditor({ level, style, onChange, onReset }: { level: TypeLevel; style: TypeStyle; onChange: (patch: Partial<TypeStyle>, field: string) => void; onReset: () => void }) {
   const id = useId();
+  const hold = useHoldAutosave();
   const shownSize = style.size > 0 ? style.size : DEFAULT_TYPE_SIZES[level];
   const clampSize = (n: number) => (Number.isFinite(n) ? Math.max(10, Math.min(96, Math.round(n))) : 0);
   return (
     <div className="space-y-3 border-t border-border px-2.5 py-3">
       <FieldRow label="Size (px)" htmlFor={`${id}-size`} hint={style.size > 0 ? undefined : "Theme default"}>
         <div className="flex items-center gap-2">
-          <input type="range" min={10} max={96} value={shownSize} onChange={(e) => onChange({ size: clampSize(Number(e.target.value)) }, "size")} className="flex-1 accent-accent" aria-label="Size" />
+          <input
+            type="range"
+            min={10}
+            max={96}
+            value={shownSize}
+            onChange={(e) => onChange({ size: clampSize(Number(e.target.value)) }, "size")}
+            onPointerDown={hold.onPointerDown}
+            onPointerUp={hold.onPointerUp}
+            onPointerCancel={hold.onPointerCancel}
+            onBlur={hold.onBlur}
+            className="flex-1 accent-accent"
+            aria-label="Size"
+          />
           <input id={`${id}-size`} type="number" min={10} max={96} className={cn(input, "w-20")} value={shownSize} onChange={(e) => onChange({ size: clampSize(Number(e.target.value)) }, "size")} />
         </div>
       </FieldRow>
@@ -430,6 +482,10 @@ function TypeEditor({ level, style, onChange, onReset }: { level: TypeLevel; sty
           step={5}
           value={style.lineHeight > 0 ? style.lineHeight : 120}
           onChange={(e) => onChange({ lineHeight: Math.max(90, Math.min(200, Number(e.target.value) || 0)) }, "lineHeight")}
+          onPointerDown={hold.onPointerDown}
+          onPointerUp={hold.onPointerUp}
+          onPointerCancel={hold.onPointerCancel}
+          onBlur={hold.onBlur}
           className="w-full accent-accent"
         />
       </FieldRow>
@@ -490,6 +546,7 @@ const HEADER_TOGGLES: [keyof HeaderSettings & ("showSearch" | "showAccount" | "s
 /** px slider with readout; 0 = auto (slider shows autoValue, the size the storefront uses today). */
 function SizeSlider({ label, value, autoValue, autoLabel = "Auto", limits, onChange }: { label: string; value: number; autoValue: number; autoLabel?: string; limits: { min: number; max: number }; onChange: (v: number) => void }) {
   const id = useId();
+  const hold = useHoldAutosave();
   const shown = Math.max(limits.min, Math.min(limits.max, value || autoValue));
   return (
     <div className="space-y-1">
@@ -510,7 +567,20 @@ function SizeSlider({ label, value, autoValue, autoLabel = "Auto", limits, onCha
           )}
         </span>
       </div>
-      <input id={id} type="range" min={limits.min} max={limits.max} step={2} value={shown} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-accent" />
+      <input
+        id={id}
+        type="range"
+        min={limits.min}
+        max={limits.max}
+        step={2}
+        value={shown}
+        onChange={(e) => onChange(Number(e.target.value))}
+        onPointerDown={hold.onPointerDown}
+        onPointerUp={hold.onPointerUp}
+        onPointerCancel={hold.onPointerCancel}
+        onBlur={hold.onBlur}
+        className="w-full accent-accent"
+      />
     </div>
   );
 }

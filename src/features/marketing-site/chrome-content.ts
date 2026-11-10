@@ -3,6 +3,65 @@
  * footerSchema). PURE (no I/O, no imports from landing.ts, so landing.ts can import this).
  */
 
+import { marketplaceThemeCount } from "./themes";
+
+/** Default mega-menu / hub card href for a feature title (Theme Marketplace → /themes). */
+export function featureMenuHref(title: string): string {
+  if (/theme marketplace/i.test(title)) return "/themes";
+  const slug = title
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return `/features/${slug}`;
+}
+
+/** True for hub-only Features URLs (relative or absolute), not `/features/{slug}`. */
+export function isFeaturesHubHref(href: string): boolean {
+  const trimmed = href.trim();
+  if (!trimmed || trimmed === "/features" || trimmed === "/features/") return true;
+  try {
+    if (/^https?:\/\//i.test(trimmed)) {
+      const path = new URL(trimmed).pathname.replace(/\/+$/, "") || "/";
+      return path === "/features";
+    }
+  } catch {
+    /* ignore invalid absolute URLs */
+  }
+  return false;
+}
+
+/** Rewrite stale hub-only `/features` item links to per-feature routes without clobbering custom URLs. */
+export function normalizeMegaMenuItemHref(title: string, href: string): string {
+  if (isFeaturesHubHref(href)) return featureMenuHref(title);
+  return href.trim();
+}
+
+/**
+ * Home Solutions card titles → feature detail (or themes). Unmapped titles keep their href
+ * (usually the Features hub) so we never invent a 404 slug.
+ */
+export const SOLUTIONS_FEATURE_HREFS: Readonly<Record<string, string>> = {
+  "Theme Marketplace": "/themes",
+  "WhatsApp & Social": "/features/whatsapp-and-instagram-share",
+  "Custom Domain + SSL": "/features/custom-domain-ssl",
+  "Razorpay / UPI / COD": "/features/razorpay-upi-cod",
+  Shipping: "/features/shiprocket-shipping",
+  "GST-Ready Invoices": "/features/gst-ready-invoices",
+  "Coupons & Discounts": "/features/coupons-and-discounts",
+  "Reviews & Ratings": "/features/reviews-and-ratings",
+  "SEO Tools": "/features/blog-and-seo",
+  Analytics: "/features/analytics-dashboard",
+};
+
+/** Prefer the known Solutions → feature map; otherwise leave custom URLs alone. */
+export function normalizeSolutionsItemHref(title: string, href: string): string {
+  const mapped = SOLUTIONS_FEATURE_HREFS[title];
+  if (mapped) return mapped;
+  return href.trim() || "/features";
+}
+
 /** Icons offered for mega menu items (lucide names, mapped in components/chrome-icons). */
 export const MENU_ICONS = [
   "sparkles",
@@ -119,8 +178,7 @@ export type MegaMenu = {
   footerLink: { label: string; href: string };
 };
 
-const F = "/features";
-const item = (icon: MenuIcon, title: string, body: string, href = F): MegaMenuItem => ({ icon, title, body, href });
+const item = (icon: MenuIcon, title: string, body: string, href = featureMenuHref(title)): MegaMenuItem => ({ icon, title, body, href });
 
 export const DEFAULT_MEGA_MENU: MegaMenu = {
   enabled: true,
@@ -153,7 +211,7 @@ export const DEFAULT_MEGA_MENU: MegaMenu = {
       subtitle: "Make it your brand",
       tone: "violet",
       items: [
-        item("palette", "Theme Marketplace", "50+ AI-crafted, 5-page premium themes", "/themes"),
+        item("palette", "Theme Marketplace", `${marketplaceThemeCount()} AI-crafted, 5-page premium themes`, "/themes"),
         item("pointer", "Drag-and-Drop Builder", "Rearrange sections, swap blocks, no code"),
         item("image", "Logo & Banner Upload", "1:1 cropper, original filenames kept"),
         item("type", "Google Fonts", "Pick from 1,000+ fonts, applied site-wide"),

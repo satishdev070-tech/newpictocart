@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cartesian, cleanOptions, emptyVariant, generateVariantMatrix, slugify, suggestSku, variantTitle } from "@/features/catalog/variants";
+import { cartesian, cleanOptions, emptyVariant, generateVariantMatrix, initialSlugTouched, isSlugLinkedToTitle, previewVariantMatrixRegen, productCanonicalPreview, slugify, suggestSku, variantTitle } from "@/features/catalog/variants";
 import { normalizeTags, productInputSchema, toSaveProductPayload } from "@/features/catalog/schemas";
 import { emptyProductDraft } from "@/features/catalog/types";
 import { readAttributes } from "@/features/storefront/server/catalog";
@@ -12,6 +12,20 @@ describe("variant helpers", () => {
     expect(slugify("Rosé & Gold — Lehenga")).toBe("rose-and-gold-lehenga");
     expect(slugify("---")).toBe("");
     expect(slugify("a".repeat(200)).length).toBe(120);
+  });
+
+  it("keeps the handle linked to the title until manually overridden", () => {
+    expect(isSlugLinkedToTitle("indigo-kurta", "Indigo Kurta")).toBe(true);
+    expect(isSlugLinkedToTitle("custom-handle", "Indigo Kurta")).toBe(false);
+    expect(initialSlugTouched({ id: null, slug: "", title: "" })).toBe(false);
+    expect(initialSlugTouched({ id: "p1", slug: "indigo-kurta", title: "Indigo Kurta" })).toBe(false);
+    expect(initialSlugTouched({ id: "p1", slug: "old-handle", title: "Indigo Kurta" })).toBe(true);
+  });
+
+  it("previews the auto canonical URL from slug + store origin", () => {
+    expect(productCanonicalPreview("indigo-kurta")).toBe("/products/indigo-kurta");
+    expect(productCanonicalPreview("")).toBe("/products/…");
+    expect(productCanonicalPreview("indigo-kurta", "https://aangan.example.com/")).toBe("https://aangan.example.com/products/indigo-kurta");
   });
 
   it("titles and cartesian products", () => {
@@ -37,12 +51,31 @@ describe("variant helpers", () => {
     expect(again[0]!.sku).toBe("A");
   });
 
+  it("preserves price/SKU/id for exact comboKey matches and reports dropped rows", () => {
+    const existing = [
+      { ...emptyVariant({ option1: "S", option2: "Red", price: "1200", sku: "KEEP", compareAtPrice: "1500" }), id: "keep-id" },
+      { ...emptyVariant({ option1: "L", option2: "Blue", price: "1300", sku: "DROP" }), id: "drop-id" },
+    ];
+    const preview = previewVariantMatrixRegen([opt("Size", "S", "M"), opt("Colour", "Red")], existing);
+    expect(preview.kept).toHaveLength(1);
+    expect(preview.kept[0]).toMatchObject({ id: "keep-id", price: "1200", sku: "KEEP", compareAtPrice: "1500" });
+    expect(preview.dropped.map((v) => v.id)).toEqual(["drop-id"]);
+    expect(preview.created).toHaveLength(1);
+    expect(preview.created[0]).toMatchObject({ id: null, option1: "M", option2: "Red", price: "1200" });
+    expect(preview.next.map(variantTitle)).toEqual(["S / Red", "M / Red"]);
+    // generateVariantMatrix is the same next array
+    expect(generateVariantMatrix([opt("Size", "S", "M"), opt("Colour", "Red")], existing)).toEqual(preview.next);
+  });
+
   it("collapses to a single default variant without options", () => {
     const existing = [emptyVariant({ id: "x", option1: "S", price: "10" }), emptyVariant({ id: "y", option1: "M" })];
     const out = generateVariantMatrix([], existing);
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ id: "x", option1: null, price: "10" });
     expect(generateVariantMatrix([], [])).toHaveLength(1);
+    const preview = previewVariantMatrixRegen([], existing);
+    expect(preview.dropped.map((v) => v.id)).toEqual(["y"]);
+    expect(preview.kept[0]?.id).toBe("x");
   });
 
   it("suggests SKUs", () => {
@@ -102,12 +135,51 @@ describe("productInputSchema", () => {
   it("requires an active variant for an active product and one variant without options", () => {
     const d = base();
     d.status = "active";
+    d.countryOfOrigin = "India";
     d.variants = d.variants.map((v) => ({ ...v, status: "archived" as const }));
-    expect(productInputSchema.safeParse(d).success).toBe(false);
+    const inactive = productInputSchema.safeParse(d);
+    expect(inactive.success).toBe(false);
+    if (!inactive.success) {
+      const paths = inactive.error.issues.map((i) => i.path.join("."));
+      expect(paths).toEqual(expect.arrayContaining(["status", "variants"]));
+    }
     const e = base();
     e.options = [];
     e.variants = [emptyVariant({ price: "1" }), emptyVariant({ price: "2" })];
     expect(productInputSchema.safeParse(e).success).toBe(false);
+  });
+
+  it("requires country of origin when the product is active, optional on draft", () => {
+    const draft = base();
+    draft.status = "draft";
+    draft.countryOfOrigin = "";
+    expect(productInputSchema.safeParse(draft).success).toBe(true);
+
+    const active = base();
+    active.status = "active";
+    active.countryOfOrigin = "";
+    const missing = productInputSchema.safeParse(active);
+    expect(missing.success).toBe(false);
+    if (!missing.success) {
+      expect(missing.error.issues.map((i) => i.path.join("."))).toEqual(expect.arrayContaining(["countryOfOrigin"]));
+    }
+
+    active.countryOfOrigin = "India";
+    const ok = productInputSchema.parse(active);
+    expect(ok.countryOfOrigin).toBe("India");
+    expect(toSaveProductPayload(ok, { allowInitialStock: false }).product.country_of_origin).toBe("India");
+  });
+
+  it("drops blank option stubs and rejects empty option names that still have values", () => {
+    const d = base();
+    d.options = [...d.options, { name: "", values: [] }];
+    expect(productInputSchema.safeParse(d).success).toBe(true);
+    d.options = [opt("Size", "S"), { name: "  ", values: [{ value: "Red", swatch: "" }] }];
+    const r = productInputSchema.safeParse(d);
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(r.error.issues.map((i) => i.path.join("."))).toEqual(expect.arrayContaining(["options.1.name"]));
+    }
   });
 
   it("drops opening stock for existing variants or without inventory permission", () => {
@@ -118,5 +190,12 @@ describe("productInputSchema", () => {
     expect(toSaveProductPayload(p, { allowInitialStock: false }).variants[0]!.initial_stock).toBeNull();
     const withId = productInputSchema.parse({ ...d, variants: d.variants.map((v, i) => ({ ...v, id: i === 0 ? "00000000-0000-4000-a000-000000000001" : null })) });
     expect(toSaveProductPayload(withId, { allowInitialStock: true }).variants[0]!.initial_stock).toBeNull();
+    const withOpening = productInputSchema.parse({
+      ...d,
+      variants: d.variants.map((v, i) => ({ ...v, id: i === 0 ? "00000000-0000-4000-a000-000000000001" : null, initialStock: i === 1 ? "12" : "" })),
+    });
+    const payload = toSaveProductPayload(withOpening, { allowInitialStock: true });
+    expect(payload.variants[0]!.initial_stock).toBeNull();
+    expect(payload.variants[1]!.initial_stock).toBe(12);
   });
 });

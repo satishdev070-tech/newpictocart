@@ -17,7 +17,7 @@ export type AiFeature = {
   /** Call site in the code, for whoever debugs it. */
   source: string;
   engine: AiEngine;
-  /** True when ai_feature_routes applies (Gemini / Groq / Anthropic through loadProviders). */
+  /** True when ai_feature_routes applies (NVIDIA / Gemini / Groq / Anthropic through loadProviders). */
   routable: boolean;
   /** Credit kind debited per use (ai_credit_action_costs.kind), or null when free. */
   creditKind: string | null;
@@ -38,6 +38,14 @@ const NEURAL_PULSE: NeuralPulseFeature[] = [
 
 export const AI_FEATURES: readonly AiFeature[] = [
   ...NEURAL_PULSE,
+  { key: "generate_product", label: "Product from image", description: "Vision model fills title, description, tags and suggested price from a product photo (or hint).", usedIn: "Dashboard → Products → Add / edit (Generate with AI)", source: "features/seller-ai/actions.ts (generateProductFromImageAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "generate_product" },
+  { key: "generate_blog", label: "Blog AI Write", description: "Drafts a blog title, excerpt, tags, SEO and content blocks from a short topic.", usedIn: "Dashboard → Content → Blog", source: "features/seller-ai/actions.ts (generateBlogAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "generate_blog" },
+  { key: "generate_reviews", label: "Generate AI product reviews", description: "Drafts 3 or 5 positive product reviews and inserts them as pending for moderation.", usedIn: "Dashboard → Reviews", source: "features/seller-ai/actions.ts (generateReviewsAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "generate_reviews" },
+  { key: "contact_reply", label: "Contact reply draft", description: "Drafts a polite email reply to a store contact-form message (not sent).", usedIn: "Dashboard → Content → Messages", source: "features/seller-ai/actions.ts (generateContactReplyAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "contact_reply" },
+  { key: "business_coach", label: "Business coach", description: "Checklist of next steps from the store's real metrics, top sellers, low stock and pending setup, in the seller's panel language (English or Hindi).", usedIn: "Dashboard home", source: "features/seller-ai/actions.ts (refreshBusinessCoachAction) (in-process generateJson)", engine: "llm", routable: true, creditKind: "business_coach" },
+  { key: "store_agent", label: "Pica2 AI Assistant", description: "Answers the seller's questions from their own orders, products, stock and sales, with growth tips and links to dashboard pages. Replies in the panel language. Can propose store FAQs for confirm-Apply.", usedIn: "Dashboard (floating “Pica2 AI Assistant” button)", source: "features/seller-ai/actions.ts (askStoreAgentAction)", engine: "llm", routable: true, creditKind: "store_agent" },
+  { key: "generate_faq", label: "Apply AI store FAQs", description: "Writes a confirmed FAQ proposal (typically 5 Q&As) into the store FAQs CMS. Credits are debited only when the seller clicks Apply — never on preview alone.", usedIn: "Dashboard → Pica2 AI Assistant (FAQ proposal Apply)", source: "features/seller-ai/actions.ts (applyFaqsProposalAction)", engine: "llm", routable: true, creditKind: "generate_faq" },
+  { key: "store_setup", label: "Build your store from a prompt", description: "Turns a shop description and product names (optionally photos) into categories, draft products, draft blogs and pending sample reviews.", usedIn: "Dashboard home (Build your store from a prompt)", source: "features/seller-ai/actions.ts (setupStoreFromPromptAction)", engine: "llm", routable: true, creditKind: "store_setup" },
   { key: "theme_builder", label: "AI theme builder", description: "Builds a marketplace theme from a reference site and screenshots (vision models go first when images are attached).", usedIn: "Admin → Themes → New theme", source: "features/theme/builder/server/generate.ts (generateThemeForAdmin)", engine: "llm", routable: true, creditKind: null },
   { key: "onboarding_seed", label: "Store starter content", description: "Categories, products, hero, SEO, blogs and testimonials for a new store. A deterministic plan is used when Sarvam is missing or fails.", usedIn: "Seller onboarding (ready store)", source: "features/onboarding/seed/generate.ts (generateReadyStorePlan)", engine: "sarvam", routable: false, creditKind: "onboarding_seed" },
   { key: "voice_onboarding", label: "Voice onboarding (Tara)", description: "Speech-to-text, chat and text-to-speech in Indian languages to set a store up by voice.", usedIn: "Seller onboarding (voice method)", source: "features/onboarding/voice/turn.ts (runTaraTurn)", engine: "sarvam", routable: false, creditKind: null },
@@ -45,11 +53,27 @@ export const AI_FEATURES: readonly AiFeature[] = [
 
 export const ROUTABLE_FEATURE_KEYS = AI_FEATURES.filter((f) => f.routable).map((f) => f.key);
 
+/**
+ * Seller AI features seeded to NVIDIA (Nemotron Omni text default) when no Admin → AI Health
+ * route row exists yet. Vision still swaps to NVIDIA_VISION_MODEL inside nvidiaRequestBody.
+ * `generate_product` also seeds Gemini (`gemini-3.8-flash`) as fallback (migration 04700 / 04900);
+ * Groq remains next in the platform order when the route is off or those keys are missing.
+ */
+export const SELLER_AI_NVIDIA_DEFAULT_ROUTE_KEYS = [
+  "generate_product",
+  "generate_blog",
+  "store_agent",
+  "contact_reply",
+  "business_coach",
+  "generate_reviews",
+  "generate_faq",
+] as const;
+
 export function findFeature(key: string): AiFeature | undefined {
   return AI_FEATURES.find((f) => f.key === key);
 }
 
-export const ENGINE_LABELS: Record<AiEngine, string> = { llm: "Gemini / Groq / Anthropic", llm_sarvam: "LLM, then Sarvam", sarvam: "Sarvam only" };
+export const ENGINE_LABELS: Record<AiEngine, string> = { llm: "NVIDIA / Gemini / Groq / Anthropic", llm_sarvam: "LLM, then Sarvam", sarvam: "Sarvam only" };
 
 export type FeatureRoute = {
   featureKey: string;

@@ -16,7 +16,7 @@ const TABS = [
 export function SocialTabs() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Social" className="-mx-4 mb-6 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
+    <nav aria-label="Social" data-tour="social-tabs" className="-mx-4 mb-6 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
       <ul className="flex min-w-max gap-1">
         {TABS.map(([href, label]) => {
           const full = `${BASE}${href}`;

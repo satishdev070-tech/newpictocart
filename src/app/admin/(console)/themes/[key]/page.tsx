@@ -79,12 +79,12 @@ export default async function AdminThemePage({ params }: PageProps<"/admin/theme
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
         <Card title="Desktop layout">
           <div className="overflow-hidden rounded-md border border-border">
-            <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} size="large" />
+            <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} themeKey={t.key} size="large" />
           </div>
         </Card>
         <Card title="Phone">
           <div className="overflow-hidden rounded-md border border-border">
-            <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} size="phone" />
+            <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} themeKey={t.key} size="phone" />
           </div>
         </Card>
       </div>

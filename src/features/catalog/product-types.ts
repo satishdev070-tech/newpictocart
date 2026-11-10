@@ -136,7 +136,7 @@ const SEEDS: Seed[] = [
   ["lehenga", "Lehenga", "Lehengas", ["fashion"], T.apparel],
   ["top", "Top", "Tops", ["fashion"], T.apparel],
   ["shirt", "Shirt", "Shirts", ["fashion"], T.apparel],
-  ["tshirt", "T-shirt", "T-shirts", ["fashion", "sports"], T.basicApparel],
+  ["tshirt", "T-shirt", "T-shirts", ["fashion", "sports", "gym"], T.basicApparel],
   ["bottom", "Bottom", "Bottoms", ["fashion"], T.apparel],
   ["jacket", "Jacket", "Jackets", ["fashion"], T.apparel],
   ["dupatta", "Dupatta", "Dupattas", ["fashion", "handicrafts"], T.apparel],
@@ -191,7 +191,7 @@ const SEEDS: Seed[] = [
   ["coffee", "Coffee", "Coffees", ["beverages"], T.beverage],
   ["beverage", "Juice & drink", "Juices & drinks", ["beverages", "grocery"], T.beverage],
   // Health & ayurveda
-  ["supplement", "Supplement", "Supplements", ["health", "ayurveda", "sports"], T.health],
+  ["supplement", "Supplement", "Supplements", ["health", "ayurveda", "sports", "gym"], T.health],
   ["medical_device", "Medical device", "Medical devices", ["health"], T.electronics],
   ["personal_care", "Personal care", "Personal care", ["health", "beauty", "general"], T.health],
   ["ayurvedic_medicine", "Ayurvedic medicine", "Ayurvedic medicines", ["ayurveda", "health"], T.health],
@@ -199,11 +199,11 @@ const SEEDS: Seed[] = [
   ["essential_oil", "Essential oil", "Essential oils", ["ayurveda", "organic", "fragrances"], T.beauty],
   // Sports
   ["sports_equipment", "Sports equipment", "Sports equipment", ["sports"], T.sports],
-  ["fitness_equipment", "Fitness equipment", "Fitness equipment", ["sports", "health"], T.sports],
-  ["sportswear", "Sportswear", "Sportswear", ["sports"], T.basicApparel],
+  ["fitness_equipment", "Fitness equipment", "Fitness equipment", ["sports", "health", "gym"], T.sports],
+  ["sportswear", "Sportswear", "Sportswear", ["sports", "gym"], T.basicApparel],
   ["outdoor_gear", "Outdoor & camping gear", "Outdoor & camping gear", ["sports", "bags"], T.sports],
   // Footwear
-  ["shoes", "Shoes", "Shoes", ["footwear", "sports"], T.footwear],
+  ["shoes", "Shoes", "Shoes", ["footwear", "sports", "gym"], T.footwear],
   ["sneakers", "Sneakers", "Sneakers", ["footwear"], T.footwear],
   ["sandals", "Sandals & heels", "Sandals & heels", ["footwear"], T.footwear],
   ["ethnic_footwear", "Juttis & kolhapuris", "Juttis & kolhapuris", ["footwear", "handicrafts"], T.footwear],
@@ -414,6 +414,41 @@ export function groupTypesForPicker(types: readonly ProductTypeDef[], industry: 
     others.unshift({ key: current, label: humanizeTypeKey(current), plural: humanizeTypeKey(current), industries: [], template: GENERIC_TEMPLATE, position: 0, status: "active", source: "default" });
   }
   return { suggested, store, others };
+}
+
+/**
+ * Product editor type list: store-created types + types already used on products + the current
+ * value. When the store has no products yet, fall back to industry-suggested keys (and "other")
+ * so the first product still has a sensible picker without dumping the full catalogue.
+ */
+export function typesForProductEditor(
+  types: readonly ProductTypeDef[],
+  usedKeys: readonly string[],
+  industry: string | null | undefined,
+  current?: string,
+): ProductTypeDef[] {
+  const used = new Set(usedKeys);
+  const emptyStore = used.size === 0;
+  const suggested = emptyStore ? new Set(industryTypeKeys(industry, types)) : null;
+  const keep = new Set<string>();
+  if (current) keep.add(current);
+  for (const k of used) keep.add(k);
+  if (suggested) for (const k of suggested) keep.add(k);
+  if (emptyStore) keep.add("other");
+  const out = types.filter((t) => t.source === "store" || keep.has(t.key));
+  if (current && !out.some((t) => t.key === current)) {
+    out.push({
+      key: current,
+      label: humanizeTypeKey(current),
+      plural: humanizeTypeKey(current),
+      industries: [],
+      template: GENERIC_TEMPLATE,
+      position: 0,
+      status: "active",
+      source: "default",
+    });
+  }
+  return out;
 }
 
 // ---- spec fields from a template --------------------------------------------------------

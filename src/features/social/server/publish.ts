@@ -1,7 +1,7 @@
 import "server-only";
-import sharp from "sharp";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { assetUrl, STORE_ASSETS_BUCKET } from "@/lib/storage/assets";
+import { loadSharp } from "@/lib/storage/sharp-load";
 import { logger } from "@/lib/observability/logger";
 import { audit } from "@/lib/audit";
 import type { Json } from "@/lib/supabase/database.types";
@@ -27,9 +27,20 @@ async function jpegUrl(tenantId: string, postId: string, path: string): Promise<
   const src = assetUrl(path);
   if (!src) return null;
   if (/\.jpe?g$/i.test(path)) return src;
+  const sharpMod = await loadSharp();
+  if (!sharpMod) {
+    logger.warn("social.jpeg_convert_unavailable", { tenantId, postId });
+    return null;
+  }
   const res = await fetch(src, { signal: AbortSignal.timeout(20_000) });
   if (!res.ok) return null;
-  const jpg = await sharp(Buffer.from(await res.arrayBuffer())).rotate().resize({ width: 1440, withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality: 88 }).toBuffer();
+  const jpg = await sharpMod
+    .default(Buffer.from(await res.arrayBuffer()))
+    .rotate()
+    .resize({ width: 1440, withoutEnlargement: true })
+    .flatten({ background: "#ffffff" })
+    .jpeg({ quality: 88 })
+    .toBuffer();
   const out = `tenant/${tenantId}/social/${postId}.jpg`;
   const { error } = await createSupabaseAdminClient().storage.from(STORE_ASSETS_BUCKET).upload(out, jpg, { contentType: "image/jpeg", upsert: true, cacheControl: "3600" });
   return error ? null : assetUrl(out);

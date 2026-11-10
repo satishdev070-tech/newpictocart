@@ -17,9 +17,11 @@ export function NotificationList({ scope, userId, items, live = true }: { scope:
   const [rows, setRows] = useState(items);
   const [now, setNow] = useState(() => Date.now());
   // New server data (router.refresh after a live event) replaces the optimistic rows.
-  const [source, setSource] = useState(items);
-  if (source !== items) {
-    setSource(items);
+  // Compare by id signature so a fresh array with the same rows does not loop setState (#185).
+  const [sourceKey, setSourceKey] = useState(() => items.map((i) => `${i.id}:${i.readAt ?? ""}`).join("|"));
+  const itemsKey = items.map((i) => `${i.id}:${i.readAt ?? ""}`).join("|");
+  if (sourceKey !== itemsKey) {
+    setSourceKey(itemsKey);
     setRows(items);
   }
   useEffect(() => {

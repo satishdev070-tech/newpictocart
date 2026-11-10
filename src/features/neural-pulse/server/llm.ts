@@ -14,17 +14,25 @@ import type { Prompt } from "../prompts";
  *   generationConfig.responseMimeType = "application/json".
  * - Groq: POST https://api.groq.com/openai/v1/chat/completions (OpenAI-compatible), Bearer key,
  *   response_format {type: "json_object"} (the prompt must mention JSON).
+ * - NVIDIA NIM: POST https://integrate.api.nvidia.com/v1/chat/completions (OpenAI-compatible), Bearer key.
+ *   Nemotron reasoning is switched off with the `/no_think` system flag and any <think> block is
+ *   stripped; photos go to a Llama vision model as image_url data URIs when the routed model is text-only.
  * - Anthropic: POST https://api.anthropic.com/v1/messages, x-api-key + anthropic-version, with
  *   server-side refusal fallback (`fallbacks: "default"`, beta server-side-fallback-2026-07-01).
  */
 
 export const DEFAULT_MODELS: Record<AiProvider, string> = {
+  nvidia: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
   gemini: "gemini-3.8-flash",
-  groq: "llama-3.3-70b-versatile",
+  groq: "openai/gpt-oss-120b",
   anthropic: "claude-opus-5-5",
 };
 
-const TIMEOUT_MS: Record<AiProvider, number> = { gemini: 30_000, groq: 30_000, anthropic: 90_000 };
+/** Used for NVIDIA when the prompt carries photos and the configured model is text-only. */
+export const NVIDIA_VISION_MODEL = "meta/llama-3.2-11b-vision-instruct";
+export const NVIDIA_CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
+
+const TIMEOUT_MS: Record<AiProvider, number> = { nvidia: 60_000, gemini: 30_000, groq: 30_000, anthropic: 90_000 };
 
 export type ProviderConfig = { id: AiProvider; apiKey: string; model: string };
 export type LlmCall = { text: string; tokens: number | null };
@@ -114,6 +122,62 @@ async function callGroq(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt): Pr
   return { text, tokens: num(json.usage?.total_tokens) };
 }
 
+/** True for NVIDIA model ids that accept images (…-vl-…, vision, …-omni-…). */
+export function isNvidiaVisionModel(model: string): boolean {
+  return /(^|[-/_.])(vl|omni)([-/_.]|$)|vision/i.test(model);
+}
+
+/** Request body for NVIDIA's OpenAI-compatible chat endpoint (pure, unit tested). */
+export function nvidiaRequestBody(model: string, prompt: Prompt): { model: string; body: Record<string, unknown> } {
+  const images = prompt.images ?? [];
+  // Omni/vl/vision keep their own id; true text-only models swap to NVIDIA_VISION_MODEL when photos exist.
+  const useModel = images.length && !isNvidiaVisionModel(model) ? NVIDIA_VISION_MODEL : model;
+  const attachingImages = images.length > 0 && isNvidiaVisionModel(useModel);
+  // Nemotron reasoning models think by default; JSON copywriting doesn't need it (text or photo).
+  const system = /nemotron/i.test(useModel) ? `/no_think\n${prompt.system}` : prompt.system;
+  const user = attachingImages
+    ? [...images.map((i) => ({ type: "image_url", image_url: { url: `data:${i.mediaType};base64,${i.data}` } })), { type: "text", text: prompt.user }]
+    : prompt.user;
+  return {
+    model: useModel,
+    body: {
+      model: useModel,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      temperature: 0.6,
+      top_p: 0.95,
+      max_tokens: attachingImages ? 4096 : 8192,
+      stream: false,
+      // Text JSON features: ask NIM for a JSON object. When photos are attached, keep free-form
+      // and rely on extractJson (some vision endpoints reject response_format).
+      ...(attachingImages ? {} : { response_format: { type: "json_object" } }),
+    },
+  };
+}
+
+/** Removes a leading <think>…</think> block some Nemotron models still emit (and unclosed ones before JSON). */
+export function stripThinking(text: string): string {
+  let t = text.replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, "").trim();
+  if (/^\s*<think>/i.test(t)) {
+    const jsonStart = t.search(/[{[]/);
+    t = jsonStart > 0 ? t.slice(jsonStart) : "";
+  }
+  return t.trim();
+}
+
+async function callNvidia(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt): Promise<LlmCall> {
+  const { body } = nvidiaRequestBody(p.model, prompt);
+  const json = (await postJson(fetchImpl, NVIDIA_CHAT_URL, { authorization: `Bearer ${p.apiKey}`, accept: "application/json" }, body, TIMEOUT_MS.nvidia)) as {
+    choices?: { message?: { content?: string | null }; finish_reason?: string }[];
+    usage?: { total_tokens?: number };
+  };
+  const text = stripThinking(json.choices?.[0]?.message?.content ?? "");
+  if (!text) throw new OutputError(`empty response (${json.choices?.[0]?.finish_reason ?? "no choice"})`);
+  return { text, tokens: num(json.usage?.total_tokens) };
+}
+
 async function callAnthropic(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt): Promise<LlmCall> {
   const json = (await postJson(
     fetchImpl,
@@ -137,25 +201,43 @@ async function callAnthropic(fetchImpl: Fetch, p: ProviderConfig, prompt: Prompt
   return { text, tokens: tokens || null };
 }
 
-const ADAPTERS: Record<AiProvider, (f: Fetch, p: ProviderConfig, prompt: Prompt) => Promise<LlmCall>> = { gemini: callGemini, groq: callGroq, anthropic: callAnthropic };
+const ADAPTERS: Record<AiProvider, (f: Fetch, p: ProviderConfig, prompt: Prompt) => Promise<LlmCall>> = { nvidia: callNvidia, gemini: callGemini, groq: callGroq, anthropic: callAnthropic };
 
-/** Extracts the JSON object from a model reply (tolerates code fences or stray prose around it). */
+/** Short, key-free preview of a bad reply for logs / retry hints (never includes API keys). */
+function replyPreview(text: string): string {
+  const flat = text.replace(/\s+/g, " ").trim().slice(0, 120);
+  if (!flat) return "";
+  return ` (got: ${JSON.stringify(flat)}${text.trim().length > 120 ? "…" : ""})`;
+}
+
+/** Extracts the JSON object/array from a model reply (tolerates think tags, fences, or stray prose). */
 export function extractJson(text: string): unknown {
-  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const cleaned = stripThinking(text)
+    .replace(/^\uFEFF/, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
   try {
-    return JSON.parse(trimmed);
+    return JSON.parse(cleaned);
   } catch {
-    const start = trimmed.indexOf("{");
-    const end = trimmed.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(trimmed.slice(start, end + 1));
-      } catch {
-        /* fall through */
-      }
-    }
-    throw new OutputError("reply was not valid JSON");
+    /* try the first balanced object or array below */
   }
+  for (const [open, close] of [
+    ["{", "}"],
+    ["[", "]"],
+  ] as const) {
+    const start = cleaned.indexOf(open);
+    const end = cleaned.lastIndexOf(close);
+    if (start < 0 || end <= start) continue;
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    } catch {
+      /* try next shape */
+    }
+  }
+  throw new OutputError(`reply was not valid JSON${replyPreview(cleaned)}`);
 }
 
 /**
@@ -178,7 +260,9 @@ export async function generateJson<S extends z.ZodType>(providers: ProviderConfi
         return { data: parsed.data, provider: p.id, model: p.model, tokens, attempts: attempt };
       } catch (err) {
         if (err instanceof OutputError) {
-          lastError = err.message.slice(0, 200);
+          // NVIDIA reasoning models often wrap or truncate JSON; tag failures so Admin / logs are clear.
+          const detail = err.message.slice(0, 180);
+          lastError = (p.id === "nvidia" ? `NVIDIA parse failure: ${detail}` : detail).slice(0, 200);
           continue;
         }
         lastError = err instanceof ProviderHttpError ? err.message : "unexpected error";

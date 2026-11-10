@@ -4,6 +4,8 @@
  * Swap the sink for a provider (Sentry/Axiom/Logflare) in the hardening phase.
  */
 
+import { getRequestLogFields } from "./request-context";
+
 type Level = "debug" | "info" | "warn" | "error";
 const ORDER: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 
@@ -28,7 +30,9 @@ function minLevel(): Level {
 
 function emit(level: Level, msg: string, fields?: Record<string, unknown>) {
   if (ORDER[level] < ORDER[minLevel()]) return;
-  const line = JSON.stringify({ level, msg, time: new Date().toISOString(), ...(fields ? (redact(fields) as object) : {}) });
+  const bound = getRequestLogFields();
+  const merged = { ...(bound ?? {}), ...(fields ?? {}) };
+  const line = JSON.stringify({ level, msg, time: new Date().toISOString(), ...(Object.keys(merged).length ? (redact(merged) as object) : {}) });
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.log(line);

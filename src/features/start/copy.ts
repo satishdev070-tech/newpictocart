@@ -16,9 +16,41 @@ export type StartCopy = {
     features: string[];
     orderToast: string;
   };
-  lang: { title: string; titleAccent: string; sub: string; continue: (name: string) => string; more: string };
+  lang: {
+    headline: string;
+    title: string;
+    titleAccent: string;
+    sub: string;
+    continue: (name: string) => string;
+    more: string;
+  };
   intent: { tara: string; question: string; continue: string };
-  path: { title: string; titleAccent: string; sub: string; aiTitle: string; aiBadge: string; aiDesc: string; aiBullets: string[]; manualTitle: string; manualBadge: string; manualDesc: string; manualBullets: string[]; ctaAi: string; ctaManual: string };
+  path: {
+    headline: string;
+    title: string;
+    titleAccent: string;
+    sub: string;
+    voiceTitle: string;
+    voiceBadge: string;
+    voiceDesc: string;
+    quizTitle: string;
+    quizBadge: string;
+    quizDesc: string;
+    comingSoon: string;
+    ctaVoice: string;
+    ctaQuiz: string;
+    /** @deprecated Prefer voice* / quiz* fields for five-screen onboarding. */
+    aiTitle: string;
+    aiBadge: string;
+    aiDesc: string;
+    aiBullets: string[];
+    manualTitle: string;
+    manualBadge: string;
+    manualDesc: string;
+    manualBullets: string[];
+    ctaAi: string;
+    ctaManual: string;
+  };
   voice: {
     understood: string;
     understoodHint: string;
@@ -39,6 +71,13 @@ export type StartCopy = {
     nameTitle: string;
     nameHint: string;
     categoryTitle: string;
+    categorySearch: string;
+    subcategoryTitle: string;
+    customSubHint: string;
+    customSubAdd: string;
+    customSubRemove: string;
+    /** Shown when search filters out every chip; `{q}` is the typed query. */
+    customSubNoMatch: (q: string) => string;
     more: string;
     less: string;
     siteTitle: string;
@@ -61,6 +100,9 @@ export type StartCopy = {
     tagline: string;
     writeAi: string;
     category: string;
+    subcategory: string;
+    productsServices: string;
+    productsServicesHint: string;
     city: string;
     whatsapp: string;
     next: string;
@@ -92,15 +134,32 @@ export type StartCopy = {
     shipCourier: string;
     next: string;
   };
-  building: { title: string; steps: string[] };
+  building: {
+    title: string;
+    steps: string[];
+    finishing: string;
+    themeFallback: string;
+  };
   account: {
+    /** Eyebrow above the main headline (e.g. Create Account). */
+    eyebrow: string;
     title: string;
     titleAccent: string;
     sub: string;
+    valueLine: string;
     signUp: string;
     signIn: string;
+    signInTitle: string;
+    signInTitleAccent: string;
+    signInSub: string;
+    haveAccount: string;
+    needAccount: string;
+    or: string;
     orEmail: string;
+    continueGoogle: string;
+    signInGoogle: string;
     create: string;
+    continueEmail: string;
     checkEmail: string;
     name: string;
     email: string;
@@ -108,10 +167,25 @@ export type StartCopy = {
     passwordHint: string;
     signInSubmit: string;
     sendCode: string;
+    usePassword: string;
+    useEmailCode: string;
+    summaryStore: string;
+    summaryCategory: string;
+    summaryTheme: string;
+    summaryLanguage: string;
+    codeTitle: string;
+    codeTitleAccent: string;
     codeLabel: string;
     codeHint: string;
     codeSubmit: string;
     codeSent: string;
+    codeSentTo: (email: string) => string;
+    didntGetIt: string;
+    resend: string;
+    resendIn: (seconds: number) => string;
+    resending: string;
+    resent: string;
+    changeEmail: string;
     agree: string;
     terms: string;
     and: string;
@@ -122,11 +196,22 @@ export type StartCopy = {
     title: string;
     titleAccent: string;
     sub: string;
+    /** Personalized when store name is known. */
+    subNamed: (name: string) => string;
     copy: string;
     copied: string;
     whatsapp: string;
     dashboard: string;
     tryLook: string;
+    journeyTitle: string;
+    journeySub: string;
+    journeySteps: [
+      { label: string; blurb: string },
+      { label: string; blurb: string },
+      { label: string; blurb: string },
+      { label: string; blurb: string },
+      { label: string; blurb: string },
+    ];
   };
   intents: Record<StartIntentId, { title: string; sub: string }>;
 };
@@ -148,9 +233,10 @@ const EN: StartCopy = {
     orderToast: "New order · ₹2,190 from Pune",
   },
   lang: {
+    headline: "Start Your Journey",
     title: "Which language feels like ",
     titleAccent: "home",
-    sub: "Every screen, Tara's voice and your listings will switch to it.",
+    sub: "Which language feels like home?",
     continue: (name) => `Continue in ${name} →`,
     more: "More Indian languages",
   },
@@ -160,19 +246,29 @@ const EN: StartCopy = {
     continue: "Continue →",
   },
   path: {
+    headline: "How would you like to build your store?",
     title: "How would you like to ",
     titleAccent: "build your store",
-    sub: "You can switch methods at any step.",
-    aiTitle: "AI assistance",
-    aiBadge: "Recommended",
-    aiDesc: "Tara helps write your store, pick a theme, and set up products while you talk or type.",
-    aiBullets: ["Answers and recommendations from Tara", "SEO, theme and product help", "Fastest path — about 5 minutes"],
-    manualTitle: "Manual setup",
-    manualBadge: "Full control",
-    manualDesc: "Enter your details, design, products and payments yourself.",
-    manualBullets: ["Step-by-step store setup", "AI help when you want it", "About 8 minutes"],
-    ctaAi: "Meet Tara →",
-    ctaManual: "Set up manually →",
+    sub: "Talk with Tara, or answer a short quiz — you can switch later.",
+    voiceTitle: "AI Voice Assistant",
+    voiceBadge: "Talk",
+    voiceDesc: "Talk naturally with Tara. She listens, asks follow-ups, and fills in your store.",
+    quizTitle: "Quick Setup Quiz",
+    quizBadge: "Tap",
+    quizDesc: "Answer a few simple questions. Fast, clear, and no microphone needed.",
+    comingSoon: "Coming Soon",
+    ctaVoice: "Talk with Tara →",
+    ctaQuiz: "Start the quiz →",
+    aiTitle: "AI Voice Assistant",
+    aiBadge: "Talk",
+    aiDesc: "Talk naturally with Tara. She listens, asks follow-ups, and fills in your store.",
+    aiBullets: ["Natural conversation", "Tara fills store details", "About 5 minutes"],
+    manualTitle: "Quick Setup Quiz",
+    manualBadge: "Tap",
+    manualDesc: "Answer a few simple questions. Fast, clear, and no microphone needed.",
+    manualBullets: ["Short questions", "No microphone", "About 3 minutes"],
+    ctaAi: "Talk with Tara →",
+    ctaManual: "Start the quiz →",
   },
   voice: {
     understood: "TARA HAS UNDERSTOOD",
@@ -194,12 +290,18 @@ const EN: StartCopy = {
     nameTitle: "What is your store called?",
     nameHint: "e.g. Kia Garments",
     categoryTitle: "What do you sell?",
+    categorySearch: "Search categories…",
+    subcategoryTitle: "Select Products Category For Your Store?",
+    customSubHint: "Add more type of products.",
+    customSubAdd: "Add",
+    customSubRemove: "Remove",
+    customSubNoMatch: (q) => `No match — tap Add to create “${q}”`,
     more: "More categories",
     less: "Fewer categories",
     siteTitle: "What should we build?",
     storeTitle: "Online store",
     storeDesc: "A shop with a cart, checkout and orders.",
-    siteInfoTitle: "Business website",
+    siteInfoTitle: "Informational Website",
     siteInfoDesc: "A site where people learn about you and get in touch.",
     cityTitle: "Which city are you in?",
     cityHint: "e.g. Jaipur",
@@ -207,7 +309,7 @@ const EN: StartCopy = {
     taglineHint: "e.g. Handloom from the family workshop",
     skip: "Skip",
     next: "Next",
-    finish: "Build my store →",
+    finish: "Continue →",
   },
   business: {
     title: "Tell us about your ",
@@ -216,9 +318,12 @@ const EN: StartCopy = {
     tagline: "Tagline",
     writeAi: "✦ Write with AI",
     category: "Category",
+    subcategory: "Subcategory",
+    productsServices: "What do you sell or offer?",
+    productsServicesHint: "e.g. Bandhani stoles, block-print kurtas, custom sizes",
     city: "City",
     whatsapp: "WhatsApp number",
-    next: "Next: Products →",
+    next: "Continue →",
   },
   products: {
     title: "Add your ",
@@ -256,32 +361,61 @@ const EN: StartCopy = {
   building: {
     title: "Your store is being built…",
     steps: [
-      "Saving your information",
-      "Creating your store page",
-      "Connecting payments",
-      "Going live",
-      "Finishing touches",
+      "Applying your theme…",
+      "Setting up categories…",
+      "Adding sample products…",
+      "Writing blog posts…",
+      "Collecting sample reviews…",
+      "Your store is ready!",
     ],
+    finishing: "Finishing your store…",
+    themeFallback: "Your storefront",
   },
   account: {
-    title: "Save your store before ",
-    titleAccent: "going live",
-    sub: "Create an account so we can publish your store.",
+    eyebrow: "Create Account",
+    title: "Create Your ",
+    titleAccent: "Store",
+    sub: "Save your draft and go live when you're ready.",
+    valueLine: "Free forever for up to 10 products. No card details needed.",
     signUp: "Sign up",
     signIn: "Sign in",
-    orEmail: "Or with email",
-    create: "Create account and go live →",
-    checkEmail: "Check your email to confirm, then return here — your draft is saved.",
+    signInTitle: "Welcome ",
+    signInTitleAccent: "back",
+    signInSub: "Sign in to publish the store you just designed.",
+    haveAccount: "Already have an account?",
+    needAccount: "New here?",
+    or: "or",
+    orEmail: "or",
+    continueGoogle: "Signup with Google",
+    signInGoogle: "Continue with Google",
+    create: "Create account",
+    continueEmail: "Continue",
+    checkEmail: "Your draft is saved — enter the code below to continue.",
     name: "Full name",
-    email: "Email",
+    email: "Email address",
     password: "Password",
     passwordHint: "Use 10+ characters with a letter and a number.",
-    signInSubmit: "Sign in",
-    sendCode: "Email me a code",
-    codeLabel: "Email code",
-    codeHint: "Enter the 6-digit code we emailed you.",
-    codeSubmit: "Confirm and continue",
-    codeSent: "We sent a code to your email.",
+    signInSubmit: "Send sign-in code",
+    sendCode: "Submit",
+    usePassword: "Use a password instead",
+    useEmailCode: "Email me a code instead",
+    summaryStore: "Store",
+    summaryCategory: "Category",
+    summaryTheme: "Theme",
+    summaryLanguage: "Language",
+    codeTitle: "Check your ",
+    codeTitleAccent: "inbox",
+    codeLabel: "Verification code",
+    codeHint: "6-digit code from your email",
+    codeSubmit: "Verify OTP",
+    codeSent: "We sent a verification code to your email.",
+    codeSentTo: (email) => `Enter the verification code sent to ${email}`,
+    didntGetIt: "Didn't get it?",
+    resend: "Resend code",
+    resendIn: (seconds) => `Resend code in ${seconds}s`,
+    resending: "Sending…",
+    resent: "We sent a new code.",
+    changeEmail: "Change the email address",
     agree: "By continuing you agree to the",
     terms: "Terms",
     and: "and",
@@ -291,12 +425,22 @@ const EN: StartCopy = {
     badge: "Your store is live",
     title: "Your store is ",
     titleAccent: "open",
-    sub: "Set up manually. Share your link and start taking orders.",
+    sub: "Share your link and start taking orders.",
+    subNamed: (name) => `${name} is ready. Share your link and start taking orders.`,
     copy: "Copy",
     copied: "Copied!",
     whatsapp: "Share on WhatsApp",
     dashboard: "Go to dashboard →",
     tryLook: "Try another look",
+    journeyTitle: "From first tap to a live store",
+    journeySub: "You walked the full path — language, mode, business, look, and account.",
+    journeySteps: [
+      { label: "Language", blurb: "Picked how you want to talk" },
+      { label: "Mode", blurb: "Voice guide or quick quiz" },
+      { label: "Business", blurb: "Named your shop & category" },
+      { label: "Theme", blurb: "Chose a storefront look" },
+      { label: "Account", blurb: "Saved & went live" },
+    ],
   },
   intents: {
     "first-business": { title: "Starting my first business", sub: "I have products, no store yet" },
@@ -323,9 +467,10 @@ const HI: StartCopy = {
     orderToast: "नया ऑर्डर · पुणे से ₹2,190",
   },
   lang: {
+    headline: "अपनी यात्रा शुरू करें",
     title: "कौन सी भाषा ",
     titleAccent: "घर",
-    sub: "हर स्क्रीन, तारा की आवाज़ और आपकी लिस्टिंग इसी में होंगी।",
+    sub: "कौन सी भाषा घर जैसी लगती है?",
     continue: (name) => `${name} में जारी रखें →`,
     more: "और भारतीय भाषाएँ",
   },
@@ -335,19 +480,29 @@ const HI: StartCopy = {
     continue: "आगे बढ़ें →",
   },
   path: {
+    headline: "आप अपनी दुकान कैसे बनाना चाहेंगे?",
     title: "आप अपनी दुकान ",
     titleAccent: "कैसे बनाना",
-    sub: "किसी भी चरण पर आप तरीका बदल सकते हैं।",
-    aiTitle: "AI सहायता",
-    aiBadge: "सुझाया गया",
-    aiDesc: "तारा आपकी दुकान लिखने, थीम चुनने और प्रोडक्ट सेट करने में मदद करेगी।",
-    aiBullets: ["तारा से सुझाव और जवाब", "SEO, थीम और प्रोडक्ट में मदद", "सबसे तेज़ — लगभग 5 मिनट"],
-    manualTitle: "मैन्युअल सेटअप",
-    manualBadge: "पूरा नियंत्रण",
-    manualDesc: "अपनी जानकारी, डिज़ाइन, प्रोडक्ट और भुगतान खुद भरें।",
-    manualBullets: ["चरण दर चरण सेटअप", "जरूरत पर AI मदद", "लगभग 8 मिनट"],
-    ctaAi: "तारा से मिलें →",
-    ctaManual: "मैन्युअल सेटअप →",
+    sub: "तारा से बात करें, या छोटा क्विज़ भरें — बाद में बदल सकते हैं।",
+    voiceTitle: "AI वॉइस असिस्टेंट",
+    voiceBadge: "बात करें",
+    voiceDesc: "तारा से स्वाभाविक बात करें। वह सुनती है, सवाल पूछती है, और दुकान भर देती है।",
+    quizTitle: "क्विक सेटअप क्विज़",
+    quizBadge: "टैप",
+    quizDesc: "कुछ आसान सवालों के जवाब दें। तेज़, साफ़, माइक की ज़रूरत नहीं।",
+    comingSoon: "जल्द आ रहा है",
+    ctaVoice: "तारा से बात करें →",
+    ctaQuiz: "क्विज़ शुरू करें →",
+    aiTitle: "AI वॉइस असिस्टेंट",
+    aiBadge: "बात करें",
+    aiDesc: "तारा से स्वाभाविक बात करें। वह सुनती है, सवाल पूछती है, और दुकान भर देती है।",
+    aiBullets: ["स्वाभाविक बातचीत", "तारा दुकान की जानकारी भरती है", "लगभग 5 मिनट"],
+    manualTitle: "क्विक सेटअप क्विज़",
+    manualBadge: "टैप",
+    manualDesc: "कुछ आसान सवालों के जवाब दें। तेज़, साफ़, माइक की ज़रूरत नहीं।",
+    manualBullets: ["छोटे सवाल", "माइक नहीं चाहिए", "लगभग 3 मिनट"],
+    ctaAi: "तारा से बात करें →",
+    ctaManual: "क्विज़ शुरू करें →",
   },
   voice: {
     understood: "तारा ने समझा",
@@ -369,12 +524,18 @@ const HI: StartCopy = {
     nameTitle: "आपकी दुकान का नाम क्या है?",
     nameHint: "जैसे Kia Garments",
     categoryTitle: "आप क्या बेचते हैं?",
+    categorySearch: "कैटेगरी खोजें…",
+    subcategoryTitle: "Select Products Category For Your Store?",
+    customSubHint: "Add more type of products.",
+    customSubAdd: "जोड़ें",
+    customSubRemove: "हटाएँ",
+    customSubNoMatch: (q) => `कोई मैच नहीं — “${q}” जोड़ने के लिए Add दबाएँ`,
     more: "और कैटेगरी",
     less: "कम कैटेगरी",
     siteTitle: "हम क्या बनाएँ?",
     storeTitle: "ऑनलाइन दुकान",
     storeDesc: "कार्ट, चेकआउट और ऑर्डर वाली दुकान।",
-    siteInfoTitle: "बिज़नेस वेबसाइट",
+    siteInfoTitle: "जानकारी वाली वेबसाइट",
     siteInfoDesc: "जहाँ लोग आपके बारे में जानें और संपर्क करें।",
     cityTitle: "आप किस शहर में हैं?",
     cityHint: "जैसे जयपुर",
@@ -382,7 +543,7 @@ const HI: StartCopy = {
     taglineHint: "जैसे घर के करघे का हाथ का कपड़ा",
     skip: "छोड़ें",
     next: "आगे",
-    finish: "दुकान बनाएँ →",
+    finish: "आगे बढ़ें →",
   },
   business: {
     title: "अपने ",
@@ -391,9 +552,12 @@ const HI: StartCopy = {
     tagline: "टैगलाइन",
     writeAi: "✦ AI से लिखें",
     category: "कैटेगरी",
+    subcategory: "उप-कैटेगरी",
+    productsServices: "आप क्या बेचते या देते हैं?",
+    productsServicesHint: "जैसे बाँधी स्टोल, ब्लॉक-प्रिंट कुर्ते, कस्टम साइज़",
     city: "शहर",
     whatsapp: "WhatsApp नंबर",
-    next: "आगे: उत्पाद →",
+    next: "आगे बढ़ें →",
   },
   products: {
     title: "अपने ",
@@ -431,32 +595,61 @@ const HI: StartCopy = {
   building: {
     title: "आपकी दुकान बन रही है…",
     steps: [
-      "आपकी जानकारी सेव हो रही है",
-      "दुकान का पेज बन रहा है",
-      "पेमेंट कनेक्ट हो रहा है",
-      "लाइव हो रहा है",
-      "आखिरी सुधार",
+      "आपकी थीम लग रही है…",
+      "कैटेगरी सेट हो रही हैं…",
+      "सैंपल प्रोडक्ट जुड़ रहे हैं…",
+      "ब्लॉग पोस्ट लिखे जा रहे हैं…",
+      "सैंपल रिव्यू जुड़ रहे हैं…",
+      "आपकी दुकान तैयार है!",
     ],
+    finishing: "दुकान फ़ाइनल हो रही है…",
+    themeFallback: "आपकी दुकान",
   },
   account: {
-    title: "लाइव होने से पहले ",
-    titleAccent: "अकाउंट बनाएँ",
-    sub: "दुकान सेव करने के लिए अकाउंट जरूरी है।",
+    eyebrow: "अकाउंट बनाएँ",
+    title: "अपनी ",
+    titleAccent: "दुकान बनाएँ",
+    sub: "ड्राफ्ट सेव करें और जब तैयार हों तब लाइव करें।",
+    valueLine: "10 प्रोडक्ट तक हमेशा मुफ्त। कार्ड की ज़रूरत नहीं।",
     signUp: "साइन अप",
     signIn: "साइन इन",
-    orEmail: "या ईमेल से",
-    create: "अकाउंट बनाएं और लाइव करें →",
-    checkEmail: "ईमेल कन्फर्म करें, फिर यहाँ वापस आएँ — ड्राफ्ट सुरक्षित है।",
+    signInTitle: "वापस ",
+    signInTitleAccent: "स्वागत है",
+    signInSub: "जिस दुकान को डिज़ाइन किया है, उसे पब्लिश करने के लिए साइन इन करें।",
+    haveAccount: "पहले से अकाउंट है?",
+    needAccount: "नए हैं?",
+    or: "या",
+    orEmail: "या",
+    continueGoogle: "Google से साइन अप",
+    signInGoogle: "Google से जारी रखें",
+    create: "अकाउंट बनाएँ",
+    continueEmail: "आगे बढ़ें",
+    checkEmail: "आपका ड्राफ्ट सुरक्षित है — नीचे कोड डालकर आगे बढ़ें।",
     name: "पूरा नाम",
-    email: "ईमेल",
+    email: "ईमेल पता",
     password: "पासवर्ड",
     passwordHint: "10+ अक्षर, एक अक्षर और एक नंबर।",
-    signInSubmit: "साइन इन",
-    sendCode: "कोड ईमेल करें",
-    codeLabel: "ईमेल कोड",
-    codeHint: "ईमेल में आया 6 अंकों का कोड लिखें।",
-    codeSubmit: "कन्फर्म करें और आगे बढ़ें",
-    codeSent: "हमने आपके ईमेल पर कोड भेज दिया है।",
+    signInSubmit: "साइन-इन कोड भेजें",
+    sendCode: "सबमिट",
+    usePassword: "पासवर्ड इस्तेमाल करें",
+    useEmailCode: "कोड ईमेल करें",
+    summaryStore: "दुकान",
+    summaryCategory: "कैटेगरी",
+    summaryTheme: "थीम",
+    summaryLanguage: "भाषा",
+    codeTitle: "अपना ",
+    codeTitleAccent: "इनबॉक्स देखें",
+    codeLabel: "वेरिफिकेशन कोड",
+    codeHint: "ईमेल में आया 6 अंकों का कोड",
+    codeSubmit: "OTP वेरिफाई करें",
+    codeSent: "हमने आपके ईमेल पर वेरिफिकेशन कोड भेजा है।",
+    codeSentTo: (email) => `${email} पर भेजा गया वेरिफिकेशन कोड दर्ज करें`,
+    didntGetIt: "नहीं मिला?",
+    resend: "कोड फिर भेजें",
+    resendIn: (seconds) => `${seconds} सेकंड में फिर भेजें`,
+    resending: "भेजा जा रहा है…",
+    resent: "नया कोड भेज दिया है।",
+    changeEmail: "ईमेल पता बदलें",
     agree: "आगे बढ़कर आप सहमत होते हैं",
     terms: "नियम",
     and: "और",
@@ -466,12 +659,22 @@ const HI: StartCopy = {
     badge: "आपकी दुकान लाइव है",
     title: "आपकी दुकान ",
     titleAccent: "खुल गई है",
-    sub: "मैन्युअल रूप से सेट की गई। लिंक शेयर करें और ऑर्डर लें।",
+    sub: "लिंक शेयर करें और ऑर्डर लेना शुरू करें।",
+    subNamed: (name) => `${name} तैयार है। लिंक शेयर करें और ऑर्डर लें।`,
     copy: "कॉपी",
     copied: "कॉपी हो गया!",
     whatsapp: "WhatsApp पर शेयर करें",
     dashboard: "डैशबोर्ड पर जाएं →",
     tryLook: "दूसरा लुक आज़माएं",
+    journeyTitle: "पहले टैप से लाइव दुकान तक",
+    journeySub: "आपने पूरी राह चली — भाषा, मोड, बिज़नेस, लुक और अकाउंट।",
+    journeySteps: [
+      { label: "भाषा", blurb: "बात करने का तरीका चुना" },
+      { label: "मोड", blurb: "आवाज़ गाइड या क्विज़" },
+      { label: "बिज़नेस", blurb: "नाम और कैटेगरी सेट" },
+      { label: "थीम", blurb: "स्टोरफ्रंट लुक चुना" },
+      { label: "अकाउंट", blurb: "सेव करके लाइव गए" },
+    ],
   },
   intents: {
     "first-business": { title: "अपना पहला बिजनेस शुरू कर रहे हैं", sub: "सामान है, दुकान नहीं" },

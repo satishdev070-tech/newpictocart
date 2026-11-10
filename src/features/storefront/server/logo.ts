@@ -1,11 +1,11 @@
 import "server-only";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import sharp from "sharp";
 import { assetUrl } from "@/lib/storage/assets";
 import { logger } from "@/lib/observability/logger";
 import { storeImageSrc } from "@/features/storefront/components/store-image";
 import { pickVariantWidth } from "@/lib/storage/variants";
+import { loadSharp } from "@/lib/storage/sharp-load";
 
 /**
  * Header logo as a resized WebP copy (lib/images/loader, at most 960px wide) instead of the uploaded
@@ -19,6 +19,9 @@ import { pickVariantWidth } from "@/lib/storage/variants";
  */
 const originalSize = unstable_cache(
   async (src: string): Promise<{ width: number; height: number } | null> => {
+    const sharpMod = await loadSharp();
+    if (!sharpMod) return null;
+    const sharp = sharpMod.default;
     const res = await fetch(src, { cache: "no-store" });
     if (!res.ok) return null;
     const meta = await sharp(Buffer.from(await res.arrayBuffer())).metadata();

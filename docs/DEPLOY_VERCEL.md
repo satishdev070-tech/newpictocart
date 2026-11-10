@@ -47,6 +47,8 @@ Secrets are never exposed to the browser: only `NEXT_PUBLIC_*` values are.
 | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | optional | Fallback for Admin → Social apps (Google Business) |
 | `GEMINI_API_KEY`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY` | optional | AI fallbacks for Admin → Social apps |
 | `UNSPLASH_ACCESS_KEY` | optional | Category photos on marketing theme cards (cached 1 day); blank = curated built-in photos |
+| `UPSTASH_REDIS_REST_URL` | optional | Upstash Redis REST URL for storefront L2 cache (pair with token; leave blank to skip) |
+| `UPSTASH_REDIS_REST_TOKEN` | optional | Upstash Redis REST token (server only). Prefer a DB in Mumbai / `ap-south-1` |
 | `EDGE_SHARED_SECRET` | no (Cloudflare only) | Only for the Cloudflare Worker; leave unset on Vercel |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID`, `CUSTOM_DOMAIN_CNAME_TARGET` | no (Cloudflare only) | Ignored for new domains when the Vercel variables are set |
 
@@ -74,7 +76,17 @@ a **wildcard domain** on the Vercel project:
 The proxy (`src/proxy.ts`) reads the `Host` header, classifies it and rewrites store hosts to
 `/store/[host]`. A store subdomain resolves only through the `domains` table (`status = 'verified'`).
 
+### Alias only: attach `www.pictocart.in` without changing the root
+
+To serve `https://www.pictocart.in` from the **same** Vercel project as staging
+(`pictocartdev.in`) without switching store subdomains: add the domain on that project, set
+`PLATFORM_HOST_ALIASES=pictocart.in,www.pictocart.in`, redeploy, and add Auth redirect URLs.
+Do **not** change `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN` and do **not** run `move-platform-root.sql`.
+Checklist: [DEPLOY_DOMAIN_ALIAS.md](./DEPLOY_DOMAIN_ALIAS.md).
+
 ### Switching the root domain (e.g. to `pictocart.in`)
+
+Full checklist: [DEPLOY_ROOT_PROMOTE.md](./DEPLOY_ROOT_PROMOTE.md). Summary:
 
 1. Vercel → Settings → Domains: add `pictocart.in`, `www.pictocart.in` and
    `*.pictocart.in` (wildcard needs Vercel nameservers, see step 2 above).
@@ -82,11 +94,12 @@ The proxy (`src/proxy.ts`) reads the `Host` header, classifies it and rewrites s
    - `NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN=pictocart.in` (bare hostname; a pasted
      `https://www.pictocart.in/` is reduced to `pictocart.in`, but ports are rejected)
    - `NEXT_PUBLIC_PLATFORM_URL=https://www.pictocart.in`
+   - `PLATFORM_HOST_ALIASES=pictocartdev.in,www.pictocartdev.in` (keep staging as platform aliases)
 3. Run `supabase/dev/move-platform-root.sql` once in the Supabase SQL editor (set `new_root` at
    the top). It adds a verified `{slug}.pictocart.in` row for every store and makes it the
    canonical host unless the store's primary is a custom domain. Old rows stay; nothing is deleted.
 4. Supabase Auth → URL Configuration: Site URL `https://www.pictocart.in`, redirect URLs
-   `https://www.pictocart.in/**` and `https://*.pictocart.in/**`.
+   `https://www.pictocart.in/**` and `https://*.pictocart.in/**` (keep pictocartdev URLs while aliased).
 
 Stores live at `{slug}.pictocart.in` (one level). `www.{slug}.pictocart.in` is not a store
 address: the `*.pictocart.in` certificate does not cover two-level names, and the proxy 404s them.

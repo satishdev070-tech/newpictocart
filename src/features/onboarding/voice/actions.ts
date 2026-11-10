@@ -14,7 +14,15 @@ import { isSarvamConfigured } from "@/lib/sarvam/client";
 import { parseTaraHistory, runTaraTurn } from "./turn";
 import { isSarvamLocaleCode, type SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { assertEmailVerifiedForOnboarding } from "../email-gate";
-import { EMPTY_FACTS, mapCategoryToIndustry, mapSiteMode, mergeFacts, type VoiceFacts } from "./facts";
+import {
+  EMPTY_FACTS,
+  mapCategoryInput,
+  mapCategoryToIndustry,
+  mapSiteMode,
+  mergeFacts,
+  suggestSubcategory,
+  type VoiceFacts,
+} from "./facts";
 import { voiceTurnInputSchema } from "./schemas";
 
 export type VoiceTurnData = {
@@ -31,9 +39,18 @@ function parseFactsJson(raw: unknown): VoiceFacts {
   if (typeof raw !== "string" || !raw.trim()) return { ...EMPTY_FACTS };
   try {
     const parsed = JSON.parse(raw) as Partial<VoiceFacts>;
+    const mapped = mapCategoryInput(typeof parsed.category === "string" ? parsed.category : null);
+    const category = mapped.category ?? mapCategoryToIndustry(typeof parsed.category === "string" ? parsed.category : null);
+    const subcategoryRaw = typeof parsed.subcategory === "string" ? parsed.subcategory : null;
+    const subcategory =
+      (category && subcategoryRaw ? suggestSubcategory(category, subcategoryRaw) : null) ??
+      mapped.subcategory ??
+      (typeof subcategoryRaw === "string" ? subcategoryRaw : null);
     return mergeFacts(EMPTY_FACTS, {
       name: typeof parsed.name === "string" ? parsed.name : null,
-      category: mapCategoryToIndustry(typeof parsed.category === "string" ? parsed.category : null),
+      category,
+      subcategory,
+      productsServices: typeof parsed.productsServices === "string" ? parsed.productsServices : null,
       siteMode: mapSiteMode(typeof parsed.siteMode === "string" ? parsed.siteMode : null),
       tagline: typeof parsed.tagline === "string" ? parsed.tagline : null,
       city: typeof parsed.city === "string" ? parsed.city : null,

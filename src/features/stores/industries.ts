@@ -12,6 +12,7 @@ export const INDUSTRIES = [
   { slug: "grocery", name: "Grocery & Food", short: "Grocery" },
   { slug: "health", name: "Health & Wellness", short: "Health" },
   { slug: "sports", name: "Sports & Fitness", short: "Sports" },
+  { slug: "gym", name: "Gym & Fitness Studio", short: "Gym" },
   { slug: "footwear", name: "Footwear", short: "Footwear" },
   { slug: "kids", name: "Kids & Baby", short: "Kids" },
   { slug: "books", name: "Books & Stationery", short: "Books" },

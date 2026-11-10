@@ -16,7 +16,7 @@ export const THEME_AI_LIMITS = { perHour: 6, perDay: 30 } as const;
 /** Providers that can read screenshots go first when screenshots are attached (Groq is text-only). */
 export function orderForImages(providers: ProviderConfig[], hasImages: boolean): ProviderConfig[] {
   if (!hasImages) return providers;
-  const vision = new Set(["anthropic", "gemini"]);
+  const vision = new Set(["anthropic", "gemini", "nvidia"]);
   return [...providers.filter((p) => vision.has(p.id)), ...providers.filter((p) => !vision.has(p.id))];
 }
 

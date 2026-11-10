@@ -2,6 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { INDUSTRY_SLUGS } from "@/features/stores/industries";
 import { UNSPLASH_CATEGORIES, fallbackCategoryImage, getCategoryImage, getCategoryImages, toUnsplashCategory } from "@/lib/unsplash";
 
+vi.mock("@/features/platform-apps/server", () => ({
+  getAppCredential: vi.fn(async () => null),
+}));
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
@@ -14,6 +18,7 @@ describe("toUnsplashCategory", () => {
     expect(toUnsplashCategory("home-decor")).toBe("furniture");
     expect(toUnsplashCategory("Home Decor")).toBe("furniture");
     expect(toUnsplashCategory("Jewelry")).toBe("jewellery");
+    expect(toUnsplashCategory("gym")).toBe("fitness");
     expect(toUnsplashCategory("something-new")).toBe("general");
   });
 

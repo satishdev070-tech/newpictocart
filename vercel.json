@@ -3,6 +3,7 @@
   "framework": "nextjs",
   "installCommand": "pnpm install",
   "buildCommand": "pnpm build",
+  "ignoreCommand": "exit 1",
   "regions": [
     "bom1"
   ],
@@ -25,6 +26,10 @@
     },
     {
       "path": "/api/cron/notifications",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/observability",
       "schedule": "0 0 * * *"
     }
   ]

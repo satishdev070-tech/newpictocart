@@ -46,6 +46,7 @@ const ALIASES: Record<string, UnsplashCategory> = {
   pooja: "handicrafts",
   gifts: "handicrafts",
   sports: "fitness",
+  gym: "fitness",
   kids: "toys",
   pet: "pets",
   plants: "organic",

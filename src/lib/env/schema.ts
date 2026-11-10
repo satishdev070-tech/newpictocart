@@ -106,6 +106,7 @@ export const serverEnvSchema = publicEnvSchema.extend({
   META_WEBHOOK_VERIFY_TOKEN: z.string().min(16).max(200).optional(),
   GEMINI_API_KEY: z.string().min(10).optional(),
   GROQ_API_KEY: z.string().min(10).optional(),
+  NVIDIA_API_KEY: z.string().min(10).optional(),
   ANTHROPIC_API_KEY: z.string().min(10).optional(),
   /** Unsplash Access Key fallback; Admin → Media library stores one in the console (wins over env). */
   UNSPLASH_ACCESS_KEY: z.string().trim().optional(),
@@ -115,6 +116,18 @@ export const serverEnvSchema = publicEnvSchema.extend({
    * a validation AppError (`sarvam_not_configured`).
    */
   SARVAM_API_KEY: z.string().min(10).optional(),
+  /**
+   * Optional Upstash Redis REST credentials for storefront L2 cache (ADR-010).
+   * Both must be set together; when either is blank the storefront stays on Next Data Cache only.
+   */
+  UPSTASH_REDIS_REST_URL: z.url().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().min(10).optional(),
+  /**
+   * Optional shared secret for Next → Supabase Edge Function seller-AI invokes
+   * (`x-seller-ai-invoke`). When unset, the Supabase secret key Bearer alone is accepted by the
+   * functions. Set the same value with `supabase secrets set AI_EDGE_INVOKE_SECRET=…`.
+   */
+  AI_EDGE_INVOKE_SECRET: z.string().min(32).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;

@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+/** Missing storefront paths must not be indexed even when a soft-404 streams as 200. */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function StoreNotFound() {
   return (

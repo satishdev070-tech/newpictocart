@@ -1,7 +1,5 @@
 import { Boxes, Flag, Globe2, LayoutDashboard, LineChart, LockKeyhole, Palette, ShieldCheck, Store } from "lucide-react";
 import { BrandLogo } from "@/features/marketing-site/components/brand-logo";
-import { ThemeMockup } from "@/features/theme/marketplace/mockup";
-import { MARKETPLACE_THEMES } from "@/features/theme/marketplace/catalog";
 
 const MERCHANT_POINTS = [
   { icon: Palette, title: "Themes for your kind of business", body: "Pick a design, change colours and sections, and preview before you publish." },
@@ -10,9 +8,10 @@ const MERCHANT_POINTS = [
   { icon: Globe2, title: "Your own web address", body: "A free store address from day one; connect your own domain on eligible plans." },
 ];
 
-const ASIDE_THEME = MARKETPLACE_THEMES.find((t) => t.key === "contemporary-ethnic") ?? MARKETPLACE_THEMES[0];
-
-/** Left panel for merchant sign-in / sign-up (Pictocart brand). Value statements only, no invented numbers. */
+/**
+ * Left panel for merchant sign-in / sign-up (Pictocart brand). Value statements only — no
+ * marketplace catalogue or live theme preview (those packages are heavy on cold /login).
+ */
 export function MerchantAside({ mode }: { mode: "login" | "register" }) {
   return (
     <>
@@ -38,11 +37,9 @@ export function MerchantAside({ mode }: { mode: "login" | "register" }) {
           ))}
         </ul>
       </div>
-      {ASIDE_THEME ? (
-        <div className="mt-auto hidden w-full max-w-xl self-start overflow-hidden rounded-brand-lg border border-white/80 bg-white p-1.5 shadow-brand-float [@media(min-height:1024px)]:block" aria-hidden>
-          <ThemeMockup preset={ASIDE_THEME.preset} name={ASIDE_THEME.name.split(" ")[0]!} tagline={ASIDE_THEME.tagline} />
-        </div>
-      ) : null}
+      <p className="mt-auto max-w-xl text-small text-muted">
+        One sign-in for your store dashboard. Themes, products and payments stay ready when you are.
+      </p>
     </>
   );
 }

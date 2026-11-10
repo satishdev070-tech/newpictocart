@@ -13,6 +13,7 @@ export const ECONOMY_TABS = [
   { key: "actions", label: "AI actions" },
   { key: "packs", label: "Packs" },
   { key: "promos", label: "Promos" },
+  { key: "payments", label: "Payments" },
   { key: "insights", label: "Insights" },
   { key: "grant", label: "Grant credits" },
 ] as const;

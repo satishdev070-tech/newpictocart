@@ -7,7 +7,8 @@ import { listBlogPosts } from "@/features/storefront/server/content";
 import { StoreImage } from "@/features/storefront/components/store-image";
 import { formatAddress, telHref, whatsappUrl } from "@/features/storefront/store-profile";
 import { paths } from "@/features/storefront/urls";
-import { Cta, Intro } from "./parts";
+import { Cta } from "./parts";
+import { SectionIntro, TextBox, hpLooks, lookOf, textBoxProps, textCurrentClass } from "./text-look";
 import { stockFor } from "./variants";
 import type { RenderContext } from "./context";
 
@@ -149,7 +150,7 @@ function MapEmbed({ url, height, className = "" }: { url: string; height: string
 
 function ContactInfo({ s, ctx }: P<"ContactInfo">) {
   const { items, mail, wa } = contactItems(s, ctx);
-  const intro = { eyebrow: s.eyebrow, heading: s.heading, subheading: s.subheading };
+  const intro = hpLooks(s);
   const empty = !items.length && !s.mapUrl;
   if (empty && !ctx.sf.preview) return null;
   const note = empty ? <p className="sf-muted text-sm">Add your phone, email and address in Settings → Store details, or type them into this section.</p> : null;
@@ -159,7 +160,7 @@ function ContactInfo({ s, ctx }: P<"ContactInfo">) {
       <section className={`sf-tone-${s.tone}`}>
         <div className="sf-container sf-section grid items-start gap-10 @[48rem]:grid-cols-2">
           <div className="space-y-6">
-            <Intro {...intro} />
+            <SectionIntro {...intro} />
             {note}
             <ul className="space-y-5">
               {items.map((it) => (
@@ -186,11 +187,7 @@ function ContactInfo({ s, ctx }: P<"ContactInfo">) {
     return (
       <section className={`sf-tone-${s.tone}`}>
         <div className="sf-container sf-section mx-auto max-w-2xl space-y-8 text-center">
-          <div className="space-y-2">
-            {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
-            {s.heading ? <h2 className="sf-heading text-3xl @[64rem]:text-4xl">{s.heading}</h2> : null}
-            {s.subheading ? <p className="sf-muted">{s.subheading}</p> : null}
-          </div>
+          <SectionIntro {...intro} />
           {note}
           <dl className="sf-border divide-y divide-[var(--sf-border)] border-y">
             {items.map((it) => (
@@ -215,7 +212,7 @@ function ContactInfo({ s, ctx }: P<"ContactInfo">) {
   return (
     <section className={`sf-tone-${s.tone}`}>
       <div className="sf-container sf-section space-y-8">
-        <Intro {...intro} />
+        <SectionIntro {...intro} />
         {note}
         {items.length ? (
           <ul className={`grid gap-4 ${items.length >= 4 ? "@[48rem]:grid-cols-2 @[64rem]:grid-cols-4" : items.length === 3 ? "@[48rem]:grid-cols-3" : "@[48rem]:grid-cols-2"}`}>
@@ -243,16 +240,33 @@ function ContactInfo({ s, ctx }: P<"ContactInfo">) {
 
 function RichText({ s }: P<"RichText">) {
   if (!s.heading && !s.body) return null;
-  const heading = s.heading ? <h2 className="sf-heading text-3xl @[64rem]:text-4xl">{s.heading}</h2> : null;
+  const heading = s.heading ? (
+    <TextBox role="heading" look={lookOf(s.headingLook)} as="h2" className="sf-heading text-3xl @[64rem]:text-4xl">
+      {s.heading}
+    </TextBox>
+  ) : null;
   const head = (
     <div className="space-y-2">
-      {s.eyebrow ? <p className="sf-eyebrow">{s.eyebrow}</p> : null}
+      {s.eyebrow ? (
+        <TextBox role="eyebrow" look={lookOf(s.eyebrowLook)} as="p" className="sf-eyebrow">
+          {s.eyebrow}
+        </TextBox>
+      ) : null}
       {heading}
-      {s.subheading ? <p className="sf-muted text-lg">{s.subheading}</p> : null}
+      {s.subheading ? (
+        <TextBox role="subheading" look={lookOf(s.subheadingLook)} as="p" className="sf-muted text-lg">
+          {s.subheading}
+        </TextBox>
+      ) : null}
     </div>
   );
-  const body = s.body ? <Paragraphs text={s.body} /> : null;
-  const cta = <Cta label={s.ctaLabel} href={s.ctaHref} />;
+  const body = s.body ? (
+    <TextBox role="body" look={lookOf(s.bodyLook)} as="div">
+      <Paragraphs text={s.body} />
+    </TextBox>
+  ) : null;
+  const ctaLook = textBoxProps("cta", lookOf(s.ctaLook));
+  const cta = <Cta label={s.ctaLabel} href={s.ctaHref} style={ctaLook.style} dataAttrs={ctaLook.attrs} />;
 
   if (s.variant === "richtext-columns") {
     return (
@@ -311,7 +325,7 @@ async function BlogPosts({ s, ctx }: P<"BlogPosts">) {
   if (!posts.length) {
     return preview ? (
       <section className="sf-container sf-section">
-        <Intro eyebrow={s.eyebrow} heading={s.heading} subheading={s.subheading} />
+        <SectionIntro {...hpLooks(s)} />
         <p className="sf-muted text-sm">No blog posts yet. Write one in Content → Blog.</p>
       </section>
     ) : null;
@@ -321,7 +335,7 @@ async function BlogPosts({ s, ctx }: P<"BlogPosts">) {
       {s.viewAllLabel} →
     </Link>
   ) : undefined;
-  const intro = <Intro eyebrow={s.eyebrow} heading={s.heading} subheading={s.subheading} action={viewAll} />;
+  const intro = <SectionIntro {...hpLooks(s)} action={viewAll} />;
   const meta = (p: (typeof posts)[number]) => (s.showDate && p.publishedAt ? <p className="sf-eyebrow">{fmtDate(p.publishedAt)}</p> : null);
   const cover = (p: (typeof posts)[number], i: number, ratio: string, sizes: string) => (
     <div className={`relative ${ratio} overflow-hidden rounded-[var(--sf-radius-card)]`}>
@@ -438,7 +452,7 @@ function Gallery({ s, ctx }: P<"Gallery">) {
       </figure>
     );
   };
-  const intro = <Intro eyebrow={s.eyebrow} heading={s.heading} subheading={s.subheading} />;
+  const intro = <SectionIntro {...hpLooks(s)} />;
 
   if (s.variant === "gallery-masonry") {
     const shapes = ["aspect-[3/4]", "aspect-square", "aspect-[4/5]", "aspect-[4/3]", "aspect-[2/3]"];
@@ -500,7 +514,7 @@ function initials(name: string): string {
 
 function Team({ s }: P<"Team">) {
   if (!s.members.length) return null;
-  const intro = <Intro eyebrow={s.eyebrow} heading={s.heading} subheading={s.subheading} />;
+  const intro = <SectionIntro {...hpLooks(s)} />;
   const photo = (m: SectionSettings<"Team">["members"][number], i: number, shape: string) => (
     <div className={`relative overflow-hidden bg-[var(--sf-surface)] ${shape}`}>
       {m.imagePath ? (
@@ -569,9 +583,10 @@ function Team({ s }: P<"Team">) {
 // -----------------------------------------------------------------------------
 
 function CtaButtons({ s, center }: { s: SectionSettings<"CallToAction">; center?: boolean }) {
+  const ctaLook = textBoxProps("cta", lookOf(s.ctaLook));
   return (
     <div className={`flex flex-wrap gap-3 ${center ? "justify-center" : ""}`}>
-      <Cta label={s.ctaLabel} href={s.ctaHref} />
+      <Cta label={s.ctaLabel} href={s.ctaHref} style={ctaLook.style} dataAttrs={ctaLook.attrs} />
       <Cta label={s.secondaryLabel} href={s.secondaryHref} className="sf-btn sf-btn-outline" />
     </div>
   );
@@ -579,11 +594,31 @@ function CtaButtons({ s, center }: { s: SectionSettings<"CallToAction">; center?
 
 function CallToAction({ s, ctx }: P<"CallToAction">) {
   if (!s.heading && !s.text && !s.ctaLabel) return null;
+  const eyebrowLook = lookOf(s.eyebrowLook);
+  const headingLook = lookOf(s.headingLook);
+  const bodyLook = lookOf(s.bodyLook);
   const copy = (center: boolean, light = false) => (
     <div className={`space-y-4 ${center ? "mx-auto max-w-2xl text-center" : ""}`}>
-      {s.eyebrow ? <p className={light ? "text-xs font-semibold uppercase tracking-[0.2em] text-white/80" : "sf-eyebrow"}>{s.eyebrow}</p> : null}
-      {s.heading ? <h2 className="sf-heading text-3xl @[64rem]:text-5xl">{s.heading}</h2> : null}
-      {s.text ? <p className={`whitespace-pre-line text-lg ${light ? "text-white/85" : "opacity-85"}`}>{s.text}</p> : null}
+      {s.eyebrow ? (
+        <TextBox
+          role="eyebrow"
+          look={eyebrowLook}
+          as="p"
+          className={light ? `text-xs font-semibold uppercase tracking-[0.2em] text-white/80 ${textCurrentClass(eyebrowLook)}` : "sf-eyebrow"}
+        >
+          {s.eyebrow}
+        </TextBox>
+      ) : null}
+      {s.heading ? (
+        <TextBox role="heading" look={headingLook} as="h2" className="sf-heading text-3xl @[64rem]:text-5xl">
+          {s.heading}
+        </TextBox>
+      ) : null}
+      {s.text ? (
+        <TextBox role="body" look={bodyLook} as="p" className={`whitespace-pre-line text-lg ${light ? "text-white/85" : "opacity-85"}`}>
+          {s.text}
+        </TextBox>
+      ) : null}
       <CtaButtons s={s} center={center} />
     </div>
   );

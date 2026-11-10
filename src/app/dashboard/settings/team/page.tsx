@@ -12,6 +12,7 @@ import { listCustomRoles, listPendingInvites, listTeam } from "@/features/team/q
 import { roleOptions } from "@/features/team/role-options";
 import { encodeRoleChoice } from "@/features/team/role-choice";
 import { InviteActions, InviteMemberDialog, MemberActions, MemberRoleForm } from "@/features/team/components/team-ui";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Team" };
 
@@ -25,6 +26,7 @@ function lastActive(iso: string | null): string {
 
 export default async function TeamPage() {
   const ctx = await requireTenant();
+  const { t } = await getI18n();
   if (!can(ctx, "members.read") && !can(ctx, "members.manage")) redirect("/dashboard?denied=1");
   const manage = can(ctx, "members.manage");
   const [members, invites, custom] = await Promise.all([listTeam(ctx.tenantId), manage ? listPendingInvites(ctx.tenantId) : Promise.resolve([]), listCustomRoles(ctx.tenantId)]);
@@ -34,7 +36,7 @@ export default async function TeamPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Team"
+        title={t("pages.settings.team.title")}
         description={`${active} active ${active === 1 ? "member" : "members"}${invites.length ? ` · ${invites.length} pending ${invites.length === 1 ? "invitation" : "invitations"}` : ""}`}
         actions={
           <>
@@ -49,7 +51,7 @@ export default async function TeamPage() {
       />
 
       {members.length ? (
-        <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-xs">
+        <div data-tour="team-members" className="overflow-hidden rounded-lg border border-border bg-surface shadow-xs">
           <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_110px_140px_minmax(0,1.2fr)] gap-4 border-b border-border bg-surface-secondary/60 px-4 py-2.5 text-caption font-medium text-muted lg:grid">
             <span>Member</span>
             <span>Role</span>
@@ -117,7 +119,7 @@ export default async function TeamPage() {
         </Card>
       ) : null}
 
-      <Card title="Roles" description={manage ? "Change a member's role from the list above. The Store Admin (Owner) role stays with the merchant who registered the store." : undefined}>
+      <Card tour="team-roles" title="Roles" description={manage ? "Change a member's role from the list above. The Store Admin (Owner) role stays with the merchant who registered the store." : undefined}>
         <dl className="-my-2 divide-y divide-border">
           {TENANT_ROLES.map((r) => (
             <div key={r} className="py-2.5 sm:grid sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">

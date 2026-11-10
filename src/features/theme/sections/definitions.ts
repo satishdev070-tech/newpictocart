@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DEFAULT_PRODUCT_TYPES, productTypeKeySchema } from "@/features/catalog/product-types";
 import { hexColor, imagePath, menuHandle, plainText, safeHref, socialUrl, uuidOrEmpty, videoUrl } from "../schema/primitives";
+import { textLookField } from "../schema/text-style";
 import type { EditorField, SectionDefinition, SectionType } from "./types";
 import { FAQ_VARIANTS, PROMO_VARIANTS, SOCIAL_VARIANTS } from "./variants";
 import { PAGE_SECTION_DEFINITIONS } from "./definitions-pages";
@@ -21,6 +22,7 @@ import {
   VIDEO_SHOP_VARIANTS,
 } from "./variants";
 import {
+  ACCOUNT_PACK_VARIANTS,
   CARD_RATIOS,
   CATEGORY_VARIANTS,
   FOOTER_LAYOUTS,
@@ -28,6 +30,7 @@ import {
   HERO_MEDIA_RATIOS,
   HERO_VARIANTS,
   NEWSLETTER_VARIANTS,
+  PAGE_CHROME_VARIANTS,
   PRODUCT_GRID_VARIANTS,
   SECTION_SPACINGS,
   STORY_VARIANTS,
@@ -77,13 +80,20 @@ const headingFields = {
   headingStyle: z.enum(HEADING_STYLES).default("default"),
   /** Short note on the right of the heading row (desktop), e.g. "Every colour tells a story". */
   headingNote: txt(120),
+  /** Per-text look overrides (font / size / colour / align / emphasis + text-box width). Empty = theme default. */
+  eyebrowLook: textLookField,
+  headingLook: textLookField,
+  subheadingLook: textLookField,
 };
 const headingEditor: EditorField[] = [
   { kind: "text", key: "eyebrow", label: "Eyebrow", maxLength: 60, placeholder: "Small text above the heading" },
+  { kind: "textStyle", key: "eyebrowLook", label: "Eyebrow style", role: "eyebrow" },
   { kind: "text", key: "heading", label: "Heading", maxLength: 120 },
   { kind: "text", key: "headingAccent", label: "Heading accent (italic, accent colour)", maxLength: 60, placeholder: "remembered." },
+  { kind: "textStyle", key: "headingLook", label: "Heading style", role: "heading" },
   { kind: "select", key: "headingStyle", label: "Heading style", options: [{ value: "default", label: "Theme heading font" }, { value: "condensed", label: "Bold condensed capitals" }, { value: "italic", label: "Italic" }] },
   { kind: "text", key: "subheading", label: "Subheading", maxLength: 300, multiline: true },
+  { kind: "textStyle", key: "subheadingLook", label: "Subheading style", role: "subheading" },
   { kind: "text", key: "headingNote", label: "Note beside the heading (optional)", maxLength: 120 },
 ];
 
@@ -135,10 +145,11 @@ function productSourceEditor(defaultLimitMax = 24): EditorField[] {
   ];
 }
 
-const ctaFields = { ctaLabel: txt(40), ctaHref: safeHref.default("") };
+const ctaFields = { ctaLabel: txt(40), ctaHref: safeHref.default(""), ctaLook: textLookField };
 const ctaEditor: EditorField[] = [
   { kind: "text", key: "ctaLabel", label: "Button label", maxLength: 40 },
   { kind: "link", key: "ctaHref", label: "Button link", placeholder: "/collections/festive-edit" },
+  { kind: "textStyle", key: "ctaLook", label: "Button style", role: "cta" },
 ];
 
 // -----------------------------------------------------------------------------
@@ -214,6 +225,18 @@ const megaMenu = {
   ],
 } satisfies SectionDefinition;
 
+/**
+ * Per-group visibility on a Hero slide (and other list items that opt in). Off hides the group in
+ * the storefront without clearing merchant copy/media; On restores the same values. Omitted = shown.
+ */
+const itemGroupVisibility = {
+  showSubtitle: z.boolean().default(true),
+  showTitle: z.boolean().default(true),
+  showDescription: z.boolean().default(true),
+  showMedia: z.boolean().default(true),
+  showActions: z.boolean().default(true),
+};
+
 const heroSlide = z.object({
   imagePath: imagePath.default(""),
   mobileImagePath: imagePath.default(""),
@@ -226,6 +249,12 @@ const heroSlide = z.object({
   ...ctaFields,
   align: z.enum(["left", "center", "right"]).default("left"),
   textTone: z.enum(["light", "dark"]).default("light"),
+  ...itemGroupVisibility,
+  /** Per-text look overrides (font / size / colour / align / emphasis + text-box width). */
+  eyebrowLook: textLookField,
+  headingLook: textLookField,
+  subheadingLook: textLookField,
+  ctaLook: textLookField,
 });
 const hero = {
   type: "Hero",
@@ -275,9 +304,12 @@ const hero = {
         { kind: "image", key: "mobileImagePath", label: "Image (mobile, optional)" },
         { kind: "text", key: "alt", label: "Image description (alt text)", maxLength: 200 },
         { kind: "text", key: "eyebrow", label: "Eyebrow", maxLength: 60 },
+        { kind: "textStyle", key: "eyebrowLook", label: "Eyebrow style", role: "eyebrow" },
         { kind: "text", key: "heading", label: "Heading", maxLength: 120 },
         { kind: "text", key: "headingAccent", label: "Second line (italic, optional)", maxLength: 80 },
+        { kind: "textStyle", key: "headingLook", label: "Heading style", role: "heading" },
         { kind: "text", key: "subheading", label: "Subheading", maxLength: 240, multiline: true },
+        { kind: "textStyle", key: "subheadingLook", label: "Subheading style", role: "subheading" },
         ...ctaEditor,
         { kind: "select", key: "align", label: "Text position", options: opts(["left", "center", "right"] as const) },
         { kind: "select", key: "textTone", label: "Text colour", options: opts(["light", "dark"] as const) },
@@ -536,6 +568,7 @@ const editorial = {
     alt: txt(200),
     ...headingFields,
     body: txt(1200),
+    bodyLook: textLookField,
     ...ctaFields,
     imagePosition: z.enum(["left", "right"]).default("left"),
     tone: z.enum(TONES).default("light"),
@@ -561,6 +594,7 @@ const editorial = {
     { kind: "text", key: "alt", label: "Image description", maxLength: 200 },
     ...headingEditor,
     { kind: "text", key: "body", label: "Text", maxLength: 1200, multiline: true, showIf: { key: "source", equals: ["manual"] } },
+    { kind: "textStyle", key: "bodyLook", label: "Body style", role: "body", showIf: { key: "source", equals: ["manual"] } },
     ...ctaEditor,
     { kind: "select", key: "imagePosition", label: "Image position", options: opts(["left", "right"] as const) },
     { kind: "select", key: "tone", label: "Background", options: opts(TONES) },
@@ -653,6 +687,7 @@ const brandStory = {
     ...headingFields,
     heading: txt(120, "Made by hand, in Jaipur"),
     body: txt(1500),
+    bodyLook: textLookField,
     imagePath: imagePath.default(""),
     alt: txt(200),
     /** Collage design: the smaller overlapping photo. Empty = a stock photo. */
@@ -669,6 +704,7 @@ const brandStory = {
     variantEditor("variant", "Story layout", STORY_VARIANTS),
     ...headingEditor,
     { kind: "text", key: "body", label: "Story", maxLength: 1500, multiline: true },
+    { kind: "textStyle", key: "bodyLook", label: "Body style", role: "body" },
     { kind: "image", key: "imagePath", label: "Image (optional)" },
     { kind: "text", key: "alt", label: "Image description", maxLength: 200 },
     { kind: "image", key: "image2Path", label: "Second photo (overlapping)", showIf: { key: "variant", equals: ["collage"] } },
@@ -883,6 +919,7 @@ const faq = {
     },
     { kind: "text", key: "ctaLabel", label: "Contact button label (optional)", maxLength: 40, placeholder: "Still have questions? Contact us", help: "Shown by the Split, Numbered and Chat designs." },
     { kind: "link", key: "ctaHref", label: "Contact button link", placeholder: "/pages/contact" },
+    { kind: "textStyle", key: "ctaLook", label: "Contact button style", role: "cta" },
     spacingEditor,
   ],
 } satisfies SectionDefinition;
@@ -1109,14 +1146,45 @@ const featureBand = {
   ],
 } satisfies SectionDefinition;
 
+const PAGE_PROSE_SIZES = ["sm", "md", "lg"] as const;
+
 const pageContent = {
   type: "PageContent",
   label: "Page content",
-  description: "Where the page's own content (product grid, product details) appears. Sections above it show before the content.",
+  description: "Where the page's own content (product grid, product details, cart, account forms…) appears. Sections above it show before the content.",
   groups: ["collection", "product"],
   singleton: true,
-  schema: z.object({}),
-  fields: [],
+  schema: z.object({
+    /** Shop template body layout (collection / product / search / cart / …). */
+    chrome: variantSchema(PAGE_CHROME_VARIANTS),
+    /** Members auth layout (templates.account → StoreAuthSplit). */
+    pack: variantSchema(ACCOUNT_PACK_VARIANTS),
+    /** Optional account panel image; empty falls back to the home Hero slide. */
+    imagePath: imagePath.default(""),
+    /** About / Contact / CMS body text scale (whole page body, not per CMS block). */
+    proseSize: z.enum(PAGE_PROSE_SIZES).default("md"),
+  }),
+  fields: [
+    variantEditor("chrome", "Shop page layout", PAGE_CHROME_VARIANTS, {
+      help: "Used on product, collection, search, cart and similar shop templates.",
+    }),
+    variantEditor("pack", "Account layout", ACCOUNT_PACK_VARIANTS, {
+      help: "Used on Login, Sign up and Reset password in the Members area.",
+    }),
+    {
+      kind: "image",
+      key: "imagePath",
+      label: "Account panel image (optional)",
+      help: "Shown on Login / Sign up / Reset. Leave empty to use the home page hero photo.",
+    },
+    {
+      kind: "select",
+      key: "proseSize",
+      label: "Body text size",
+      help: "Scales About, Contact and other page body copy. Per-block CMS typography stays in Content.",
+      options: opts(PAGE_PROSE_SIZES, { sm: "Small", md: "Medium", lg: "Large" }),
+    },
+  ],
 } satisfies SectionDefinition;
 
 const footer = {

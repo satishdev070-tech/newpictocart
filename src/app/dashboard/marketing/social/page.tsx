@@ -68,6 +68,7 @@ export default async function SocialOverviewPage({ searchParams }: PageProps<"/d
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card
+          tour="social-week"
           title="Next 7 days"
           actions={
             write ? (
@@ -136,7 +137,7 @@ export default async function SocialOverviewPage({ searchParams }: PageProps<"/d
             )}
           </Card>
 
-          <Card title="Accounts" actions={<Link href={`${BASE}/accounts`} className="text-small font-medium text-accent hover:underline">Manage</Link>}>
+          <Card tour="social-accounts" title="Accounts" actions={<Link href={`${BASE}/accounts`} className="text-small font-medium text-accent hover:underline">Manage</Link>}>
             <ul className="space-y-2 text-small">
               {SOCIAL_PLATFORMS.map((p) => {
                 const s = summaries.find((x) => x.provider === p);

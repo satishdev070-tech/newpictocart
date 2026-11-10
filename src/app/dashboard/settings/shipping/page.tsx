@@ -9,11 +9,13 @@ import { listIntegrationSummaries, toCardData } from "@/features/integrations/se
 import { IntegrationCard } from "@/features/integrations/components/integration-card";
 import { DefaultCourierForm } from "@/features/integrations/components/default-courier";
 import { CodForm, DeletePincodeRule, DeleteShippingRate, PincodeRuleForm, ShippingRateForm } from "@/features/dashboard-ui/forms";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Shipping & COD" };
 
 export default async function ShippingPage() {
   const ctx = await requireTenantPermission("store.read");
+  const { t } = await getI18n();
   const [couriers, rates, rules, { data: store }] = await Promise.all([
     listIntegrationSummaries(ctx.tenantId, "shipping"),
     listShippingRates(ctx.tenantId),
@@ -26,8 +28,8 @@ export default async function ShippingPage() {
   const def = (store?.integrations as { default_courier?: string } | null)?.default_courier;
   return (
     <div className="space-y-6">
-      <PageHeader title="Shipping & COD" description="Delivery rates, PIN code rules and cash on delivery." />
-      <section className="space-y-4">
+      <PageHeader title={t("pages.settings.shipping.title")} description={t("pages.settings.shipping.description")} />
+      <section data-tour="couriers" className="space-y-4">
         <div>
           <h2 className="text-h3 font-semibold">Courier partners</h2>
           <p className="text-small text-muted">Connect your own courier accounts to check serviceability, book shipments, print labels, schedule pickups and track parcels from the order page. Without one, you fulfil orders manually.</p>
@@ -37,7 +39,7 @@ export default async function ShippingPage() {
         ))}
         {w && live.length > 1 ? <DefaultCourierForm options={live} current={def === "delhivery" ? "delhivery" : "shiprocket"} /> : null}
       </section>
-      <Card title="Shipping rates" description="Shoppers see every active rate whose order range and PIN prefixes match.">
+      <Card tour="shipping-rates" title="Shipping rates" description="Shoppers see every active rate whose order range and PIN prefixes match.">
         {rates.length === 0 ? <EmptyState title="No shipping rates" description="Without rates, checkout uses a free standard delivery fallback." /> : null}
         <ul className="space-y-3">
           {rates.map((r) => (
@@ -66,7 +68,7 @@ export default async function ShippingPage() {
           </div>
         ) : null}
       </Card>
-      <Card title="PIN code rules" description="Block delivery or COD for PIN prefixes, or add extra days for remote areas.">
+      <Card tour="pincode-rules" title="PIN code rules" description="Block delivery or COD for PIN prefixes, or add extra days for remote areas.">
         {rules.length ? (
           <ul className="mb-4 divide-y divide-border text-sm">
             {rules.map((r) => (
@@ -80,7 +82,7 @@ export default async function ShippingPage() {
         ) : null}
         {w ? <PincodeRuleForm /> : null}
       </Card>
-      <Card title="Cash on delivery">
+      <Card tour="cod" title="Cash on delivery">
         {w ? (
           <CodForm v={{ enabled: cod.enabled !== false, fee: String(cod.fee ?? 0), minOrder: String(cod.min_order ?? 0), maxOrder: String(cod.max_order ?? 0) }} />
         ) : (

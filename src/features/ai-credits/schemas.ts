@@ -50,6 +50,54 @@ export const creditAdjustmentSchema = z.object({
   note: z.string().trim().min(3, "Give a reason of at least 3 characters").max(500),
 });
 
+/** Platform-generated AI credit codes look like OTC-1A2B3C4D5E6F (12 hex digits after the prefix). */
+export const AI_CREDIT_OTC_RE = /^OTC-[0-9A-F]{12}$/;
+
+const optionalNote = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() ? v.trim() : undefined),
+  z.string().max(200).optional(),
+);
+
+export const createAiCreditCodeSchema = z.object({
+  credits: z.coerce.number({ error: "Enter how many credits" }).int("Whole credits only").min(1, "At least 1 credit").max(1_000_000, "At most 1,000,000 credits"),
+  note: optionalNote,
+});
+
+export const revokeAiCreditCodeSchema = z.object({ codeId: z.uuid() });
+
+/** Seller redeem: trim + upper-case so OTC-… matches the stored hash. */
+export const redeemAiCreditCodeSchema = z.object({
+  code: z.string().trim().toUpperCase().regex(AI_CREDIT_OTC_RE, "Codes look like OTC-1A2B3C4D5E6F"),
+});
+
+export type AiCreditOtcRow = {
+  id: string;
+  hint: string;
+  credits: number;
+  status: "unused" | "redeemed" | "revoked" | string;
+  redeemedTenantId: string | null;
+  redeemedTenantName: string | null;
+  redeemedAt: string | null;
+  note: string | null;
+  createdAt: string;
+};
+
+/** Friendly message for redeem_ai_credit_code() failure hints. */
+export function aiCreditOtcRedeemMessage(hint: string | null | undefined, message?: string | null): string {
+  if (hint === "CODE_INVALID" || /not valid|already used|CODE_INVALID/i.test(message ?? "")) {
+    return "This code is not valid or was already used.";
+  }
+  if (/schema cache|does not exist|PGRST202|42883|42P01/i.test(message ?? "")) {
+    return "AI credit codes are being set up. Please try again after the pending database migration is applied.";
+  }
+  return "The code could not be redeemed.";
+}
+
+/** Admin table display: OTC-…{last4}. */
+export function aiCreditOtcDisplay(hint: string): string {
+  return `OTC-…${hint}`;
+}
+
 export type AiCreditLedgerRow = {
   id: string;
   delta: number;

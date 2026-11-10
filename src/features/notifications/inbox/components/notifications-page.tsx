@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { GROUP_LABELS, NOTIFICATION_TYPES, groupsForScope, receivableTypes, type NotificationGroup } from "../catalog";
 import { getMutedTypes, listNotifications, type InboxAudience } from "../server";
 import { MarkAllReadButton, NotificationList, PreferencesForm } from "./notification-list";
+import { SoundPreferences } from "./sound-preferences";
 
 const PAGE_SIZE = 20;
 
@@ -58,19 +59,27 @@ export async function NotificationsPage({ audience, sp, basePath, can, descripti
     return (
       <div className="space-y-6">
         {header}
-        <Card title="In-app notifications" description="Choose what shows up in your bell. This only affects you; teammates keep their own settings.">
+        <Card title="In-app notifications" description="Choose what shows up in your bell. This only affects you; teammates keep their own settings. Low stock and sold-out alerts are written by the inventory DB trigger when available stock crosses the threshold.">
           {offered.length ? <PreferencesForm scope={scope} offered={offered} muted={muted} groups={byGroup} /> : <p className="text-small text-muted">Your role doesn&apos;t receive any notification types yet.</p>}
+        </Card>
+        <Card title="Notification sounds" description="Heard in this browser when the tab is visible and unread alerts increase. Mute types above still stop those rows from arriving.">
+          <SoundPreferences />
         </Card>
       </div>
     );
   }
 
-  const { items, total } = await listNotifications(audience, { status, group, page, pageSize: PAGE_SIZE });
+  const { items, total, error: listError } = await listNotifications(audience, { status, group, page, pageSize: PAGE_SIZE });
   const chip = (active: boolean) => cn("inline-flex h-8 items-center rounded-full border px-3 text-small font-medium transition-colors", active ? "border-accent/30 bg-accent-soft text-accent" : "border-border bg-surface text-muted hover:text-foreground");
 
   return (
     <div className="space-y-6">
       {header}
+      {listError ? (
+        <p role="alert" className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-small text-foreground">
+          {listError}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <nav aria-label="Filter notifications" className="flex flex-wrap gap-2">
           <Link href={href({ status: "all" })} className={chip(status === "all")} aria-current={status === "all" ? "page" : undefined}>

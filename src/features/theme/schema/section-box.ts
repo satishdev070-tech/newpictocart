@@ -14,9 +14,10 @@ import { SECTION_BOX_LIMITS, SECTION_BOX_SIDES, SECTION_BOX_WIDTHS, type Section
  *  - --sf-mt/mb/pt/pb  desktop spacing, --sf-mt-m … phone spacing (container query < 48rem).
  */
 
-const { scale: SCALE, space: SPACE, mobileFactor } = SECTION_BOX_LIMITS;
+const { scale: SCALE, space: SPACE, padding: PADDING, mobileFactor } = SECTION_BOX_LIMITS;
 
-const space = z.coerce.number().int().min(SPACE.min, `Use ${SPACE.min}–${SPACE.max}px`).max(SPACE.max, `Use ${SPACE.min}–${SPACE.max}px`);
+const margin = z.coerce.number().int().min(SPACE.min, `Use ${SPACE.min}–${SPACE.max}px`).max(SPACE.max, `Use ${SPACE.min}–${SPACE.max}px`);
+const padding = z.coerce.number().int().min(PADDING.min, `Use ${PADDING.min}–${PADDING.max}px`).max(PADDING.max, `Use ${PADDING.min}–${PADDING.max}px`);
 const scale = z.coerce
   .number()
   .int()
@@ -24,7 +25,14 @@ const scale = z.coerce
   .max(SCALE.max, `Use ${SCALE.min}–${SCALE.max}%`)
   .refine((n) => n % SCALE.step === 0, `Use steps of ${SCALE.step}%`);
 
-const sides = Object.fromEntries(SECTION_BOX_SIDES.map((k) => [k, space.optional()])) as Record<SectionBoxSide, z.ZodOptional<typeof space>>;
+function sideSchema(side: SectionBoxSide) {
+  return side.startsWith("padding") ? padding.optional() : margin.optional();
+}
+
+const sides = Object.fromEntries(SECTION_BOX_SIDES.map((k) => [k, sideSchema(k)])) as Record<
+  SectionBoxSide,
+  z.ZodOptional<z.ZodNumber>
+>;
 
 export const sectionBoxSchema = z.object({
   scale: scale.optional(),
@@ -58,16 +66,19 @@ const CONTENT_WIDTH: Record<(typeof SECTION_BOX_WIDTHS)[number], string> = { nar
 
 const VAR: Record<SectionBoxSide, string> = { marginTop: "mt", marginBottom: "mb", paddingTop: "pt", paddingBottom: "pb" };
 
-function okSpace(n: unknown): n is number {
-  return typeof n === "number" && Number.isInteger(n) && n >= SPACE.min && n <= SPACE.max;
+/** True when `n` is an in-range integer for that side (margins may be negative; padding ≥ 0). */
+export function okSpace(n: unknown, side: SectionBoxSide): n is number {
+  if (typeof n !== "number" || !Number.isInteger(n)) return false;
+  if (side.startsWith("padding")) return n >= PADDING.min && n <= PADDING.max;
+  return n >= SPACE.min && n <= SPACE.max;
 }
 
 /** The phone value used for a side: explicit, else 60% of desktop, else none. */
 export function mobileSpace(box: SectionBox, side: SectionBoxSide): number | undefined {
   const m = box.mobile?.[side];
-  if (okSpace(m)) return m;
+  if (okSpace(m, side)) return m;
   const d = box[side];
-  return okSpace(d) ? Math.round(d * mobileFactor) : undefined;
+  return okSpace(d, side) ? Math.round(d * mobileFactor) : undefined;
 }
 
 /**
@@ -89,13 +100,13 @@ export function sectionBoxVars(box: SectionBox | undefined): { vars: Record<stri
   }
   for (const side of SECTION_BOX_SIDES) {
     const d = box[side];
-    if (!okSpace(d) && !okSpace(box.mobile?.[side])) continue;
+    if (!okSpace(d, side) && !okSpace(box.mobile?.[side], side)) continue;
     const v = VAR[side];
     // A phone-only value keeps the theme default on desktop.
-    if (okSpace(d)) vars[`--sf-${v}`] = `${d}px`;
+    if (okSpace(d, side)) vars[`--sf-${v}`] = `${d}px`;
     const m = mobileSpace(box, side);
     if (m !== undefined) vars[`--sf-${v}-m`] = `${m}px`;
-    attrs[`data-sf-${v}`] = okSpace(d) ? "" : "m";
+    attrs[`data-sf-${v}`] = okSpace(d, side) ? "" : "m";
   }
   return Object.keys(vars).length ? { vars, attrs } : undefined;
 }

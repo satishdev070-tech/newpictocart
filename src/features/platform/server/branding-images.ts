@@ -1,8 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import sharp from "sharp";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { sniffImage } from "@/lib/storage/upload";
+import { loadSharp } from "@/lib/storage/sharp-load";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/observability/logger";
 import { assertPlatformPermission, type PlatformContext } from "@/lib/platform/access";
@@ -69,10 +69,13 @@ export async function uploadBrandImage(ctx: PlatformContext, slot: BrandSlot, fi
   let height: number | null = null;
   if (ext !== "ico") {
     try {
-      const meta = await sharp(bytes).metadata();
+      const sharpMod = await loadSharp();
+      if (!sharpMod) throw fail("Image processing isn't available on this host right now");
+      const meta = await sharpMod.default(bytes).metadata();
       width = meta.width ?? null;
       height = meta.height ?? null;
-    } catch {
+    } catch (err) {
+      if (err instanceof AppError) throw err;
       throw fail("That image couldn't be read");
     }
     const sizeError = checkBrandImageSize(slot, width, height);
@@ -83,14 +86,18 @@ export async function uploadBrandImage(ctx: PlatformContext, slot: BrandSlot, fi
   let body: Uint8Array = bytes;
   if (slot === "header_logo" || slot === "footer_logo") {
     try {
-      const { data, info } = await sharp(bytes)
-        .trim({ threshold: 12 })
-        .toFormat(ext === "jpg" ? "jpeg" : (ext as "png" | "webp"))
-        .toBuffer({ resolveWithObject: true });
-      if (info.width >= 16 && info.height >= 16) {
-        body = new Uint8Array(data);
-        width = info.width;
-        height = info.height;
+      const sharpMod = await loadSharp();
+      if (sharpMod) {
+        const { data, info } = await sharpMod
+          .default(bytes)
+          .trim({ threshold: 12 })
+          .toFormat(ext === "jpg" ? "jpeg" : (ext as "png" | "webp"))
+          .toBuffer({ resolveWithObject: true });
+        if (info.width >= 16 && info.height >= 16) {
+          body = new Uint8Array(data);
+          width = info.width;
+          height = info.height;
+        }
       }
     } catch {
       // Nothing to trim (or a single-colour image): keep the original.

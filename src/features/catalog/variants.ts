@@ -39,6 +39,27 @@ export function slugify(input: string, max = 120): string {
     .replace(/-+$/g, "");
 }
 
+/** True when the handle still matches `slugify(title)` — title edits should keep syncing the slug. */
+export function isSlugLinkedToTitle(slug: string, title: string): boolean {
+  return slug === slugify(title);
+}
+
+/**
+ * Initial "slug manually edited" flag for the product editor.
+ * New products stay linked. Existing products stay linked when the saved handle still matches the title.
+ */
+export function initialSlugTouched(product: { id?: string | null; slug: string; title: string }): boolean {
+  if (!product.id) return false;
+  return !isSlugLinkedToTitle(product.slug, product.title);
+}
+
+/** Auto canonical preview when SEO canonical is blank (store origin if known, else relative path). */
+export function productCanonicalPreview(slug: string, storeOrigin?: string | null): string {
+  const path = `/products/${slug || "…"}`;
+  if (!storeOrigin?.trim()) return path;
+  return `${storeOrigin.replace(/\/$/, "")}${path}`;
+}
+
 /** "S / Red" or "Default" — same rule as the SQL function. */
 export function variantTitle(v: Pick<VariantDraft, "option1" | "option2" | "option3">): string {
   const parts = [v.option1, v.option2, v.option3].filter((x): x is string => !!x);
@@ -100,6 +121,25 @@ export function cleanOptions(options: OptionDraft[]): OptionDraft[] {
  * With no options the product has exactly one "Default" variant.
  */
 export function generateVariantMatrix(options: OptionDraft[], existing: VariantDraft[], defaults: Partial<VariantDraft> = {}): VariantDraft[] {
+  return previewVariantMatrixRegen(options, existing, defaults).next;
+}
+
+export type MatrixRegenPreview = {
+  /** Resulting matrix (same as generateVariantMatrix). */
+  next: VariantDraft[];
+  /** Existing rows whose comboKey still matches — id, price, SKU, stock settings kept. */
+  kept: VariantDraft[];
+  /** Existing rows that will disappear from the editor (combo no longer in the matrix). */
+  dropped: VariantDraft[];
+  /** Brand-new combinations (no prior comboKey match). */
+  created: VariantDraft[];
+};
+
+/**
+ * Same matrix as generateVariantMatrix, plus which rows are kept / dropped / created so the
+ * editor can warn before regen removes unmatched combos (and their stock ids from the form).
+ */
+export function previewVariantMatrixRegen(options: OptionDraft[], existing: VariantDraft[], defaults: Partial<VariantDraft> = {}): MatrixRegenPreview {
   const opts = cleanOptions(options).slice(0, 3);
   const template = existing[0];
   const base: Partial<VariantDraft> = template
@@ -117,15 +157,42 @@ export function generateVariantMatrix(options: OptionDraft[], existing: VariantD
 
   if (opts.length === 0) {
     const keep = existing.find((v) => !v.option1 && !v.option2 && !v.option3) ?? existing[0];
-    return [keep ? { ...keep, option1: null, option2: null, option3: null } : emptyVariant(base)];
+    const next = [keep ? { ...keep, option1: null, option2: null, option3: null } : emptyVariant(base)];
+    return {
+      next,
+      kept: keep ? [next[0]!] : [],
+      dropped: keep ? existing.filter((v) => v !== keep) : [...existing],
+      created: keep ? [] : next,
+    };
   }
 
-  const byCombo = new Map(existing.map((v) => [comboKey(v), v]));
-  return cartesian(opts.map((o) => o.values.map((v) => v.value))).map((combo) => {
+  const byCombo = new Map<string, VariantDraft>();
+  for (const v of existing) {
+    const k = comboKey(v);
+    // First wins — mirrors generateVariantMatrix Map construction.
+    if (!byCombo.has(k)) byCombo.set(k, v);
+  }
+  const next: VariantDraft[] = [];
+  const kept: VariantDraft[] = [];
+  const created: VariantDraft[] = [];
+  const matched = new Set<string>();
+  for (const combo of cartesian(opts.map((o) => o.values.map((v) => v.value)))) {
     const key = { option1: combo[0] ?? null, option2: combo[1] ?? null, option3: combo[2] ?? null };
-    const found = byCombo.get(comboKey(key));
-    return found ? { ...found, ...key } : emptyVariant({ ...base, ...key });
-  });
+    const ck = comboKey(key);
+    const found = byCombo.get(ck);
+    if (found) {
+      const row = { ...found, ...key };
+      next.push(row);
+      kept.push(row);
+      matched.add(ck);
+    } else {
+      const row = emptyVariant({ ...base, ...key });
+      next.push(row);
+      created.push(row);
+    }
+  }
+  const dropped = existing.filter((v) => !matched.has(comboKey(v)));
+  return { next, kept, dropped, created };
 }
 
 /** Suggested SKU for a variant, e.g. base "AAN-IDK" + ["M","Red"] -> "AAN-IDK-M-RED". */

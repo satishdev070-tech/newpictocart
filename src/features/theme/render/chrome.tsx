@@ -260,7 +260,7 @@ function HeaderLogoLeftNavCenter({ s, ctx }: { s: SectionSettings<"Header">; ctx
         </div>
         <div className="sf-header-lnc-nav">{s.menuStyle !== "drawer" && menu.length ? <CenterMenu items={menu} /> : null}</div>
         <div className="flex items-center justify-end gap-1">
-          {h.showSearch ? <SearchOverlay popular={popular} /> : null}
+          {h.showSearch ? <SearchOverlay popular={popular} autoFocus={!ctx.sf.preview} /> : null}
           {h.showAccount ? (
             <Link href={paths.account()} className="sf-icon-btn hidden @[48rem]:inline-grid" aria-label={ctx.signedIn ? "Your account" : "Sign in"}>
               <UserIcon />
@@ -323,7 +323,7 @@ function HeaderPositioned({ s, ctx }: { s: SectionSettings<"Header">; ctx: Rende
         {showMenu && first.length ? <div className="sf-hdr-menu">{renderMenu(first)}</div> : null}
         {showMenu && second.length ? <div className="sf-hdr-menu2">{renderMenu(second)}</div> : null}
         <div className="sf-hdr-icons flex items-center gap-0.5">
-          {h.showSearch ? <SearchOverlay popular={popular} /> : null}
+          {h.showSearch ? <SearchOverlay popular={popular} autoFocus={!ctx.sf.preview} /> : null}
           {h.showAccount ? (
             <Link href={paths.account()} className="sf-icon-btn hidden @[48rem]:inline-grid" aria-label={ctx.signedIn ? "Your account" : "Sign in"}>
               <UserIcon />
@@ -354,7 +354,7 @@ export function Header({ s, ctx }: { s: SectionSettings<"Header">; ctx: RenderCo
   const h = effectiveHeader(ctx.sf.theme.header, ctx.sf.siteMode);
   const menu = ctx.menus[h.menuHandle]?.items ?? [];
   const popular = menu.filter((n) => n.href && !n.external).slice(0, 8).map((n) => ({ label: n.title, href: n.href! }));
-  const search = h.showSearch ? <SearchOverlay popular={popular} /> : null;
+  const search = h.showSearch ? <SearchOverlay popular={popular} autoFocus={!ctx.sf.preview} /> : null;
   const icons = (
     <div className="flex items-center gap-0.5">
       {s.layout !== "logo-center" ? search : null}

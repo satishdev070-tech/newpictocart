@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/observability/logger";
 import { toMinor } from "@/lib/money";
-import { FALLBACK_PACKS, type AiCreditCatalog, type AiCreditLedgerRow, type AiCreditPurchaseRow } from "./schemas";
+import { FALLBACK_PACKS, type AiCreditCatalog, type AiCreditLedgerRow, type AiCreditOtcRow, type AiCreditPurchaseRow } from "./schemas";
 
 const MISSING_SCHEMA_CODES = new Set(["PGRST202", "PGRST204", "PGRST205", "42883", "42P01", "42703"]);
 
@@ -121,20 +121,47 @@ export async function getAiCreditOverview(tenantId: string, limit = 30): Promise
 }
 
 /** Super-admin queue/history; the RLS policy independently limits this to platform usage staff. */
-export async function getPlatformAiCreditOverview(limit = 100): Promise<{ available: boolean; ledger: (AiCreditLedgerRow & { tenantId: string })[]; purchases: AiCreditPurchaseRow[] }> {
+export async function getPlatformAiCreditOverview(limit = 100): Promise<{ available: boolean; ledger: (AiCreditLedgerRow & { tenantId: string })[]; purchases: AiCreditPurchaseRow[]; codes: AiCreditOtcRow[]; codesAvailable: boolean }> {
   const supabase = await createSupabaseServerClient();
-  const [ledger, purchases] = await Promise.all([
+  const [ledger, purchases, codes] = await Promise.all([
     supabase.from("ai_credit_ledger").select("id, tenant_id, delta, balance_after, kind, note, created_at").order("created_at", { ascending: false }).limit(limit),
     supabase.from("ai_credit_purchase_requests").select("id, tenant_id, pack, credits, amount, method, status, decision_note, payment_reference, created_at, decided_at").order("created_at", { ascending: false }).limit(limit),
+    listAiCreditCodes(),
   ]);
   const firstError = ledger.error ?? purchases.error;
   if (firstError) {
-    if (missingSchema(firstError)) return { available: false, ledger: [], purchases: [] };
+    if (missingSchema(firstError)) return { available: false, ledger: [], purchases: [], codes: codes.data, codesAvailable: codes.available };
     throw new AppError("INTERNAL", { context: { operation: "platform_ai_credit_overview", code: firstError.code } });
   }
   return {
     available: true,
     ledger: (ledger.data ?? []).map((r) => ({ id: r.id, tenantId: r.tenant_id, delta: r.delta, balanceAfter: r.balance_after, kind: r.kind, note: r.note, createdAt: r.created_at })),
     purchases: (purchases.data ?? []).map((r) => ({ id: r.id, tenantId: r.tenant_id, pack: r.pack, credits: r.credits, amountMinor: toMinor(r.amount), method: r.method as "online" | "offline", status: r.status as AiCreditPurchaseRow["status"], decisionNote: r.decision_note, paymentReference: r.payment_reference, createdAt: r.created_at, decidedAt: r.decided_at })),
+    codes: codes.data,
+    codesAvailable: codes.available,
+  };
+}
+
+/** Platform OTC list via SECURITY DEFINER RPC (hash never returned). Soft-fails while migration is pending. */
+export async function listAiCreditCodes(): Promise<{ available: boolean; data: AiCreditOtcRow[] }> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("platform_list_ai_credit_codes");
+  if (error) {
+    if (missingSchema(error)) return { available: false, data: [] };
+    throw new AppError("INTERNAL", { context: { operation: "platform_list_ai_credit_codes", code: error.code } });
+  }
+  return {
+    available: true,
+    data: (data ?? []).map((r) => ({
+      id: r.id,
+      hint: r.code_hint,
+      credits: r.credits,
+      status: r.status,
+      redeemedTenantId: r.redeemed_tenant_id,
+      redeemedTenantName: r.tenant_name,
+      redeemedAt: r.redeemed_at,
+      note: r.note,
+      createdAt: r.created_at,
+    })),
   };
 }

@@ -8,6 +8,10 @@ export const seedReadyStoreInputSchema = z.object({
   tenantId: z.uuid(),
   storeName: z.string().trim().min(2).max(120),
   industry: z.string().refine(isIndustry, "Choose a valid store category"),
+  /** Industry-scoped subcategory slug from “What do you sell?” (optional). */
+  subcategory: z.string().trim().min(1).max(80).optional().nullable(),
+  /** Custom niche / products-services text when the seller typed their own niche. */
+  niche: z.string().trim().min(1).max(300).optional().nullable(),
   /** Free-text brief from voice / onboarding (optional). */
   brief: z.string().trim().max(4000).optional(),
   /** BCP-47 / Sarvam language code for optional translation of generated copy. */

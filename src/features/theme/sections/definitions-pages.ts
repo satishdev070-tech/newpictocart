@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { imagePath, plainText, safeHref } from "../schema/primitives";
+import { textLookField } from "../schema/text-style";
 import type { EditorField, SectionDefinition } from "./types";
 import { SECTION_SPACINGS, values, type VariantOption } from "./variants";
 
@@ -30,11 +31,21 @@ const TONES = ["light", "dark", "accent", "muted"] as const;
 const toneEditor: EditorField = { kind: "select", key: "tone", label: "Background", options: TONES.map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) })) };
 const spacingEditor: EditorField = { kind: "select", key: "spacing", label: "Space above and below", options: SECTION_SPACINGS.map((o) => ({ value: o.value, label: o.label })) };
 
-const headingFields = { eyebrow: txt(60), heading: txt(120), subheading: txt(300) };
+const headingFields = {
+  eyebrow: txt(60),
+  heading: txt(120),
+  subheading: txt(300),
+  eyebrowLook: textLookField,
+  headingLook: textLookField,
+  subheadingLook: textLookField,
+};
 const headingEditor: EditorField[] = [
   { kind: "text", key: "eyebrow", label: "Eyebrow", maxLength: 60, placeholder: "Small text above the heading" },
+  { kind: "textStyle", key: "eyebrowLook", label: "Eyebrow style", role: "eyebrow" },
   { kind: "text", key: "heading", label: "Heading", maxLength: 120 },
+  { kind: "textStyle", key: "headingLook", label: "Heading style", role: "heading" },
   { kind: "text", key: "subheading", label: "Subheading", maxLength: 300, multiline: true },
+  { kind: "textStyle", key: "subheadingLook", label: "Subheading style", role: "subheading" },
 ];
 const commonFields = { tone: z.enum(TONES).default("light"), spacing: variantSchema(SECTION_SPACINGS) };
 
@@ -207,14 +218,18 @@ const richText = {
     body: txt(6000, "Write a few paragraphs here.\n\nLeave an empty line to start a new paragraph."),
     ctaLabel: txt(40),
     ctaHref: safeHref.default(""),
+    bodyLook: textLookField,
+    ctaLook: textLookField,
     ...commonFields,
   }),
   fields: editorFields([
     variantEditor("Layout", RICH_TEXT_VARIANTS),
     ...headingEditor,
     { kind: "text", key: "body", label: "Text", maxLength: 6000, multiline: true, help: "Leave an empty line between paragraphs." },
+    { kind: "textStyle", key: "bodyLook", label: "Body style", role: "body" },
     { kind: "text", key: "ctaLabel", label: "Button text (optional)", maxLength: 40 },
     { kind: "link", key: "ctaHref", label: "Button link" },
+    { kind: "textStyle", key: "ctaLook", label: "Button style", role: "cta" },
     toneEditor,
     spacingEditor,
   ]),
@@ -349,10 +364,14 @@ const callToAction = {
   schema: z.object({
     variant: variantSchema(CTA_VARIANTS),
     eyebrow: txt(60),
+    eyebrowLook: textLookField,
     heading: txt(120, "Ready to find your favourite?"),
+    headingLook: textLookField,
     text: txt(400, "Browse the full collection or write to us for help choosing."),
+    bodyLook: textLookField,
     ctaLabel: txt(40, "Shop now"),
     ctaHref: safeHref.default("/collections"),
+    ctaLook: textLookField,
     secondaryLabel: txt(40),
     secondaryHref: safeHref.default(""),
     imagePath: imagePath.default(""),
@@ -363,10 +382,14 @@ const callToAction = {
   fields: editorFields([
     variantEditor("Layout", CTA_VARIANTS),
     { kind: "text", key: "eyebrow", label: "Eyebrow", maxLength: 60 },
+    { kind: "textStyle", key: "eyebrowLook", label: "Eyebrow style", role: "eyebrow" },
     { kind: "text", key: "heading", label: "Heading", maxLength: 120 },
+    { kind: "textStyle", key: "headingLook", label: "Heading style", role: "heading" },
     { kind: "text", key: "text", label: "Text", maxLength: 400, multiline: true },
+    { kind: "textStyle", key: "bodyLook", label: "Text style", role: "body" },
     { kind: "text", key: "ctaLabel", label: "Button text", maxLength: 40 },
     { kind: "link", key: "ctaHref", label: "Button link" },
+    { kind: "textStyle", key: "ctaLook", label: "Button style", role: "cta" },
     { kind: "text", key: "secondaryLabel", label: "Second button text (optional)", maxLength: 40 },
     { kind: "link", key: "secondaryHref", label: "Second button link" },
     { kind: "image", key: "imagePath", label: "Photo", showIf: { key: "variant", equals: ["cta-split", "cta-image"] } },

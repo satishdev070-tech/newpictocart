@@ -10,19 +10,21 @@ import { FilterBar, queryString } from "@/features/settings/ui/filter-bar";
 import { CUSTOMERS_PAGE_SIZE, listCustomers, parseCustomerFilters } from "@/features/customers/queries";
 import { customerDisplayName } from "@/features/customers/export";
 import { formatDate } from "@/features/analytics/dates";
+import { getI18n } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Customers" };
 
 export default async function CustomersPage({ searchParams }: PageProps<"/dashboard/customers">) {
   const ctx = await requireTenantPermission("customers.read");
+  const { t } = await getI18n();
   const f = parseCustomerFilters(await searchParams);
   const { rows, total } = await listCustomers(ctx.tenantId, f);
   const params = { q: f.q, tag: f.tag, marketing: f.marketing };
   return (
     <div>
       <PageHeader
-        title="Customers"
-        description={`${total} customers`}
+        title={t("pages.customers.title")}
+        description={t("pages.customers.count", { count: total })}
         actions={<a href={`/dashboard/customers/export${queryString(params)}`} className="inline-flex h-10 items-center rounded-md border border-border bg-surface px-4 text-sm font-medium" download>Export CSV</a>}
       />
       <FilterBar action="/dashboard/customers" resetHref="/dashboard/customers" label="Filter customers">

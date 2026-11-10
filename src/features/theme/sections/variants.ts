@@ -274,6 +274,32 @@ export const HERO_MEDIA_RATIOS = [
 ] as const;
 export type HeroMediaRatio = (typeof HERO_MEDIA_RATIOS)[number]["value"];
 
+/**
+ * Shop template body layouts (PageContent "chrome" on collection / product / collectionList /
+ * search / cart). First value = look before chrome existed.
+ */
+export const PAGE_CHROME_VARIANTS = [
+  v("classic", "Classic", "Standard width and spacing"),
+  v("sidebar", "Sidebar", "Room for filters beside the content"),
+  v("minimal", "Minimal", "Quiet edges, more breathing room"),
+  v("editorial", "Editorial", "Wide type, generous whitespace"),
+  v("dense", "Dense", "Tighter spacing for big catalogues"),
+] as const;
+export type PageChrome = (typeof PAGE_CHROME_VARIANTS)[number]["value"];
+
+/**
+ * Members account auth layouts (PageContent "pack" on templates.account). Applied by
+ * StoreAuthSplit on login / sign-up / reset.
+ */
+export const ACCOUNT_PACK_VARIANTS = [
+  v("image-left", "Image left", "Store photo on the left, form on the right"),
+  v("image-right", "Image right", "Form on the left, store photo on the right"),
+  v("stacked", "Stacked", "Photo above, form below"),
+  v("minimal", "Minimal", "Form only — no photo panel"),
+  v("brand-panel", "Brand panel", "Solid brand colour panel beside the form"),
+] as const;
+export type AccountPack = (typeof ACCOUNT_PACK_VARIANTS)[number]["value"];
+
 /** z.enum-ready tuple of a variant list's values. */
 export function values<T extends string>(list: readonly VariantOption<T>[]): [T, ...T[]] {
   return list.map((o) => o.value) as [T, ...T[]];

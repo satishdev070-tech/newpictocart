@@ -67,6 +67,20 @@ export function subscriptionBreakdown(
   plans: readonly PlanInfo[],
   stores: readonly { planId: string | null; status: SubscriptionStatus; cycle?: BillingCycle | null }[],
 ): { rows: PlanBreakdownRow[]; mrrMinor: number; paying: number; trial: number; total: number } {
+  return subscriptionBreakdownFromCounts(
+    plans,
+    stores.map((s) => ({ planId: s.planId, status: s.status, cycle: s.cycle, count: 1 })),
+  );
+}
+
+/**
+ * Same as {@link subscriptionBreakdown}, but each row carries a `count` so SQL plan/status
+ * aggregates (platform_revenue_report) need not expand into one object per store.
+ */
+export function subscriptionBreakdownFromCounts(
+  plans: readonly PlanInfo[],
+  counts: readonly { planId: string | null; status: SubscriptionStatus; cycle?: BillingCycle | null; count: number }[],
+): { rows: PlanBreakdownRow[]; mrrMinor: number; paying: number; trial: number; total: number } {
   const byId = new Map(plans.map((p) => [p.id, p]));
   const rows = new Map<string, PlanBreakdownRow>();
   for (const p of plans) {
@@ -75,7 +89,9 @@ export function subscriptionBreakdown(
   let mrrMinor = 0;
   let paying = 0;
   let trial = 0;
-  for (const s of stores) {
+  for (const s of counts) {
+    const n = s.count;
+    if (!Number.isSafeInteger(n) || n <= 0) continue;
     if (s.status === "cancelled") continue;
     const plan = s.planId ? byId.get(s.planId) : undefined;
     const key = plan ? plan.id : "__none__";
@@ -84,18 +100,18 @@ export function subscriptionBreakdown(
       row = { planId: null, planName: "No plan", stores: 0, paying: 0, trial: 0, priceMonthlyMinor: 0, commissionBps: 0, mrrMinor: 0 };
       rows.set(key, row);
     }
-    row.stores += 1;
+    row.stores += n;
     if (s.status === "trial") {
-      row.trial += 1;
-      trial += 1;
+      row.trial += n;
+      trial += n;
       continue;
     }
     const mrr = plan ? storeMrrMinor({ planId: plan.id, status: s.status, priceMonthlyMinor: plan.priceMonthlyMinor, priceYearlyMinor: plan.priceYearlyMinor, cycle: s.cycle }) : 0;
     if (mrr > 0) {
-      row.paying += 1;
-      paying += 1;
-      row.mrrMinor += mrr;
-      mrrMinor += mrr;
+      row.paying += n;
+      paying += n;
+      row.mrrMinor += mrr * n;
+      mrrMinor += mrr * n;
     }
   }
   const order = new Map(plans.map((p, i) => [p.id, p.sortOrder ?? i]));

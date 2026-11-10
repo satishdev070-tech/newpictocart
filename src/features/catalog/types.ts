@@ -27,6 +27,7 @@ export type ProductDraft = {
   shippingInfo: string;
   returnInfo: string;
   hsnCode: string;
+  countryOfOrigin: string;
   seoTitle: string;
   seoDescription: string;
   seoCanonical: string;
@@ -66,6 +67,7 @@ export function emptyProductDraft(productType = "other"): ProductDraft {
     shippingInfo: "",
     returnInfo: "",
     hsnCode: "",
+    countryOfOrigin: "",
     seoTitle: "",
     seoDescription: "",
     seoCanonical: "",

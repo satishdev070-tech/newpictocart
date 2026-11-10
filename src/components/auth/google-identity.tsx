@@ -32,7 +32,7 @@ function loadScript(): Promise<GoogleId> {
     if (!existing) {
       s.src = SCRIPT_SRC;
       s.async = true;
-      document.head.append(s);
+      document.head.appendChild(s);
     }
     setTimeout(() => reject(new Error("timeout")), 8000);
   });

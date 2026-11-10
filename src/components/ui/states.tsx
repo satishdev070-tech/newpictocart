@@ -9,7 +9,7 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function EmptyState({ title, description, action, icon }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border-strong bg-surface px-6 py-14 text-center">
+    <div data-tour="empty" className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border-strong bg-surface px-6 py-14 text-center">
       {icon ? <div className="grid size-11 place-items-center rounded-xl bg-accent-soft text-accent [&_svg]:size-5">{icon}</div> : null}
       <h2 className="text-h3">{title}</h2>
       {description ? <p className="max-w-md text-body text-muted">{description}</p> : null}

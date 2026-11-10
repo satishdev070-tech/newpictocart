@@ -16,9 +16,10 @@ describe("page templates", () => {
   it("has the expected starter set with unique keys", () => {
     const keys = PAGE_TEMPLATES.map((t) => t.key);
     expect(new Set(keys).size).toBe(keys.length);
-    expect(PAGE_TEMPLATES.map((t) => t.label)).toEqual(["About", "Blogs", "Collection", "Contact", "FAQ", "Gallery", "Privacy Policy", "Shop", "Team", "Why Us"]);
+    expect(keys).toEqual(expect.arrayContaining(["about", "about-mission", "contact", "contact-split", "faq", "faq-shipping", "blogs", "blogs-magazine", "blog-detail", "blog-detail-feature", "collection", "gallery"]));
     expect(pageTemplate("blank")).toBe(BLANK_TEMPLATE);
-    expect(pageTemplate("about")?.label).toBe("About");
+    expect(pageTemplate("about")?.label).toMatch(/^About/);
+    expect(pageTemplate("about")?.family).toBe("about");
     expect(pageTemplate("nope")).toBeNull();
   });
 
@@ -40,9 +41,11 @@ describe("page templates", () => {
   it("all templates together still validate (unique handles and ids)", () => {
     let config: ThemeConfig = DEFAULT_THEME_CONFIG;
     for (const t of PAGE_TEMPLATES) config = addPage(config, t.label, t.sections).config;
-    config = addPage(config, "About", PAGE_TEMPLATES[0]!.sections).config;
+    // Slugify of the first About layout label is already taken → uniqueHandle suffixes.
+    const dupTitle = PAGE_TEMPLATES[0]!.label;
+    config = addPage(config, dupTitle, PAGE_TEMPLATES[0]!.sections).config;
     expect(config.pages).toHaveLength(PAGE_TEMPLATES.length + 1);
-    expect(config.pages.at(-1)!.handle).toBe("about-2");
+    expect(config.pages.at(-1)!.handle).toMatch(/-2$/);
     const r = parseThemeConfigStrict(config);
     if (!r.ok) throw new Error(JSON.stringify(r.issues));
     expect(r.config.pages).toHaveLength(PAGE_TEMPLATES.length + 1);
@@ -88,10 +91,10 @@ describe("builderPages / pageForPath", () => {
     expect(pages.find((p) => p.group === "popups")).toMatchObject({ key: "popup:uabcdefghi", popupId: "uabcdefghi", list: null });
   });
 
-  it("omits blog and product when the store has none", () => {
+  it("omits blog, product, and product-list when the store has no samples (product-list would duplicate Collections)", () => {
     const bare = builderPages(DEFAULT_THEME_CONFIG, { contentPages: [], sampleProductSlug: null, sampleCollectionSlug: null, blog: false });
-    expect(bare.some((p) => p.key === "blog" || p.key === "product")).toBe(false);
-    expect(bare.find((p) => p.key === "product-list")!.list).toBe("templates.collectionList");
+    expect(bare.some((p) => p.key === "blog" || p.key === "product" || p.key === "product-list")).toBe(false);
+    expect(bare.find((p) => p.key === "collections")!.list).toBe("templates.collectionList");
   });
 
   it("maps canvas paths back to registry pages", () => {
@@ -113,7 +116,8 @@ describe("contact page merge", () => {
     const pages = builderPages(DEFAULT_THEME_CONFIG, src).filter((p) => p.group === "pages");
     expect(pages.filter((p) => /contact/i.test(p.label))).toHaveLength(1);
     const row = pages.find((p) => p.key === "contact")!;
-    expect(row).toMatchObject({ label: "Contact", path: "/contact", contentPageId: CONTACT_ID, altPath: "/pages/contact", settingsHref: `/dashboard/content/pages/${CONTACT_ID}` });
+    // Canvas prefers /pages/<slug> (TemplateFrame + CMS body); /contact stays as altPath for live-route matching.
+    expect(row).toMatchObject({ label: "Contact", path: "/pages/contact", contentPageId: CONTACT_ID, altPath: "/contact", settingsHref: `/dashboard/content/pages/${CONTACT_ID}` });
     expect(pages.some((p) => p.key === `content:${CONTACT_ID}`)).toBe(false);
   });
 
@@ -127,9 +131,11 @@ describe("contact page merge", () => {
 
   it("falls back to a page of kind contact and keeps the built-in row alone without one", () => {
     const other = builderPages(DEFAULT_THEME_CONFIG, { ...SOURCES, contentPages: [{ id: CONTACT_ID, title: "Reach us", slug: "reach-us", kind: "contact" }] });
-    expect(other.find((p) => p.key === "contact")).toMatchObject({ label: "Reach us", altPath: "/pages/reach-us" });
+    expect(other.find((p) => p.key === "contact")).toMatchObject({ label: "Reach us", path: "/pages/reach-us", altPath: "/contact" });
     const none = builderPages(DEFAULT_THEME_CONFIG, SOURCES).find((p) => p.key === "contact")!;
     expect(none.contentPageId).toBeUndefined();
+    expect(none.path).toBe("/contact");
+    expect(none.altPath).toBeUndefined();
     expect(none.label).toBe("Contact");
   });
 

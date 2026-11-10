@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { SectionSettings } from "@/features/theme/sections/definitions";
 import type { ListArgs } from "@/features/storefront/server/catalog";
 
@@ -41,10 +41,23 @@ export function Intro({ eyebrow, heading, subheading, accent, headingStyle, note
   );
 }
 
-export function Cta({ label, href, className = "sf-btn" }: { label?: string; href?: string; className?: string }) {
+export function Cta({
+  label,
+  href,
+  className = "sf-btn",
+  style,
+  dataAttrs,
+}: {
+  label?: string;
+  href?: string;
+  className?: string;
+  style?: CSSProperties;
+  /** Canvas / text-look data attributes (`data-pc-text`, …). */
+  dataAttrs?: Record<string, string>;
+}) {
   if (!label || !href) return null;
   return (
-    <Link href={href} className={className}>
+    <Link href={href} className={className} style={style} {...dataAttrs}>
       {label}
     </Link>
   );
