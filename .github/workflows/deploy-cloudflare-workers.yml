@@ -9,15 +9,12 @@
 name: Deploy Cloudflare Workers
 
 on:
-  # Push-to-main deploy is paused until a workflow_dispatch run is green with
-  # mintVerify:ok. Merges were uploading GitHub APP_SECRET/CRON_SECRET that made
-  # the Worker return 500 on /api/cron/preview-token-self-test; prod was restored
-  # manually each time. Re-enable the push trigger after one successful manual deploy.
+  # Every push to main deploys. Re-enabled after manual run 42875606915 passed the
+  # preview-token self-test (mintVerify:ok). Manual runs stay available.
   workflow_dispatch:
-  # push:
-  #   branches:
-  #     - main
-  #     - cursor/prod-cf-full-cutover-c73e
+  push:
+    branches:
+      - main
 
 concurrency:
   group: deploy-cloudflare-workers
