@@ -34,8 +34,8 @@ import {
 import { Baby, Brush, CakeSlice, Coffee, Dumbbell, Flower2, Gem, Gift, Hammer, HandHeart, Headphones, Laptop, Leaf, PawPrint, Pencil, PenTool, Scissors, Shirt, ShoppingBag, Sofa, Sprout, ToyBrick, Watch, Wrench } from "lucide-react";
 import type { SVGProps } from "react";
 import { cn } from "@/lib/cn";
-import type { AccentColor, HighlightColor, LandingIcon } from "../landing";
-import { parseHighlights } from "../landing";
+import type { AccentColor, LandingIcon } from "../landing";
+import { parseHighlights, type HighlightColor } from "../highlights";
 
 export const LANDING_ICON_COMPONENTS: Record<LandingIcon, LucideIcon> = {
   sparkles: Sparkles,

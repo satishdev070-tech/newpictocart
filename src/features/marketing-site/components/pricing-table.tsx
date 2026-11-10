@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { hasYearlyBilling, isFreeForeverPlan, maxYearlySavingsPercent, planHighlights, planPriceView, recommendedPlanCode, yearlySavingsPercent, type BillingPeriod, type MarketingPlan } from "../plans";
+import { hasYearlyBilling, isFreeForeverPlan, maxYearlySavingsPercent, planHighlights, planPriceView, recommendedPlanCode, yearlySavingsPercent, type BillingPeriod, type MarketingPlan } from "../plan-view";
 import { signupHref } from "../content";
 import { analyticsAttributes } from "../analytics";
 import { buttonClass } from "./ui";

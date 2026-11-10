@@ -204,6 +204,63 @@ and it only matters in production with many active merchants.
 data-cache miss still runs host → tenant → loaders in sequence. Vercel Fluid compute (keeps
 instances warm) and the remaining P1 items are the next levers.
 
+## Round 2: dashboard waves, marketing zod, stock imagery (2026-11-11)
+
+### Changes
+| Fix | Files |
+|---|---|
+| `requireTenant` loads memberships alongside the profile check: it needs only the verified user id, from new `getVerifiedUserId()` (cached `getClaims`). One fewer sequential round on every seller page. | `src/lib/auth/session.ts`, `src/lib/tenant/membership.ts` |
+| Storefront stock imagery (`getStockSet`) cached per category. The Unsplash credential is no longer read and decrypted on every storefront request. Saving the key clears tag `unsplash`. | `src/lib/unsplash.ts` |
+| Marketing pages no longer ship zod: highlight helpers moved to `highlights.ts`, plan types and display helpers to `plan-view.ts`. Both are re-exported, so server importers are unchanged. | `src/features/marketing-site/{highlights,plan-view,landing,plans}.ts`, `components/{landing-icons,pricing-table}.tsx` |
+| Cart: quote and recommendations load together. Checkout: identity name and saved address load together, and the Google / WhatsApp availability checks join the quote batch (they were awaited inside the JSX). | `src/app/store/[host]/cart/page.tsx`, `src/app/store/[host]/checkout/page.tsx` |
+| Notification bell polls every 60 s only while realtime is not connected. Each poll is a server action that re-runs auth and the notification queries. | `src/features/notifications/inbox/components/use-live-notifications.ts` |
+
+The dashboard layout's `site_mode` item from round 1 was already fixed on `main`: the layout now streams
+and uses the cached `getStoreSiteMode`.
+
+### Before / after
+Same harness as round 1: 25 ms per Supabase call, local production builds. The base was `main`
+at `30de152`. Builds ran alternately, each trial on a fresh server with an empty data cache.
+Values are medians: warm n=10, cold n=5.
+
+| Measurement | Before | After |
+|---|---:|---:|
+| Warm `/dashboard` TTFB (sequential rounds) | 200 ms (3) | **163 ms (2)** |
+| Warm `/dashboard/orders` | 170 ms (4) | **128 ms (3)** |
+| Warm `/dashboard/customers` | 160 ms (4) | **118 ms (3)** |
+| Cold `/dashboard/orders` | 873 ms | 752 ms (wide spread: 600–1,410) |
+| Warm storefront `/` TTFB / Supabase calls | 252 ms / 18 | 246 ms / 17 (credential read gone) |
+| Cold storefront `/` | 436 ms | 441 ms (no change) |
+| Marketing `/` first-load JS (gzip) | 347 KB, zod yes | **257 KB, zod no** |
+| Marketing `/pricing` first-load JS (gzip) | 345 KB | **255 KB** |
+
+**Tried and reverted:** store-wide review summary as five `count` queries. It saved no time on a
+normal store and cost four extra requests. The 5,000-row download still needs DB change 3 (an RPC).
+
+**Not measured:**
+- `/cart` and `/checkout`: the local shopper has no cart, and seeding one means writing to the
+  shared local DB.
+- The product page and the size-chart, category and product dashboard pages: they return 404 or
+  errors locally, because the local DB lacks migrations `20261027004100`–`004150`.
+
+### Production errors found during this round
+On the hosted project, the products, categories, collections, size charts and order detail pages
+fail. Their code reads columns from four migrations that were never applied there (verified
+read-only):
+- `categories.size_chart_id`
+- `discounts.show_in_offers`
+- `returns.photo_paths`
+- the new team roles
+
+The remote migration history is also missing six earlier migrations whose objects already exist
+(applied through the SQL editor). The fix is to record those six as applied, then push the rest.
+This was not run from here (production change):
+
+```
+supabase migration repair --linked --status applied 20261019003300 20261019003400 20261020003500 20261025003700 20261025003800 20261025003900
+supabase db push --linked
+```
+
 ## Database changes proposed (not applied)
 1. `create index concurrently orders_tenant_placed_idx on orders (tenant_id, placed_at desc) where status <> 'pending';`
 2. `create index concurrently returns_tenant_status_idx on returns (tenant_id, status);` for the
