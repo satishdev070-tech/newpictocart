@@ -11,10 +11,18 @@ const cache = await createWorkersCacheConfig();
  * To enable on Paid: import { triggers } from "cf/config" and add
  * `triggers: [triggers.scheduled({ schedule: "0 0 * * *" })]`.
  */
+/**
+ * Worker + KV namespace come from the deploy workflow (`CF_WORKER_NAME` / `CF_KV_NAMESPACE_ID`, see
+ * .github/workflows/deploy-worker.yml): staging deploys `pictocart-staging` with its own KV.
+ * The defaults are production's, so local builds and manual deploys behave exactly as before.
+ */
+const workerName = process.env.CF_WORKER_NAME || "pictocart";
+const kvNamespaceId = process.env.CF_KV_NAMESPACE_ID || "2a8074bf01e4433d824ab34d9531cf0b";
+
 export default defineConfig({
   worker: defineWorker({
     ...cache,
-    name: "pictocart",
+    name: workerName,
     entrypoint: "vinext/server/fetch-handler",
     compatibilityDate: "2026-11-05",
     compatibilityFlags: ["nodejs_compat"],
@@ -29,7 +37,7 @@ export default defineConfig({
       IMAGES: bindings.images(),
       // Pin to the existing Airy Fact namespace — unpinned bindings.kv() makes `cf deploy`
       // (strict by default in CI) abort when local config differs from the remote Worker.
-      VINEXT_KV_CACHE: bindings.kv({ id: "2a8074bf01e4433d824ab34d9531cf0b" }),
+      VINEXT_KV_CACHE: bindings.kv({ id: kvNamespaceId }),
     },
   }),
 });

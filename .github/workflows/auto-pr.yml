@@ -1,0 +1,96 @@
+# Opens a pull request to `main` when a feature branch is pushed. Never merges.
+#  - Branch prefixes below only (agent branches such as claude/* and cursor/* open their own PRs).
+#  - Skips when the branch already has an open PR, or has no commits ahead of main.
+#  - Then dispatches CI for the new PR: PRs created with GITHUB_TOKEN don't start pull_request runs.
+# Needs repo setting: Settings → Actions → General → Workflow permissions →
+# "Allow GitHub Actions to create and approve pull requests" (see docs/CI_CD.md).
+name: Auto PR
+
+on:
+  push:
+    branches:
+      - "feature/**"
+      - "feat/**"
+      - "fix/**"
+      - "hotfix/**"
+      - "chore/**"
+      - "refactor/**"
+      - "perf/**"
+      - "docs/**"
+      - "test/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: write # dispatch CI for the PR this workflow opens
+
+concurrency:
+  group: auto-pr-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  open-pr:
+    name: Open PR if missing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Create PR (idempotent)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          ahead=$(git rev-list --count origin/main..HEAD)
+          if [ "$ahead" = "0" ]; then
+            echo "::notice::$BRANCH has no commits ahead of main; no PR needed."
+            exit 0
+          fi
+          existing=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "::notice::PR #$existing already open for $BRANCH; not creating another."
+            exit 0
+          fi
+
+          # Title: first conventional commit subject on the branch, else the branch name.
+          title=$(git log --reverse --format=%s origin/main..HEAD | head -1)
+          if [ -z "$title" ]; then title="$BRANCH"; fi
+
+          {
+            echo "## Summary"
+            echo
+            echo "Opened automatically for \`$BRANCH\` ($ahead commit(s) ahead of \`main\`)."
+            echo
+            echo "### Commits"
+            git log --reverse --format='- %s (%h)' origin/main..HEAD | head -50
+            echo
+            echo "### Changed files"
+            echo
+            echo '```'
+            git diff --stat=120 origin/main...HEAD | tail -n 60
+            echo '```'
+            echo
+            echo "## Testing checklist"
+            echo
+            echo "- [ ] CI passed (typecheck, lint, unit tests, auth/tenant regression, Next build, Worker build, env contract, secret scan)"
+            echo "- [ ] Tested locally (\`pnpm dev\` / \`pnpm check\`)"
+            echo "- [ ] Database migrations (if any) reviewed; applied manually to staging first, never automatically"
+            echo "- [ ] Storefront, seller dashboard and auth flows checked for the affected areas"
+            echo
+            echo "Merging deploys to **staging** (pictocartdev.in). Production is a separate, approved release."
+          } > /tmp/pr-body.md
+
+          if ! url=$(gh pr create --base main --head "$BRANCH" --title "$title" --body-file /tmp/pr-body.md 2>/tmp/pr-err.txt); then
+            if grep -qi "already exists" /tmp/pr-err.txt; then
+              echo "::notice::A PR for $BRANCH was opened concurrently; nothing to do."
+              exit 0
+            fi
+            cat /tmp/pr-err.txt >&2
+            echo "::error::Could not create the PR. If this is a permissions error, enable Settings → Actions → General → 'Allow GitHub Actions to create and approve pull requests'."
+            exit 1
+          fi
+          echo "::notice::Opened $url"
+          gh workflow run ci.yml --ref "$BRANCH"

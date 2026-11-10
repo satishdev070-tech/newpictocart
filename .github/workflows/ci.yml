@@ -1,0 +1,138 @@
+# PR quality gate. Branch protection on `main` requires the single check "CI passed".
+#
+# Triggers:
+#  - pull_request: every PR to main (people, agents, forks).
+#  - workflow_dispatch: auto-pr.yml dispatches this for PRs it opens, because PRs created with
+#    GITHUB_TOKEN do not start pull_request workflows. Later pushes to the PR trigger
+#    pull_request (synchronize) as usual.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Public, non-secret placeholders: builds only need well-formed values (no network at build time).
+  NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder_000000000000
+  NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: pictocart.in
+  NEXT_PUBLIC_PLATFORM_URL: https://www.pictocart.in
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm test
+
+  regression:
+    name: Auth + tenant routing regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      # Proxy host classification, tenant directory, edge signatures, permissions matrix and auth
+      # flows. Also part of `pnpm test`; run on their own so a routing/auth break is named in the PR.
+      - run: >-
+          pnpm exec vitest run
+          tests/unit/routing.test.ts tests/unit/host.test.ts tests/unit/platform-hosts.test.ts
+          tests/unit/proxy-platform-host.test.ts tests/unit/tenant-directory.test.ts tests/unit/edge-signature.test.ts
+          tests/unit/permissions.test.ts tests/unit/permissions-sql.test.ts tests/unit/auth
+
+  build-next:
+    name: Next.js production build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+
+  build-worker:
+    name: Cloudflare Worker build (vinext)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm build:vinext
+
+  env-contract:
+    name: Env variable contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm exec tsx scripts/ci/check-env-contract.mts
+
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks v8.30.1 (checksum-verified)
+        run: |
+          set -euo pipefail
+          v=8.30.1
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${v}"
+          curl -fsSLO "${base}/gitleaks_${v}_linux_x64.tar.gz"
+          curl -fsSLO "${base}/gitleaks_${v}_checksums.txt"
+          grep " gitleaks_${v}_linux_x64.tar.gz\$" "gitleaks_${v}_checksums.txt" | sha256sum -c -
+          tar -xzf "gitleaks_${v}_linux_x64.tar.gz" gitleaks
+      - name: Scan commits not yet on main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          base=$(git merge-base origin/main HEAD)
+          # Only the branch's own commits: history already on main is not re-litigated per PR.
+          # --redact keeps any finding's value out of the log.
+          ./gitleaks git --redact --no-banner --log-opts="${base}..HEAD" --exit-code 1
+
+  ci-ok:
+    name: CI passed
+    if: always()
+    needs: [typecheck, lint, test, regression, build-next, build-worker, env-contract, secret-scan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: All required jobs succeeded
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          # Every job must be "success": failure, cancelled or skipped all block the merge.
+          echo "$RESULTS" | python3 -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r and all(x=="success" for x in r) else 1)'
