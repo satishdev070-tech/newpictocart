@@ -1,6 +1,7 @@
 import "server-only";
 import { logger } from "@/lib/observability/logger";
 import { getUnsplashAccessKey } from "@/features/media/unsplash/key";
+import { cachedStorefront } from "@/lib/cache/storefront";
 import { UNSPLASH_CATEGORIES, toUnsplashCategory, type UnsplashCategory } from "./unsplash-categories";
 import { STOCK_QUERIES, STOCK_SLOTS, curatedStock, stockPhotoUrl, type StockImage, type StockSet, type StockSlot } from "./unsplash-stock";
 
@@ -186,9 +187,17 @@ export async function getStockImages(category: string, slot: StockSlot, count = 
   }
 }
 
-/** Every slot for a category (what a theme fills empty image slots with). Never throws. */
-export async function getStockSet(category: string): Promise<StockSet> {
-  const cat = toUnsplashCategory(category);
-  const [hero, story, tiles, products] = await Promise.all(STOCK_SLOTS.map((slot) => getStockImages(cat, slot)));
-  return { category: cat, hero: hero!, story: story!, tiles: tiles!, products: products! };
-}
+/**
+ * Every slot for a category (what a theme fills empty image slots with). Never throws. Cached across
+ * requests per category (public photo URLs only), so storefront renders don't read and decrypt the
+ * Unsplash key on every request; saving the key drops it (tag "unsplash").
+ */
+export const getStockSet = cachedStorefront(
+  "stock-set",
+  async (category: string): Promise<StockSet> => {
+    const cat = toUnsplashCategory(category);
+    const [hero, story, tiles, products] = await Promise.all(STOCK_SLOTS.map((slot) => getStockImages(cat, slot)));
+    return { category: cat, hero: hero!, story: story!, tiles: tiles!, products: products! };
+  },
+  () => ["unsplash"],
+);

@@ -27,24 +27,30 @@ export default async function CheckoutPage({ params }: PageProps<"/store/[host]/
   const view = await getCartView(tenantId);
   if (!view.lines.length) redirect("/cart");
   const [linked, options] = await Promise.all([getStoreCustomer(tenantId), getCheckoutOptions(tenantId)]);
-  // Google sign-in: the name comes from the identity, so the shopper doesn't retype it.
-  const customer = linked ? await withIdentityName(linked) : null;
+  // Google sign-in: the name comes from the identity, so the shopper doesn't retype it. The saved
+  // address only needs the linked customer, so both load together.
+  const [customer, address] = linked
+    ? await Promise.all([
+        withIdentityName(linked),
+        createSupabaseServerClient()
+          .then((supabase) =>
+            supabase
+              .from("customer_addresses")
+              .select("name, phone, line1, line2, landmark, city, state, postal_code")
+              .eq("customer_id", linked.id)
+              .order("is_default", { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+          )
+          .then((r) => r.data),
+      ])
+    : [null, null];
   if (!customer && !options.guestCheckout) redirect("/account/login?next=/checkout&checkout=1");
-  let address: { name: string; phone: string; line1: string; line2: string | null; landmark: string | null; city: string; state: string; postal_code: string } | null = null;
-  if (customer) {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase
-      .from("customer_addresses")
-      .select("name, phone, line1, line2, landmark, city, state, postal_code")
-      .eq("customer_id", customer.id)
-      .order("is_default", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    address = data;
-  }
-  const [quote, payment] = await Promise.all([
+  const [quote, payment, googleAvailable, whatsappOptIn] = await Promise.all([
     quoteCheckoutAction({ postalCode: address?.postal_code }),
     loadPaymentOptions(tenantId, sf.store.cod.enabled && sf.features.cod),
+    customer ? false : googleSignInAvailable("shoppers"),
+    whatsappOptInAvailable(tenantId),
   ]);
   if (!quote.ok) redirect("/cart");
   const phone = (customer?.phone ?? address?.phone ?? "").replace(/^\+91/, "");
@@ -53,7 +59,7 @@ export default async function CheckoutPage({ params }: PageProps<"/store/[host]/
     <div className="sf-container sf-section">
       <TrackEvent name="begin_checkout" params={{ value: quote.data.grandTotal / 100, items, ...(quote.data.discount?.code ? { coupon: quote.data.discount.code } : {}) }} />
       <h1 className="sf-heading mb-8 text-4xl">Checkout</h1>
-      {!customer && (await googleSignInAvailable("shoppers")) ? (
+      {!customer && googleAvailable ? (
         <div className="mb-8 flex max-w-xl flex-wrap items-center gap-x-4 gap-y-2">
           <GoogleButton action={storeGoogleSignInAction} next="/checkout" label="Check out faster with Google" className="w-full sm:w-auto" />
           <p className="sf-muted text-sm">{options.guestCheckout ? "Or continue below as a guest." : null}</p>
@@ -65,7 +71,7 @@ export default async function CheckoutPage({ params }: PageProps<"/store/[host]/
         signedIn={Boolean(customer)}
         hasSavedAddress={Boolean(address)}
         locationAutofill={options.locationAutofill}
-        whatsappOptInStoreName={(await whatsappOptInAvailable(tenantId)) ? sf.store.name : null}
+        whatsappOptInStoreName={whatsappOptIn ? sf.store.name : null}
         codOffered={payment.codOffered}
         onlineOffered={payment.online !== null}
         onlineVia={payment.gateways.filter((g) => g !== "manual").map((g) => GATEWAY_NAMES[g]).join(" / ") || null}

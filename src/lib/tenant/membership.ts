@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { landingPathFor } from "@/lib/auth/landing";
-import { requireUser, type SessionUser } from "@/lib/auth/session";
+import { getVerifiedUserId, requireUser, type SessionUser } from "@/lib/auth/session";
 import { AppError } from "@/lib/errors";
 import { TENANT_ROLE_PERMISSIONS, isTenantPermission, type MembershipRole, type TenantPermission, type TenantRole } from "@/lib/permissions/matrix";
 import type { TenantStatus } from "./context";
@@ -69,8 +69,10 @@ export const listMemberships = cache(async (userId: string): Promise<Membership[
  * without a store, and to /onboarding for everyone else without a store.
  */
 export const requireTenant = cache(async (): Promise<TenantContext> => {
-  const user = await requireUser();
-  const memberships = await listMemberships(user.id);
+  // Memberships need only the verified user id, so they load alongside the profile check
+  // (requireUser still decides: signed out or disabled redirects before anything is used).
+  const userId = await getVerifiedUserId();
+  const [user, memberships] = userId ? await Promise.all([requireUser(), listMemberships(userId)]) : [await requireUser(), []];
   if (memberships.length === 0) redirect(await landingPathFor(user.id));
   const hinted = (await cookies()).get(ACTIVE_TENANT_COOKIE)?.value;
   const active = memberships.find((m) => m.tenantId === hinted) ?? memberships[0]!;

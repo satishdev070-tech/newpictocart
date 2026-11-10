@@ -201,11 +201,24 @@ export async function getProductReviews(tenantId: string, productId: string, lim
   return { reviews: (list ?? []).map(toReview), distribution };
 }
 
+/**
+ * Store-wide approved-review counts per star (index 0 = 1 star): five parallel count-only queries
+ * (RLS: approved reviews of public products) instead of downloading up to 5,000 ratings.
+ */
+async function ratingDistribution(tenantId: string): Promise<number[]> {
+  return Promise.all(
+    [1, 2, 3, 4, 5].map(async (rating) => {
+      const { count } = await pub().from("reviews").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("rating", rating);
+      return count ?? 0;
+    }),
+  );
+}
+
 /** Store-wide rating summary for the reviews section header (approved reviews only, via RLS). */
 export async function getReviewSummary(tenantId: string): Promise<{ average: number; count: number }> {
-  const { data } = await pub().from("reviews").select("rating").eq("tenant_id", tenantId).limit(5000);
-  const list = data ?? [];
-  return { count: list.length, average: list.length ? list.reduce((a, r) => a + r.rating, 0) / list.length : 0 };
+  const distribution = await ratingDistribution(tenantId);
+  const count = distribution.reduce((a, n) => a + n, 0);
+  return { count, average: count ? distribution.reduce((a, n, i) => a + n * (i + 1), 0) / count : 0 };
 }
 
 export async function getLatestReviews(tenantId: string, minRating: number, limit: number): Promise<Review[]> {

@@ -23,12 +23,15 @@ export default async function CartPage({ params, searchParams }: PageProps<"/sto
   const { sf } = await getRenderContext(host);
   const tenantId = sf.tenant.tenantId;
   const view = await getCartView(tenantId);
-  const quote = view.lines.length ? await quoteCheckoutAction({}) : null;
+  // The quote and the recommendations are independent: load them together.
+  const [quote, crossSell] = view.lines.length
+    ? await Promise.all([
+        quoteCheckoutAction({}),
+        listProducts(tenantId, { p_exclude: view.lines[0]!.productId, p_category: view.lines[0]!.categoryId ?? undefined, p_limit: 8, p_offset: 0, p_sort: "best_selling" }),
+      ])
+    : [null, { cards: [] }];
   const summary = quote?.ok ? quote.data : null;
   const issues = new Map((summary?.issues ?? []).map((i) => [i.lineId, i]));
-  const crossSell = view.lines.length
-    ? await listProducts(tenantId, { p_exclude: view.lines[0]!.productId, p_category: view.lines[0]!.categoryId ?? undefined, p_limit: 8, p_offset: 0, p_sort: "best_selling" })
-    : { cards: [] };
 
   const items: AnalyticsItem[] = view.lines.map((l) => ({ item_id: l.sku || l.productId, item_name: l.productTitle, ...(l.variantTitle ? { item_variant: l.variantTitle } : {}), price: l.unitPrice / 100, quantity: l.quantity }));
   const itemOf = new Map(view.lines.map((l, i) => [l.id, items[i]!]));
