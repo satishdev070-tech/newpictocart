@@ -2,26 +2,18 @@ import type { Metadata } from "next";
 import { requirePlatform } from "@/lib/platform/access";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { platformOrigin } from "@/lib/platform/urls";
-import { listPlatformSettings } from "@/features/platform/server/queries";
 import { brandImageView, getPublicPlatformConfig } from "@/features/platform/server/public-config";
 import { BrandImageForm } from "@/features/platform/components/branding-forms";
 import { BrandingPreview } from "@/features/platform/components/branding-preview";
-import { SettingCards } from "@/features/platform/components/setting-cards";
 import { Card, PageHeader } from "@/components/ui/layout";
-import { BRANDING_BUCKET, PUBLIC_CONFIG_KEYS } from "@/features/platform/public-config";
+import { BRANDING_BUCKET } from "@/features/platform/public-config";
 import { SITE_DESCRIPTION } from "@/features/marketing-site/seo";
-import { loadGscState, type GscRow } from "@/features/search-console/server/store";
-import { SearchConsoleCard, type GscCardState, type GscRowView } from "@/features/search-console/components/search-console-card";
+import Link from "next/link";
 
-export const metadata: Metadata = { title: "Branding & analytics" };
+export const metadata: Metadata = { title: "Branding" };
 
 const RASTER = "image/png,image/jpeg,image/webp";
 
-function gscView(row: GscRow | null): GscRowView | null {
-  if (!row) return null;
-  const { filename, content, dns_value, active, updated_at, last_delivery_check_at, last_delivery_status, last_delivery_error, last_dns_check_at, last_dns_status } = row;
-  return { filename, content, dns_value, active, updated_at, last_delivery_check_at, last_delivery_status, last_delivery_error, last_dns_check_at, last_dns_status };
-}
 
 /** True when migration 2500's storage bucket exists (uploads fail without it). */
 async function brandingBucketReady(): Promise<boolean> {
@@ -31,11 +23,7 @@ async function brandingBucketReady(): Promise<boolean> {
 
 export default async function BrandingPage() {
   await requirePlatform("platform.settings.manage");
-  // Search Console state is a plain table read (fails soft); delivery/DNS checks never run here.
-  const [config, stored, ready, gsc] = await Promise.all([getPublicPlatformConfig(), listPlatformSettings(), brandingBucketReady(), loadGscState()]);
-  const gscState: GscCardState = gsc.ready
-    ? { ready: true, domains: { production: { html: gscView(gsc.domains.production.html), dns: gscView(gsc.domains.production.dns) }, staging: { html: gscView(gsc.domains.staging.html), dns: gscView(gsc.domains.staging.dns) } } }
-    : { ready: false };
+  const [config, ready] = await Promise.all([getPublicPlatformConfig(), brandingBucketReady()]);
   const header = brandImageView(config.headerLogo);
   const footer = brandImageView(config.footerLogo);
   const favicon = brandImageView(config.favicon);
@@ -48,7 +36,7 @@ export default async function BrandingPage() {
   }
   return (
     <div className="space-y-4">
-      <PageHeader title="Branding & analytics" description="Logos, favicon, social share image, Google Analytics and Google Search Console verification for the Pictocart website, seller sign-in, onboarding, the seller dashboard and this console. Store owners set their own store logos in their dashboard. Files are public; every change is audited." />
+      <PageHeader title="Branding" description="Logos, favicon, social share image for the Pictocart website, seller sign-in, onboarding, the seller dashboard and this console. Store owners set their own store logos in their dashboard. Files are public; every change is audited." />
 
       {!ready ? (
         <div role="alert" className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-small">
@@ -78,9 +66,13 @@ export default async function BrandingPage() {
         <BrandingPreview header={header} footer={footer} favicon={favicon} share={share} siteHost={siteHost} description={SITE_DESCRIPTION} />
       </Card>
 
-      <SettingCards keys={[PUBLIC_CONFIG_KEYS.ga4]} stored={stored} />
-
-      <SearchConsoleCard state={gscState} />
+      <p className="text-small text-muted">
+        Google Analytics, Meta Pixel, Search Console verification and the visitor report are on{" "}
+        <Link href="/admin/analytics" className="text-accent hover:underline">
+          Analytics
+        </Link>
+        .
+      </p>
     </div>
   );
 }

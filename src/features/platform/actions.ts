@@ -269,6 +269,7 @@ export async function updatePlatformSettingAction(_prev: ActionResult | null, fd
     if (key.startsWith("public.")) {
       revalidatePublicConfig();
       revalidatePath("/admin/branding");
+      revalidatePath("/admin/analytics");
       revalidatePath("/admin/sign-in");
     }
   });

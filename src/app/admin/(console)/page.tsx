@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { BarChart3, Plus } from "lucide-react";
 import { requirePlatform } from "@/lib/platform/access";
 import { PageHeader } from "@/components/ui/layout";
 import { buttonClass } from "@/components/ui/button";
@@ -19,11 +19,18 @@ export default async function AdminHome() {
         title="Platform overview"
         description={`All stores across the platform · ${new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric", timeZone: "Asia/Kolkata" }).format(new Date())}`}
         actions={
-          ctx.permissions.has("platform.tenants.manage") ? (
-            <Link href="/admin/tenants/new" className={buttonClass({ variant: "accent" })}>
-              <Plus aria-hidden /> New store
-            </Link>
-          ) : null
+          <div className="flex flex-wrap gap-2">
+            {ctx.permissions.has("platform.settings.manage") ? (
+              <Link href="/admin/analytics" className={buttonClass({ variant: "secondary" })}>
+                <BarChart3 aria-hidden /> Analytics
+              </Link>
+            ) : null}
+            {ctx.permissions.has("platform.tenants.manage") ? (
+              <Link href="/admin/tenants/new" className={buttonClass({ variant: "accent" })}>
+                <Plus aria-hidden /> New store
+              </Link>
+            ) : null}
+          </div>
         }
       />
 

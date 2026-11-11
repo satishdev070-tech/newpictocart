@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { META_PIXEL_ID_RE, extractMetaPixelId } from "./public-config";
 
 /**
  * Known platform_settings keys, each with its own value schema and editor kind.
@@ -8,7 +9,7 @@ import { z } from "zod";
 export type SettingKind = "boolean" | "text" | "email" | "number" | "textarea";
 
 /** `page`: shown on that dedicated admin page instead of /admin/settings. */
-type SettingDef = { key: string; label: string; description: string; kind: SettingKind; schema: z.ZodType; defaultValue: unknown; page?: "branding" | "sign-in" };
+type SettingDef = { key: string; label: string; description: string; kind: SettingKind; schema: z.ZodType; defaultValue: unknown; page?: "branding" | "sign-in" | "analytics" };
 
 const optionalText = (max: number) =>
   z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? null : v), z.string().trim().max(max).nullable());
@@ -73,7 +74,46 @@ export const PLATFORM_SETTINGS: readonly SettingDef[] = [
       z.string().regex(/^G-[A-Z0-9]{4,20}$/, "Use the GA4 measurement ID, e.g. G-AB12CD34EF").nullable(),
     ),
     defaultValue: null,
-    page: "branding",
+    page: "analytics",
+  },
+  {
+    key: "public.analytics.ga4_enabled",
+    label: "Enable Google Analytics",
+    description: "Loads gtag.js on platform pages when a measurement ID is set.",
+    kind: "boolean",
+    schema: z.boolean(),
+    defaultValue: true,
+    page: "analytics",
+  },
+  {
+    key: "public.analytics.first_party",
+    label: "First-party visitor tracking",
+    description: "Counts page views on platform pages in our own database (no cookies, IPs or query strings). Powers the Analytics report.",
+    kind: "boolean",
+    schema: z.boolean(),
+    defaultValue: true,
+    page: "analytics",
+  },
+  {
+    key: "public.analytics.meta_pixel_id",
+    label: "Meta Pixel ID",
+    description: "Paste the Pixel ID or Meta's base code; only the numeric ID is stored. Leave blank to remove.",
+    kind: "textarea",
+    schema: z.preprocess(
+      (v) => (typeof v === "string" ? (v.trim() === "" ? null : (extractMetaPixelId(v) ?? "invalid")) : v),
+      z.string().regex(META_PIXEL_ID_RE, "Paste a Pixel ID (10–20 digits) or Meta's base code containing fbq('init', '…')").nullable(),
+    ),
+    defaultValue: null,
+    page: "analytics",
+  },
+  {
+    key: "public.analytics.meta_pixel_enabled",
+    label: "Enable Meta Pixel",
+    description: "Sends PageView on platform pages. Never loads on merchant stores or admin pages.",
+    kind: "boolean",
+    schema: z.boolean(),
+    defaultValue: true,
+    page: "analytics",
   },
   {
     key: "public.auth.google_sellers",

@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 const ID_RE = /^G-[A-Z0-9]{4,20}$/;
 
 /**
- * Google tag (GA4) for the platform's own marketing pages, configured in /admin/branding.
+ * Google tag (GA4) for the platform's own marketing pages, configured in /admin/analytics.
  * Not loaded for visitors with Global Privacy Control or Do Not Track. Sends page_view on
  * client-side navigations and the `data-analytics` CTA clicks as GA4 events.
  */

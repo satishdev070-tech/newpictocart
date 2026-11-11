@@ -16,7 +16,7 @@ import { checkGscDelivery, checkGscDns, removeGscDns, removeGscFile, saveGscDns,
  * authorize (platform.settings.manage = super_admin only) → rate limit → execute (RLS) → audit.
  */
 
-const PAGE = "/admin/branding";
+const PAGE = "/admin/analytics";
 const domainSchema = z.object({ domain: z.enum(GSC_DOMAINS) });
 
 async function superAdmin(): Promise<PlatformContext> {
