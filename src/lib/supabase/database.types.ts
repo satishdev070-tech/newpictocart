@@ -4054,6 +4054,60 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_search_console_verifications: {
+        Row: {
+          active: boolean
+          content: string | null
+          created_at: string
+          dns_value: string | null
+          domain: string
+          filename: string | null
+          id: string
+          last_delivery_check_at: string | null
+          last_delivery_error: string | null
+          last_delivery_status: string | null
+          last_dns_check_at: string | null
+          last_dns_status: string | null
+          method: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          content?: string | null
+          created_at?: string
+          dns_value?: string | null
+          domain: string
+          filename?: string | null
+          id?: string
+          last_delivery_check_at?: string | null
+          last_delivery_error?: string | null
+          last_delivery_status?: string | null
+          last_dns_check_at?: string | null
+          last_dns_status?: string | null
+          method: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          content?: string | null
+          created_at?: string
+          dns_value?: string | null
+          domain?: string
+          filename?: string | null
+          id?: string
+          last_delivery_check_at?: string | null
+          last_delivery_error?: string | null
+          last_delivery_status?: string | null
+          last_dns_check_at?: string | null
+          last_dns_status?: string | null
+          method?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       platform_role_permissions: {
         Row: {
           permission: string
@@ -6855,6 +6909,10 @@ export type Database = {
           status_code: number
           to_path: string
         }[]
+      }
+      gsc_verification_file: {
+        Args: { p_domain: string; p_filename: string }
+        Returns: string
       }
       submit_contact_message: {
         Args: {

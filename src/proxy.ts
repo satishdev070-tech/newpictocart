@@ -10,6 +10,7 @@ import { platformHostAliases } from "@/lib/platform/hosts";
 import { EDGE_HOST_HEADER, EDGE_SIG_HEADER, EDGE_TS_HEADER, verifyEdgeHost } from "@/lib/tenant/edge-signature";
 import { logger } from "@/lib/observability/logger";
 import { logSpan, serverTimingHeader, timeAsync } from "@/lib/observability/timing";
+import { GSC_ROUTE_PREFIX, gscDomainForHost, gscFilenameFromPath } from "@/features/search-console/verification";
 
 /**
  * Request entry point (Next.js 16 "proxy", formerly middleware). Responsibilities:
@@ -69,12 +70,16 @@ export async function proxy(request: NextRequest) {
   const inboundId = request.headers.get(REQUEST_ID_HEADER);
   const requestId = inboundId && REQUEST_ID_PATTERN.test(inboundId) ? inboundId : crypto.randomUUID();
 
+  // Google Search Console verification file on an allowlisted platform host (see step 3).
+  const gscFile = gscDomainForHost(host) ? gscFilenameFromPath(request.nextUrl.pathname) : null;
+
   // (4) Session refresh — only when an auth cookie exists, so anonymous storefront
   // traffic never pays for a Supabase round-trip.
   const pendingCookies: PendingCookie[] = [];
   const pendingHeaders: Record<string, string> = {};
   let proxyClaimsMs: number | undefined;
-  if (hasSupabaseAuthCookie(request)) {
+  // Skipped for verification files: they must not set or rotate cookies.
+  if (!gscFile && hasSupabaseAuthCookie(request)) {
     try {
       const supabase = createServerClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
         cookies: {
@@ -109,7 +114,17 @@ export async function proxy(request: NextRequest) {
     forwarded.set(PROXY_CLAIMS_MS_HEADER, String(Math.round(proxyClaimsMs * 10) / 10));
   }
 
-  // (3) Routing decision.
+  // (3) Routing decision. Google Search Console verification files are checked first: only on
+  // the fixed apex/www allowlist (never store subdomains), and before tenant routing so the
+  // path is never rewritten into a storefront. The handler re-checks the host.
+  if (gscFile) {
+    const url = request.nextUrl.clone();
+    url.pathname = `${GSC_ROUTE_PREFIX}/${gscFile}`;
+    url.search = "";
+    const res = NextResponse.rewrite(url, { request: { headers: forwarded } });
+    res.headers.set(REQUEST_ID_HEADER, requestId);
+    return res;
+  }
   const decision = decideRoute(host, request.nextUrl.pathname, env.NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN, platformAliases(env.NEXT_PUBLIC_PLATFORM_URL));
   const isStoreRoute = decision.action === "rewrite" && decision.pathname.startsWith(`${STORE_ROUTE_PREFIX}/`);
 
