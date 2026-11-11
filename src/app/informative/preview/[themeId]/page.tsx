@@ -6,6 +6,7 @@ import { defaultPageSections } from "@/features/informative/defaults";
 import { informativeFlagMode, informativeFlagOn } from "@/features/informative/flag";
 import type { PageSection } from "@/features/informative/sections";
 import { InformativeSite } from "@/features/informative/site/renderer";
+import { SessionLogo } from "@/features/informative/onboarding/components/session-logo";
 import { buildDemoView } from "@/features/informative/site/view";
 import { findInformativeTheme } from "@/features/informative/themes/registry";
 
@@ -35,6 +36,7 @@ export default async function InformativeThemePreview({ params, searchParams }: 
   const base = `/informative/preview/${theme.id}`;
   const keep = new URLSearchParams();
   if (name) keep.set("name", name);
+  if (one(sp.logo) === "session") keep.set("logo", "session");
   if (category) keep.set("category", category);
   const link = (path: string) => {
     const q = new URLSearchParams(keep);
@@ -56,5 +58,10 @@ export default async function InformativeThemePreview({ params, searchParams }: 
     sections = defaultPageSections(theme, PAGES[page]);
     pageTitle = page === "home" ? null : page.charAt(0).toUpperCase() + page.slice(1);
   }
-  return <InformativeSite theme={theme} view={view} sections={sections} pageTitle={pageTitle} fontClassName={informativeFontVariables} />;
+  return (
+    <>
+      <InformativeSite theme={theme} view={view} sections={sections} pageTitle={pageTitle} fontClassName={informativeFontVariables} />
+      {one(sp.logo) === "session" ? <SessionLogo alt={`${view.businessName} logo`} /> : null}
+    </>
+  );
 }

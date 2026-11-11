@@ -8,7 +8,7 @@ Plan: [PLAN.md](./PLAN.md) · Discovery: [DISCOVERY.md](./DISCOVERY.md) · Branc
 | M1 Foundation | ✅ Done | see `git log` (feat(informative): M1) |
 | M2 Data layer | ✅ Done | see `git log` (feat(informative): M2) |
 | M3 Theme system | ✅ Done | see `git log` (feat(informative): M3) |
-| M4 Onboarding | — | |
+| M4 Onboarding | ✅ Done | see `git log` (feat(informative): M4) |
 | M5 Seller panel | — | |
 | M6 Public site | — | |
 | M7 Enquiries | — | |
@@ -240,3 +240,87 @@ regeneration).
   clearing that cache (build output only).
 - `pnpm build:vinext` + `scripts/ci/check-worker-css.mts` ✅: "4 stylesheets OK (layer order pinned,
   10 key rules present)". `root-metadata-imports` (Worker graph) is part of the unit run ✅.
+
+---
+
+## M4 — Onboarding (2026-11-11)
+
+### What landed
+
+| Piece | Where |
+|---|---|
+| Step 0 "What do you want to build?" (two native-radio cards, choice persisted, analytics) at `/start/build` | `src/app/start/build/page.tsx`, `onboarding/components/type-selector.tsx` |
+| Entry branch: bare `/start` → `/start/build` when allowed; otherwise exactly today's `/start/lang` | `src/app/start/page.tsx` (branch point) |
+| Back on the store flow's first step → Step 0, only when Step 0 exists | `start-page.tsx`, `start-journey.tsx`, `lang-screen.tsx` (optional prop; branch points) |
+| Steps 1–4 + finish at `/start/informative/<step>` with their own draft (`pictocart.start.informative.v1`) and resume / no-skip-ahead guard | `src/app/start/informative/**`, `onboarding/components/*`, `onboarding/draft.ts` |
+| Step 1 fields and rules from the plan (name 2–80, category, tagline ≤ 120, phone, WhatsApp "same as phone", email, city, address, logo ≤ 2 MB PNG/JPG/WebP, address) + live address check | `basic-info-step.tsx`, `checkInformativeSlugAction`, `store_slug_available()` |
+| Step 2: 11 themes, Recommended badges (1–2), swatches, full-screen live preview (iframe of the real renderer) with desktop/mobile toggle, the user's name **and logo** | `theme-step.tsx`, `session-logo.tsx`, preview `?logo=session` |
+| Step 3: up to 3 services (name, short description, price type + ₹ price), "Skip, I'll add later" | `services-step.tsx` |
+| Step 4: the existing account creation (Google, or the same emailed-code actions as the store journey) returning to finish | `account-step.tsx` |
+| One-transaction completion, idempotent; samples flagged `is_sample` when skipped; logo uploaded to `tenant/<id>/informative/…` | `complete_informative_onboarding()` (migration 8200), `completeInformativeOnboardingAction`, `onboarding/payload.ts` |
+| Analytics: `onboarding_type_selected`, `informative_theme_previewed`, `informative_theme_selected`, `informative_onboarding_completed` | `onboarding/analytics.ts` (GA4/dataLayer when present) + server log on completion |
+
+### Decisions and deviations
+
+1. **Step 0 lives at `/start/build`** and only bare `/start` is branched. Deep links to the store flow
+   (`/start/lang`, marketing CTAs) still go straight into it, and the query string (`?plan=`) is
+   carried to the store branch.
+2. **Back on the store flow's first step (Q4)** is an optional `onBack` prop on `LangScreen`, threaded
+   from `StartPageContent`. It is set only when Step 0 is available, so with the flag off the store
+   screen renders exactly as before (verified in the browser). These three edits sit under the
+   "onboarding entry/router" touch point.
+3. **Completion reuses the creation service** (plan: "via the existing store-creation service, passing
+   the type"). `complete_informative_onboarding` calls `create_tenant(…, 'INFORMATIVE')` from M1 inside
+   one transaction, then sets `site_mode='informative'` and `launch_status='draft'` (so existing
+   commerce guards and "coming soon" apply), and creates the site (DRAFT), private settings, the 4
+   system pages with the theme's default sections, and the starter or 3 sample services. Store-only
+   records that are **not** created: inventory location, shipping rates, COD/UPI settings, sample
+   products, collections and categories, and the store theme draft (DB-tested).
+4. **Idempotent twice over:** the RPC returns the caller's existing INFORMATIVE tenant for the same
+   slug, and the action retries once on a unique-violation race. The finish step fires once per
+   page load.
+5. **The logo before an account exists** is downscaled in the browser (≤ 512 px, WebP/PNG) and kept in
+   the draft. The preview iframe reads it from `sessionStorage` (same origin; never uploaded). After
+   the transaction, the server re-checks it (PNG/JPG/WebP data URL, ≤ 2 MB, bytes sniffed by
+   `uploadTenantImage`) and uploads it under `informative/`. This is best effort, because storage
+   isn't transactional; a failed upload is logged and the site still gets created. SVG is refused (Q11).
+6. **Address check (Q10):** new `store_slug_available()` (SECURITY DEFINER, reveals only taken/free),
+   rate-limited to 60 per 10 min per IP. The final word is still the `tenants.slug` unique constraint.
+7. **Account step** reuses `requestStartEmailCodeAction` / `verifyStartEmailCodeAction` (via the shared
+   `EmailCodeFlow`) and Google sign-in with `next=/start/informative/finish`, so no new auth code was
+   written. **Known limitation:** an account that *already owns a store* and signs in **with Google**
+   during this flow is sent to its existing panel by the OAuth callback (`landingFor` treats `/start/*`
+   as onboarding). The email-code path returns to finish. Such users can restart at `/start/build`.
+   Changing this would mean editing the callback rule (left for review).
+8. **Flag stages:** `all` lets anyone in; `internal` shows Step 0 and the steps only to signed-in
+   platform staff (everyone else sees today's flow); `off` 404s the informative routes.
+9. **Accessibility:** native radios (with explicit `aria-labelledby`) for the type and theme choices;
+   errors linked by `aria-describedby`; focus moves to the first invalid field; the preview is a native
+   modal `<dialog>` (focus trap, Escape); the live address hint is a polite live region outside the
+   label. The browser walk caught two issues, both fixed: errors and hints inside `<label>` were
+   polluting field names, and swatch keys were duplicated where a theme reuses a colour.
+10. Finishing lands on `/informative/dashboard?welcome=1` (the M1 stub; the checklist comes in M5).
+
+### Verification
+
+- DB test `tests/rls/informative-onboarding.test.ts` (6): slug check; the complete transaction
+  (tenant INFORMATIVE, owner, subdomain, `site_mode`/`launch_status`, DRAFT site, notify email, 4
+  pages, 3 samples, **no** store-only rows); idempotent double submit; all-or-nothing rollback on an
+  invalid service; oversized payload; someone else's slug; anonymous refused.
+- Unit `tests/unit/informative/onboarding.test.ts` (21): Step 1 rules, draft resume, logo types,
+  payload mapping (samples vs starters, paise → numeric, unique slugs, pages/contact), the entry
+  branch with the flag on and off (query kept), and the completion action refused when the flag is
+  off (no DB call).
+- Browser walk on a worktree dev server (hosted DB, which has none of the migrations, so nothing was
+  created; the slug check fails quietly there by design):
+  - **Flag on:** `/start` → Step 0 → Online Store → the unchanged `/start/lang` + Back → Step 0 with the
+    choice kept → Informative → Step 1 validation and focus, address suggestion → Step 2 recommended
+    badges (clinic → Zenith Prime, Smooth Wave), full-screen preview with the user's name, mobile
+    390 px toggle, "Use this design" → Step 3 → Skip → Step 4 (Google + email code).
+  - **Guards:** `finish` signed out → `account`; a deep link with no draft → `basic-info`.
+  - **Flag off:** `/start`, `/start?plan=pro` and `/start/build` → `/start/lang` (query kept);
+    `/start/informative/*`, preview and panel → 404; the language screen has no Back button.
+- The end-to-end account creation + completion against a database with migrations 8000–8200 is
+  covered by the DB tests; the browser E2E of the whole journey is part of M8.
+- `pnpm check` ✅ **208 files / 2209 tests** + build; full RLS suite ✅ **27 files / 204 tests**
+  (patched-shim scratch DB, run serially); `build:vinext` + `check-worker-css` ✅.

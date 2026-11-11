@@ -6812,6 +6812,17 @@ export type Database = {
         Args: { p_confirm_slug: string; p_tenant: string }
         Returns: undefined
       }
+      complete_informative_onboarding: {
+        Args: {
+          p_name: string
+          p_pages: Json
+          p_root_domain: string
+          p_services: Json
+          p_site: Json
+          p_slug: string
+        }
+        Returns: string
+      }
       create_tenant: {
         Args: {
           p_name: string
@@ -7407,6 +7418,7 @@ export type Database = {
         Returns: string
       }
       storefront_features: { Args: { p_tenant: string }; Returns: Json }
+      store_slug_available: { Args: { p_slug: string }; Returns: boolean }
       storefront_list_products: {
         Args: {
           p_category?: string

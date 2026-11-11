@@ -7,7 +7,7 @@ const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frid
 
 function Brand({ view, light }: { view: SiteView; light?: boolean }) {
   return (
-    <a href={view.nav[0]?.href ?? "/"} className={cn("flex min-h-11 items-center gap-3", focusRing)}>
+    <a href={view.nav[0]?.href ?? "/"} data-if-brand className={cn("flex min-h-11 items-center gap-3", focusRing)}>
       {view.logoUrl ? <Img src={view.logoUrl} alt={`${view.businessName} logo`} width={160} height={40} className="h-10 w-auto max-w-40 object-contain" priority /> : null}
       <span className={cn(heading, "text-lg font-semibold", light && "text-white", view.logoUrl && "sr-only sm:not-sr-only")}>{view.businessName}</span>
     </a>
