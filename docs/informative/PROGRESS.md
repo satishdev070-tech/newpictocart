@@ -6,7 +6,7 @@ Plan: [PLAN.md](./PLAN.md) · Discovery: [DISCOVERY.md](./DISCOVERY.md) · Branc
 |---|---|---|
 | M0 Discovery | ✅ Done (owner accepted Q1–Q14 on 2026-11-11) | `2857e08` |
 | M1 Foundation | ✅ Done | see `git log` (feat(informative): M1) |
-| M2 Data layer | — | |
+| M2 Data layer | ✅ Done | see `git log` (feat(informative): M2) |
 | M3 Theme system | — | |
 | M4 Onboarding | — | |
 | M5 Seller panel | — | |
@@ -101,3 +101,65 @@ Plan: [PLAN.md](./PLAN.md) · Discovery: [DISCOVERY.md](./DISCOVERY.md) · Branc
 `src/lib/tenant/routing.ts`, `src/lib/env/schema.ts` + `.env.example` (reason in DISCOVERY §4).
 `database.types.ts` is generated output, so it carries no marker comment (a marker would be lost on
 regeneration).
+
+---
+
+## M2 — Data layer (2026-11-11)
+
+### What landed
+
+| Piece | Where |
+|---|---|
+| 9 tables: `info_sites` (PK `tenant_id`), `info_site_private`, `info_services`, `info_pages`, `info_gallery_items`, `info_team_members`, `info_testimonials`, `info_faqs`, `info_enquiries` | `supabase/migrations/20261111008100_informative_content.sql` (down path in header) |
+| Indexes: `tenant_id` leading on all; partial unique `(tenant_id, slug)` on live services and pages; one system page per type; enquiries by `(tenant_id, created_at desc)` and `(tenant_id, status)` | same |
+| RLS + explicit grants (public = PUBLISHED site + open tenant + active/visible + not deleted; staff by permission key; **no client DELETE** grant on any table) | same |
+| `app.is_informative_tenant`, `app.info_site_is_public`; trigger: `info_sites` rows only for INFORMATIVE tenants; content tables FK to `info_sites`, so the guard covers them transitively | same |
+| DB types for the 9 tables | `src/lib/supabase/database.types.ts` (generated from the migration with `scripts/db/gen-types.mjs`, reformatted to the CLI style and inserted alphabetically) |
+| Validators (zod) | `src/features/informative/schemas.ts` |
+| Categories, price types + display, slugs (+ reserved public paths), page section contract | `categories.ts`, `pricing.ts`, `slug.ts`, `sections.ts` |
+| Domain models + row mappers (numeric ↔ integer paise) | `model.ts` |
+| CRUD services (tenant from context only, permission check first, soft delete, reorder, duplicate, publish, enquiry status/notes/filters/pagination/counts) | `src/features/informative/server/repo.ts` |
+
+### Permission keys (existing matrix, no change)
+
+| Data | Read | Write |
+|---|---|---|
+| Content (services, pages, gallery, team, testimonials, FAQs) | `store.read` | `content.write` |
+| Site profile, contact, hours, social, SEO, options | `store.read` | `settings.write` |
+| Appearance (theme, colours, fonts, logo) | `store.read` | `theme.edit` |
+| Publish / unpublish | — | `theme.publish` |
+| Notification settings (`info_site_private`) | `settings.write` | `settings.write` |
+| Enquiries | `customers.read` | `customers.write` (status, notes, soft delete only, enforced by column grants) |
+
+### Decisions and deviations
+
+1. **Store id = `tenant_id`** (ADR-012). Content tables reference `info_sites(tenant_id)`, so a content
+   row can't exist without the site, and the site can't exist for an Online Store (trigger). That
+   gives "informative rows only for informative tenants" without a trigger on every table.
+2. **Private notification settings in their own table** (`info_site_private`). `info_sites` is
+   publicly readable once published, and RLS is row-level, so the owner's notification email lives in
+   a staff-only table. Public reads never see seller emails or notes (plan API rule).
+3. **Unique slug among live rows only** (partial index). The plan asks for unique `(storeId, slug)`
+   plus soft delete; a full unique index would block reusing a deleted service's address.
+4. **Enquiry → service link is tenant-scoped** (composite FK); deleting a service clears only `service_id`.
+5. **Enquiries have no client INSERT grant at all.** Public submission arrives in M7 as a
+   SECURITY DEFINER function (honeypot, rate limit, published-site check), like `submit_contact_message`.
+6. **Rich text (Q13):** `description`/`about` are plain text (paragraphs). Nothing stores HTML.
+7. **Editing a sample service clears `is_sample`**, so the "Sample" label disappears once the seller
+   owns the content.
+8. Fixed in review before commit: `reorderContent` creates a fresh query builder per row. Builders
+   from one postgrest-js `from()` share their URL, so filters would otherwise pile up across updates.
+
+### Verification
+
+- New RLS test `tests/rls/informative-content.test.ts` (12 tests): owner isolation both ways, no
+  cross-tenant write, no client hard delete, no informative rows for Online Stores, enquiry→service
+  same-site FK, live-slug uniqueness and reuse, priced services need an amount, anon sees only
+  published/active/visible rows of PUBLISHED sites, suspended tenant hidden, private settings and
+  enquiries never public, enquiry column grants.
+- New unit tests: `pricing-slug-sections`, `schemas-model`, `repo` (permission-first, tenant filter
+  on every query, soft delete, system pages undeletable, reorder validation, publish stamp, enquiry
+  update shape). `tests/unit/informative`: 10 files / 61 tests.
+- Full RLS suite against all migrations (patched-shim scratch DB, see M1): **26 files / 198 tests ✅**.
+  `custom-themes.test.ts` was re-run alone after its Vitest worker failed to start under machine load.
+- `pnpm check` ✅: typecheck, lint, **205 files / 2152 tests**, build.
