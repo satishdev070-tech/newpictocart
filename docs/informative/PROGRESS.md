@@ -7,7 +7,7 @@ Plan: [PLAN.md](./PLAN.md) · Discovery: [DISCOVERY.md](./DISCOVERY.md) · Branc
 | M0 Discovery | ✅ Done (owner accepted Q1–Q14 on 2026-11-11) | `2857e08` |
 | M1 Foundation | ✅ Done | see `git log` (feat(informative): M1) |
 | M2 Data layer | ✅ Done | see `git log` (feat(informative): M2) |
-| M3 Theme system | — | |
+| M3 Theme system | ✅ Done | see `git log` (feat(informative): M3) |
 | M4 Onboarding | — | |
 | M5 Seller panel | — | |
 | M6 Public site | — | |
@@ -163,3 +163,80 @@ regeneration).
 - Full RLS suite against all migrations (patched-shim scratch DB, see M1): **26 files / 198 tests ✅**.
   `custom-themes.test.ts` was re-run alone after its Vitest worker failed to start under machine load.
 - `pnpm check` ✅: typecheck, lint, **205 files / 2152 tests**, build.
+
+---
+
+## M3 — Theme system (2026-11-11)
+
+### What landed
+
+| Piece | Where |
+|---|---|
+| Theme config contract (zod): id, name, bestFor, recommendedCategories, demoCategory, tokens {colors, fonts, radius, shadow, spacing, dark, headingCase}, layout {header, hero, servicesStyle, gallery, testimonials, footer, motif}, defaultSections, motion, palettes | `src/features/informative/themes/types.ts` |
+| 11 theme configs, one folder each, palettes and fonts from the plan | `src/features/informative/themes/<id>/theme.config.ts` |
+| Separate registry + category → 1–2 recommended themes (fallback Nexus Core + Smooth Wave) | `themes/registry.ts` |
+| Token → CSS variable pipeline with seller overrides (primary, secondary, font pair) | `themes/tokens.ts` |
+| WCAG maths: contrast ratio, readable text, `ensureContrast`, `ensureFill` | `themes/color.ts` |
+| Fonts: 19 self-hosted families (8 new `@fontsource` packages, exact versions), preload off, only on informative routes; 11 font pairs | `src/app/informative-fonts.ts`, `themes/fonts.ts`, `package.json` |
+| Shared section library: Header/Nav (classic, centered, transparent, minimal + no-JS mobile menu), Hero (split, fullBleedImage, carousel, typographic), About, ServicesGrid (grid, cards, deck, glass), ServicesList (list, menu), Highlights, Stats, Team, Gallery (grid, masonry, before/after), Testimonials (cards, carousel, quote), Pricing, FAQ, CTA band, Contact + map link, Enquiry form (markup only, preview disabled), Rich text, Footer, floating WhatsApp / sticky mobile Call + WhatsApp bar | `src/features/informative/site/{ui,chrome,sections,renderer}.tsx` |
+| Motifs: stats strip, mountain silhouette, wave dividers, gold rules, neon glow, gradient, signature | same |
+| Demo content per category (business, 6 services, 3 testimonials, 4 FAQs, team, stats, highlights) + 3 sample services per category for M4 | `src/features/informative/demo.ts`, `site/view.ts` |
+| Default sections for Home/About/Services/Contact per theme (used by M4) | `src/features/informative/defaults.ts` |
+| Flag-gated live preview: `/informative/preview/<themeId>?name=&category=&page=` (404 with flag off) | `src/app/informative/preview/[themeId]/page.tsx` |
+| Thumbnails (640×400 WebP, ~7–19 KB each) | `public/informative/themes/<id>.webp` |
+| Visual snapshots + thumbnail generator (`pnpm informative:shots`, 360/768/1280, full page, reduced motion) | `scripts/informative/theme-shots.mts` (output `.shots/`, git-ignored) |
+
+### Decisions and deviations
+
+1. **The existing 10 "informative" marketplace presets are untouched** (Q7). The 11 new themes form a
+   separate registry rendered by their own section library; the store theme engine is not used.
+2. **Every text colour is computed, not hand-picked.** `resolveColors` derives body, muted and link
+   colours with ≥ 4.5:1 contrast against both background and surface, and picks button text that
+   reads on the fill. A test asserts AA for all 11 themes **and** for hostile seller overrides
+   (`#FFFF00`, `#00FF00`, `#000/#FFF`, mid-grey). That test found a real case: a mid-grey fill
+   (`#777777`) can't reach 4.5:1 with either black or white text, so `ensureFill` darkens such a fill
+   just enough for white text. A seller's exact colour can therefore shift slightly when it couldn't
+   be made readable otherwise.
+3. **Text over photos and gradients:** full-bleed and carousel heroes use a 60% black scrim (white
+   text ≥ 4.5:1 even on a white photo); the Prism Deck gradient hero has a 40% scrim, because white
+   on the pink end alone is about 3.5:1.
+4. **No client JavaScript** in the section library: the carousels use CSS scroll-snap, FAQ and the
+   mobile menu use `details`/`summary`, and all motion is under `motion-safe:` (reduced motion is
+   respected; a render test asserts no un-gated transitions). There are no inline scripts.
+5. **Images:** plain `<img>` with explicit width/height (no CLS) and `loading="lazy"`; only the hero
+   (LCP) and logo are eager with `fetchpriority=high`. Demo photos are the repo's curated, credited
+   Unsplash pools (`src/lib/unsplash-stock.ts`), with photographer credits in the footer; only
+   photographers of photos actually shown are credited. Imagery is still an open product question
+   (who supplies theme imagery). Note: the beauty pool's first hero shows branded skincare products,
+   which is worth swapping when final imagery is chosen.
+6. **Thumbnails live in `public/informative/themes/`**, not inside each theme folder as the plan
+   sketches, because Next serves static files only from `public/`. They are regenerated by
+   `pnpm informative:shots` from the real preview, so they never drift from the code.
+7. **Recommendation ranking:** demo-category match first, then specialists (fewer recommended
+   categories), then registry order (Salon → Radiant Alpha, Pure Gold). "Other" and unknown
+   categories (including the plan's "Wellness", which isn't a Step 1 category) get Nexus Core +
+   Smooth Wave.
+8. **Fonts load only where used.** `informative-fonts.ts` is imported only by informative routes
+   (never the root layout, proxy, marketing or root sitemap, the Worker-graph rule), with
+   `preload: false`, so a browser downloads only the two families the active theme references.
+9. **No new CSS file.** Everything is Tailwind utilities reading CSS variables, so the storefront
+   CSS layer-order rule is untouched. New utility classes add a little to the shared stylesheet;
+   `check-worker-css` passes (see Verification).
+10. Fixed during review: the header CTA used `hidden` and `inline-flex` on one element. `cn()` joins
+    without merging, so the CTA showed at 360 px; visibility now sits on a wrapper.
+
+### Verification
+
+- Unit (`tests/unit/informative`, 12 files / 97 tests): registry (exactly the 11 plan ids, one folder
+  each, schema-valid, categories valid, 1–2 recommendations per category, fallback, separate from
+  the marketplace), AA contrast for every theme and override set, CSS-variable coverage of the
+  section library, font pairs and self-hosting, demo content counts, default pages valid, and a
+  **render smoke test of every section in every theme** (one `h1`, sized images with alt, ≤ 2 eager
+  images, preview form disabled, honeypot present, no inline scripts, motion only under `motion-safe:`).
+- Visual: `pnpm informative:shots` captured all 11 themes at 360/768/1280 (33 full-page snapshots)
+  and produced the thumbnails. The first screens and mobile layouts were reviewed by eye.
+- `pnpm check` ✅: typecheck, lint, **207 files / 2188 tests**, build (incl. `/informative/preview/[themeId]`).
+  A first run hit a corrupted `.next/dev/types` file left by a stopped dev server; it passed after
+  clearing that cache (build output only).
+- `pnpm build:vinext` + `scripts/ci/check-worker-css.mts` ✅: "4 stylesheets OK (layer order pinned,
+  10 key rules present)". `root-metadata-imports` (Worker graph) is part of the unit run ✅.
