@@ -1,0 +1,93 @@
+# Staging: every merge to main deploys that exact commit to the staging Worker (pictocartdev.in).
+# Production is never touched here (see deploy-production.yml).
+#
+# Staging uses its OWN credentials (STAGING_* repo secrets), so it can never fall back to
+# production values. Until staging is configured (docs/CI_CD.md → "Set up staging"), the preflight
+# fails loudly with the list of missing names instead of deploying anything.
+name: Deploy staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One staging deploy at a time. A newer queued run replaces an older queued one; a running deploy
+# is never cancelled midway. The stale check below also skips a commit main has already moved past.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      current: ${{ steps.stale.outputs.current }}
+    steps:
+      - name: Staging configuration present
+        env:
+          KV: ${{ vars.STAGING_KV_NAMESPACE_ID }}
+          HAS_CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+          HAS_CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+          HAS_APP_SECRET: ${{ secrets.STAGING_APP_SECRET != '' }}
+          HAS_CRON_SECRET: ${{ secrets.STAGING_CRON_SECRET != '' }}
+          HAS_SUPABASE_URL: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_URL != '' }}
+          HAS_SUPABASE_PUBLISHABLE: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY != '' }}
+          HAS_SUPABASE_SECRET: ${{ secrets.STAGING_SUPABASE_SECRET_KEY != '' }}
+        run: |
+          missing=()
+          [ -n "$KV" ] || missing+=("variable STAGING_KV_NAMESPACE_ID")
+          for pair in CLOUDFLARE_API_TOKEN:$HAS_CF_TOKEN CLOUDFLARE_ACCOUNT_ID:$HAS_CF_ACCOUNT STAGING_APP_SECRET:$HAS_APP_SECRET STAGING_CRON_SECRET:$HAS_CRON_SECRET \
+                      STAGING_NEXT_PUBLIC_SUPABASE_URL:$HAS_SUPABASE_URL STAGING_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:$HAS_SUPABASE_PUBLISHABLE STAGING_SUPABASE_SECRET_KEY:$HAS_SUPABASE_SECRET; do
+            [ "${pair#*:}" = "true" ] || missing+=("secret ${pair%%:*}")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            printf '::error::Staging is not configured; nothing was deployed. Missing: %s\n' "${missing[*]}"
+            echo "See docs/CI_CD.md → 'Set up staging'."
+            exit 1
+          fi
+      - name: Skip commits main has moved past
+        id: stale
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          head=$(gh api "repos/${{ github.repository }}/commits/main" --jq .sha)
+          if [ "${{ github.event_name }}" = "push" ] && [ "$head" != "${{ github.sha }}" ]; then
+            echo "::notice::main is now at $head; the run for that commit deploys it. Skipping ${{ github.sha }}."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: preflight
+    if: needs.preflight.outputs.current == 'true'
+    uses: ./.github/workflows/deploy-worker.yml
+    with:
+      target: staging
+      sha: ${{ github.sha }}
+      worker_name: ${{ vars.STAGING_WORKER_NAME || 'pictocart-staging' }}
+      kv_namespace_id: ${{ vars.STAGING_KV_NAMESPACE_ID }}
+      root_domain: pictocartdev.in
+      platform_url: https://www.pictocartdev.in
+      base_url: https://www.pictocartdev.in
+      workers_dev_host: ${{ vars.STAGING_WORKERS_DEV_HOST || 'pictocart-staging.airy-fact.workers.dev' }}
+      default_email_from: "Pictocart Staging <no-reply@pictocart.in>"
+      allow_shared_database: ${{ vars.STAGING_SHARES_PRODUCTION_DATABASE == 'true' }}
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      APP_SECRET: ${{ secrets.STAGING_APP_SECRET }}
+      CRON_SECRET: ${{ secrets.STAGING_CRON_SECRET }}
+      SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      PLATFORM_HOST_ALIASES: ${{ secrets.STAGING_PLATFORM_HOST_ALIASES }}
+      EMAIL_FROM: ${{ secrets.STAGING_EMAIL_FROM }}
+      RESEND_API_KEY: ${{ secrets.STAGING_RESEND_API_KEY }}
+      GOOGLE_IDENTITY_SIGNIN: ${{ secrets.STAGING_GOOGLE_IDENTITY_SIGNIN }}
+      PRODUCTION_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

@@ -1,0 +1,102 @@
+# Production release: manual only (Actions → "Deploy production" → Run workflow). Nothing deploys
+# production automatically. Promotes a commit that is on main (default: main's head) to the
+# `pictocart` Worker (pictocart.in, www, *.pictocart.in).
+#
+# Gates: typed confirmation, the commit must be on main, it must have deployed to staging
+# successfully (unless that check is explicitly turned off for this run), and the `production`
+# GitHub environment's required reviewers (configure them: docs/CI_CD.md).
+# Uses the existing repo-level production secrets unchanged (APP_SECRET, CRON_SECRET, Supabase, …).
+name: Deploy production
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit to release (blank = current main)"
+        required: false
+        default: ""
+      require_staging:
+        description: "Require a successful staging deploy of this commit"
+        type: boolean
+        default: true
+      confirm:
+        description: "Type: deploy production"
+        required: true
+
+permissions:
+  contents: read
+  deployments: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - name: Confirmation
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          [ "$CONFIRM" = "deploy production" ] || { echo "::error::Type exactly: deploy production"; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Resolve commit and check it is on main
+        id: resolve
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse --verify "${INPUT_SHA:-origin/main}^{commit}")
+          git merge-base --is-ancestor "$sha" origin/main || { echo "::error::$sha is not on main"; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Releasing $sha: $(git log -1 --format='%s' "$sha")"
+      - name: Commit passed staging
+        if: inputs.require_staging
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          ids=$(gh api "repos/${{ github.repository }}/deployments?environment=staging&sha=$SHA&per_page=20" --jq '.[].id')
+          for id in $ids; do
+            state=$(gh api "repos/${{ github.repository }}/deployments/$id/statuses?per_page=1" --jq '.[0].state // ""')
+            if [ "$state" = "success" ]; then echo "✓ staging deployment $id of $SHA succeeded"; exit 0; fi
+          done
+          echo "::error::$SHA has no successful staging deployment. Merge it to main and let 'Deploy staging' pass, or re-run with require_staging unchecked (recorded in this run)."
+          exit 1
+      - name: Staging check skipped
+        if: ${{ !inputs.require_staging }}
+        run: echo "::warning::Staging check turned off for this production release."
+
+  deploy:
+    needs: preflight
+    uses: ./.github/workflows/deploy-worker.yml
+    with:
+      target: production
+      sha: ${{ needs.preflight.outputs.sha }}
+      worker_name: pictocart
+      kv_namespace_id: ${{ vars.PRODUCTION_KV_NAMESPACE_ID || '2a8074bf01e4433d824ab34d9531cf0b' }}
+      root_domain: pictocart.in
+      platform_url: https://www.pictocart.in
+      base_url: https://www.pictocart.in
+      workers_dev_host: ${{ vars.PRODUCTION_WORKERS_DEV_HOST || 'pictocart.airy-fact.workers.dev' }}
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      APP_SECRET: ${{ secrets.APP_SECRET }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      PLATFORM_HOST_ALIASES: ${{ secrets.PLATFORM_HOST_ALIASES }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      GOOGLE_IDENTITY_SIGNIN: ${{ secrets.GOOGLE_IDENTITY_SIGNIN }}

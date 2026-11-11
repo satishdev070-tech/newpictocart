@@ -1,0 +1,248 @@
+# Reusable: build the vinext Worker for one exact commit, upload it with a COMPLETE secrets file,
+# verify the live domain serves that commit, and roll back to the previous Worker version if
+# verification fails. Called by deploy-staging.yml and deploy-production.yml only.
+#
+# Never runs database migrations. Never rotates secrets: values come from the caller's secrets
+# (`cf deploy --secrets-file` replaces the Worker's secret bindings, so the file is always complete).
+name: Deploy Worker (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      target: { type: string, required: true, description: "staging | production (also the GitHub environment)" }
+      sha: { type: string, required: true, description: "Exact commit to build and deploy" }
+      worker_name: { type: string, required: true }
+      kv_namespace_id: { type: string, required: true }
+      root_domain: { type: string, required: true }
+      platform_url: { type: string, required: true }
+      base_url: { type: string, required: true, description: "Origin the health checks call" }
+      workers_dev_host: { type: string, required: true }
+      default_host_aliases: { type: string, required: false, default: "" }
+      default_email_from: { type: string, required: false, default: "Pictocart <no-reply@pictocart.in>" }
+      allow_shared_database: { type: boolean, required: false, default: false }
+    secrets:
+      CLOUDFLARE_API_TOKEN: { required: true }
+      CLOUDFLARE_ACCOUNT_ID: { required: true }
+      APP_SECRET: { required: true }
+      CRON_SECRET: { required: true }
+      SUPABASE_SECRET_KEY: { required: true }
+      NEXT_PUBLIC_SUPABASE_URL: { required: true }
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: { required: true }
+      PLATFORM_HOST_ALIASES: { required: false }
+      EMAIL_FROM: { required: false }
+      RESEND_API_KEY: { required: false }
+      GOOGLE_IDENTITY_SIGNIN: { required: false }
+      # Staging only: the production Supabase URL (public), to refuse a staging deploy that points
+      # at the production database unless allow_shared_database is set.
+      PRODUCTION_SUPABASE_URL: { required: false }
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.target }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment:
+      name: ${{ inputs.target }}
+      url: ${{ inputs.base_url }}
+    env:
+      CF_WORKER_NAME: ${{ inputs.worker_name }}
+      CF_KV_NAMESPACE_ID: ${{ inputs.kv_namespace_id }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TARGET: ${{ inputs.target }}
+      DEPLOY_SHA: ${{ inputs.sha }}
+      BASE_URL: ${{ inputs.base_url }}
+    steps:
+      - name: Guard target configuration
+        env:
+          ROOT: ${{ inputs.root_domain }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          PROD_SUPABASE_URL: ${{ secrets.PRODUCTION_SUPABASE_URL }}
+          ALLOW_SHARED_DB: ${{ inputs.allow_shared_database }}
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::sha must be a full 40-char commit SHA"; exit 1; }
+          [ -n "$CF_KV_NAMESPACE_ID" ] || { echo "::error::No KV namespace id for $TARGET (repo variable missing; see docs/CI_CD.md)"; exit 1; }
+          case "$TARGET" in
+            production)
+              [ "$CF_WORKER_NAME" = "pictocart" ] && [ "$ROOT" = "pictocart.in" ] || { echo "::error::production must deploy Worker 'pictocart' for pictocart.in"; exit 1; } ;;
+            staging)
+              [ "$CF_WORKER_NAME" != "pictocart" ] && [ "$ROOT" != "pictocart.in" ] || { echo "::error::staging must never deploy the production Worker or root domain"; exit 1; }
+              norm() { printf '%s' "$1" | tr -d '[:space:]' | sed 's:/*$::' | tr 'A-Z' 'a-z'; }
+              if [ -n "$PROD_SUPABASE_URL" ] && [ "$(norm "$SUPABASE_URL")" = "$(norm "$PROD_SUPABASE_URL")" ] && [ "$ALLOW_SHARED_DB" != "true" ]; then
+                echo "::error::STAGING_NEXT_PUBLIC_SUPABASE_URL is the production database. Use a staging Supabase project, or set repo variable STAGING_SHARES_PRODUCTION_DATABASE=true to accept sharing it."
+                exit 1
+              fi ;;
+            *) echo "::error::unknown target $TARGET"; exit 1 ;;
+          esac
+          echo "Deploying $DEPLOY_SHA to $TARGET (Worker $CF_WORKER_NAME)"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+      - name: Confirm checked-out commit
+        run: test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
+      - uses: ./.github/actions/setup
+
+      - name: Build vinext Worker
+        env:
+          NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN: ${{ inputs.root_domain }}
+          NEXT_PUBLIC_PLATFORM_URL: ${{ inputs.platform_url }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: pnpm run build:vinext
+
+      - name: Write and validate Worker secrets file
+        env:
+          APP_SECRET: ${{ secrets.APP_SECRET }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          PLATFORM_HOST_ALIASES: ${{ secrets.PLATFORM_HOST_ALIASES }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          GOOGLE_IDENTITY_SIGNIN: ${{ secrets.GOOGLE_IDENTITY_SIGNIN }}
+          ROOT_DOMAIN: ${{ inputs.root_domain }}
+          PLATFORM_URL: ${{ inputs.platform_url }}
+          WORKERS_DEV_HOST: ${{ inputs.workers_dev_host }}
+          DEFAULT_ALIASES: ${{ inputs.default_host_aliases }}
+          DEFAULT_EMAIL_FROM: ${{ inputs.default_email_from }}
+        run: |
+          set -euo pipefail
+          if [ "${#APP_SECRET}" -lt 32 ]; then echo "::error::APP_SECRET shorter than 32 chars" >&2; exit 1; fi
+          if [ "${#CRON_SECRET}" -lt 24 ]; then echo "::error::CRON_SECRET shorter than 24 chars" >&2; exit 1; fi
+          # JSON (not dotenv: dotenv expands `$`). Values trimmed: pasted secrets often end in \n.
+          # `cf deploy --secrets-file` REPLACES the Worker's secret bindings: keep this complete.
+          umask 077
+          python3 - <<'PY' > "$RUNNER_TEMP/worker-secrets.json"
+          import json, os
+          def req(name):
+              v = (os.environ.get(name) or "").strip()
+              if not v:
+                  raise SystemExit(f"{name}: empty")
+              return v
+          def opt(name):
+              return (os.environ.get(name) or "").strip() or None
+          payload = {
+              "APP_SECRET": req("APP_SECRET"),
+              "CRON_SECRET": req("CRON_SECRET"),
+              "SUPABASE_SECRET_KEY": req("SUPABASE_SECRET_KEY"),
+              "NEXT_PUBLIC_SUPABASE_URL": req("NEXT_PUBLIC_SUPABASE_URL"),
+              "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": req("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
+              "NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN": req("ROOT_DOMAIN"),
+              "NEXT_PUBLIC_PLATFORM_URL": req("PLATFORM_URL"),
+              "WORKERS_DEV_HOST": req("WORKERS_DEV_HOST"),
+              "EMAIL_FROM": opt("EMAIL_FROM") or req("DEFAULT_EMAIL_FROM"),
+              "DEPLOY_COMMIT_SHA": req("DEPLOY_SHA"),
+              "DEPLOY_ENVIRONMENT": req("TARGET"),
+          }
+          aliases = opt("PLATFORM_HOST_ALIASES") or opt("DEFAULT_ALIASES")
+          if aliases:
+              payload["PLATFORM_HOST_ALIASES"] = aliases
+          resend = opt("RESEND_API_KEY")
+          if resend:
+              payload["RESEND_API_KEY"] = resend
+          gis = opt("GOOGLE_IDENTITY_SIGNIN")
+          if gis:
+              payload["GOOGLE_IDENTITY_SIGNIN"] = gis
+          print(json.dumps(payload, separators=(",", ":")))
+          PY
+          extra=()
+          [ -n "${RESEND_API_KEY:-}" ] || extra=(--allow-db-resend)
+          pnpm exec tsx scripts/ci/validate-worker-secrets.mts "$RUNNER_TEMP/worker-secrets.json" "${extra[@]}"
+
+      - name: Record the version currently serving (rollback point)
+        id: before
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$CF_WORKER_NAME/deployments"
+          code=$(curl -sS -o "$RUNNER_TEMP/deployments.json" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api" || true)
+          if [ "$code" != "200" ]; then
+            echo "No readable deployment history (HTTP $code): first deploy of $CF_WORKER_NAME, or token lacks Workers read. Rollback disabled for this run."
+            echo "versions=" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          versions=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1]))["result"]["deployments"]; print(json.dumps(d[0]["versions"]) if d else "")' "$RUNNER_TEMP/deployments.json")
+          echo "Serving before deploy: ${versions:-none}"
+          echo "versions=$versions" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Cloudflare
+        run: pnpm exec cf deploy --prebuilt --secrets-file "$RUNNER_TEMP/worker-secrets.json" --message "gha:$TARGET:$DEPLOY_SHA"
+
+      - name: Remove secrets file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/worker-secrets.json"
+
+      - name: Verify deployment
+        id: verify
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -uo pipefail
+          CRON_SECRET="$(printf '%s' "$CRON_SECRET" | tr -d '[:space:]')"
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$CF_WORKER_NAME/deployments"
+          check() { # name, command; bounded retries for propagation
+            local name="$1"; shift
+            for i in 1 2 3 4 5 6; do
+              if "$@"; then echo "✓ $name"; return 0; fi
+              sleep 10
+            done
+            echo "::error::✗ $name failed after retries"; return 1
+          }
+          active_is_this_commit() {
+            curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api" \
+              | python3 -c 'import json,sys,os; d=json.load(sys.stdin)["result"]["deployments"]; m=(d[0].get("annotations") or {}).get("workers/message","") if d else ""; sys.exit(0 if os.environ["DEPLOY_SHA"] in m else 1)'
+          }
+          health_reports_commit() {
+            curl -fsS "$BASE_URL/api/health" | python3 -c 'import json,sys,os; b=json.load(sys.stdin); sys.exit(0 if b.get("ok") and b.get("commit")==os.environ["DEPLOY_SHA"] else 1)'
+          }
+          ready_ok() {
+            curl -fsS "$BASE_URL/api/health/ready" | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin).get("ok") is True else 1)'
+          }
+          self_test_ok() {
+            curl -sS -H "Authorization: Bearer $CRON_SECRET" "$BASE_URL/api/cron/preview-token-self-test" | grep -q '"mintVerify":"ok"'
+          }
+          public_routes_ok() {
+            for p in / /seller/login; do
+              c=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE_URL$p"); [ "$c" = "200" ] || { echo "  $p -> HTTP $c"; return 1; }
+            done
+          }
+          ok=true
+          check "Cloudflare active deployment is $DEPLOY_SHA" active_is_this_commit || ok=false
+          check "$BASE_URL/api/health serves commit $DEPLOY_SHA" health_reports_commit || ok=false
+          check "$BASE_URL/api/health/ready is ok (env + Supabase)" ready_ok || ok=false
+          check "preview-token self-test (APP_SECRET mint/verify)" self_test_ok || ok=false
+          check "public routes / and /seller/login return 200" public_routes_ok || ok=false
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+          $ok
+
+      - name: Roll back to the previous version
+        if: failure() && steps.verify.outcome == 'failure' && steps.before.outputs.versions != ''
+        env:
+          VERSIONS: ${{ steps.before.outputs.versions }}
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$CF_WORKER_NAME/deployments"
+          # Re-deploy the exact versions that served before (code + their own bindings/secrets).
+          body=$(python3 -c 'import json,os; print(json.dumps({"strategy":"percentage","versions":json.loads(os.environ["VERSIONS"]),"annotations":{"workers/message":"gha:rollback:"+os.environ["DEPLOY_SHA"]}}))')
+          curl -fsS -X POST -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" --data "$body" "$api" > /dev/null
+          echo "::warning::Verification of $DEPLOY_SHA failed; $CF_WORKER_NAME rolled back to $VERSIONS"
+          sleep 15
+          c=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE_URL/api/health/ready"); echo "After rollback /api/health/ready -> HTTP $c"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### $TARGET deploy: ${{ job.status }}"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`$DEPLOY_SHA\` |"
+            echo "| Worker | \`$CF_WORKER_NAME\` |"
+            echo "| URL | $BASE_URL |"
+            echo "| Verified | ${{ steps.verify.outputs.ok || 'no' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

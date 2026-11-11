@@ -6,13 +6,14 @@ Related: [DEPLOY_VERCEL.md](./DEPLOY_VERCEL.md) (legacy/rollback), [DEPLOY_HOSTI
 
 ## Auto-deploy (GitHub Actions → Airy Fact)
 
-Supported production path: [`.github/workflows/deploy-cloudflare-workers.yml`](../.github/workflows/deploy-cloudflare-workers.yml) via **`workflow_dispatch`** (push-to-`main` is paused until secrets are proven green).
+The pipeline is described in [CI_CD.md](./CI_CD.md). Merges to `main` deploy **staging** (`deploy-staging.yml` → Worker `pictocart-staging`, pictocartdev.in). **Production** (`pictocart`, pictocart.in) deploys only through the manual, approved `deploy-production.yml`. Both use `deploy-worker.yml`, which:
 
-1. Add repo **Actions secrets** (Settings → Secrets and variables → Actions). Required names: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (Airy Fact), `APP_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, optional `EMAIL_FROM` (defaults to `Pictocart <no-reply@pictocart.in>`), `RESEND_API_KEY`, `GOOGLE_IDENTITY_SIGNIN`, `PLATFORM_HOST_ALIASES`, `WORKERS_DEV_HOST`. If any required secret is missing, the workflow fails at “Write Worker secrets file” (`APP_SECRET: missing APP_SECRET`) and **does not deploy** — use manual `cf deploy --prebuilt --secrets-file` until secrets are set.
-2. Generate secrets with hex (no `$` / quotes): `openssl rand -hex 32` for `APP_SECRET` (≥32), `openssl rand -hex 24` for `CRON_SECRET` (≥24). Put the **same** values in GitHub Actions secrets and the Cloudflare Worker `pictocart` secrets. The workflow rejects short values before deploy. Bad/mismatched secrets make seller `/start` finalize show “The store could not be finished” after OTP. **Do not rotate `APP_SECRET` casually** — Admin → Email (Resend) ciphertext in `platform_app_credentials` is encrypted with it.
-3. Workflow runs `pnpm build:vinext`, writes a **complete JSON** secrets file (includes `EMAIL_FROM`; adds `RESEND_API_KEY` / `GOOGLE_IDENTITY_SIGNIN` when set), validates with `scripts/ci/validate-worker-secrets.mts` (wipe-safe keys + `serverEnvSchema` — prints field errors, never values), then `npx cf deploy --prebuilt --secrets-file …`, then curls `/api/cron/preview-token-self-test` (`mintVerify: ok`).
-4. **Push-to-main deploy stays paused** until a manual **Actions → Deploy Cloudflare Workers → Run workflow** is green (`mintVerify: ok`). Then re-enable the `push` trigger in `.github/workflows/deploy-cloudflare-workers.yml`.
-5. Do **not** rely on GitHub check **Workers Builds: newpictocart** (account `8ee184…`) — that is the wrong Cloudflare account/worker. Delete that Builds trigger in the Cloudflare dashboard.
+- writes a complete JSON secrets file and validates it with `scripts/ci/validate-worker-secrets.mts`;
+- runs `cf deploy --prebuilt --secrets-file`;
+- verifies the domain serves the deployed commit (`/api/health` `commit`), `/api/health/ready`, the preview-token self-test and public routes;
+- rolls back to the previous Worker version if any check fails.
+
+The secret rules below still apply. Generate secrets with hex (no `$` / quotes): `openssl rand -hex 32` for `APP_SECRET` (≥32), `openssl rand -hex 24` for `CRON_SECRET` (≥24). **Do not rotate `APP_SECRET` casually**: Admin → Email (Resend) ciphertext in `platform_app_credentials` is encrypted with it. Do **not** rely on GitHub check **Workers Builds: newpictocart** (account `8ee184…`): that is the wrong Cloudflare account/worker.
 
 ### Stop Vercel deploy checks (required)
 
