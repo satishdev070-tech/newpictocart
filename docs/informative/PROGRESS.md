@@ -11,7 +11,7 @@ Plan: [PLAN.md](./PLAN.md) · Discovery: [DISCOVERY.md](./DISCOVERY.md) · Branc
 | M4 Onboarding | ✅ Done | see `git log` (feat(informative): M4) |
 | M5 Seller panel | ✅ Done | see `git log` (feat(informative): M5) |
 | M6 Public site | ✅ Done | see `git log` (feat(informative): M6) |
-| M7 Enquiries | — | |
+| M7 Enquiries | 🟡 In progress (DB layer done) | WIP commit |
 | M8 Hardening | — | |
 
 ---
@@ -456,3 +456,21 @@ Server actions: `src/features/informative/actions.ts` (runAction → parseInput 
 - The existing `tenant-directory`, storefront, routing and proxy tests pass unchanged.
 - `pnpm check` ✅ **211 files / 2236 tests** + build; RLS ✅ **27 / 204**; `build:vinext` + `check-worker-css` ✅
   (the always-loaded Worker graph test passes: no static informative imports in the proxy, root layouts or root sitemap).
+
+---
+
+## M7 — Enquiries (in progress, 2026-11-11)
+
+**Done:** migration `20261111008300_informative_enquiries.sql`:
+- `submit_info_enquiry()`: published sites only, consent required, service must belong to the site, per-site flood cap (50 per 10 min); returns the notification target, so no secret-key client is needed.
+- `record_info_whatsapp_click()`: no visitor data, capped at 30 per 10 min.
+- DB types added. DB test `tests/rls/informative-enquiries.test.ts` (5 ✅).
+
+**Decision:** the in-app bell (`notifications`) only allows `/dashboard|/admin` links, and loosening a shared check isn't additive. The "in-app badge" will therefore be a NEW-enquiry count in the Informative panel top bar plus the dashboard counter.
+
+**Left:**
+1. Public server action: tenant from the verified host, Informative + flag check, honeypot, zod, consent, `rateLimit("info-enquiry", tenant:ip, 5, 600)`, RPC, then email via `sendEmail` + `renderContactForwardEmail`.
+2. A client form island replacing the disabled form; the service page sends `SERVICE_PAGE` with the service preselected; a `/privacy` route for the consent link.
+3. WhatsApp click beacon (route handler with an Origin check and a per-IP limit).
+4. Panel inbox: filters (status / service / date), a detail view with tel / WhatsApp / mailto, status + notes form, CSV export route; top-bar badge.
+5. Unit tests, `pnpm check`, RLS, vinext, then commit.

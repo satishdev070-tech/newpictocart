@@ -7334,6 +7334,10 @@ export type Database = {
         Args: { p_label?: string; p_tenant: string }
         Returns: string
       }
+      record_info_whatsapp_click: {
+        Args: { p_service?: string; p_tenant: string }
+        Returns: undefined
+      }
       redeem_ai_credit_code: {
         Args: {
           p_code: string
@@ -7493,6 +7497,26 @@ export type Database = {
           p_tenant: string
         }
         Returns: string
+      }
+      submit_info_enquiry: {
+        Args: {
+          p_consent: boolean
+          p_email: string
+          p_message: string
+          p_name: string
+          p_phone: string
+          p_preferred_date: string
+          p_preferred_time: string
+          p_service: string
+          p_source: string
+          p_tenant: string
+        }
+        Returns: {
+          business_name: string
+          enquiry_id: string
+          notify_email: string
+          notify_email_enabled: boolean
+        }[]
       }
       submit_review: {
         Args: {
