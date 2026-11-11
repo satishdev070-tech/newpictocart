@@ -197,6 +197,56 @@ for p in social-publish expire-orders domains gbp-reviews notifications observab
 done
 ```
 
+## Error 1102 "Worker exceeded resource limits" (CPU budget)
+
+**Root cause.** The Worker runs on the **Workers Free plan** (no Cron Triggers, see Crons), which
+allows **10 ms of CPU per request**. A cold isolate must compile and evaluate the always-loaded
+RSC/SSR graph (vinext runtime, React server renderer, Supabase, zod: ~2.8 MB of JS after the fix
+below) before it renders anything. Even a local pre-parse of that graph costs ~10 ms of CPU on a
+fast laptop, and an App Router render of an admin page (layout + page + streaming SSR) adds more.
+Cloudflare tolerates small overruns, so the error is intermittent: cold isolates and heavier
+renders (for example `/admin/domains` on 2026-11-11 06:54:09 UTC, Ray `a58b624e9a9b3e44`) cross
+the limit. The admin page queries themselves are paginated and I/O-bound (wall time, not CPU).
+
+**The real fix is the Workers Paid plan** ($5/month, 30 s default CPU per request). After
+upgrading, optionally cap it in `cloudflare.config.ts`:
+`defineWorker({ ..., limits: { cpuMs: 50_000 } })`. Don't add `limits.cpuMs` while still on
+Free: Cloudflare rejects CPU limits on the Free plan at deploy time. Paid also unlocks Cron
+Triggers.
+
+**Code changes (2026-11-11) to cut CPU on every request.** They help, but they cannot bring an
+App Router SSR request under 10 ms:
+- The theme catalog (~300 KB of presets) left the always-loaded graph. The marketing chrome now
+  uses the `MARKETPLACE_SHOP_THEME_COUNT` constant (`src/features/marketing-site/theme-count.ts`,
+  test-checked against the catalog), and `src/app/sitemap.ts` imports the catalog and feature
+  pages inside the handler.
+- `@upstash/redis` (~180 KB) loads only when Upstash env is set (`getRedis()` is now async).
+- The proxy skips the observability import and the `after()` callback when
+  `OBSERVABILITY_ENABLED` is off (the default).
+- Net effect: the always-loaded RSC graph went from 2,407 KB to 2,076 KB.
+- Guard: `tests/unit/next/root-metadata-imports.test.ts` fails if the proxy, root
+  layout/error/not-found or root metadata routes statically import heavy modules.
+
+To confirm on the dashboard: Workers & Pages → `pictocart` → Metrics → CPU time (P50/P99) and
+Logs (filter `outcome = exceededCpu`). This needs Cloudflare dashboard access.
+
+## Storefront CSS on the Worker build (cascade layer order)
+
+Browsers order `@layer`s by their **first appearance across all stylesheets on the page**. The
+Vite/vinext build links client-component CSS (`loader.css`) *before* Tailwind's `globals.css`.
+`loader.css` started with `@layer components {…}`, so `components` was declared before `base`.
+Tailwind preflight (`*{margin:0;padding:0}`, transparent buttons) then beat every `.sf-*` rule.
+The result in production was no container padding or centring, and blank CTA buttons whose text
+colour matched their background. `next dev` and `next build` link `globals.css` first, so this
+never showed locally.
+
+**Rule:** every stylesheet except `globals.css` that uses `@layer` starts with
+`@layer properties, theme, base, components, utilities;` (see `src/features/theme/storefront.css`).
+**Guards:**
+- `tests/unit/styles/css-layer-order.test.ts` checks the source CSS.
+- `scripts/ci/check-worker-css.mts` runs in CI after `pnpm build:vinext`. It checks the emitted
+  layer order and that key `.sf-*` and utility rules exist.
+
 ## Images / sharp
 
 - vinext uses **Cloudflare Images** optimizer for `next/image`.

@@ -86,6 +86,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - run: pnpm build:vinext
+      # Storefront CSS guard: cascade-layer order + key .sf-* rules in the emitted Worker CSS.
+      - run: pnpm exec tsx scripts/ci/check-worker-css.mts
 
   env-contract:
     name: Env variable contract

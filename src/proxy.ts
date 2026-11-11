@@ -10,6 +10,7 @@ import { platformHostAliases } from "@/lib/platform/hosts";
 import { EDGE_HOST_HEADER, EDGE_SIG_HEADER, EDGE_TS_HEADER, verifyEdgeHost } from "@/lib/tenant/edge-signature";
 import { logger } from "@/lib/observability/logger";
 import { logSpan, serverTimingHeader, timeAsync } from "@/lib/observability/timing";
+import { isObservabilityEnabled } from "@/lib/observability/config";
 import { GSC_ROUTE_PREFIX, gscDomainForHost, gscFilenameFromPath } from "@/features/search-console/verification";
 
 /**
@@ -168,21 +169,26 @@ export async function proxy(request: NextRequest) {
     }
   }
   // Sampled telemetry for the observability dashboard (fail-soft; never blocks the response).
-  try {
-    const { observeProxyRequest } = await import("@/features/observability/observe-proxy");
-    observeProxyRequest({
-      requestId,
-      route: request.nextUrl.pathname,
-      method: request.method,
-      durationMs: performance.now() - proxyStarted,
-      status: decision.action === "not-found" ? 404 : 200,
-      spans:
-        proxyClaimsMs != null
-          ? [{ name: "proxy.claims", startMs: 0, endMs: proxyClaimsMs, status: "ok" as const }]
-          : [],
-    });
-  } catch {
-    // observability must never break routing
+  // Off by default (OBSERVABILITY_ENABLED unset): then skip the dynamic import and the after()
+  // callback entirely, so the hot path pays no CPU for a feature that would no-op anyway
+  // (Worker CPU budget, docs/DEPLOY_CLOUDFLARE_WORKERS.md "Error 1102").
+  if (isObservabilityEnabled()) {
+    try {
+      const { observeProxyRequest } = await import("@/features/observability/observe-proxy");
+      observeProxyRequest({
+        requestId,
+        route: request.nextUrl.pathname,
+        method: request.method,
+        durationMs: performance.now() - proxyStarted,
+        status: decision.action === "not-found" ? 404 : 200,
+        spans:
+          proxyClaimsMs != null
+            ? [{ name: "proxy.claims", startMs: 0, endMs: proxyClaimsMs, status: "ok" as const }]
+            : [],
+      });
+    } catch {
+      // observability must never break routing
+    }
   }
   return response;
 }

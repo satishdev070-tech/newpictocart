@@ -10,6 +10,11 @@ const cache = await createWorkersCacheConfig();
  * `/api/cron/*` with `Authorization: Bearer $CRON_SECRET`.
  * To enable on Paid: import { triggers } from "cf/config" and add
  * `triggers: [triggers.scheduled({ schedule: "0 0 * * *" })]`.
+ *
+ * CPU: the Free plan allows 10 ms CPU per request, which App Router SSR on a cold isolate
+ * regularly exceeds, so Cloudflare intermittently returns Error 1102. Fix: Workers Paid. Then
+ * optionally add `limits: { cpuMs: 50_000 }` below (rejected on Free).
+ * See docs/DEPLOY_CLOUDFLARE_WORKERS.md "Error 1102".
  */
 /**
  * Worker + KV namespace come from the deploy workflow (`CF_WORKER_NAME` / `CF_KV_NAMESPACE_ID`, see
