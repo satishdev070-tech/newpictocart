@@ -20,7 +20,8 @@ export const INTERNAL_REQUEST_HEADERS = [INTERNAL_HOST_HEADER, "x-sf-theme-previ
 export const THEME_PREVIEW_HEADER = "x-sf-theme-preview";
 
 /** Platform-only path prefixes. They 404 on storefront hosts so seller auth cookies stay on the platform origin. */
-const PLATFORM_ONLY_PREFIXES = ["/dashboard", "/admin", "/login", "/signup", "/onboarding", "/forgot-password", "/reset-password", "/auth", "/invite", "/seller"];
+// INFORMATIVE: branch point — see docs/informative/PLAN.md ("/informative" = the Informative seller panel).
+const PLATFORM_ONLY_PREFIXES = ["/dashboard", "/admin", "/login", "/signup", "/onboarding", "/forgot-password", "/reset-password", "/auth", "/invite", "/seller", "/informative"];
 
 /** Paths served as-is on every host (framework assets and API handlers that read the host header themselves). */
 const PASSTHROUGH_PREFIXES = ["/api/", "/_next/"];

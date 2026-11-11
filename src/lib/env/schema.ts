@@ -128,6 +128,12 @@ export const serverEnvSchema = publicEnvSchema.extend({
    * functions. Set the same value with `supabase secrets set AI_EDGE_INVOKE_SECRET=…`.
    */
   AI_EDGE_INVOKE_SECRET: z.string().min(32).optional(),
+  // INFORMATIVE: branch point — see docs/informative/PLAN.md
+  /**
+   * Informative Website product rollout: off (default) | internal (platform staff can create) | all.
+   * Read through features/informative/flag.ts; see docs/informative/PLAN.md.
+   */
+  FEATURE_INFORMATIVE_WEBSITE: z.enum(["off", "internal", "all"]).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;

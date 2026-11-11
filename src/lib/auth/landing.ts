@@ -6,6 +6,9 @@ import { logSpan, timeAsync } from "@/lib/observability/timing";
 import { isNextControlFlowError } from "@/lib/next/control-flow";
 import { REQUEST_ID_HEADER } from "@/lib/tenant/routing";
 import { isAdminPath, landingFor, type AccountAccess } from "./role-routing";
+// INFORMATIVE: branch point — see docs/informative/PLAN.md (post-login redirect)
+import { informativeFlagMode, informativeFlagOn } from "@/features/informative/flag";
+import { allInformative } from "@/features/informative/website-type";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -36,7 +39,17 @@ export async function accountAccessFor(userId: string, client?: SupabaseServerCl
   try {
     const supabase = client ?? (await createSupabaseServerClient());
     const requestId = await tryRequestId();
-    const [tenantTimed, platformTimed] = await Promise.all([
+    // INFORMATIVE: branch point. Only with the flag on (flag off = the same two queries as before);
+    // soft-fails to "unknown", and requireTenant() still forwards Informative tenants.
+    const informativeProbe = informativeFlagOn(informativeFlagMode())
+      ? Promise.resolve(
+          supabase.from("tenant_memberships").select("tenants!inner(status, website_type)").eq("user_id", userId).eq("status", "active"),
+        ).then(
+          ({ data, error }) => (error ? undefined : allInformative((data ?? []).filter((m) => m.tenants.status !== "cancelled").map((m) => m.tenants.website_type))),
+          () => undefined,
+        )
+      : Promise.resolve(undefined);
+    const [tenantTimed, platformTimed, informativeOnly] = await Promise.all([
       timeAsync("landing.tenantMemberships", () =>
         Promise.resolve(
           supabase.from("tenant_memberships").select("tenant_id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "active"),
@@ -45,12 +58,15 @@ export async function accountAccessFor(userId: string, client?: SupabaseServerCl
       timeAsync("landing.platformMemberships", () =>
         Promise.resolve(supabase.from("platform_memberships").select("status").eq("user_id", userId).maybeSingle()),
       ),
+      informativeProbe,
     ]);
     logSpan({ span: "landing.tenantMemberships", ms: tenantTimed.ms, requestId });
     logSpan({ span: "landing.platformMemberships", ms: platformTimed.ms, requestId });
     const tenant = tenantTimed.result;
     const platform = platformTimed.result;
-    return { platformStaff: platform.data?.status === "active", storeCount: tenant.count ?? 0 };
+    const access: AccountAccess = { platformStaff: platform.data?.status === "active", storeCount: tenant.count ?? 0 };
+    if (informativeOnly !== undefined) access.informativeOnly = informativeOnly;
+    return access;
   } catch (err) {
     if (isNextControlFlowError(err)) throw err;
     logger.warn("auth.landing_unavailable", { error: err });

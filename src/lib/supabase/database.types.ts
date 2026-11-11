@@ -5970,6 +5970,7 @@ export type Database = {
           store_type: string
           trial_ends_at: string | null
           updated_at: string
+          website_type: string
         }
         Insert: {
           created_at?: string
@@ -5983,6 +5984,7 @@ export type Database = {
           store_type?: string
           trial_ends_at?: string | null
           updated_at?: string
+          website_type?: string
         }
         Update: {
           created_at?: string
@@ -5996,6 +5998,7 @@ export type Database = {
           store_type?: string
           trial_ends_at?: string | null
           updated_at?: string
+          website_type?: string
         }
         Relationships: [
           {
@@ -6299,7 +6302,12 @@ export type Database = {
         Returns: undefined
       }
       create_tenant: {
-        Args: { p_name: string; p_root_domain: string; p_slug: string }
+        Args: {
+          p_name: string
+          p_root_domain: string
+          p_slug: string
+          p_website_type?: string
+        }
         Returns: string
       }
       dashboard_funnel: {
