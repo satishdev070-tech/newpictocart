@@ -62,7 +62,7 @@ export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 async function redisGet<R>(key: string): Promise<{ hit: true; value: R } | { hit: false }> {
-  const redis = getRedis();
+  const redis = await getRedis();
   if (!redis) return { hit: false };
   try {
     const box = await withTimeout(redis.get<Box<R>>(key), REDIS_OP_TIMEOUT_MS);
@@ -74,7 +74,7 @@ async function redisGet<R>(key: string): Promise<{ hit: true; value: R } | { hit
 }
 
 async function redisSet<R>(keyPrefix: string, key: string, value: R, tags: string[], revalidateSeconds: number): Promise<void> {
-  const redis = getRedis();
+  const redis = await getRedis();
   if (!redis) return;
   try {
     const indexTtl = revalidateSeconds + 60;
@@ -92,7 +92,7 @@ async function redisSet<R>(keyPrefix: string, key: string, value: R, tags: strin
 }
 
 async function redisDeleteByIndex(indexKey: string): Promise<void> {
-  const redis = getRedis();
+  const redis = await getRedis();
   if (!redis) return;
   try {
     const keys = await withTimeout(redis.smembers(indexKey), REDIS_OP_TIMEOUT_MS);

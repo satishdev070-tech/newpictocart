@@ -4,6 +4,15 @@
  * theme tokens only (--sf-*), CONTAINER queries on .sf-root, and no motion under
  * prefers-reduced-motion.
  */
+/*
+ * Pin the cascade-layer order before this file's first @layer block. Layer order is set by
+ * FIRST APPEARANCE across every stylesheet on the page, and the Worker (vinext) build can link
+ * this file before Tailwind's globals.css. Without this line `components` would be declared
+ * first, so Tailwind preflight (base layer: `*{margin:0;padding:0}`, transparent buttons)
+ * would override every .sf-* rule. Guarded by tests/unit/styles/css-layer-order.test.ts.
+ */
+@layer properties, theme, base, components, utilities;
+
 @layer components {
   /* ---------- Hero slideshow stage (HeroStage) ---------- */
   .sf-stage {

@@ -4,6 +4,15 @@
  * theme gets matching colours. No layout impact: skeletons live inside <main>, the bar is fixed.
  */
 
+/*
+ * Pin the cascade-layer order before this file's first @layer block. Layer order is set by
+ * FIRST APPEARANCE across every stylesheet on the page, and the Worker (vinext) build can link
+ * this file before Tailwind's globals.css. Without this line `components` would be declared
+ * first, so Tailwind preflight (base layer: `*{margin:0;padding:0}`, transparent buttons)
+ * would override every .sf-* rule. Guarded by tests/unit/styles/css-layer-order.test.ts.
+ */
+@layer properties, theme, base, components, utilities;
+
 /* In the components layer so Tailwind utilities (h-*, w-*, hidden, rounded-*) override it. */
 @layer components {
 .sf-skel {
