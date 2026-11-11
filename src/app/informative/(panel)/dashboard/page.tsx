@@ -47,9 +47,14 @@ export default async function InformativeDashboardPage({ searchParams }: PagePro
           </span>
         }
         actions={
-          <a href={siteUrl} target="_blank" rel="noopener noreferrer" className={buttonClass({ variant: "secondary" })}>
-            <ExternalLink aria-hidden /> View site
-          </a>
+          <>
+            <a href="/informative/site-preview" target="_blank" rel="noopener noreferrer" className={buttonClass({ variant: "secondary" })}>
+              Preview
+            </a>
+            <a href={siteUrl} target="_blank" rel="noopener noreferrer" className={buttonClass({ variant: "secondary" })}>
+              <ExternalLink aria-hidden /> View site
+            </a>
+          </>
         }
       />
       {welcome ? (

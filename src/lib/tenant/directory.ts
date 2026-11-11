@@ -52,20 +52,34 @@ const lookupHost = cachedStorefront(
 /** Tenant identity (slug, status, store name, primary host), invalidated with the tenant's storefront. */
 const lookupTenant = cachedStorefront(
   "tenant-directory-tenant-v3",
-  async (tenantId: string): Promise<{ slug: string; status: TenantStatus; name: string | null; primaryHost: string | null }> => {
-    const { data, error } = await createSupabaseAdminClient()
-      .from("tenants")
-      .select("slug, status, stores(name), domains(hostname)")
-      .eq("id", tenantId)
-      .eq("domains.is_primary", true)
-      .eq("domains.status", "verified")
-      .maybeSingle();
+  async (tenantId: string): Promise<{ slug: string; status: TenantStatus; name: string | null; primaryHost: string | null; websiteType: "ONLINE_STORE" | "INFORMATIVE" }> => {
+    type Row = { slug: string; status: string; website_type?: string | null; stores: { name: string } | { name: string }[] | null; domains: { hostname: string }[] };
+    type Err = { code?: string; message?: string } | null;
+    // Same query chain as before (only the column list varies); typed by cast.
+    const query = async (cols: string) =>
+      (await createSupabaseAdminClient()
+        .from("tenants")
+        .select(cols)
+        .eq("id", tenantId)
+        .eq("domains.is_primary", true)
+        .eq("domains.status", "verified")
+        .maybeSingle()) as unknown as { data: Row | null; error: Err };
+    // INFORMATIVE: branch point — website_type (migration 8000). Before the migration is applied the
+    // column is missing: retry the original select so every tenant keeps resolving as ONLINE_STORE.
+    let { data, error } = await query("slug, status, website_type, stores(name), domains(hostname)");
+    if (error?.code === "42703" || error?.code === "PGRST204") ({ data, error } = await query("slug, status, stores(name), domains(hostname)"));
     if (error || !data) {
       logger.error("tenant_directory.tenant_lookup_failed", { tenantId, code: error?.code, error: error?.message });
       throw new TenantDirectoryError(tenantId);
     }
     const store = Array.isArray(data.stores) ? data.stores[0] : data.stores;
-    return { slug: data.slug, status: data.status as TenantStatus, name: store?.name ?? null, primaryHost: data.domains[0]?.hostname ?? null };
+    return {
+      slug: data.slug,
+      status: data.status as TenantStatus,
+      name: store?.name ?? null,
+      primaryHost: data.domains[0]?.hostname ?? null,
+      websiteType: data.website_type === "INFORMATIVE" ? "INFORMATIVE" : "ONLINE_STORE",
+    };
   },
   (tenantId) => [TENANT_DIRECTORY_TAG, storefrontTag(tenantId)],
 );
@@ -73,7 +87,7 @@ const lookupTenant = cachedStorefront(
 async function lookup(host: string): Promise<DirectoryEntry> {
   const { tenantId, custom } = await lookupHost(host);
   const tenant = await lookupTenant(tenantId);
-  return { tenantId, slug: tenant.slug, name: tenant.name ?? tenant.slug, status: tenant.status, host, primaryHost: tenant.primaryHost ?? host, custom };
+  return { tenantId, slug: tenant.slug, name: tenant.name ?? tenant.slug, status: tenant.status, host, primaryHost: tenant.primaryHost ?? host, custom, websiteType: tenant.websiteType ?? "ONLINE_STORE" };
 }
 
 /**
@@ -100,7 +114,7 @@ async function find(host: string): Promise<DirectoryEntry | null> {
 }
 
 const findByHost = cache(async (host: string): Promise<ResolvedTenant | null> => {
-  const strip = (e: DirectoryEntry): ResolvedTenant => ({ tenantId: e.tenantId, slug: e.slug, name: e.name, status: e.status, host: e.host, primaryHost: e.primaryHost });
+  const strip = (e: DirectoryEntry): ResolvedTenant => ({ tenantId: e.tenantId, slug: e.slug, name: e.name, status: e.status, host: e.host, primaryHost: e.primaryHost, websiteType: e.websiteType ?? "ONLINE_STORE" });
   const exact = await find(host);
   if (exact) return strip(exact);
   const companion = companionCustomHost(host, publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN);

@@ -33,8 +33,10 @@ export type SiteView = {
   nav: { label: string; href: string }[];
   /** Photo credits (Unsplash licence). */
   credits: { name: string; url: string }[];
-  /** Preview mode: forms are shown but cannot be sent. */
+  /** Forms are shown but cannot be sent (demo previews; live sites until enquiries are enabled). */
   preview: boolean;
+  /** Explains why the enquiry form is disabled (null = the demo-preview wording). */
+  formNote?: string | null;
   overrides: ThemeOverrides;
 };
 
@@ -97,5 +99,93 @@ export function buildDemoView(
     credits,
     preview: true,
     overrides: {},
+  };
+}
+
+// ---- Live site (DB content) -------------------------------------------------------------------
+
+/** Minimal shape of the loaded content (server/public.ts SiteBundle), kept structural to stay pure. */
+type LiveBundle = {
+  site: {
+    businessName: string;
+    tagline: string | null;
+    about: string | null;
+    category: InfoCategory;
+    logoPath: string | null;
+    heroImagePath: string | null;
+    primaryColor: string | null;
+    secondaryColor: string | null;
+    fontPair: string | null;
+    contact: SiteView["contact"];
+    hours: SiteView["hours"];
+    socialLinks: Record<string, string>;
+  };
+  services: { id: string; name: string; slug: string; shortDescription: string | null; imagePath: string | null; priceType: Parameters<typeof formatServicePrice>[0]; pricePaise: number | null; durationMinutes: number | null; category: string | null; isSample: boolean }[];
+  pages: { type: string; title: string; slug: string }[];
+  gallery: { imagePath: string; alt: string | null; caption: string | null }[];
+  team: { name: string; role: string | null; bio: string | null; photoPath: string | null }[];
+  testimonials: { authorName: string; rating: number; text: string; authorPhotoPath: string | null }[];
+  faqs: { question: string; answer: string }[];
+};
+
+/**
+ * Live SiteView from published content. `asset` turns a storage path into a public URL (assetUrl);
+ * `link` maps site paths (identity on the public host, /informative/site-preview/… for the owner's
+ * draft preview). Menu items whose content is empty are hidden (plan).
+ */
+export function buildSiteView(
+  b: LiveBundle,
+  opts: { asset: (path: string | null) => string | null; link?: (path: string) => string; preview?: boolean; formNote?: string | null },
+): SiteView {
+  const link = opts.link ?? ((p: string) => p);
+  const d = demoContent(b.site.category);
+  const hasPage = (type: string) => b.pages.some((p) => p.type === type);
+  const nav = [
+    { label: "Home", href: link("/") },
+    ...(hasPage("ABOUT") ? [{ label: "About", href: link("/about") }] : []),
+    ...(hasPage("SERVICES") && b.services.length ? [{ label: "Services", href: link("/services") }] : []),
+    ...(b.gallery.length ? [{ label: "Gallery", href: link("/gallery") }] : []),
+    ...b.pages.filter((p) => p.type === "CUSTOM").map((p) => ({ label: p.title, href: link(`/${p.slug}`) })),
+    { label: "Contact", href: link("/contact") },
+  ];
+  const hero = opts.asset(b.site.heroImagePath);
+  const s = b.site;
+  return {
+    businessName: s.businessName,
+    tagline: s.tagline,
+    about: s.about,
+    category: s.category,
+    logoUrl: opts.asset(s.logoPath),
+    hero: hero ? [{ url: hero, alt: "", width: 1600, height: 1000 }] : [],
+    contact: s.contact,
+    hours: s.hours,
+    socialLinks: s.socialLinks,
+    services: b.services.map((x) => ({
+      id: x.id,
+      name: x.name,
+      href: link(`/services/${x.slug}`),
+      shortDescription: x.shortDescription,
+      priceText: formatServicePrice(x.priceType, x.pricePaise),
+      durationText: formatDuration(x.durationMinutes),
+      category: x.category,
+      imageUrl: opts.asset(x.imagePath),
+      isSample: x.isSample,
+    })),
+    testimonials: b.testimonials.map((t) => ({ authorName: t.authorName, rating: t.rating, text: t.text, photoUrl: opts.asset(t.authorPhotoPath) })),
+    faqs: b.faqs,
+    gallery: b.gallery.flatMap((g) => {
+      const url = opts.asset(g.imagePath);
+      return url ? [{ url, alt: g.alt ?? g.caption ?? "", width: 800, height: 600, caption: g.caption }] : [];
+    }),
+    team: b.team.map((m) => ({ name: m.name, role: m.role, bio: m.bio, photoUrl: opts.asset(m.photoPath) })),
+    // Stats and highlights have no editor in v1: the section is hidden unless the seller adds content.
+    stats: [],
+    highlights: [],
+    ctaLabel: d.ctaLabel,
+    nav,
+    credits: [],
+    preview: opts.preview ?? false,
+    formNote: opts.formNote ?? null,
+    overrides: { primaryColor: s.primaryColor, secondaryColor: s.secondaryColor, fontPair: s.fontPair },
   };
 }

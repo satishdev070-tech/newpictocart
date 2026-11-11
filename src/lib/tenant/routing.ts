@@ -14,8 +14,15 @@ export const REQUEST_ID_HEADER = "x-request-id";
 /** Proxy-measured auth getClaims duration (ms); set only by proxy when a session cookie exists. */
 export const PROXY_CLAIMS_MS_HEADER = "x-pc-claims-ms";
 
+/**
+ * INFORMATIVE: branch point — see docs/informative/PLAN.md. The storefront path as requested
+ * (before the /store/[host] rewrite), so the storefront layout can refuse store-only routes for
+ * Informative Websites in one place ("store routes wrapped", not per-page edits).
+ */
+export const INTERNAL_PATH_HEADER = "x-paliya-path";
+
 /** Headers a client must never be able to inject; the proxy strips them before anything else. */
-export const INTERNAL_REQUEST_HEADERS = [INTERNAL_HOST_HEADER, "x-sf-theme-preview", PROXY_CLAIMS_MS_HEADER] as const;
+export const INTERNAL_REQUEST_HEADERS = [INTERNAL_HOST_HEADER, "x-sf-theme-preview", PROXY_CLAIMS_MS_HEADER, INTERNAL_PATH_HEADER] as const;
 /** Marketplace theme key for a demo-store Live Preview (set only by the proxy). */
 export const THEME_PREVIEW_HEADER = "x-sf-theme-preview";
 

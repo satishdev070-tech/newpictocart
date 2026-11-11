@@ -15,6 +15,8 @@ export type ResolvedTenant = {
   host: string;
   /** Canonical hostname for SEO/redirects (the tenant's primary domain). */
   primaryHost: string;
+  /** INFORMATIVE: branch point — see docs/informative/PLAN.md. Missing = ONLINE_STORE. */
+  websiteType?: "ONLINE_STORE" | "INFORMATIVE";
 };
 
 export type StorefrontAvailability = "open" | "suspended" | "unavailable";

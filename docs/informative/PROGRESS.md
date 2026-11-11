@@ -10,7 +10,7 @@ Plan: [PLAN.md](./PLAN.md) · Discovery: [DISCOVERY.md](./DISCOVERY.md) · Branc
 | M3 Theme system | ✅ Done | see `git log` (feat(informative): M3) |
 | M4 Onboarding | ✅ Done | see `git log` (feat(informative): M4) |
 | M5 Seller panel | ✅ Done | see `git log` (feat(informative): M5) |
-| M6 Public site | — | |
+| M6 Public site | ✅ Done | see `git log` (feat(informative): M6) |
 | M7 Enquiries | — | |
 | M8 Hardening | — | |
 
@@ -390,3 +390,69 @@ Server actions: `src/features/informative/actions.ts` (runAction → parseInput 
   8000–8200 that the dev server can reach. The configured dev env points at the hosted project, which
   doesn't have them and which I didn't modify. The full journey (onboard → panel → publish → public
   site → enquiry) is the M8 E2E task.
+
+---
+
+## M6 — Public site (2026-11-11)
+
+### What landed
+
+| Piece | Where |
+|---|---|
+| Resolver branch: `ResolvedTenant.websiteType` from the tenant directory (missing column → ONLINE_STORE) | `src/lib/tenant/directory.ts`, `src/lib/tenant/context.ts` |
+| Proxy forwards the original storefront path (`x-paliya-path`, stripped from client requests) | `src/proxy.ts`, `src/lib/tenant/routing.ts` |
+| Storefront layout branch (`InformativeStoreGate`): flag off → maintenance; store-only path → 404; DRAFT → "coming soon"; else the page | `src/app/store/[host]/layout.tsx` → `features/informative/public/render.tsx` |
+| Routes: `/` and `/contact` (branches), `/about`, `/services`, `/services/[slug]`, `/gallery` (new files), `/:customPageSlug` (catch-all branch) | `src/app/store/[host]/**`, `features/informative/public/paths.ts` |
+| Rendering: published content (anon client + RLS), cached per tenant, theme + seller overrides, ServiceDetail, nav hides empty sections | `server/public.ts`, `site/view.ts` (`buildSiteView`), `site/service-detail.tsx` |
+| SEO: per-page title / description / canonical / OG / favicon, JSON-LD `LocalBusiness` (address, phone, hours, sameAs) and `Service` (+ INR offer), sitemap.xml, robots.txt | `public/render.tsx`, sitemap/robots route branches |
+| CTAs: click-to-call, WhatsApp deep link (`wa.me/<number>?text=…`, per-service text), map link, sticky mobile Call/WhatsApp bar | section library (M3) + ServiceDetail |
+| Owner draft preview on the platform host (member session, same visibility rules) + dashboard "Preview" button | `src/app/informative/site-preview/[[...path]]/page.tsx` |
+
+### Decisions and deviations
+
+1. **One gate for store-only routes.** The plan asks to wrap store routes for ONLINE_STORE rather than edit each
+   store page. The storefront layout is the one place every store page passes through, but a layout
+   can't see the path, so the proxy now forwards it as an internal header (stripped from clients, like
+   `x-paliya-host`). For an Informative tenant, any path outside the plan's routes 404s, including
+   `/cart`, `/checkout`, `/products/*`, `/blog`, `/faq`, `/search` and `/account/*`. A test fails if a new
+   store route folder is added without being classified.
+2. **Online Store paths are unchanged.** `/about`, `/services`, `/services/x` and `/gallery` are new route
+   files. For a store they call the same `redirectOrNotFound` as the catch-all, so a store's own URL
+   redirects for those paths keep working; `generateMetadata` returns `{}`, as no metadata existed
+   before (test-covered).
+3. **Lazy loading.** Every storefront branch does `await import("@/features/informative/public/render")`,
+   so store requests never evaluate the informative renderer, themes or fonts. The only statically imported
+   helper (`public/branch.ts`) imports nothing but `resolveStorefrontTenant`. Verified in dev that
+   `next/font` CSS still attaches when the renderer is loaded this way (the theme's Sora font was
+   defined and loaded).
+4. **The resolver change keeps the old query chain** and only adds a column, with a retry without it
+   on an undefined-column error. A first version used `.overrideTypes()`, which broke the existing
+   `tenant-directory` tests' mock client; per rule 7 the tests were not touched and the code was changed
+   to a type cast. The existing tests pass unchanged.
+5. **Draft preview** runs on the platform host (`/informative/site-preview/…`) with the member's own
+   session (RLS `store.read`), not a cross-domain signed cookie or the secret key (ADR-006 untouched).
+   The loader applies the same visibility filters as the public path, so the preview equals what
+   publishing shows.
+6. **No invented numbers on live sites:** the Stats and "Why choose us" sections render only demo
+   content in previews; on a live site they are hidden (there is no editor for them in v1) rather than
+   showing fake figures.
+7. **Every page has exactly one `<h1>`:** a page title, the hero headline, or (when a seller removes
+   the hero) a visually hidden site name. The render tests found this gap, and it is fixed.
+8. **Enquiry form** renders on live sites but stays disabled with a call / WhatsApp note until M7 wires
+   the submission (honeypot, rate limit, notifications).
+9. The store layout still statically imports `storefront.css` / `designs-a.css`, so those stylesheets
+   load on informative sites too. They are scoped to store classes (`.sf-*`), so they're harmless but
+   bytes on the wire; to be measured in M8 against the Lighthouse targets.
+
+### Verification
+
+- Unit `public-site.test.ts` (11): route mapping (plan routes only), every storefront route folder
+  classified, reserved custom slugs, path header strip list, home JSON-LD (LocalBusiness), one `h1`,
+  empty-section nav hiding, service detail (Service JSON-LD + INR offer + WhatsApp), 404s for unknown /
+  unpublished content, preview links + notice, the gate (published, store-only 404s, draft → coming
+  soon, flag off → maintenance), robots / sitemap only when published.
+- Unit `store-regression.test.ts` (6): the 4 new routes keep Online Store behaviour; directory
+  `websiteType` + pre-migration fallback.
+- The existing `tenant-directory`, storefront, routing and proxy tests pass unchanged.
+- `pnpm check` ✅ **211 files / 2236 tests** + build; RLS ✅ **27 / 204**; `build:vinext` + `check-worker-css` ✅
+  (the always-loaded Worker graph test passes: no static informative imports in the proxy, root layouts or root sitemap).

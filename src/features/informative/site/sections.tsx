@@ -462,7 +462,7 @@ function EnquiryForm({ view, section }: P) {
             <button type="submit" className={btnPrimary}>Send enquiry</button>
           </div>
         </fieldset>
-        {view.preview ? <p id={`${hid(section)}-note`} className="mt-3 text-sm text-(--if-muted)">Preview: enquiries can&apos;t be sent from this demo.</p> : null}
+        {view.preview ? <p id={`${hid(section)}-note`} className="mt-3 text-sm text-(--if-muted)">{view.formNote ?? "Preview: enquiries can't be sent from this demo."}</p> : null}
       </form>
     </Section>
   );

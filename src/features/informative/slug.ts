@@ -6,6 +6,8 @@ export const INFO_SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const RESERVED_PAGE_SLUGS: ReadonlySet<string> = new Set([
   "about", "services", "gallery", "contact", "faq", "faqs", "team", "testimonials", "enquiry", "enquiries",
   "privacy", "terms", "sitemap-xml", "robots-txt", "api", "preview", "informative", "admin", "dashboard", "login",
+  // Online Store storefront routes (public/paths.ts STORE_ONLY_SEGMENTS): never a custom page address.
+  "account", "blog", "cart", "categories", "checkout", "collections", "orders", "pages", "products", "search", "stores", "home",
 ]);
 
 export function slugify(input: string, max = 120): string {
