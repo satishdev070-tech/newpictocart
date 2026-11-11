@@ -17,6 +17,7 @@ export type InformativeContext = {
   tenantId: string;
   tenantName: string;
   tenantSlug: string;
+  tenantStatus: Membership["tenantStatus"];
   role: Membership["role"];
   permissions: ReadonlySet<TenantPermission>;
   memberships: Membership[];
@@ -44,6 +45,7 @@ const resolve = cache(async (): Promise<Resolved> => {
           tenantId: active.tenantId,
           tenantName: active.tenantName,
           tenantSlug: active.tenantSlug,
+          tenantStatus: active.tenantStatus,
           role: active.role,
           permissions: membershipPermissions(active),
           memberships,

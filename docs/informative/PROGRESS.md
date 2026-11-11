@@ -9,7 +9,7 @@ Plan: [PLAN.md](./PLAN.md) · Discovery: [DISCOVERY.md](./DISCOVERY.md) · Branc
 | M2 Data layer | ✅ Done | see `git log` (feat(informative): M2) |
 | M3 Theme system | ✅ Done | see `git log` (feat(informative): M3) |
 | M4 Onboarding | ✅ Done | see `git log` (feat(informative): M4) |
-| M5 Seller panel | — | |
+| M5 Seller panel | ✅ Done | see `git log` (feat(informative): M5) |
 | M6 Public site | — | |
 | M7 Enquiries | — | |
 | M8 Hardening | — | |
@@ -324,3 +324,69 @@ regeneration).
   covered by the DB tests; the browser E2E of the whole journey is part of M8.
 - `pnpm check` ✅ **208 files / 2209 tests** + build; full RLS suite ✅ **27 files / 204 tests**
   (patched-shim scratch DB, run serially); `build:vinext` + `check-worker-css` ✅.
+
+---
+
+## M5 — Seller panel (2026-11-11)
+
+### What landed
+
+| Route | What the seller can do |
+|---|---|
+| Shell (`(panel)/layout.tsx`) | Shared `AppShell` (header, account menu, appearance toggle, sidebar collapse) with the Informative sidebar (`panel/nav.ts`, filtered by permission); store/site switcher; View website; Sign out |
+| `/informative/dashboard` | Welcome banner after onboarding; setup checklist (logo, 3+ own services, contact info, design, publish); new/converted enquiry counts; last 5 enquiries; status; View site; Publish/Unpublish |
+| `/informative/services` (+ `/new`, `/[id]`) | Search, category filter, add/edit, soft delete, move up/down, active/featured toggles, duplicate, image upload, price type + price (₹ → paise), duration, category, address, per-service SEO; samples are labelled and become the seller's own on edit |
+| `/informative/pages` (+ `/new`, `/[id]`) | System pages + custom pages; section editor (show/hide, reorder, add from the section library, remove, edit headings and text); page settings (title, address for custom pages, published, SEO) |
+| `/informative/gallery` | Multi-upload (up to 30 at once), caption, alt text, album, reorder, delete |
+| `/informative/team`, `/testimonials`, `/faqs` | Add/edit/delete/reorder; photo; rating; show/hide |
+| `/informative/enquiries` | Read-only list (filters, detail, status, notes and CSV come in M7) |
+| `/informative/appearance` | Switch design (content kept, preview link per design), own colours (optional), font pair, logo, favicon, hero image |
+| `/informative/business` | Name, category, tagline, about, phone, email, WhatsApp (same as phone), city, address, map link, opening hours per day, social links |
+| `/informative/seo` | Site title, meta description, share image |
+| `/informative/domain` | Subdomain (see decision 4) |
+| `/informative/settings` | Enquiry notification email/WhatsApp toggles, enquiry form options (success message, preferred date/time, privacy text), publish/unpublish, delete website |
+| `/informative/profile` | Profile and password (the existing account forms and actions) |
+
+Server actions: `src/features/informative/actions.ts` (runAction → parseInput → `requireInformativeTenant()` → repo permission check → write → audit for publish/unpublish and theme switch → revalidate panel + public site cache).
+
+### Decisions and deviations
+
+1. **Own layout instead of a sidebar switch inside the store layout.** The panel passes
+   `INFORMATIVE_NAV` to the same `AppShell`; `DASHBOARD_NAV` and the store layout are untouched
+   (asserted by a test). This is the "sidebar selector" touch point without editing the shared file.
+2. **Reordering uses Move up / Move down buttons, not drag-and-drop.** They work with keyboard and screen
+   readers and need no client JS library; the order is stored the same way (`sort_order`).
+   Drag-and-drop can be layered on later.
+3. **Publish** sets `info_sites.status` (+ `published_at`) **and** `stores.launch_status`, so the existing
+   "coming soon" logic agrees with the site status (M6 renders from `info_sites`). Both are audited.
+4. **Domain:** the plan says "reuse the existing custom-domain feature if it exists; otherwise show the
+   subdomain only". The feature exists but resolves its tenant with `requireTenant()`, which (by
+   design, M1) refuses Informative tenants, and custom domains for Informative sites in v1 is an open
+   product question. v1 therefore shows the subdomain and a "coming soon" note. Enabling it later
+   means passing the informative context into the domain actions (no store change).
+5. **Delete website** reuses the store's `close_own_store` RPC (owner only, typed confirmation,
+   nothing hard-deleted, support can reopen), then goes to `/start`.
+6. **Shared account pages (Q12):** the Informative panel has its own `/informative/profile` that
+   renders the existing `ProfileForm` / `ChangePasswordForm`, whose actions use `requireUser()` (not
+   the store guard). Billing/plan and team management are not exposed in the Informative panel in v1
+   (no separate plan; open question).
+7. **Permissions:** the panel uses the existing roles. A **Sales associate** sees content and
+   enquiries (read) but not Appearance, Business, SEO or Settings, and cannot upload or edit content;
+   **Owner/Manager** get everything (test-covered).
+8. **Rich text:** descriptions and section texts are plain text with line breaks (Q13); no HTML is
+   stored or rendered.
+
+### Verification
+
+- Unit `tests/unit/informative/panel.test.ts` (10): every sidebar item has a page; the store
+  sidebar is untouched; **every** panel page and the layout call `requireInformativeTenant()`;
+  sidebar by role; actions (create vs update and rupees → paise, invalid input never reaches the
+  repo, move swaps neighbours, publish → `launch_status` + audit, unknown design refused + theme
+  switch audited, delete is owner-only via `close_own_store`, image upload permission + `informative/`
+  path).
+- `pnpm check` ✅ **209 files / 2219 tests** + build (all 20 `/informative/*` panel routes compile); RLS ✅
+  **27 files / 204 tests**; `build:vinext` + `check-worker-css` ✅.
+- **Not exercised in a browser:** the signed-in panel needs a Supabase project with migrations
+  8000–8200 that the dev server can reach. The configured dev env points at the hosted project, which
+  doesn't have them and which I didn't modify. The full journey (onboard → panel → publish → public
+  site → enquiry) is the M8 E2E task.
