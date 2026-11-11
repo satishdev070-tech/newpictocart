@@ -271,7 +271,7 @@ function DnsTab({ domain, row }: { domain: GscDomain; row: GscRowView | null }) 
   );
 }
 
-/** Super Admin → Branding & analytics: Google Search Console ownership verification. */
+/** Super Admin → Analytics: Google Search Console ownership verification. */
 export function SearchConsoleCard({ state }: { state: GscCardState }) {
   const [domain, setDomain] = useState<GscDomain>("production");
   const [method, setMethod] = useState<"html" | "dns">("html");

@@ -12,7 +12,10 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
   {
     label: "Overview",
     icon: "dashboard",
-    items: [{ href: "/admin", label: "Dashboard", permission: "platform.tenants.read", icon: "dashboard" }],
+    items: [
+      { href: "/admin", label: "Dashboard", permission: "platform.tenants.read", icon: "dashboard" },
+      { href: "/admin/analytics", label: "Analytics", permission: "platform.settings.manage", icon: "analytics" },
+    ],
   },
   {
     label: "Stores",
@@ -92,7 +95,7 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
       { href: "/admin/themes", label: "Themes", permission: "platform.settings.manage", icon: "themes" },
       { href: "/admin/product-types", label: "Product types", permission: "platform.settings.manage", icon: "products" },
       { href: "/admin/media", label: "Media library", permission: "platform.settings.manage", icon: "media" },
-      { href: "/admin/branding", label: "Branding & analytics", permission: "platform.settings.manage", icon: "themes" },
+      { href: "/admin/branding", label: "Branding", permission: "platform.settings.manage", icon: "themes" },
       { href: "/admin/sign-in", label: "Sign-in & checkout", permission: "platform.settings.manage", icon: "users" },
       { href: "/admin/email", label: "Email (Resend)", permission: "platform.settings.manage", icon: "notifications" },
       { href: "/admin/settings", label: "Settings", permission: "platform.settings.manage", icon: "settings" },

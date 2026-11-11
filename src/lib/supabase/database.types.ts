@@ -4009,6 +4009,36 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_page_views: {
+        Row: {
+          created_at: string
+          day: string
+          host: string
+          id: number
+          path: string
+          referrer: string | null
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          day?: string
+          host: string
+          id?: never
+          path: string
+          referrer?: string | null
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          day?: string
+          host?: string
+          id?: never
+          path?: string
+          referrer?: string | null
+          session_id?: string
+        }
+        Relationships: []
+      }
       platform_plan_coupons: {
         Row: {
           active: boolean
@@ -6909,6 +6939,14 @@ export type Database = {
           status_code: number
           to_path: string
         }[]
+      }
+      platform_traffic_report: {
+        Args: { p_from: string; p_limit?: number; p_to: string }
+        Returns: Json
+      }
+      record_platform_page_view: {
+        Args: { p_host: string; p_path: string; p_referrer: string; p_session: string }
+        Returns: boolean
       }
       gsc_verification_file: {
         Args: { p_domain: string; p_filename: string }

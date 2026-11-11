@@ -11,6 +11,10 @@ export const PUBLIC_CONFIG_KEYS = {
   favicon: "public.brand.favicon",
   ogImage: "public.brand.og_image",
   ga4: "public.analytics.ga4_id",
+  ga4Enabled: "public.analytics.ga4_enabled",
+  metaPixel: "public.analytics.meta_pixel_id",
+  metaPixelEnabled: "public.analytics.meta_pixel_enabled",
+  firstParty: "public.analytics.first_party",
   googleSellers: "public.auth.google_sellers",
   googleShoppers: "public.auth.google_shoppers",
   locationAutofill: "public.checkout.location_autofill",
@@ -35,7 +39,12 @@ export type PublicPlatformConfig = {
   favicon: BrandImage | null;
   /** Social share (Open Graph / X card) image for marketing pages, 1200x630. */
   ogImage: BrandImage | null;
+  /** Effective GA4 id: null when unset or switched off. */
   ga4Id: string | null;
+  /** Effective Meta Pixel id (digits only): null when unset or switched off. */
+  metaPixelId: string | null;
+  /** First-party page-view beacon on platform pages (powers Super Admin → Analytics). */
+  firstPartyAnalytics: boolean;
   /** "Continue with Google" for sellers (also needs the Google provider on in Supabase Auth). */
   googleForSellers: boolean;
   /** "Continue with Google" for store customers (same requirement). */
@@ -50,6 +59,8 @@ export const DEFAULT_PUBLIC_CONFIG: PublicPlatformConfig = {
   favicon: null,
   ogImage: null,
   ga4Id: null,
+  metaPixelId: null,
+  firstPartyAnalytics: true,
   googleForSellers: true,
   googleForShoppers: true,
   locationAutofill: true,
@@ -57,6 +68,23 @@ export const DEFAULT_PUBLIC_CONFIG: PublicPlatformConfig = {
 
 /** GA4 web stream measurement id, e.g. G-AB12CD34EF. */
 export const GA4_ID_RE = /^G-[A-Z0-9]{4,20}$/;
+
+/** Meta Pixel (dataset) id: digits only. */
+export const META_PIXEL_ID_RE = /^\d{10,20}$/;
+
+/**
+ * Accepts a bare Pixel ID or the pasted Meta base code and returns only the numeric id, so no
+ * third-party markup is ever stored or rendered. Null when no valid id is found.
+ */
+export function extractMetaPixelId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const v = value.trim();
+  if (META_PIXEL_ID_RE.test(v)) return v;
+  const init = /fbq\(\s*['"]init['"]\s*,\s*['"]?(\d{10,20})['"]?/.exec(v);
+  if (init) return init[1]!;
+  const img = /facebook\.com\/tr\?id=(\d{10,20})/.exec(v);
+  return img ? img[1]! : null;
+}
 
 /** Only paths this feature writes are accepted back (no arbitrary URLs end up in <img>/<link>). */
 const PATH_RE = /^branding\/(header_logo|footer_logo|favicon|og_image)\/[0-9a-f-]{36}\.(png|jpg|webp|ico)$/;
@@ -87,7 +115,9 @@ export function parsePublicConfig(rows: readonly { key: string; value: unknown }
     footerLogo: parseBrandImage(map.get(PUBLIC_CONFIG_KEYS.footerLogo)),
     favicon: parseBrandImage(map.get(PUBLIC_CONFIG_KEYS.favicon)),
     ogImage: parseBrandImage(map.get(PUBLIC_CONFIG_KEYS.ogImage)),
-    ga4Id: parseGa4Id(map.get(PUBLIC_CONFIG_KEYS.ga4)),
+    ga4Id: bool(PUBLIC_CONFIG_KEYS.ga4Enabled, true) ? parseGa4Id(map.get(PUBLIC_CONFIG_KEYS.ga4)) : null,
+    metaPixelId: bool(PUBLIC_CONFIG_KEYS.metaPixelEnabled, true) ? extractMetaPixelId(map.get(PUBLIC_CONFIG_KEYS.metaPixel)) : null,
+    firstPartyAnalytics: bool(PUBLIC_CONFIG_KEYS.firstParty, DEFAULT_PUBLIC_CONFIG.firstPartyAnalytics),
     googleForSellers: bool(PUBLIC_CONFIG_KEYS.googleSellers, DEFAULT_PUBLIC_CONFIG.googleForSellers),
     googleForShoppers: bool(PUBLIC_CONFIG_KEYS.googleShoppers, DEFAULT_PUBLIC_CONFIG.googleForShoppers),
     locationAutofill: bool(PUBLIC_CONFIG_KEYS.locationAutofill, DEFAULT_PUBLIC_CONFIG.locationAutofill),
