@@ -34,6 +34,10 @@ export const storeSlug = z
 export const basicInfoStepSchema = z.object({
   businessName: z.string().trim().min(2, "At least 2 characters").max(80, "At most 80 characters"),
   category: z.enum(INFO_CATEGORY_IDS, { error: "Choose a category" }),
+  /** Picked service type id (service-types.ts), or "custom" when the person typed their own. */
+  serviceTypeId: z.string().trim().max(40).default(""),
+  /** Service label shown to the AI and stored in info_sites.service_type (≤ 60). */
+  serviceType: z.string().trim().max(60, "At most 60 characters").default(""),
   tagline: z.string().trim().max(120, "At most 120 characters").default(""),
   phone: indianMobile,
   whatsappSameAsPhone: z.boolean().default(true),
@@ -43,6 +47,9 @@ export const basicInfoStepSchema = z.object({
   address: z.string().trim().max(300).default(""),
   slug: storeSlug,
 }).superRefine((v, ctx) => {
+  if (v.serviceTypeId === "custom" && v.serviceType.length < 2) {
+    ctx.addIssue({ code: "custom", path: ["serviceType"], message: "Tell us what service you offer" });
+  }
   if (!v.whatsappSameAsPhone && v.whatsapp && !indianMobile.safeParse(v.whatsapp).success) {
     ctx.addIssue({ code: "custom", path: ["whatsapp"], message: "Enter a valid 10-digit Indian mobile number" });
   }
@@ -54,7 +61,11 @@ export const draftServiceSchema = z.object({
   shortDescription: z.string().trim().max(300).default(""),
   priceType: z.enum(PRICE_TYPES).default("ON_REQUEST"),
   pricePaise: z.number().int().nonnegative().max(1_000_000_000).nullable().default(null),
+  durationMinutes: z.number().int().min(0).max(1440).nullable().optional(),
 });
+
+/** Starter services at onboarding (the completion RPC accepts up to 6). */
+export const MAX_DRAFT_SERVICES = 6;
 
 /** The whole draft as stored in the browser (lenient: partial while the user is on early steps). */
 export const informativeDraftSchema = z.object({
@@ -62,12 +73,25 @@ export const informativeDraftSchema = z.object({
   basic: z.record(z.string(), z.unknown()).default({}),
   logoDataUrl: z.string().max(700_000).regex(LOGO_DATA_URL_RE).nullable().default(null),
   themeId: z.string().regex(/^[a-z0-9-]{2,40}$/).nullable().default(null),
-  services: z.array(draftServiceSchema).max(3).default([]),
+  services: z.array(draftServiceSchema).max(MAX_DRAFT_SERVICES).default([]),
   servicesSkipped: z.boolean().default(false),
+  /** Service type the starter services were filled from; null once the person edits them. */
+  seededFrom: z.string().max(40).nullable().default(null),
 });
 export type InformativeDraft = z.infer<typeof informativeDraftSchema>;
 
-export const EMPTY_DRAFT: InformativeDraft = { v: 1, basic: {}, logoDataUrl: null, themeId: null, services: [], servicesSkipped: false };
+export const EMPTY_DRAFT: InformativeDraft = { v: 1, basic: {}, logoDataUrl: null, themeId: null, services: [], servicesSkipped: false, seededFrom: null };
+
+/**
+ * After Step 1: fill the starter services from the chosen service type, unless the person already
+ * wrote their own. Re-fills when they switch type while the list is still the untouched seed.
+ */
+export function withSeededServices(d: InformativeDraft, typeId: string, seed: InformativeDraft["services"] | null): InformativeDraft {
+  if (!seed?.length) return d;
+  const untouched = d.services.length === 0 || d.seededFrom !== null;
+  if (!untouched || d.seededFrom === typeId) return d;
+  return { ...d, services: seed.slice(0, MAX_DRAFT_SERVICES), servicesSkipped: false, seededFrom: typeId };
+}
 
 export function parseDraft(raw: unknown): InformativeDraft {
   const r = informativeDraftSchema.safeParse(raw);
@@ -80,7 +104,7 @@ export const completeDraftSchema = z.object({
   basic: basicInfoStepSchema,
   logoDataUrl: z.string().max(700_000).regex(LOGO_DATA_URL_RE, "Logo must be PNG, JPG or WebP").nullable().default(null),
   themeId: z.string().regex(/^[a-z0-9-]{2,40}$/, "Choose a theme"),
-  services: z.array(draftServiceSchema).max(3, "Add up to 3 services").default([]),
+  services: z.array(draftServiceSchema).max(MAX_DRAFT_SERVICES, `Add up to ${MAX_DRAFT_SERVICES} services`).default([]),
   servicesSkipped: z.boolean().default(false),
 });
 export type CompleteDraft = z.infer<typeof completeDraftSchema>;

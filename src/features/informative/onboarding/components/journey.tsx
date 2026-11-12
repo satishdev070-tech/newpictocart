@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { canOpenStep, resumeStep, type InfoStep } from "../draft";
+import { canOpenStep, resumeStep, withSeededServices, type InfoStep } from "../draft";
+import { findServiceType, seedFor } from "../../service-types";
 import { AccountStep } from "./account-step";
 import { BasicInfoStep } from "./basic-info-step";
 import { FinishStep } from "./finish-step";
@@ -50,7 +51,9 @@ export function InformativeJourney({ step, logo, rootDomain, themes, signedIn, g
             rootDomain={rootDomain}
             onBack={() => router.push("/start/build")}
             onSave={(basic, logoDataUrl) => {
-              setDraft((d) => ({ ...d, basic, logoDataUrl }));
+              const type = findServiceType(basic.serviceTypeId);
+              const seed = type ? seedFor(type, { name: basic.businessName, city: basic.city }).services : null;
+              setDraft((d) => withSeededServices({ ...d, basic, logoDataUrl }, basic.serviceTypeId, seed));
               go("theme");
             }}
           />
@@ -78,11 +81,11 @@ export function InformativeJourney({ step, logo, rootDomain, themes, signedIn, g
             draft={draft}
             onBack={() => go("theme")}
             onSkip={() => {
-              setDraft((d) => ({ ...d, services: [], servicesSkipped: true }));
+              setDraft((d) => ({ ...d, services: [], servicesSkipped: true, seededFrom: null }));
               go("account");
             }}
             onSave={(services) => {
-              setDraft((d) => ({ ...d, services, servicesSkipped: false }));
+              setDraft((d) => ({ ...d, services, servicesSkipped: false, seededFrom: JSON.stringify(services) === JSON.stringify(d.services) ? d.seededFrom : null }));
               go("account");
             }}
           />

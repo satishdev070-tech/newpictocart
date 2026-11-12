@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { INFO_CATEGORIES } from "../../categories";
+import { INFO_CATEGORIES, infoCategoryLabel, isInfoCategory } from "../../categories";
+import { findServiceType, serviceTypesByFamily } from "../../service-types";
 import { slugify } from "../../slug";
 import { checkInformativeSlugAction, type SlugCheck } from "../actions";
 import { basicInfoStepSchema, LOGO_MAX_BYTES, type InformativeDraft } from "../draft";
@@ -9,6 +10,8 @@ import { ui } from "./shell";
 
 type Fields = {
   businessName: string;
+  serviceTypeId: string;
+  serviceType: string;
   category: string;
   tagline: string;
   phone: string;
@@ -21,6 +24,9 @@ type Fields = {
 };
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
+
+/** Picker groups: theme family → its service types, in INFO_CATEGORIES order. */
+const GROUPS = [...serviceTypesByFamily().entries()];
 
 /** Downscale to ≤ 512 px WebP (PNG fallback) in the browser so the draft stays small (no SVG). */
 async function toLogoDataUrl(file: File): Promise<string> {
@@ -49,6 +55,9 @@ export function BasicInfoStep({
   const b = draft.basic;
   const [f, setF] = useState<Fields>({
     businessName: str(b.businessName),
+    // Drafts from before service types had only a category: treat them as "type your own".
+    serviceTypeId: str(b.serviceTypeId) || (str(b.category) ? "custom" : ""),
+    serviceType: str(b.serviceType) || (isInfoCategory(b.category) ? infoCategoryLabel(str(b.category)) : ""),
     category: str(b.category),
     tagline: str(b.tagline),
     phone: str(b.phone),
@@ -67,6 +76,15 @@ export function BasicInfoStep({
   const checkSeq = useRef(0);
 
   const set = <K extends keyof Fields>(k: K, v: Fields[K]) => setF((prev) => ({ ...prev, [k]: v }));
+  const custom = f.serviceTypeId === "custom";
+  const picked = findServiceType(f.serviceTypeId);
+
+  function pickType(id: string) {
+    const type = findServiceType(id);
+    if (type) setF((prev) => ({ ...prev, serviceTypeId: id, serviceType: type.label, category: type.family }));
+    else if (id === "custom") setF((prev) => ({ ...prev, serviceTypeId: id, serviceType: "", category: "" }));
+    else setF((prev) => ({ ...prev, serviceTypeId: "", serviceType: "", category: "" }));
+  }
 
   // Suggest the address from the name until the person edits it.
   useEffect(() => {
@@ -108,7 +126,10 @@ export function BasicInfoStep({
     e.preventDefault();
     const parsed = basicInfoStepSchema.safeParse(f);
     const next: Record<string, string> = {};
+    if (!f.serviceTypeId) next.serviceTypeId = "Choose the service you offer";
     if (!parsed.success) for (const issue of parsed.error.issues) next[String(issue.path[0])] ??= issue.message;
+    // A picked type sets the category itself; only "type your own" shows the category field.
+    if (!custom) delete next.category;
     if (slugState && slugState !== "checking" && !slugState.available) next.slug = slugState.reason === "taken" ? "That address is taken." : "That address can't be used.";
     setErrors(next);
     if (Object.keys(next).length) {
@@ -142,19 +163,43 @@ export function BasicInfoStep({
           <input {...a11y("businessName")} className={ui.input} value={f.businessName} onChange={(e) => set("businessName", e.target.value)} maxLength={80} autoComplete="organization" required />
           {err("businessName")}
         </label>
-        <label className={ui.label}>
-          Business category *
-          <select {...a11y("category")} className={ui.input} value={f.category} onChange={(e) => set("category", e.target.value)} required>
-            <option value="">Choose…</option>
-            {INFO_CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>{c.label}</option>
+        <label className={`${ui.label} sm:col-span-2`}>
+          What service do you offer? *
+          <select {...a11y("serviceTypeId", "h-type")} className={ui.input} value={f.serviceTypeId} onChange={(e) => pickType(e.target.value)} required>
+            <option value="">Choose your service…</option>
+            {GROUPS.map(([family, types]) => (
+              <optgroup key={family} label={infoCategoryLabel(family)}>
+                {types.map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </optgroup>
             ))}
+            <option value="custom">Something else (type your own)</option>
           </select>
-          {err("category")}
+          {errors.serviceTypeId ? err("serviceTypeId") : <p id="h-type" className={ui.hint} aria-hidden>We&apos;ll set up your website with services and FAQs for this. You can change everything later.</p>}
         </label>
+        {custom ? (
+          <>
+            <label className={ui.label}>
+              Your service *
+              <input {...a11y("serviceType")} className={ui.input} value={f.serviceType} onChange={(e) => set("serviceType", e.target.value)} maxLength={60} placeholder="e.g. Yoga retreat" required />
+              {err("serviceType")}
+            </label>
+            <label className={ui.label}>
+              Closest category *
+              <select {...a11y("category")} className={ui.input} value={f.category} onChange={(e) => set("category", e.target.value)} required>
+                <option value="">Choose…</option>
+                {INFO_CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
+              {err("category")}
+            </label>
+          </>
+        ) : null}
         <label className={ui.label}>
           Tagline
-          <input {...a11y("tagline")} className={ui.input} value={f.tagline} onChange={(e) => set("tagline", e.target.value)} maxLength={120} placeholder="e.g. Gentle care for the whole family" />
+          <input {...a11y("tagline")} className={ui.input} value={f.tagline} onChange={(e) => set("tagline", e.target.value)} maxLength={120} placeholder={picked ? `e.g. ${picked.tagline}` : "e.g. Gentle care for the whole family"} />
           {err("tagline")}
         </label>
         <label className={ui.label}>
