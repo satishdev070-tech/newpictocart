@@ -86,6 +86,15 @@ export async function updateBusinessInfo(ctx: RepoCtx, input: BusinessInfoInput)
   );
 }
 
+/** Tagline / About only (AI assistant apply); other business info is untouched. */
+export async function updateSiteCopy(ctx: RepoCtx, input: { tagline?: string | null; about?: string | null }): Promise<InfoSite> {
+  need(ctx, "settings.write");
+  const patch: TablesUpdate<"info_sites"> = {};
+  if (input.tagline !== undefined) patch.tagline = input.tagline?.slice(0, 120) || null;
+  if (input.about !== undefined) patch.about = input.about?.slice(0, 5000) || null;
+  return updateSite(ctx, patch, "info.updateSiteCopy");
+}
+
 export async function updateHours(ctx: RepoCtx, hours: OpeningHours): Promise<InfoSite> {
   need(ctx, "settings.write");
   return updateSite(ctx, { hours: [...hours].sort((a, b) => a.day - b.day) }, "info.updateHours");

@@ -33,6 +33,8 @@ export type InfoSite = {
   businessName: string;
   tagline: string | null;
   category: InfoCategory;
+  /** Specific service ("Dentist / Dental clinic", or the seller's own words); null before M9. */
+  serviceType: string | null;
   about: string | null;
   logoPath: string | null;
   faviconPath: string | null;
@@ -61,6 +63,7 @@ export function toSite(r: Tables<"info_sites">): InfoSite {
     businessName: r.business_name,
     tagline: r.tagline,
     category: isInfoCategory(r.category) ? r.category : "other",
+    serviceType: r.service_type ?? null,
     about: r.about,
     logoPath: r.logo_path,
     faviconPath: r.favicon_path,

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { INFO_CATEGORIES } from "../../categories";
+import { INFO_CATEGORIES, isInfoCategory } from "../../categories";
+import { findServiceType, serviceTypesByFamily } from "../../service-types";
 import { slugify } from "../../slug";
 import { checkInformativeSlugAction, type SlugCheck } from "../actions";
 import { basicInfoStepSchema, LOGO_MAX_BYTES, type InformativeDraft } from "../draft";
@@ -9,6 +10,8 @@ import { ui } from "./shell";
 
 type Fields = {
   businessName: string;
+  serviceTypeId: string;
+  serviceType: string;
   category: string;
   tagline: string;
   phone: string;
@@ -21,6 +24,9 @@ type Fields = {
 };
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
+
+/** Service types per category, for the second picker. */
+const TYPES_BY_FAMILY = serviceTypesByFamily();
 
 /** Downscale to ≤ 512 px WebP (PNG fallback) in the browser so the draft stays small (no SVG). */
 async function toLogoDataUrl(file: File): Promise<string> {
@@ -49,6 +55,8 @@ export function BasicInfoStep({
   const b = draft.basic;
   const [f, setF] = useState<Fields>({
     businessName: str(b.businessName),
+    serviceTypeId: str(b.serviceTypeId),
+    serviceType: str(b.serviceType),
     category: str(b.category),
     tagline: str(b.tagline),
     phone: str(b.phone),
@@ -67,6 +75,23 @@ export function BasicInfoStep({
   const checkSeq = useRef(0);
 
   const set = <K extends keyof Fields>(k: K, v: Fields[K]) => setF((prev) => ({ ...prev, [k]: v }));
+  const custom = f.serviceTypeId === "custom";
+  const picked = findServiceType(f.serviceTypeId);
+
+  const familyTypes = isInfoCategory(f.category) ? (TYPES_BY_FAMILY.get(f.category) ?? []) : [];
+
+  /** A new category clears a service picked from another category. */
+  function pickCategory(category: string) {
+    setF((prev) => {
+      const keep = prev.serviceTypeId === "custom" || findServiceType(prev.serviceTypeId)?.family === category;
+      return { ...prev, category, ...(keep ? {} : { serviceTypeId: "", serviceType: "" }) };
+    });
+  }
+
+  function pickType(id: string) {
+    const type = findServiceType(id);
+    setF((prev) => ({ ...prev, serviceTypeId: type || id === "custom" ? id : "", serviceType: type ? type.label : "" }));
+  }
 
   // Suggest the address from the name until the person edits it.
   useEffect(() => {
@@ -144,7 +169,7 @@ export function BasicInfoStep({
         </label>
         <label className={ui.label}>
           Business category *
-          <select {...a11y("category")} className={ui.input} value={f.category} onChange={(e) => set("category", e.target.value)} required>
+          <select {...a11y("category")} className={ui.input} value={f.category} onChange={(e) => pickCategory(e.target.value)} required>
             <option value="">Choose…</option>
             {INFO_CATEGORIES.map((c) => (
               <option key={c.id} value={c.id}>{c.label}</option>
@@ -153,8 +178,26 @@ export function BasicInfoStep({
           {err("category")}
         </label>
         <label className={ui.label}>
+          Your service
+          <select {...a11y("serviceTypeId", "h-type")} className={ui.input} value={f.serviceTypeId} onChange={(e) => pickType(e.target.value)} disabled={!f.category}>
+            <option value="">{f.category ? "Choose your service (optional)…" : "Choose a category first"}</option>
+            {familyTypes.map((t) => (
+              <option key={t.id} value={t.id}>{t.label}</option>
+            ))}
+            <option value="custom">Something else (type your own)</option>
+          </select>
+          {errors.serviceTypeId ? err("serviceTypeId") : <p id="h-type" className={ui.hint} aria-hidden>We&apos;ll suggest services, prices and FAQs for it. You can change everything later.</p>}
+        </label>
+        {custom ? (
+          <label className={`${ui.label} sm:col-span-2`}>
+            What service do you offer? *
+            <input {...a11y("serviceType")} className={ui.input} value={f.serviceType} onChange={(e) => set("serviceType", e.target.value)} maxLength={60} placeholder="e.g. Yoga retreat" required />
+            {err("serviceType")}
+          </label>
+        ) : null}
+        <label className={`${ui.label} sm:col-span-2`}>
           Tagline
-          <input {...a11y("tagline")} className={ui.input} value={f.tagline} onChange={(e) => set("tagline", e.target.value)} maxLength={120} placeholder="e.g. Gentle care for the whole family" />
+          <input {...a11y("tagline")} className={ui.input} value={f.tagline} onChange={(e) => set("tagline", e.target.value)} maxLength={120} placeholder={picked ? `e.g. ${picked.tagline}` : "e.g. Gentle care for the whole family"} />
           {err("tagline")}
         </label>
         <label className={ui.label}>

@@ -3,17 +3,20 @@
 import { useState } from "react";
 import { toMinor } from "@/lib/money";
 import { PRICE_TYPES, PRICE_TYPE_LABELS, priceTypeNeedsAmount, type PriceType } from "../../pricing";
-import type { InformativeDraft } from "../draft";
+import { MAX_DRAFT_SERVICES, type InformativeDraft } from "../draft";
 import { ui } from "./shell";
 
-type Row = { name: string; shortDescription: string; priceType: PriceType; price: string };
-const EMPTY: Row = { name: "", shortDescription: "", priceType: "FIXED", price: "" };
+type Row = { name: string; shortDescription: string; priceType: PriceType; price: string; durationMinutes: number | null };
+const EMPTY: Row = { name: "", shortDescription: "", priceType: "FIXED", price: "", durationMinutes: null };
 
-/** Informative Step 3 — up to 3 starter services, skippable (then 3 category samples are added, marked "Sample"). */
+/**
+ * Informative Step 3: up to 6 starter services, pre-filled from the chosen service type. Skippable;
+ * then sample services are added, marked "Sample".
+ */
 export function ServicesStep({ draft, onSave, onSkip, onBack }: { draft: InformativeDraft; onSave: (s: InformativeDraft["services"]) => void; onSkip: () => void; onBack: () => void }) {
   const [rows, setRows] = useState<Row[]>(
     draft.services.length
-      ? draft.services.map((s) => ({ name: s.name, shortDescription: s.shortDescription, priceType: s.priceType, price: s.pricePaise == null ? "" : String(s.pricePaise / 100) }))
+      ? draft.services.map((s) => ({ name: s.name, shortDescription: s.shortDescription, priceType: s.priceType, price: s.pricePaise == null ? "" : String(s.pricePaise / 100), durationMinutes: s.durationMinutes ?? null }))
       : [{ ...EMPTY }],
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -32,7 +35,7 @@ export function ServicesStep({ draft, onSave, onSkip, onBack }: { draft: Informa
         if (!/^\d{1,9}(\.\d{1,2})?$/.test(clean)) errs[`${i}.price`] = "Enter an amount like 499";
         else pricePaise = toMinor(clean);
       } else if (priceTypeNeedsAmount(r.priceType)) errs[`${i}.price`] = "Enter a price";
-      out.push({ name: r.name.trim().slice(0, 120), shortDescription: r.shortDescription.trim().slice(0, 300), priceType: r.priceType, pricePaise });
+      out.push({ name: r.name.trim().slice(0, 120), shortDescription: r.shortDescription.trim().slice(0, 300), priceType: r.priceType, pricePaise, durationMinutes: r.durationMinutes });
     });
     setErrors(errs);
     if (Object.keys(errs).length) return;
@@ -44,7 +47,9 @@ export function ServicesStep({ draft, onSave, onSkip, onBack }: { draft: Informa
     <form onSubmit={save} noValidate className="flex flex-col gap-6" aria-labelledby="services-title">
       <div>
         <h1 id="services-title" className="font-brand text-3xl sm:text-4xl">Add your services</h1>
-        <p className="mt-2 text-[#5E5568]">Add up to 3 now. You can add more, with photos and details, from your dashboard.</p>
+        <p className="mt-2 text-[#5E5568]">
+          {draft.seededFrom ? "We've suggested services for your business. Edit the names and prices, remove any you don't offer, or add your own." : `Add up to ${MAX_DRAFT_SERVICES} now.`} You can add more, with photos and details, from your dashboard.
+        </p>
       </div>
       {rows.map((r, i) => (
         <fieldset key={i} className={`${ui.card} grid gap-4 sm:grid-cols-2`}>
@@ -78,7 +83,7 @@ export function ServicesStep({ draft, onSave, onSkip, onBack }: { draft: Informa
           ) : null}
         </fieldset>
       ))}
-      {rows.length < 3 ? (
+      {rows.length < MAX_DRAFT_SERVICES ? (
         <button type="button" onClick={() => setRows((rs) => [...rs, { ...EMPTY }])} className={`${ui.ghostBtn} self-start`}>
           + Add another service
         </button>

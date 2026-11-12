@@ -24,6 +24,8 @@ project, or the SQL editor):
 | `20261111008100_informative_content.sql` | 9 `info_*` tables, RLS, grants, helpers | New tables only |
 | `20261111008200_informative_onboarding.sql` | `store_slug_available()`, `complete_informative_onboarding()` | New functions only |
 | `20261111008300_informative_enquiries.sql` | `submit_info_enquiry()`, `record_info_whatsapp_click()` | New functions only |
+| `20261112008500_informative_service_type.sql` (M9) | `info_sites.service_type`; `complete_informative_onboarding` also reads `service_type`, `about`, `faqs` | Same signature; safe to apply after the code deploy |
+| `20261112008600_informative_ai_kinds.sql` (M9) | AI credit costs + `ai_generations` kinds for the assistant and AI build | Before it, AI still works (1 credit, log row skipped) |
 
 Down paths are written in each migration's header. **Verified** on a fresh local Supabase stack
 (all 74 migrations + seed), in the RLS suite (all informative RLS files pass; see PROGRESS M8 for 8 pre-existing environment-only failures) and the E2E suite.
