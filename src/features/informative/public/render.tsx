@@ -15,6 +15,7 @@ import type { PageSection } from "../sections";
 import { getDraftSite, getPublishedSite, type SiteBundle } from "../server/public";
 import { InformativeSite } from "../site/renderer";
 import { ServiceDetail } from "../site/service-detail";
+import { WhatsAppBeacon } from "./whatsapp-beacon";
 import { buildSiteView } from "../site/view";
 import { themeOrDefault } from "../themes/registry";
 import { informativeRoute, routePath, type InformativeRoute } from "./paths";
@@ -25,8 +26,15 @@ import { informativeRoute, routePath, type InformativeRoute } from "./paths";
  */
 
 const DAY = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-/** Enquiries are switched on in M7; until then the form explains how to get in touch. */
-const FORM_NOTE = "Online enquiries are opening soon. Please call or WhatsApp us.";
+/** The owner's preview never sends enquiries. */
+const PREVIEW_FORM_NOTE = "Preview: the enquiry form works on your live website.";
+
+function privacyText(name: string): string {
+  return [
+    `${name} uses the details you send through this website's enquiry form (your name, phone number, email address and message) only to reply to your enquiry and arrange the service you asked about.`,
+    "We don't sell your details or share them with anyone else for marketing. We keep enquiries only as long as we need them to help you, and you can ask us to delete yours at any time using the contact details on this website.",
+  ].join("\n\n");
+}
 
 function Plain({ title, text }: { title: string; text: string }) {
   return (
@@ -90,6 +98,12 @@ function resolve(bundle: SiteBundle, route: InformativeRoute): Resolved | null {
     }
     case "gallery":
       return bundle.gallery.length ? { title: "Gallery", sections: [{ id: "gallery-0", type: "gallery", props: {}, order: 0, visible: true }], seo: { title: null, description: null, image: null } } : null;
+    case "privacy":
+      return {
+        title: "Privacy",
+        sections: [{ id: "privacy-0", type: "rich_text", props: { text: bundle.site.options.privacyText || privacyText(bundle.site.businessName) }, order: 0, visible: true }],
+        seo: { title: "Privacy", description: null, image: null },
+      };
     case "custom": {
       const p = bundle.pages.find((x) => x.type === "CUSTOM" && x.slug === route.slug);
       return p ? { title: p.title, sections: p.sections, seo: pageSeo(p) } : null;
@@ -98,8 +112,8 @@ function resolve(bundle: SiteBundle, route: InformativeRoute): Resolved | null {
       const s = bundle.services.find((x) => x.slug === route.slug);
       if (!s) return null;
       const cta: PageSection[] = [
-        { id: "testimonials-0", type: "testimonials", props: {}, order: 0, visible: true },
-        { id: "cta-0", type: "cta", props: {}, order: 1, visible: true },
+        { id: "enquiry-0", type: "enquiry_form", props: { heading: `Ask about ${s.name}`, serviceId: s.id }, order: 0, visible: true },
+        { id: "testimonials-0", type: "testimonials", props: {}, order: 1, visible: true },
       ];
       return { title: s.name, sections: cta, seo: { title: s.seo.title, description: s.seo.description ?? s.shortDescription, image: assetUrl(s.imagePath) }, serviceSlug: s.slug };
     }
@@ -147,7 +161,13 @@ export async function InformativeRoutePage({ tenant, route, mode = { kind: "publ
   if (!r) notFound();
   const theme = themeOrDefault(bundle.site.themeId);
   const link = linkFor(mode);
-  const view = buildSiteView(bundle, { asset: assetUrl, link, preview: true, formNote: FORM_NOTE });
+  const view = buildSiteView(bundle, {
+    asset: assetUrl,
+    link,
+    preview: mode.kind === "preview",
+    formNote: PREVIEW_FORM_NOTE,
+    enquiry: { successMessage: bundle.site.options.enquirySuccessMessage, showDateTime: bundle.site.options.showPreferredDateTime === true, privacyHref: link("/privacy") },
+  });
   const ld: unknown[] = [];
   if (route.kind === "home" || route.kind === "contact") ld.push(localBusinessLd(tenant, bundle));
   if (r.serviceSlug) ld.push(serviceLd(tenant, bundle, r.serviceSlug));
@@ -170,8 +190,9 @@ export async function InformativeRoutePage({ tenant, route, mode = { kind: "publ
         pageTitle={r.title}
         fontClassName={informativeFontVariables}
         banner={banner}
-        before={service ? <ServiceDetail service={{ ...service, imageUrl: assetUrl(service.imagePath) }} view={view} contactHref={link("/contact")} /> : null}
+        before={service ? <ServiceDetail service={{ ...service, imageUrl: assetUrl(service.imagePath) }} view={view} contactHref="#enquiry" serviceId={service.id} /> : null}
       />
+      {mode.kind === "public" ? <WhatsAppBeacon /> : null}
     </>
   );
 }

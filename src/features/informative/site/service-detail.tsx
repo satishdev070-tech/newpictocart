@@ -7,7 +7,7 @@ import type { SiteView } from "./view";
 export type ServiceDetailData = { name: string; description: string | null; shortDescription: string | null; imageUrl: string | null; priceType: PriceType; pricePaise: number | null; durationMinutes: number | null; category: string | null };
 
 /** ServiceDetail section: image, description, price / duration and the WhatsApp + enquiry CTAs. */
-export function ServiceDetail({ service, view, contactHref }: { service: ServiceDetailData; view: SiteView; contactHref: string }) {
+export function ServiceDetail({ service, view, contactHref, serviceId }: { service: ServiceDetailData; view: SiteView; contactHref: string; serviceId?: string }) {
   const price = formatServicePrice(service.priceType, service.pricePaise);
   const duration = formatDuration(service.durationMinutes);
   const wa = whatsappHref(view.contact.whatsapp ?? view.contact.phone, view.businessName);
@@ -37,7 +37,7 @@ export function ServiceDetail({ service, view, contactHref }: { service: Service
           <div className="mt-8 flex flex-wrap gap-3">
             <a href={contactHref} className={btnPrimary}>{view.ctaLabel}</a>
             {waAbout ? (
-              <a href={waAbout} target="_blank" rel="noopener noreferrer" data-enquiry-source="WHATSAPP_CLICK" className={cn(btnSecondary, "text-(--if-text)")}>
+              <a href={waAbout} target="_blank" rel="noopener noreferrer" data-enquiry-source="WHATSAPP_CLICK" data-service-id={serviceId} className={cn(btnSecondary, "text-(--if-text)")}>
                 Ask on WhatsApp
               </a>
             ) : null}

@@ -5,6 +5,7 @@ import type { PageSection } from "../sections";
 import type { ThemeConfig } from "../themes/types";
 import type { SiteView } from "./view";
 import { btnPrimary, btnSecondary, card, container, focusRing, heading, Img, Section, SectionHeading, Stars, telHref, whatsappHref } from "./ui";
+import { EnquiryFormIsland } from "./enquiry-form";
 
 /**
  * The shared section library (docs/informative/PLAN.md §5). Each section takes typed data from the
@@ -430,6 +431,24 @@ function Contact({ theme, view, section }: P) {
  */
 function EnquiryForm({ view, section }: P) {
   const showDate = BOOKING_CATEGORIES.includes(view.category);
+  if (!view.preview && view.enquiry) {
+    const serviceId = typeof section.props.serviceId === "string" ? section.props.serviceId : undefined;
+    return (
+      <Section id="enquiry" labelledBy={hid(section)} tone="surface">
+        <SectionHeading id={hid(section)} eyebrow="Enquiry" title={text(section.props, "heading", "Send us an enquiry")!} intro="We usually reply within a day." />
+        <EnquiryFormIsland
+          id={hid(section)}
+          services={view.services.map((s) => ({ id: s.id, name: s.name }))}
+          showDateTime={showDate || view.enquiry.showDateTime}
+          defaultServiceId={serviceId}
+          source={serviceId ? "SERVICE_PAGE" : "CONTACT_FORM"}
+          businessName={view.businessName}
+          successMessage={view.enquiry.successMessage}
+          privacyHref={view.enquiry.privacyHref}
+        />
+      </Section>
+    );
+  }
   const field = "mt-1 block min-h-11 w-full rounded-(--if-radius) border border-(--if-border) bg-(--if-bg) px-3 py-2 text-(--if-text)";
   return (
     <Section labelledBy={hid(section)} tone="surface">

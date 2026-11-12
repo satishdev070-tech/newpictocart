@@ -37,6 +37,8 @@ export type SiteView = {
   preview: boolean;
   /** Explains why the enquiry form is disabled (null = the demo-preview wording). */
   formNote?: string | null;
+  /** Live enquiry form settings (present only when `preview` is false). */
+  enquiry?: { successMessage: string | null; showDateTime: boolean; privacyHref: string };
   overrides: ThemeOverrides;
 };
 
@@ -135,7 +137,7 @@ type LiveBundle = {
  */
 export function buildSiteView(
   b: LiveBundle,
-  opts: { asset: (path: string | null) => string | null; link?: (path: string) => string; preview?: boolean; formNote?: string | null },
+  opts: { asset: (path: string | null) => string | null; link?: (path: string) => string; preview?: boolean; formNote?: string | null; enquiry?: SiteView["enquiry"] },
 ): SiteView {
   const link = opts.link ?? ((p: string) => p);
   const d = demoContent(b.site.category);
@@ -186,6 +188,7 @@ export function buildSiteView(
     credits: [],
     preview: opts.preview ?? false,
     formNote: opts.formNote ?? null,
+    enquiry: opts.enquiry,
     overrides: { primaryColor: s.primaryColor, secondaryColor: s.secondaryColor, fontPair: s.fontPair },
   };
 }

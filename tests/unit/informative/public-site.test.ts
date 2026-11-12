@@ -53,6 +53,7 @@ vi.mock("@/app/informative-fonts", () => ({ informativeFontVariables: "fonts" })
 vi.mock("@/lib/storage/assets", () => ({ assetUrl: (p: string | null) => (p ? `https://cdn/${p}` : null) }));
 vi.mock("next/headers", () => ({ headers: async () => ({ get: () => pathHeader }) }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw Object.assign(new Error("NEXT_NOT_FOUND"), { notFound: true }); } }));
+vi.mock("@/features/informative/public/enquiry-actions", () => ({ submitInformativeEnquiryAction: async () => ({ ok: true, data: undefined }) }));
 
 beforeEach(() => {
   flag = "all";
@@ -91,6 +92,13 @@ describe("InformativeRoutePage", () => {
     expect(out).toContain('"price":"500.00"');
     expect(out).toContain("https://wa.me/919876543210");
     expect(out).toMatch(/<h1[^>]*>Consultation<\/h1>/);
+    // Live enquiry form on the service page: service preselected, source SERVICE_PAGE, consent + honeypot.
+    expect(out).toContain('value="SERVICE_PAGE"');
+    expect(out).toMatch(/<option value="s1" selected="">Consultation<\/option>/);
+    expect(out).toContain('name="consent"');
+    expect(out).toContain('name="website"');
+    expect(out).toContain('href="/privacy"');
+    expect(out).not.toMatch(/<fieldset disabled/);
   });
 
   it("missing content is a 404 (unknown custom page, unknown service, empty gallery, draft)", async () => {
@@ -107,6 +115,8 @@ describe("InformativeRoutePage", () => {
     const out = await html(InformativeRoutePage({ tenant: TENANT, route: { kind: "home" }, mode: { kind: "preview", base: "/informative/site-preview" } }));
     expect(out).toContain('href="/informative/site-preview/about"');
     expect(out).toContain("Preview of your website");
+    const svc = await html(InformativeRoutePage({ tenant: TENANT, route: { kind: "service", slug: "consultation" }, mode: { kind: "preview", base: "/informative/site-preview" } }));
+    expect(svc).toMatch(/<fieldset disabled/); // the owner's preview never sends enquiries
   });
 });
 

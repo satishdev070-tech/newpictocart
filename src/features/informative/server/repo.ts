@@ -564,3 +564,26 @@ export async function countEnquiriesByStatus(ctx: RepoCtx): Promise<Record<Enqui
   });
   return out;
 }
+
+/** Number of NEW leads (panel top-bar badge). Head-only count. */
+export async function countNewEnquiries(ctx: RepoCtx): Promise<number> {
+  need(ctx, "customers.read");
+  const { count, error } = await (await db()).from("info_enquiries").select("id", { count: "exact", head: true }).eq("tenant_id", ctx.tenantId).eq("status", "NEW").is("deleted_at", null);
+  if (error) throw mapDbError(error, { op: "info.countNewEnquiries" });
+  return count ?? 0;
+}
+
+export const ENQUIRIES_EXPORT_MAX = 5000;
+
+/** Every lead matching the filter (CSV export), newest first, capped. */
+export async function listEnquiriesForExport(ctx: RepoCtx, filter: Omit<EnquiryFilter, "page">): Promise<InfoEnquiry[]> {
+  need(ctx, "customers.read");
+  let q = (await db()).from("info_enquiries").select("*").eq("tenant_id", ctx.tenantId).is("deleted_at", null);
+  if (filter.status) q = q.eq("status", filter.status);
+  if (filter.serviceId) q = q.eq("service_id", filter.serviceId);
+  if (filter.from) q = q.gte("created_at", `${filter.from}T00:00:00+05:30`);
+  if (filter.to) q = q.lte("created_at", `${filter.to}T23:59:59.999+05:30`);
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(ENQUIRIES_EXPORT_MAX);
+  if (error) throw mapDbError(error, { op: "info.exportEnquiries" });
+  return (data ?? []).map(toEnquiry);
+}

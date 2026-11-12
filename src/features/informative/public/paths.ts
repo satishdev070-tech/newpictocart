@@ -12,6 +12,7 @@ export type InformativeRoute =
   | { kind: "service"; slug: string }
   | { kind: "gallery" }
   | { kind: "contact" }
+  | { kind: "privacy" }
   | { kind: "custom"; slug: string };
 
 /** First path segments owned by the Online Store storefront (src/app/store/[host]/*). Kept in sync by a test. */
@@ -32,7 +33,7 @@ export function informativeRoute(pathname: string | null | undefined): Informati
   const [first, second, ...rest] = parts;
   if (!first || rest.length) return null;
   if (second !== undefined) return first === "services" && INFO_SLUG_RE.test(second) && second.length <= 120 ? { kind: "service", slug: second } : null;
-  if (first === "about" || first === "services" || first === "gallery" || first === "contact") return { kind: first };
+  if (first === "about" || first === "services" || first === "gallery" || first === "contact" || first === "privacy") return { kind: first };
   if (STORE_ONLY_SEGMENTS.has(first) || !INFO_SLUG_RE.test(first) || first.length > 120) return null;
   return { kind: "custom", slug: first };
 }

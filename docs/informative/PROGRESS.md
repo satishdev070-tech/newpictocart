@@ -11,7 +11,7 @@ Plan: [PLAN.md](./PLAN.md) · Discovery: [DISCOVERY.md](./DISCOVERY.md) · Branc
 | M4 Onboarding | ✅ Done | see `git log` (feat(informative): M4) |
 | M5 Seller panel | ✅ Done | see `git log` (feat(informative): M5) |
 | M6 Public site | ✅ Done | see `git log` (feat(informative): M6) |
-| M7 Enquiries | 🟡 In progress (DB layer done) | WIP commit |
+| M7 Enquiries | ✅ Done | `3c54d01` (DB) + see `git log` (feat(informative): M7) |
 | M8 Hardening | — | |
 
 ---
@@ -459,18 +459,48 @@ Server actions: `src/features/informative/actions.ts` (runAction → parseInput 
 
 ---
 
-## M7 — Enquiries (in progress, 2026-11-11)
+## M7 — Enquiries (2026-11-12)
 
-**Done:** migration `20261111008300_informative_enquiries.sql`:
-- `submit_info_enquiry()`: published sites only, consent required, service must belong to the site, per-site flood cap (50 per 10 min); returns the notification target, so no secret-key client is needed.
-- `record_info_whatsapp_click()`: no visitor data, capped at 30 per 10 min.
-- DB types added. DB test `tests/rls/informative-enquiries.test.ts` (5 ✅).
+### What landed
 
-**Decision:** the in-app bell (`notifications`) only allows `/dashboard|/admin` links, and loosening a shared check isn't additive. The "in-app badge" will therefore be a NEW-enquiry count in the Informative panel top bar plus the dashboard counter.
+| Piece | Where |
+|---|---|
+| `submit_info_enquiry()` (published sites only, consent required, same-site active service, per-site flood cap 50 / 10 min, returns the notification target) and `record_info_whatsapp_click()` (no visitor data, 30 / 10 min per site) | `supabase/migrations/20261111008300_informative_enquiries.sql` |
+| Public form action: tenant from the verified host, Informative + flag check, honeypot (fake success, nothing stored), zod (name + phone required; email, service, preferred date/time, message optional), consent, **5 per 10 min per IP + site** (`rateLimit("info-enquiry", tenant:ip, 5, 600)`), RPC, then the owner email after the response | `public/enquiry-actions.ts`, `public/enquiry-schema.ts` |
+| Live form island (errors announced, success message focused, seller's custom success text, consent line linking to the site's privacy page, honeypot hidden from people and screen readers); the owner preview and demo previews stay disabled | `site/enquiry-form.tsx`, `site/sections.tsx` |
+| Service pages: inline "Ask about <service>" form with the service preselected (source `SERVICE_PAGE`); the primary CTA jumps to it | `public/render.tsx`, `site/service-detail.tsx` |
+| `/privacy`: the seller's privacy text (Settings), or a generated default | `public/render.tsx`, `public/paths.ts`, catch-all branch |
+| WhatsApp taps → `WHATSAPP_CLICK` leads: `sendBeacon` island → `POST /api/informative/whatsapp-click` (verified host, same-origin check, 10 / 10 min per IP + site, always 204) | `public/whatsapp-beacon.tsx`, `src/app/api/informative/whatsapp-click/route.ts` |
+| Notifications: email to the site's notification address via the existing mail service (`sendEmail` + `renderContactForwardEmail`, `email_log`, idempotency key, reply-to = visitor); in-app badge = NEW-lead count in the panel top bar + dashboard counters | `public/enquiry-actions.ts`, `(panel)/layout.tsx` |
+| Panel inbox: filters (status, service, date range), pagination, detail panel (click-to-call / WhatsApp / email, message, preferred date/time, source), status change + private notes, delete, **CSV export** of the filtered list (formula-injection safe) | `(panel)/enquiries/page.tsx`, `enquiries/export/route.ts`, `panel/enquiry-form.tsx`, `panel/enquiry-filters.ts` |
 
-**Left:**
-1. Public server action: tenant from the verified host, Informative + flag check, honeypot, zod, consent, `rateLimit("info-enquiry", tenant:ip, 5, 600)`, RPC, then email via `sendEmail` + `renderContactForwardEmail`.
-2. A client form island replacing the disabled form; the service page sends `SERVICE_PAGE` with the service preselected; a `/privacy` route for the consent link.
-3. WhatsApp click beacon (route handler with an Origin check and a per-IP limit).
-4. Panel inbox: filters (status / service / date), a detail view with tel / WhatsApp / mailto, status + notes form, CSV export route; top-bar badge.
-5. Unit tests, `pnpm check`, RLS, vinext, then commit.
+### Decisions and deviations
+
+1. **In-app badge instead of the shared bell.** `notifications.link` is restricted to `/dashboard|/admin`
+   paths by a check constraint, and changing a shared table's constraint isn't additive, so the
+   informative panel shows its own NEW-lead badge (top bar, linking to the filtered inbox) plus the
+   dashboard counters. Hooking leads into the shared bell later means widening that constraint
+   (a store-side decision).
+2. **No secret-key client for notifications:** `submit_info_enquiry` (SECURITY DEFINER) returns the
+   owner's notification email from `info_site_private`, so the action never reads private settings
+   itself. The email write uses `sendEmail()` exactly like the store's contact form.
+3. **Two layers of spam control:** the plan's per-IP + site limit (5 / 10 min) in the action, and a
+   per-site cap in the database, because the RPC is callable directly through PostgREST, just like
+   `submit_contact_message`. The honeypot answers bots with a fake success so they don't retry.
+4. **WhatsApp taps are leads** (the plan's `WHATSAPP_CLICK` source) labelled "WhatsApp chat / via
+   WhatsApp" with no visitor data; the conversation itself happens in WhatsApp. They are capped so a
+   script can't flood the inbox.
+5. **Phone validation is international** on the public form (6–15 digits, optional +), unlike the
+   seller-side India-only validator, because visitors can be anywhere.
+6. **"Use the existing captcha if the platform already has one":** the repo has none (Turnstile is not
+   wired), so honeypot + rate limits it is.
+7. Fixed while building: optional RPC arguments are sent as explicit `null`. An `undefined` key is
+   dropped from the JSON, and PostgREST then can't match the function signature.
+
+### Verification
+
+- DB test `informative-enquiries.test.ts` (5): anon submit to a published site with the notification target returned; drafts, missing consent, another site's service, wrong source and bad input refused; flood cap; no direct insert or read; WhatsApp click logged only for published sites, without visitor data, capped.
+- Unit `enquiries.test.ts` (8): form rules; `/privacy`; the action (host tenant, explicit nulls, rate-limit key, email after response; honeypot; no consent / Online Store / flag off refused; DB refusal mapping; no email when off); the beacon (same origin only, Informative only, always 204); inbox filters.
+- `public-site.test.ts` extended: live service page renders the working form (service preselected, consent, honeypot, privacy link); the owner preview's form stays disabled.
+- `pnpm check` ✅ **212 files / 2244 tests** + build (re-run; the first run hit the known flaky `validate-worker-secrets` 5 s subprocess timeout, which passes alone); RLS ✅ **28 / 209**; `build:vinext` + `check-worker-css` ✅.
+

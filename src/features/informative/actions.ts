@@ -20,6 +20,7 @@ import { findInformativeTheme } from "./themes/registry";
 import {
   appearanceSchema,
   businessInfoSchema,
+  enquiryUpdateSchema,
   faqSchema,
   galleryItemSchema,
   hoursSchema,
@@ -336,4 +337,30 @@ export async function saveFaqAction(_prev: ActionResult<{ id: string }> | null, 
     done(ctx);
     return { id: f.id };
   });
+}
+
+// ---- Enquiries (leads) -----------------------------------------------------------------------
+
+/** Status change and private notes (customers.write; column grants allow nothing else). */
+export async function updateEnquiryAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  return runAction("informative.updateEnquiry", async () => {
+    const { id } = parseInput(idSchema, formToObject(fd));
+    const raw = formToObject(fd);
+    const input = parseInput(enquiryUpdateSchema, { status: raw.status, notes: typeof raw.notes === "string" ? raw.notes : "" });
+    const ctx = await requireInformativeTenant();
+    await repo.updateEnquiry(ctx, id, input);
+    revalidatePath(`${PANEL}/enquiries`);
+    revalidatePath(`${PANEL}/dashboard`);
+  });
+}
+
+export async function deleteEnquiryAction(fd: FormData): Promise<void> {
+  const r = await runAction("informative.deleteEnquiry", async () => {
+    const { id } = parseInput(idSchema, formToObject(fd));
+    const ctx = await requireInformativeTenant();
+    await repo.softDeleteEnquiry(ctx, id);
+    revalidatePath(`${PANEL}/enquiries`);
+  });
+  if (!r.ok) throw new Error(r.error.message);
+  redirect(`${PANEL}/enquiries`);
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronsUpDown, ExternalLink, UserCircle } from "lucide-react";
+import { ChevronsUpDown, ExternalLink, Inbox, UserCircle } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { PanelLogo, PanelMark } from "@/components/app-shell/panel-logo";
 import { Popover, PopoverItem } from "@/components/app-shell/popover";
@@ -9,6 +9,7 @@ import { AppearanceQuickToggle } from "@/components/ui/appearance-toggle";
 import { switchTenantAction } from "@/features/tenants/actions";
 import { informativeNavFor } from "@/features/informative/panel/nav";
 import { requireInformativeTenant } from "@/features/informative/server/context";
+import { countNewEnquiries } from "@/features/informative/server/repo";
 import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
 import { roleLabel } from "@/lib/permissions/labels";
 
@@ -20,6 +21,8 @@ export default async function InformativePanelLayout({ children }: LayoutProps<"
   const ctx = await requireInformativeTenant();
   const siteUrl = storeOrigin(storeSubdomain(ctx.tenantSlug));
   const displayName = ctx.user.displayName ?? ctx.user.email ?? "Account";
+  // In-app badge for new leads (soft-fails: the panel must render even if the count can't load).
+  const newLeads = ctx.permissions.has("customers.read") ? await countNewEnquiries(ctx).catch(() => 0) : 0;
   const brand = <PanelLogo href="/informative/dashboard" label="Pictocart website dashboard" />;
   const brandMark = <PanelMark href="/informative/dashboard" label="Pictocart website dashboard" />;
 
@@ -44,6 +47,16 @@ export default async function InformativePanelLayout({ children }: LayoutProps<"
 
   const topbarEnd = (
     <>
+      {ctx.permissions.has("customers.read") ? (
+        <Link href="/informative/enquiries?status=NEW" className="relative grid size-9 place-items-center rounded-lg hover:bg-surface-secondary" aria-label={newLeads ? `${newLeads} new enquiries` : "Enquiries"}>
+          <Inbox aria-hidden className="size-5" strokeWidth={1.75} />
+          {newLeads ? (
+            <span aria-hidden className="absolute -top-0.5 -right-0.5 grid min-w-5 place-items-center rounded-full bg-accent px-1 text-[11px] font-bold text-white">
+              {newLeads > 99 ? "99+" : newLeads}
+            </span>
+          ) : null}
+        </Link>
+      ) : null}
       <AppearanceQuickToggle />
       <Popover
         label="Account menu"

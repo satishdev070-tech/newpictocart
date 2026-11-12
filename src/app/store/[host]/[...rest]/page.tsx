@@ -12,7 +12,7 @@ export default async function StoreCatchAll({ params }: PageProps<"/store/[host]
   const info = await informativeTenantFor(host);
   if (info) {
     const route = informativeRoute(`/${rest.join("/")}`);
-    if (route?.kind !== "custom") notFound();
+    if (route?.kind !== "custom" && route?.kind !== "privacy") notFound();
     const { InformativeRoutePage } = await import("@/features/informative/public/render");
     return <InformativeRoutePage tenant={info} route={route} />;
   }
