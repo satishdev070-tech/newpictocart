@@ -6,7 +6,7 @@ import { CheckboxField, SelectField, TextAreaField, TextField } from "@/componen
 import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
 import { HiddenFields } from "@/features/settings/ui/action-controls";
 import type { ActionResult } from "@/lib/actions/result";
-import { adminCreateStoreAction, loginAsStoreAction, sendResetLinkAction, setMemberPasswordAction } from "../store-admin-actions";
+import { adminCreateStoreAction, loginAsStoreAction, sendResetLinkAction, setMemberPasswordAction, transferOwnerAction } from "../store-admin-actions";
 
 type Opt = { value: string; label: string };
 export type ThemeOpt = { key: string; name: string; industry: string; style: string };
@@ -282,6 +282,55 @@ export function LoginAsStoreButton({ tenantId, ownerEmail }: { tenantId: string;
   return (
     <Dialog title="Log in to this store" trigger="Log in as store" triggerVariant="primary">
       {(close) => <LoginAsBody tenantId={tenantId} email={ownerEmail} close={close} />}
+    </Dialog>
+  );
+}
+
+// ---- Transfer ownership -----------------------------------------------------------------------
+
+function TransferOwnerBody({ tenantId, storeName, ownerEmail, close }: { tenantId: string; storeName: string; ownerEmail: string | null; close: () => void }) {
+  const [state, action] = useActionState(transferOwnerAction, null as ActionResult<{ email: string }> | null);
+  const e = fieldErrors(state);
+  if (state?.ok) {
+    return (
+      <div className="space-y-3 text-sm">
+        <p role="status" className="text-success">
+          {state.data.email} now owns {storeName}. They see it in their dashboard the next time they sign in.
+        </p>
+        <div className="flex justify-end">
+          <Button size="sm" onClick={close}>
+            Done
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <form action={action} className="space-y-4" autoComplete="off">
+      <HiddenFields fields={{ tenantId }} />
+      <p className="text-sm text-muted">
+        Makes another existing account the owner of {storeName}
+        {ownerEmail ? ` (currently ${ownerEmail})` : ""}. The new owner must have signed up already.
+      </p>
+      <FormMessage state={state} />
+      <TextField label="New owner email" name="newOwnerEmail" type="email" required errors={e.newOwnerEmail} />
+      <CheckboxField label="Remove the current owner from this store" name="removePrevious" defaultChecked hint="Unticked, they stay on the team as a manager." />
+      <TextAreaField label="Reason" name="reason" required minLength={10} maxLength={500} rows={2} errors={e.reason} hint="Recorded in the audit log." />
+      <div className="flex justify-end gap-2">
+        <Button variant="secondary" onClick={close}>
+          Cancel
+        </Button>
+        <SubmitButton variant="danger">Transfer ownership</SubmitButton>
+      </div>
+    </form>
+  );
+}
+
+/** Super admins: hand a store to another account (Admin → store page). */
+export function TransferOwnerButton({ tenantId, storeName, ownerEmail }: { tenantId: string; storeName: string; ownerEmail: string | null }) {
+  return (
+    <Dialog title="Transfer ownership" trigger="Transfer ownership">
+      {(close) => <TransferOwnerBody tenantId={tenantId} storeName={storeName} ownerEmail={ownerEmail} close={close} />}
     </Dialog>
   );
 }

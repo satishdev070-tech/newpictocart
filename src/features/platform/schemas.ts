@@ -311,4 +311,13 @@ export const adminSetPasswordSchema = storeMemberSchema
 
 export const adminResetLinkSchema = storeMemberSchema.extend({ reason });
 
+/** Admin → store: hand the store to another existing account; the old owner is removed by default. */
+export const adminTransferOwnerSchema = z.object({
+  tenantId: z.uuid(),
+  newOwnerEmail: z.string().trim().toLowerCase().max(254).pipe(z.email("Enter a valid email address")),
+  removePrevious: checkbox,
+  reason,
+});
+export type AdminTransferOwnerInput = z.infer<typeof adminTransferOwnerSchema>;
+
 export const loginAsStoreSchema = z.object({ tenantId: z.uuid(), userId: optionalUuid, reason });
