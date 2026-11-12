@@ -12,7 +12,7 @@ Plan: [PLAN.md](./PLAN.md) · Discovery: [DISCOVERY.md](./DISCOVERY.md) · Branc
 | M5 Seller panel | ✅ Done | see `git log` (feat(informative): M5) |
 | M6 Public site | ✅ Done | see `git log` (feat(informative): M6) |
 | M7 Enquiries | ✅ Done | `3c54d01` (DB) + see `git log` (feat(informative): M7) |
-| M8 Hardening | — | |
+| M8 Hardening | ✅ Done | see `git log` (feat(informative): M8) |
 
 ---
 
@@ -504,3 +504,64 @@ Server actions: `src/features/informative/actions.ts` (runAction → parseInput 
 - `public-site.test.ts` extended: live service page renders the working form (service preselected, consent, honeypot, privacy link); the owner preview's form stays disabled.
 - `pnpm check` ✅ **212 files / 2244 tests** + build (re-run; the first run hit the known flaky `validate-worker-secrets` 5 s subprocess timeout, which passes alone); RLS ✅ **28 / 209**; `build:vinext` + `check-worker-css` ✅.
 
+
+---
+
+## M8 — Hardening (2026-11-12)
+
+### What landed
+
+| Piece | Where |
+|---|---|
+| Playwright E2E suite (local only; not in `pnpm check` / CI), `pnpm test:e2e`, route warm-up, one retry for `next dev` compile slowness | `playwright.config.ts`, `tests/e2e/*` |
+| Flag on: Online Store Step 0 + Back; store account can't reach `/informative`; **full journey** (sign in → Step 0 → basic info with live address check → recommended theme + full-screen preview (desktop/mobile) → skip services → create → dashboard (draft) → informative account bounced from `/dashboard/products` → draft site shows "coming soon" → samples labelled → add a service → publish → public site renders the theme + JSON-LD, `/cart` 404, sitemap lists the service → enquiry from the service page → inbox detail, status + notes → theme switch keeps all content) | `tests/e2e/informative.spec.ts` |
+| Online Store regression checklist: pre-existing tenants are ONLINE_STORE; an existing storefront renders as a store; existing seller lands on the store dashboard; **a brand-new seller completes the store onboarding with the flag on and gets exactly the store data** (ONLINE_STORE, `site_mode = ecommerce`, inventory location, shipping rates, products, no `info_*` rows) | `tests/e2e/store-regression.spec.ts` |
+| Flag off: `/start` → `/start/lang` with no Step 0 / Back; informative routes 404 | `tests/e2e/flag-off.spec.ts` |
+| Lighthouse mobile (production build, `lighthouse@13.6.0`) + SEO fix | `public/render.tsx` |
+| Rollout runbook, ADR-041 | `docs/informative/ROLLOUT.md`, `docs/DECISIONS.md` |
+
+### Bugs the hardening found (all fixed, with regression tests)
+
+1. **Onboarding could never finish.** The no-skip-ahead guard treated `/finish` as "after `/account`"
+   and bounced signed-in sellers back to the account step. Fixed with a pure `canOpenStep()` (signing
+   in completes the account step; the server still sends signed-out visitors back). Unit test added.
+2. **`sitemap.xml` / `robots.txt` crashed for Informative sites.** The route handlers loaded the page
+   renderer, which imports `next/font` (unsupported in route handlers). Moved to a font-free
+   `public/seo-routes.ts`; a unit test asserts route handlers never import the renderer or fonts.
+3. **No meta description** when the seller left tagline, About and SEO description empty (all optional
+   in onboarding): Lighthouse SEO 92. Pages now get a generated description (business, category, city,
+   top services); SEO 100.
+
+### Results (throwaway local Supabase stack with all migrations + seed; your hosted project untouched)
+
+- **E2E:** flag-on pass 9/9 (the journey passed first try once the bugs above were fixed); flag-off
+  pass 2/2. Earlier failures were selector issues in the new tests themselves and one run interrupted
+  by the machine sleeping.
+- **Lighthouse mobile** (published site, production build, best of 2 runs):
+
+| Page | Performance | Accessibility | Best practices | SEO |
+|---|---|---|---|---|
+| Home | 95 | 100 | 100 | 100 |
+| Services | 100 | 100 | 100 | 100 |
+| Contact | 99 | 100 | 100 | 100 |
+
+  The very first audit of a session can show a cold-start Total Blocking Time (one Zenith home run:
+  69, then 96 and 95 on re-runs).
+- **All 74 migrations** (incl. 8000–8300) apply cleanly on a real Supabase stack (`supabase start
+  --runtime native`), followed by `seed.sql`.
+- Visual snapshots of every theme at 360/768/1280: `pnpm informative:shots` (M3).
+- `pnpm check` ✅ **212 files / 2247 tests** + build; `build:vinext` + `check-worker-css` ✅.
+- RLS suite run on the **real Supabase stack** (not the shim, which is broken on `main`): **201 / 209**.
+  All 4 informative RLS files pass. The 8 failures are pre-existing tests in `email-log`,
+  `google-business`, `social-inbox`, `store-launch` and `whatsapp-notifications`. They expect
+  `permission denied` where real Supabase's default grants give an RLS error, or allow the write
+  under RLS instead. The same 8 fail with the stack reset to `20261111007300`, before any informative
+  migration, so they are an environment difference, not a regression. Existing tests are untouched.
+
+### Still open (product decisions, not defects)
+
+Google sign-in for an account that already owns a store during Informative onboarding (email code works);
+custom domains (subdomain only in v1); shared notification bell; billing/plan and team pages in the
+Informative panel; drag-and-drop reorder; editors for stats / highlights; theme imagery (branded
+skincare photo in the beauty demo); the plan's open questions (separate plan, custom domains, calendar
+booking, imagery supplier).

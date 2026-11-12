@@ -50,3 +50,5 @@ scripts/dev/showcase/.cache/
 .vinext/
 .cloudflare/
 /.shots/
+/test-results/
+/playwright-report/

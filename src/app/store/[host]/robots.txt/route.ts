@@ -7,7 +7,7 @@ import { informativeTenantFor } from "@/features/informative/public/branch";
 export async function GET(_req: Request, { params }: RouteContext<"/store/[host]/robots.txt">) {
   const { host } = await params;
   const info = await informativeTenantFor(host);
-  if (info) return (await import("@/features/informative/public/render")).informativeRobots(info);
+  if (info) return (await import("@/features/informative/public/seo-routes")).informativeRobots(info);
   const sf = await getStorefront(host);
   const draft = sf ? (await getLaunchStatus(sf.tenant.tenantId)) === "draft" : false;
   const body = sf && !draft ? robotsTxt({ primaryHost: sf.tenant.primaryHost, allowIndexing: !sf.store.seo.noindex && sf.tenant.host === sf.tenant.primaryHost }) : "User-agent: *\nDisallow: /\n";

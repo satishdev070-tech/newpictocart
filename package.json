@@ -16,6 +16,7 @@
     "admin:bootstrap": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/admin/bootstrap-super-admin.mts",
     "db:test:reset": "scripts/db/test-db.sh reset",
     "test:db": "scripts/db/test-db.sh reset && vitest run --config vitest.db.config.mts",
+    "test:e2e": "playwright test",
     "check:all": "pnpm check && pnpm test:db",
     "themes:capture": "tsx scripts/themes/capture-previews.mts",
     "informative:shots": "tsx scripts/informative/theme-shots.mts",

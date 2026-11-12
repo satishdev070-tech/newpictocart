@@ -275,3 +275,26 @@ without it.
 
 ## ADR-040 — One sign-in page; the account picks the panel · Accepted
 Sellers and platform staff sign in at `/login` (`/seller/login` renders it too; `/admin/login` redirects). After sign-in, `lib/auth/role-routing.ts` sends active platform staff to `/admin`, store members to `/dashboard`, and others to onboarding, using the user's own membership rows (RLS), never the URL or a form field. A requested `next` is honoured only for a panel the account can use. Console access is still enforced by `requirePlatform` (404 otherwise), so the shared page reveals nothing. Accounts with both get a panel switch in the sidebar.
+
+## ADR-041 — Informative Website: a second product type beside the Online Store · Accepted
+**Context.** Service businesses (clinics, salons, gyms, consultants…) need a brochure website with
+enquiries, not a shop. The existing `stores.site_mode = 'informative'` is a switchable *display mode of
+a store*; the product owner's plan (docs/informative/PLAN.md) asks for a separate product whose type
+never changes.
+**Decision.** `tenants.website_type` (`ONLINE_STORE` default/backfill | `INFORMATIVE`, immutable by
+trigger) decides everything. Informative content lives in new `info_*` tables (RLS, soft delete);
+creation goes through `create_tenant(…, p_website_type)` wrapped by one transactional
+`complete_informative_onboarding`. Informative tenants also get `site_mode = 'informative'`, so every
+existing commerce guard applies. Store code gets small marked branch points only:
+- `requireTenant()` sends Informative tenants to `/informative/dashboard` (covers store pages and actions);
+- the storefront layout gates Informative hosts using a proxy-forwarded path header;
+- the tenant directory exposes `websiteType`;
+- `/start` gains Step 0.
+
+The 11 service themes are a separate registry rendered by a token-driven section library (WCAG AA
+enforced by tests); store themes are untouched. Everything sits behind `FEATURE_INFORMATIVE_WEBSITE`
+(`off` / `internal` / `all`, server env).
+**Consequences.** Switching type is unsupported by design. Custom domains, the shared notification
+bell and billing/team pages are not available to Informative accounts in v1. Code can deploy before
+the migrations: reads fall back to ONLINE_STORE when the column is missing. Rollout:
+docs/informative/ROLLOUT.md.

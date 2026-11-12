@@ -8,7 +8,7 @@ import { informativeTenantFor } from "@/features/informative/public/branch";
 export async function GET(_req: Request, { params }: RouteContext<"/store/[host]/sitemap.xml">) {
   const { host } = await params;
   const info = await informativeTenantFor(host);
-  if (info) return (await import("@/features/informative/public/render")).informativeSitemap(info);
+  if (info) return (await import("@/features/informative/public/seo-routes")).informativeSitemap(info);
   const sf = await getStorefront(host);
   if (!sf || (await getLaunchStatus(sf.tenant.tenantId)) === "draft") return new Response("Not found", { status: 404 });
   const xml = sitemapXml(sf.tenant.primaryHost, await getSitemapEntries(sf.tenant.tenantId));

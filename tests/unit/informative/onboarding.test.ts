@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { basicInfoStepSchema, completeDraftSchema, EMPTY_DRAFT, parseDraft, resumeStep, type CompleteDraft } from "@/features/informative/onboarding/draft";
+import { basicInfoStepSchema, canOpenStep, completeDraftSchema, EMPTY_DRAFT, parseDraft, resumeStep, type CompleteDraft } from "@/features/informative/onboarding/draft";
 import { buildCompletionPayload } from "@/features/informative/onboarding/payload";
 import { findInformativeTheme } from "@/features/informative/themes/registry";
 
@@ -38,6 +38,15 @@ describe("draft", () => {
     expect(resumeStep({ ...EMPTY_DRAFT, basic })).toBe("theme");
     expect(resumeStep({ ...EMPTY_DRAFT, basic, themeId: "nexus-core" })).toBe("services");
     expect(resumeStep({ ...EMPTY_DRAFT, basic, themeId: "nexus-core", servicesSkipped: true })).toBe("account");
+  });
+  it("steps can't be skipped, but a complete draft may go from account to finish (regression)", () => {
+    const ready = { ...EMPTY_DRAFT, basic, themeId: "nexus-core", servicesSkipped: true };
+    expect(canOpenStep("finish", ready)).toBe(true);
+    expect(canOpenStep("account", ready)).toBe(true);
+    expect(canOpenStep("basic-info", ready)).toBe(true);
+    expect(canOpenStep("finish", { ...ready, themeId: null })).toBe(false);
+    expect(canOpenStep("services", EMPTY_DRAFT)).toBe(false);
+    expect(canOpenStep("basic-info", EMPTY_DRAFT)).toBe(true);
   });
   it("only accepts PNG / JPG / WebP logos (no SVG)", () => {
     const d = { v: 1, basic, themeId: "nexus-core", services: [], servicesSkipped: true };

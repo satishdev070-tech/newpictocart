@@ -145,7 +145,7 @@ describe("InformativeStoreGate (storefront layout branch)", () => {
     expect(off).not.toContain("CHILD");
   });
   it("robots/sitemap: indexable only when published", async () => {
-    const { informativeRobots, informativeSitemap } = await import("@/features/informative/public/render");
+    const { informativeRobots, informativeSitemap } = await import("@/features/informative/public/seo-routes");
     expect(await (await informativeRobots(TENANT)).text()).toContain("Allow: /");
     const xml = await (await informativeSitemap(TENANT)).text();
     expect(xml).toContain("https://calm.pictocart.in/services/consultation");
@@ -154,5 +154,25 @@ describe("InformativeStoreGate (storefront layout branch)", () => {
     bundle = null;
     expect(await (await informativeRobots(TENANT)).text()).toContain("Disallow: /");
     expect((await informativeSitemap(TENANT)).status).toBe(404);
+  });
+});
+
+describe("route handlers never load next/font (regression: sitemap.xml crashed)", () => {
+  it("sitemap/robots use the font-free seo-routes module", async () => {
+    const { readFileSync } = await import("node:fs");
+    const seo = readFileSync("src/features/informative/public/seo-routes.ts", "utf8");
+    expect(seo).not.toMatch(/informative-fonts|\.\/render|site\/renderer/);
+    for (const f of ["src/app/store/[host]/sitemap.xml/route.ts", "src/app/store/[host]/robots.txt/route.ts", "src/app/api/informative/whatsapp-click/route.ts"]) {
+      expect(readFileSync(f, "utf8"), f).not.toMatch(/informative\/public\/render|informative-fonts/);
+    }
+  });
+});
+
+describe("metadata", () => {
+  it("falls back to a generated meta description when the seller wrote none", async () => {
+    const { informativeRouteMetadata } = await import("@/features/informative/public/render");
+    (bundle as { site: { tagline: string | null; about: string | null } }).site = { ...site, tagline: null, about: null };
+    const meta = await informativeRouteMetadata(TENANT, { kind: "home" });
+    expect(meta.description).toMatch(/^Calm Clinic: clinic \/ healthcare in Pune\. Consultation\./);
   });
 });

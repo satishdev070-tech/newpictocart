@@ -85,6 +85,16 @@ export const completeDraftSchema = z.object({
 });
 export type CompleteDraft = z.infer<typeof completeDraftSchema>;
 
+/**
+ * May the person open `step` with this draft? Steps can't be skipped; "finish" follows "account"
+ * because signing in completes the account step (the server sends signed-out visitors back).
+ */
+export function canOpenStep(step: InfoStep, d: InformativeDraft): boolean {
+  const first = resumeStep(d);
+  if (step === "finish") return first === "account";
+  return INFO_STEPS.indexOf(step) <= INFO_STEPS.indexOf(first);
+}
+
 /** The step a draft should resume at (first incomplete step). */
 export function resumeStep(d: InformativeDraft): InfoStep {
   if (!basicInfoStepSchema.safeParse(d.basic).success) return "basic-info";

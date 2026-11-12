@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { resumeStep, type InfoStep } from "../draft";
+import { canOpenStep, resumeStep, type InfoStep } from "../draft";
 import { AccountStep } from "./account-step";
 import { BasicInfoStep } from "./basic-info-step";
 import { FinishStep } from "./finish-step";
@@ -11,7 +11,6 @@ import { InformativeShell, type OnboardingLogo } from "./shell";
 import { ThemeStep, type ThemeCard } from "./theme-step";
 import { useInformativeDraft } from "./use-draft";
 
-const ORDER: InfoStep[] = ["basic-info", "theme", "services", "account", "finish"];
 
 /**
  * Informative onboarding (docs/informative/PLAN.md): basic info → theme (live preview) → starter
@@ -26,7 +25,7 @@ export function InformativeJourney({ step, logo, rootDomain, themes, signedIn, g
 
   // Deep links can't skip ahead of the data they need.
   const firstIncomplete = resumeStep(draft);
-  const blocked = hydrated && ORDER.indexOf(step) > ORDER.indexOf(firstIncomplete);
+  const blocked = hydrated && !canOpenStep(step, draft);
   useEffect(() => {
     if (blocked) router.replace(`/start/informative/${firstIncomplete}`);
   }, [blocked, firstIncomplete, router]);
