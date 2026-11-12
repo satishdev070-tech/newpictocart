@@ -38,9 +38,12 @@ select website_type, count(*) from public.tenants group by 1;
 
 ## 3. Enable for internal accounts
 
-Set the Worker variable `FEATURE_INFORMATIVE_WEBSITE=internal` (a server-side variable read at request
-time, so no rebuild is needed). Only signed-in platform staff see Step 0 and can create Informative
-Websites; everyone else sees today's flow.
+Add the GitHub repository secret `FEATURE_INFORMATIVE_WEBSITE` = `internal` (Settings → Secrets and
+variables → Actions; staging reads `STAGING_FEATURE_INFORMATIVE_WEBSITE`), then run **Deploy production**.
+The deploy writes it into the Worker's secrets file. **Don't set it only in the Cloudflare dashboard**:
+`cf deploy --secrets-file` replaces the Worker's bindings, so the next deploy would wipe it. Only
+signed-in platform staff see Step 0 and can create Informative Websites; everyone else sees today's
+flow.
 
 Then run the E2E suite against staging if available (see "Running the E2E suite" below), and do one
 real journey by hand on production with a staff account: onboard → add a service → publish → visit
@@ -48,7 +51,7 @@ real journey by hand on production with a staff account: onboard → add a servi
 
 ## 4. Enable for all new signups
 
-`FEATURE_INFORMATIVE_WEBSITE=all`. Watch:
+Change the secret to `all` and run **Deploy production** again. Watch:
 
 - errors: `informative.*` log events (`informative.enquiry_email_failed`, `informative.public_load_failed`, `informative.logo_upload_failed`);
 - onboarding completion by type (GA4 events `onboarding_type_selected`, `informative_onboarding_completed`, plus the server log `informative_onboarding_completed`);
@@ -56,7 +59,7 @@ real journey by hand on production with a staff account: onboard → add a servi
 
 ## Rollback
 
-Set `FEATURE_INFORMATIVE_WEBSITE=off`. Step 0 disappears and creation stops. Informative accounts that
+Change the secret to `off` (or delete it) and run **Deploy production**. Step 0 disappears and creation stops. Informative accounts that
 already exist see a maintenance page in the panel and on their public site instead of breaking. Nothing
 is deleted, and the `website_type` column stays (harmless default). Turning the flag back on restores
 them as they were.

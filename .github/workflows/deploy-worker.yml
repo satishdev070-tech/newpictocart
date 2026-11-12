@@ -32,6 +32,8 @@ on:
       EMAIL_FROM: { required: false }
       RESEND_API_KEY: { required: false }
       GOOGLE_IDENTITY_SIGNIN: { required: false }
+      # Informative Website product flag: off | internal | all (docs/informative/ROLLOUT.md). Unset = off.
+      FEATURE_INFORMATIVE_WEBSITE: { required: false }
       # Staging only: the production Supabase URL (public), to refuse a staging deploy that points
       # at the production database unless allow_shared_database is set.
       PRODUCTION_SUPABASE_URL: { required: false }
@@ -106,6 +108,7 @@ jobs:
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           GOOGLE_IDENTITY_SIGNIN: ${{ secrets.GOOGLE_IDENTITY_SIGNIN }}
+          FEATURE_INFORMATIVE_WEBSITE: ${{ secrets.FEATURE_INFORMATIVE_WEBSITE }}
           ROOT_DOMAIN: ${{ inputs.root_domain }}
           PLATFORM_URL: ${{ inputs.platform_url }}
           WORKERS_DEV_HOST: ${{ inputs.workers_dev_host }}
@@ -149,6 +152,11 @@ jobs:
           gis = opt("GOOGLE_IDENTITY_SIGNIN")
           if gis:
               payload["GOOGLE_IDENTITY_SIGNIN"] = gis
+          # Feature flags live in the secrets file because `cf deploy --secrets-file` replaces the
+          # Worker's bindings: a value set only in the Cloudflare dashboard is wiped by the next deploy.
+          informative = opt("FEATURE_INFORMATIVE_WEBSITE")
+          if informative:
+              payload["FEATURE_INFORMATIVE_WEBSITE"] = informative
           print(json.dumps(payload, separators=(",", ":")))
           PY
           extra=()
