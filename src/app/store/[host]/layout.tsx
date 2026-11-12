@@ -38,6 +38,8 @@ export async function generateMetadata({ params }: LayoutProps<"/store/[host]">)
   const { host } = await params;
   const tenant = await resolveStorefrontTenant(host);
   if (!tenant || storefrontAvailability(tenant.status) !== "open") return { robots: { index: false, follow: false } };
+  // INFORMATIVE: branch point — see docs/informative/PLAN.md (public site resolver).
+  if (tenant.websiteType === "INFORMATIVE") return (await import("@/features/informative/public/render")).informativeLayoutMetadata(tenant);
   if (await isHiddenDraft(tenant.tenantId)) return { title: { absolute: `${tenant.name} · Coming soon` }, robots: { index: false, follow: false } };
   const { sf } = await getRenderContext(host);
   const icon = assetUrl(sf.store.faviconPath);
@@ -74,6 +76,13 @@ export default async function StorefrontLayout({ children, params }: LayoutProps
       return <StoreUnavailable storeName={tenant.name} />;
     case "open":
       break;
+  }
+  // INFORMATIVE: branch point — see docs/informative/PLAN.md. Informative Websites render their own
+  // theme; this gate 404s store-only paths, shows "coming soon" for drafts and maintenance when the
+  // flag is off. Loaded lazily so Online Store requests never evaluate informative code.
+  if (tenant.websiteType === "INFORMATIVE") {
+    const { InformativeStoreGate } = await import("@/features/informative/public/render");
+    return <InformativeStoreGate tenant={tenant}>{children}</InformativeStoreGate>;
   }
   // Independent reads in one wave (each is cached per tenant or per request and never throws).
   const [hiddenDraft, ctx, activeFestive, activeTracking] = await Promise.all([

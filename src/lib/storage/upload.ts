@@ -8,7 +8,8 @@ import { sniffImage } from "./sniff";
 
 export { sniffImage };
 
-export const UPLOAD_AREAS = ["products", "collections", "categories", "theme", "pages", "blog", "brand", "media"] as const;
+// INFORMATIVE: branch point — see docs/informative/PLAN.md ("informative" = Informative Website uploads, path tenant/{id}/informative/…).
+export const UPLOAD_AREAS = ["products", "collections", "categories", "theme", "pages", "blog", "brand", "media", "informative"] as const;
 export type UploadArea = (typeof UPLOAD_AREAS)[number];
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;

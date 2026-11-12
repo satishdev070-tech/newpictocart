@@ -10,10 +10,13 @@ export function LangScreen({
   locale,
   onSelect,
   onContinue,
+  onBack,
 }: {
   locale: SarvamLocaleCode;
   onSelect: (code: SarvamLocaleCode) => void;
   onContinue: () => void;
+  /** INFORMATIVE: branch point — see docs/informative/PLAN.md. Back to Step 0; absent (flag off) = no button, as before. */
+  onBack?: () => void;
 }) {
   const c = startCopy(locale);
   const primaryLocales = useMemo(
@@ -66,7 +69,12 @@ export function LangScreen({
           );
         })}
       </ul>
-      <div className="flex justify-end">
+      <div className={onBack ? "flex items-center justify-between" : "flex justify-end"}>
+        {onBack ? (
+          <button type="button" onClick={onBack} className="text-sm font-medium text-[#5E5568] underline-offset-2 hover:underline">
+            ← Back
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onContinue}

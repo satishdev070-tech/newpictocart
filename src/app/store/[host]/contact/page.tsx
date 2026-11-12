@@ -6,15 +6,26 @@ import { formatAddress, telHref, whatsappUrl } from "@/features/storefront/store
 import { ContactPanel } from "@/features/storefront/components/contact-form";
 import { paths } from "@/features/storefront/urls";
 import { BUILTIN_TITLE_DEFAULTS } from "@/features/theme/schema/site";
+// INFORMATIVE: branch point — see docs/informative/PLAN.md
+import { informativeTenantFor } from "@/features/informative/public/branch";
 
 export async function generateMetadata({ params }: PageProps<"/store/[host]/contact">): Promise<Metadata> {
   const { host } = await params;
+  // INFORMATIVE: branch point.
+  const info = await informativeTenantFor(host);
+  if (info) return (await import("@/features/informative/public/render")).informativeRouteMetadata(info, { kind: "contact" });
   const { sf } = await getRenderContext(host);
   return { title: sf.theme.builtinTitles.contact || BUILTIN_TITLE_DEFAULTS.contact };
 }
 
 export default async function ContactPage({ params }: PageProps<"/store/[host]/contact">) {
   const { host } = await params;
+  // INFORMATIVE: branch point.
+  const info = await informativeTenantFor(host);
+  if (info) {
+    const { InformativeRoutePage } = await import("@/features/informative/public/render");
+    return <InformativeRoutePage tenant={info} route={{ kind: "contact" }} />;
+  }
   const { sf } = await getRenderContext(host);
   const s = sf.store;
   const [contactPages, policies] = await Promise.all([getPagesByKind(sf.tenant.tenantId, "contact"), getPagesByKind(sf.tenant.tenantId, "policy")]);

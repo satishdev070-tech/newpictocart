@@ -1822,6 +1822,517 @@ export type Database = {
           },
         ]
       }
+      info_enquiries: {
+        Row: {
+          consent_at: string | null
+          created_at: string
+          deleted_at: string | null
+          email: string | null
+          id: string
+          message: string | null
+          name: string
+          notes: string | null
+          phone: string
+          preferred_date: string | null
+          preferred_time: string | null
+          service_id: string | null
+          source: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          consent_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          email?: string | null
+          id?: string
+          message?: string | null
+          name: string
+          notes?: string | null
+          phone: string
+          preferred_date?: string | null
+          preferred_time?: string | null
+          service_id?: string | null
+          source?: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          consent_at?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          email?: string | null
+          id?: string
+          message?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string
+          preferred_date?: string | null
+          preferred_time?: string | null
+          service_id?: string | null
+          source?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_enquiries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "info_sites"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "info_enquiries_tenant_id_service_id_fkey"
+            columns: ["tenant_id", "service_id"]
+            isOneToOne: false
+            referencedRelation: "info_services"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      info_faqs: {
+        Row: {
+          answer: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          is_visible: boolean
+          question: string
+          sort_order: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_visible?: boolean
+          question: string
+          sort_order?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_visible?: boolean
+          question?: string
+          sort_order?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_faqs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "info_sites"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      info_gallery_items: {
+        Row: {
+          album: string | null
+          alt: string | null
+          caption: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          image_path: string
+          sort_order: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          album?: string | null
+          alt?: string | null
+          caption?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          image_path: string
+          sort_order?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          album?: string | null
+          alt?: string | null
+          caption?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          image_path?: string
+          sort_order?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_gallery_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "info_sites"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      info_pages: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          is_published: boolean
+          sections: Json
+          seo: Json
+          slug: string
+          sort_order: number
+          tenant_id: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_published?: boolean
+          sections?: Json
+          seo?: Json
+          slug: string
+          sort_order?: number
+          tenant_id: string
+          title: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_published?: boolean
+          sections?: Json
+          seo?: Json
+          slug?: string
+          sort_order?: number
+          tenant_id?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_pages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "info_sites"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      info_services: {
+        Row: {
+          category: string | null
+          created_at: string
+          currency: string
+          deleted_at: string | null
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          image_path: string | null
+          is_active: boolean
+          is_featured: boolean
+          is_sample: boolean
+          name: string
+          price: number | null
+          price_type: string
+          seo: Json
+          short_description: string | null
+          slug: string
+          sort_order: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          currency?: string
+          deleted_at?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          image_path?: string | null
+          is_active?: boolean
+          is_featured?: boolean
+          is_sample?: boolean
+          name: string
+          price?: number | null
+          price_type?: string
+          seo?: Json
+          short_description?: string | null
+          slug: string
+          sort_order?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          currency?: string
+          deleted_at?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          image_path?: string | null
+          is_active?: boolean
+          is_featured?: boolean
+          is_sample?: boolean
+          name?: string
+          price?: number | null
+          price_type?: string
+          seo?: Json
+          short_description?: string | null
+          slug?: string
+          sort_order?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_services_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "info_sites"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      info_site_private: {
+        Row: {
+          created_at: string
+          notify_email: string | null
+          notify_email_enabled: boolean
+          notify_whatsapp_enabled: boolean
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          notify_email?: string | null
+          notify_email_enabled?: boolean
+          notify_whatsapp_enabled?: boolean
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          notify_email?: string | null
+          notify_email_enabled?: boolean
+          notify_whatsapp_enabled?: boolean
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_site_private_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "info_sites"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      info_sites: {
+        Row: {
+          about: string | null
+          business_name: string
+          category: string
+          contact: Json
+          created_at: string
+          deleted_at: string | null
+          favicon_path: string | null
+          font_pair: string | null
+          hero_image_path: string | null
+          hours: Json
+          logo_path: string | null
+          options: Json
+          primary_color: string | null
+          published_at: string | null
+          secondary_color: string | null
+          seo: Json
+          social_links: Json
+          status: string
+          tagline: string | null
+          tenant_id: string
+          theme_id: string
+          updated_at: string
+        }
+        Insert: {
+          about?: string | null
+          business_name: string
+          category?: string
+          contact?: Json
+          created_at?: string
+          deleted_at?: string | null
+          favicon_path?: string | null
+          font_pair?: string | null
+          hero_image_path?: string | null
+          hours?: Json
+          logo_path?: string | null
+          options?: Json
+          primary_color?: string | null
+          published_at?: string | null
+          secondary_color?: string | null
+          seo?: Json
+          social_links?: Json
+          status?: string
+          tagline?: string | null
+          tenant_id: string
+          theme_id?: string
+          updated_at?: string
+        }
+        Update: {
+          about?: string | null
+          business_name?: string
+          category?: string
+          contact?: Json
+          created_at?: string
+          deleted_at?: string | null
+          favicon_path?: string | null
+          font_pair?: string | null
+          hero_image_path?: string | null
+          hours?: Json
+          logo_path?: string | null
+          options?: Json
+          primary_color?: string | null
+          published_at?: string | null
+          secondary_color?: string | null
+          seo?: Json
+          social_links?: Json
+          status?: string
+          tagline?: string | null
+          tenant_id?: string
+          theme_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_sites_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      info_team_members: {
+        Row: {
+          bio: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          is_visible: boolean
+          name: string
+          photo_path: string | null
+          role: string | null
+          sort_order: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_visible?: boolean
+          name: string
+          photo_path?: string | null
+          role?: string | null
+          sort_order?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_visible?: boolean
+          name?: string
+          photo_path?: string | null
+          role?: string | null
+          sort_order?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_team_members_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "info_sites"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      info_testimonials: {
+        Row: {
+          author_name: string
+          author_photo_path: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          is_visible: boolean
+          rating: number
+          sort_order: number
+          tenant_id: string
+          text: string
+          updated_at: string
+        }
+        Insert: {
+          author_name: string
+          author_photo_path?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_visible?: boolean
+          rating?: number
+          sort_order?: number
+          tenant_id: string
+          text: string
+          updated_at?: string
+        }
+        Update: {
+          author_name?: string
+          author_photo_path?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_visible?: boolean
+          rating?: number
+          sort_order?: number
+          tenant_id?: string
+          text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "info_testimonials_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "info_sites"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       inventory_levels: {
         Row: {
           available: number
@@ -5970,6 +6481,7 @@ export type Database = {
           store_type: string
           trial_ends_at: string | null
           updated_at: string
+          website_type: string
         }
         Insert: {
           created_at?: string
@@ -5983,6 +6495,7 @@ export type Database = {
           store_type?: string
           trial_ends_at?: string | null
           updated_at?: string
+          website_type?: string
         }
         Update: {
           created_at?: string
@@ -5996,6 +6509,7 @@ export type Database = {
           store_type?: string
           trial_ends_at?: string | null
           updated_at?: string
+          website_type?: string
         }
         Relationships: [
           {
@@ -6298,8 +6812,24 @@ export type Database = {
         Args: { p_confirm_slug: string; p_tenant: string }
         Returns: undefined
       }
+      complete_informative_onboarding: {
+        Args: {
+          p_name: string
+          p_pages: Json
+          p_root_domain: string
+          p_services: Json
+          p_site: Json
+          p_slug: string
+        }
+        Returns: string
+      }
       create_tenant: {
-        Args: { p_name: string; p_root_domain: string; p_slug: string }
+        Args: {
+          p_name: string
+          p_root_domain: string
+          p_slug: string
+          p_website_type?: string
+        }
         Returns: string
       }
       dashboard_funnel: {
@@ -6804,6 +7334,10 @@ export type Database = {
         Args: { p_label?: string; p_tenant: string }
         Returns: string
       }
+      record_info_whatsapp_click: {
+        Args: { p_service?: string; p_tenant: string }
+        Returns: undefined
+      }
       redeem_ai_credit_code: {
         Args: {
           p_code: string
@@ -6888,6 +7422,7 @@ export type Database = {
         Returns: string
       }
       storefront_features: { Args: { p_tenant: string }; Returns: Json }
+      store_slug_available: { Args: { p_slug: string }; Returns: boolean }
       storefront_list_products: {
         Args: {
           p_category?: string
@@ -6962,6 +7497,26 @@ export type Database = {
           p_tenant: string
         }
         Returns: string
+      }
+      submit_info_enquiry: {
+        Args: {
+          p_consent: boolean
+          p_email: string
+          p_message: string
+          p_name: string
+          p_phone: string
+          p_preferred_date: string
+          p_preferred_time: string
+          p_service: string
+          p_source: string
+          p_tenant: string
+        }
+        Returns: {
+          business_name: string
+          enquiry_id: string
+          notify_email: string
+          notify_email_enabled: boolean
+        }[]
       }
       submit_review: {
         Args: {

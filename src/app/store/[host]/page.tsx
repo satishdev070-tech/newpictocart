@@ -7,6 +7,8 @@ import { canonicalUrl } from "@/features/storefront/urls";
 import { assetUrl } from "@/lib/storage/assets";
 import { trackStoreEvent } from "@/features/storefront/server/events";
 import type { ThemeConfig, ThemePage } from "@/features/theme/schema/config";
+// INFORMATIVE: branch point — see docs/informative/PLAN.md
+import { informativeTenantFor } from "@/features/informative/public/branch";
 
 /** The site-builder page chosen as the homepage (Pages panel → Set as homepage), if any. */
 function homePage(theme: ThemeConfig): ThemePage | null {
@@ -15,6 +17,9 @@ function homePage(theme: ThemeConfig): ThemePage | null {
 
 export async function generateMetadata({ params }: PageProps<"/store/[host]">): Promise<Metadata> {
   const { host } = await params;
+  // INFORMATIVE: branch point.
+  const info = await informativeTenantFor(host);
+  if (info) return (await import("@/features/informative/public/render")).informativeRouteMetadata(info, { kind: "home" });
   const { sf } = await getRenderContext(host);
   // A site-builder page set as the homepage contributes its own SEO fields when it has them.
   const home = homePage(sf.theme);
@@ -34,6 +39,12 @@ export async function generateMetadata({ params }: PageProps<"/store/[host]">): 
 
 export default async function StorefrontHome({ params }: PageProps<"/store/[host]">) {
   const { host } = await params;
+  // INFORMATIVE: branch point.
+  const info = await informativeTenantFor(host);
+  if (info) {
+    const { InformativeRoutePage } = await import("@/features/informative/public/render");
+    return <InformativeRoutePage tenant={info} route={{ kind: "home" }} />;
+  }
   const ctx = await getRenderContext(host);
   const { sf } = ctx;
   const home = homePage(sf.theme);

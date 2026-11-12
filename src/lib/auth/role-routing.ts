@@ -4,12 +4,19 @@
  * button was used: platform staff → the console, store members → the seller dashboard,
  * everyone else → /start (store setup journey).
  */
+// INFORMATIVE: branch point — see docs/informative/PLAN.md (post-login redirect)
+import { INFORMATIVE_HOME, isInformativePanelPath } from "@/features/informative/website-type";
 
 export type AccountAccess = {
   /** Active platform_memberships row (super admin, support or finance). */
   platformStaff: boolean;
   /** Number of active tenant_memberships rows. */
   storeCount: number;
+  /**
+   * INFORMATIVE: branch point. True when every store of the account is an Informative Website.
+   * Unset (flag off, lookup failed, older callers) = behave exactly as before.
+   */
+  informativeOnly?: boolean;
 };
 
 export const ADMIN_HOME = "/admin";
@@ -40,7 +47,7 @@ export function isOnboardingPath(path: string): boolean {
 /** Default panel for an account with no requested destination. */
 export function defaultLanding(access: AccountAccess): string {
   if (access.platformStaff) return ADMIN_HOME;
-  if (access.storeCount > 0) return SELLER_HOME;
+  if (access.storeCount > 0) return access.informativeOnly ? INFORMATIVE_HOME : SELLER_HOME;
   return ONBOARDING_HOME;
 }
 
@@ -55,9 +62,11 @@ export function landingFor(access: AccountAccess, requested?: string | null): st
   if (!next || next === "/") return defaultLanding(access);
   if (isAdminPath(next)) return access.platformStaff ? next : defaultLanding(access);
   if (isSellerPath(next)) return access.storeCount > 0 ? next : defaultLanding(access);
+  // INFORMATIVE: branch point. The panel's own guard re-checks the active store's type.
+  if (isInformativePanelPath(next)) return access.storeCount > 0 ? next : defaultLanding(access);
   if (isOnboardingPath(next)) {
     if (access.platformStaff) return ADMIN_HOME;
-    if (access.storeCount > 0) return SELLER_HOME;
+    if (access.storeCount > 0) return defaultLanding(access);
   }
   return next;
 }

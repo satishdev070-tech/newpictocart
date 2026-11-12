@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { publicEnv } from "@/lib/env/public";
 import { normalizeHost } from "@/lib/tenant/host";
-import { decideRoute, STORE_ROUTE_PREFIX, INTERNAL_HOST_HEADER, INTERNAL_REQUEST_HEADERS, PROXY_CLAIMS_MS_HEADER, REQUEST_ID_HEADER, THEME_PREVIEW_HEADER } from "@/lib/tenant/routing";
+import { decideRoute, STORE_ROUTE_PREFIX, INTERNAL_HOST_HEADER, INTERNAL_PATH_HEADER, INTERNAL_REQUEST_HEADERS, PROXY_CLAIMS_MS_HEADER, REQUEST_ID_HEADER, THEME_PREVIEW_HEADER } from "@/lib/tenant/routing";
 import { THEME_PREVIEW_COOKIE, THEME_PREVIEW_EXIT, THEME_PREVIEW_PARAM, THEME_PREVIEW_TTL_SECONDS, isPreviewKeyShape } from "@/features/theme/marketplace/live-preview";
 import { framingHeaders, platformFrameOrigins } from "@/lib/security/headers";
 import { platformOrigin } from "@/lib/platform/urls";
@@ -134,6 +134,8 @@ export async function proxy(request: NextRequest) {
   const previewParam = isStoreRoute ? request.nextUrl.searchParams.get(THEME_PREVIEW_PARAM) : null;
   const previewKey = isStoreRoute ? (isPreviewKeyShape(previewParam) ? previewParam : previewParam === THEME_PREVIEW_EXIT ? null : request.cookies.get(THEME_PREVIEW_COOKIE)?.value) : null;
   if (isPreviewKeyShape(previewKey)) forwarded.set(THEME_PREVIEW_HEADER, previewKey);
+  // INFORMATIVE: branch point — original storefront path for the layout's route gate.
+  if (isStoreRoute) forwarded.set(INTERNAL_PATH_HEADER, request.nextUrl.pathname.slice(0, 512));
   let response: NextResponse;
   if (decision.action === "rewrite") {
     const url = request.nextUrl.clone();

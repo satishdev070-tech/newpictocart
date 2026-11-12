@@ -53,6 +53,7 @@ export function StartJourney({
   googleAvailable,
   voiceReady,
   initialStep,
+  typeSelectorHref,
 }: {
   plan?: string | null;
   theme?: string | null;
@@ -64,6 +65,8 @@ export function StartJourney({
   voiceReady: boolean;
   /** From `/start/[step]` — empty drafts adopt this; drafts with progress resume and replace the URL. */
   initialStep?: StartScreen;
+  /** INFORMATIVE: branch point — see docs/informative/PLAN.md. Set only when Step 0 (website type) exists. */
+  typeSelectorHref?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -321,6 +324,7 @@ export function StartJourney({
         locale={draft.locale as SarvamLocaleCode}
         onSelect={(code) => patchDraft({ locale: code })}
         onContinue={() => go("path")}
+        onBack={typeSelectorHref ? () => router.push(typeSelectorHref) : undefined}
       />,
     );
   }
