@@ -2167,7 +2167,8 @@ export type Database = {
           primary_color: string | null
           published_at: string | null
           secondary_color: string | null
-          service_type: string | null
+          // Optional until migration 8500 is applied everywhere (code deploys first).
+          service_type?: string | null
           seo: Json
           social_links: Json
           status: string

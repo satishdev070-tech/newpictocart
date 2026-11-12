@@ -565,3 +565,40 @@ custom domains (subdomain only in v1); shared notification bell; billing/plan an
 Informative panel; drag-and-drop reorder; editors for stats / highlights; theme imagery (branded
 skincare photo in the beauty demo); the plan's open questions (separate plan, custom domains, calendar
 booking, imagery supplier).
+
+## M9 — Service types, AI-ready site, AI assistant (2026-11-12)
+
+### What landed
+- **Service types** (`service-types.ts`, about 50, lazily imported). Each belongs to one of the 9 theme families and carries a ready-made starter site: tagline, About text (`{name}`/`{city}` filled in), 4–6 services with indicative prices in paise and durations, and FAQs. The copy is generic and true for any business of that type: no invented years, awards or reviews.
+- **Onboarding Step 1:** "Business category" (unchanged) plus a new "Your service" picker, filtered to that category, with "Something else (type your own)".
+  - The pick is optional: without it, onboarding behaves exactly as before.
+  - **Step 3** is pre-filled with the type's services, up to 6, all editable (`withSeededServices`). It refills when the type changes, but never over services the person wrote.
+  - **Completion** adds the type's tagline (when blank), About text and FAQs, and stores `info_sites.service_type`.
+- **AI at the end of onboarding:** right after the site is created, "Writing your website with AI…" rewrites the tagline, About, service descriptions, FAQs and SEO for this business (`buildSiteWithAi`).
+  - It is free within the first hour, with its own daily limit.
+  - If AI isn't configured, fails or takes more than 75 s, the starter content stays and the dashboard opens anyway.
+- **Panel AI assistant** (floating "AI assistant" button, `ai/assistant-panel.tsx`):
+  - The owner asks in plain words; answers come with proposals (tagline/About, new services, new FAQs, SEO).
+  - **Nothing is written until Apply**, and each Apply is one validated repo write.
+  - "Rebuild my whole website with AI" rewrites the copy directly after a confirmation; prices, photos and contact details are kept.
+  - It costs AI credits (`informative_assistant` 2, `informative_site_build` 10).
+- **Migrations:**
+  - `20261112008500_informative_service_type.sql`: `service_type` column; `complete_informative_onboarding` (same signature) reads `service_type`, `about` and `faqs` (≤ 10) from `p_site`.
+  - `20261112008600_informative_ai_kinds.sql`: credit costs and `ai_generations` kinds.
+
+### Decisions and deviations
+- **Two-level picker** (category → service) instead of one long list. It keeps the existing Step 1 and its E2E test unchanged, and a 50-item select is hard to scan on a phone.
+- **AI reuses `runSellerAiGeneration`** (providers, credits, refunds, logs). The only shared-file change is a widened `creditKind` type (branch point in `seller-ai/server.ts`). The Informative kinds live in `ai/kinds.ts`, so the seller-AI kind list (and its migration test) is untouched.
+- **Model output is trimmed and capped rather than rejected**, and malformed proposals are dropped. The panel schemas and RLS re-check every write.
+- **`info_sites.service_type` is optional in the hand-edited Row type**, because the code deploys before migration 8500 and `select("*")` then has no such column.
+- **Production note:** AI provider keys are stored encrypted with `APP_SECRET`. While production's `APP_SECRET` differs from the one that encrypted them (see the email incident, 2026-11-12), AI reports "not set up". Onboarding still produces the full starter site.
+
+### Verification
+- **Unit:** `service-types` (4), `onboarding-service-types` (9), `ai` (10), `ai-server` (5). All existing Informative unit tests pass unchanged (21 files / 184 tests).
+- **RLS:** `informative-service-type` (3) on the throwaway stack, alongside `informative-onboarding`.
+- **E2E:** `tests/e2e/service-types.spec.ts` covers Dentist → 6 seeded services → site has services, FAQs and About; the assistant shows "AI isn't set up". It passes on the first try.
+  - The existing E2E suite passes unchanged with the new Step 1 (journey, Step 0 and Back, store isolation, store regression).
+  - The storefront first-render test needed its retry (the `next dev` first-compile timeout, as in M8).
+- **Gates:**
+  - `pnpm check` ✅ 216 files / 2275 tests + build; `build:vinext` + `check-worker-css` ✅.
+  - RLS on a real Supabase stack (all migrations, including 8500 and 8600): 204 / 212. All Informative files pass. The 8 failures are the pre-existing environment-only ones recorded in M8 (`email-log`, `google-business`, `social-inbox`, `store-launch`, `whatsapp-notifications`).
