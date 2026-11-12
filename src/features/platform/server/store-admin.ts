@@ -23,7 +23,7 @@ import { renderAdminPasswordResetEmail, renderPasswordChangedEmail, renderStoreC
 import type { EmailBrand } from "@/features/notifications/email/layout";
 import { brandImageView, getPublicPlatformConfig } from "./public-config";
 import { findUserIdByEmail } from "./queries";
-import type { AdminCreateStoreInput } from "../schemas";
+import type { AdminCreateStoreInput, AdminTransferOwnerInput } from "../schemas";
 
 /**
  * Store administration for platform staff: create a store with full control (owner account,
@@ -216,6 +216,36 @@ async function storeMember(admin: Admin, tenantId: string, userId: string): Prom
 export async function storeOwnerId(tenantId: string): Promise<string | null> {
   const { data } = await createSupabaseAdminClient().from("tenant_memberships").select("user_id").eq("tenant_id", tenantId).eq("role", "owner").eq("status", "active").order("created_at").limit(1).maybeSingle();
   return data?.user_id ?? null;
+}
+
+// ---- Transfer ownership ------------------------------------------------------------------------
+
+/**
+ * Makes another existing account the store's owner (super admins only). The SQL function
+ * re-checks the platform permission, keeps the store with an active owner, and audits
+ * tenant.owner_transferred. Platform staff accounts can't be made store owners this way.
+ */
+export async function transferStoreOwnership(ctx: PlatformContext, input: AdminTransferOwnerInput): Promise<{ email: string }> {
+  requireSuperAdmin(ctx);
+  const newOwner = await findUserIdByEmail(input.newOwnerEmail);
+  if (!newOwner) throw formError("No account uses this email yet. Ask them to sign up first (any sign-in creates the account), then try again.", "newOwnerEmail");
+  const { data: staff } = await createSupabaseAdminClient().from("platform_memberships").select("user_id").eq("user_id", newOwner).eq("status", "active").maybeSingle();
+  if (staff) throw formError("That email belongs to platform staff. Use a seller account.", "newOwnerEmail");
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("platform_transfer_tenant_owner", {
+    p_tenant: input.tenantId,
+    p_new_owner: newOwner,
+    p_remove_previous: input.removePrevious,
+    p_reason: input.reason,
+  });
+  if (error) {
+    if (error.hint === "ALREADY_OWNER") throw formError("That account already owns this store.", "newOwnerEmail");
+    if (error.hint === "USER_NOT_FOUND") throw formError("No account uses this email yet.", "newOwnerEmail");
+    if (error.hint === "TENANT_NOT_FOUND") throw new AppError("NOT_FOUND");
+    throw mapDbError(error, { tenantId: input.tenantId });
+  }
+  return { email: input.newOwnerEmail };
 }
 
 export type ResetLinkResult = { email: string; emailStatus: EmailSendResult["status"]; link: string };

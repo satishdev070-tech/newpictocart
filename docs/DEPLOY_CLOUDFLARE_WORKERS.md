@@ -227,6 +227,12 @@ App Router SSR request under 10 ms:
 - Guard: `tests/unit/next/root-metadata-imports.test.ts` fails if the proxy, root
   layout/error/not-found or root metadata routes statically import heavy modules.
 
+**Findings 2026-11-12 (after the Informative release).**
+- The always-loaded RSC graph (static-import closure of `_virtual_vinext-rsc-entry`) is **2,188 KB**, up from 2,076 KB. The growth is the route table, the server-action manifest and the client-asset manifest, which grow with every route. No feature code was added to the always-loaded graph.
+- Production responses for ISR pages (`/`, `/pricing`, `/features`, `/how-it-works`) are always `x-vinext-cache: MISS` with no `cf-cache-status`, so every request renders and pays the full CPU cost.
+- vinext's Cloudflare adapter sends `Cache-Control: no-store` to browsers by design and expects the Worker's `VinextCachedResponse` export (`cache.enabled`) to serve repeats from Cloudflare's cache. That cache isn't serving these pages; it needs a look in the dashboard (Workers → `pictocart` → Settings / Caching, and KV `VINEXT_KV_CACHE` usage: the Free plan allows only 1,000 KV writes a day).
+- On the Free plan, intermittent 1102 on uncached pages remains expected. The Workers Paid plan ($5/month) removes the 10 ms limit and lifts the KV write cap.
+
 To confirm on the dashboard: Workers & Pages → `pictocart` → Metrics → CPU time (P50/P99) and
 Logs (filter `outcome = exceededCpu`). This needs Cloudflare dashboard access.
 
