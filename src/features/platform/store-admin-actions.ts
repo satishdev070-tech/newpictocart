@@ -10,8 +10,8 @@ import { rateLimit } from "@/lib/rate-limit";
 import { assertPlatformPermission, getPlatformContext, type PlatformContext } from "@/lib/platform/access";
 import type { PlatformPermission } from "@/lib/permissions/matrix";
 import { revalidateStorefront } from "@/lib/cache/storefront";
-import { adminCreateStoreSchema, adminResetLinkSchema, adminSetPasswordSchema, loginAsStoreSchema } from "./schemas";
-import { createStoreAsAdmin, endSupportLogin, sendMemberPasswordReset, setMemberPassword, signInAsStoreMember, type ResetLinkResult } from "./server/store-admin";
+import { adminCreateStoreSchema, adminResetLinkSchema, adminSetPasswordSchema, adminTransferOwnerSchema, loginAsStoreSchema } from "./schemas";
+import { createStoreAsAdmin, endSupportLogin, sendMemberPasswordReset, setMemberPassword, signInAsStoreMember, transferStoreOwnership, type ResetLinkResult } from "./server/store-admin";
 
 /**
  * Super-admin store administration actions: validate → authenticate + authorize (platform role)
@@ -61,6 +61,18 @@ export async function setMemberPasswordAction(_prev: ActionResult<{ email: strin
     await rateLimit("platform-set-password", ctx.user.id, 20, 3600);
     const r = await setMemberPassword(ctx, input);
     revalidatePath(`/admin/tenants/${input.tenantId}`);
+    return r;
+  });
+}
+
+export async function transferOwnerAction(_prev: ActionResult<{ email: string }> | null, fd: FormData): Promise<ActionResult<{ email: string }>> {
+  return runAction("platform.store.transferOwner", async () => {
+    const input = parseInput(adminTransferOwnerSchema, formToObject(fd));
+    const ctx = await platformActor("platform.tenants.manage");
+    await rateLimit("platform-transfer-owner", ctx.user.id, 20, 3600);
+    const r = await transferStoreOwnership(ctx, input);
+    revalidatePath(`/admin/tenants/${input.tenantId}`);
+    revalidatePath("/admin/stores");
     return r;
   });
 }

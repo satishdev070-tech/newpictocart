@@ -7289,6 +7289,15 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      platform_transfer_tenant_owner: {
+        Args: {
+          p_new_owner: string
+          p_reason?: string
+          p_remove_previous?: boolean
+          p_tenant: string
+        }
+        Returns: undefined
+      }
       platform_user_detail: {
         Args: {
           p_user: string

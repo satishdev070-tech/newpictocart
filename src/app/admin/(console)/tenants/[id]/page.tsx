@@ -22,7 +22,7 @@ import { percentOfLimit, storageLimitBytes } from "@/features/platform/stats";
 import { formatBytes } from "@/features/platform/health";
 import { maskEmail } from "@/features/platform/privacy";
 import { ChangePlanForm, ExtendTrialForm, FlagOverrideForm, RecheckDomainButton, StartSupportForm, TenantStatusForm } from "@/features/platform/components/admin-forms";
-import { LoginAsStoreButton, MemberAccessActions } from "@/features/platform/components/store-admin-forms";
+import { LoginAsStoreButton, MemberAccessActions, TransferOwnerButton } from "@/features/platform/components/store-admin-forms";
 import { listPlanRequests } from "@/features/billing/server";
 import { ActivatePlanForm, DecidePlanRequest } from "@/features/billing/components";
 import { daysUntil } from "@/features/billing/schemas";
@@ -106,6 +106,7 @@ export default async function TenantDetailPage({ params, searchParams }: PagePro
         actions={
           <>
             {manage && superAdmin && owner?.email && t.status !== "cancelled" ? <LoginAsStoreButton tenantId={id} ownerEmail={owner.email} /> : null}
+            {manage && superAdmin ? <TransferOwnerButton tenantId={id} storeName={t.name} ownerEmail={owner?.email ?? null} /> : null}
             {manage ? <TenantStatusForm tenantId={id} status={t.status} /> : null}
             {manage && (t.status === "trial" || t.status === "suspended") ? <ActivatePlanForm tenantId={id} planId={pendingRequest?.planId ?? t.planId} plans={plans.filter((p) => p.active).map((p) => ({ value: p.id, label: p.name }))} /> : null}
             {manage ? <ChangePlanForm tenantId={id} planId={t.planId} onTrial={t.status === "trial"} plans={plans.map((p) => ({ value: p.id, label: p.name }))} /> : null}
