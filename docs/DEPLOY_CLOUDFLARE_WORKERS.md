@@ -189,13 +189,11 @@ import { triggers } from "cf/config";
 triggers: [triggers.scheduled({ schedule: "0 0 * * *" })],
 ```
 
-Until Paid + a vinext `scheduled` handler, use an **external HTTP scheduler** (same as Hostinger) daily:
-
-```bash
-for p in social-publish expire-orders domains gbp-reviews notifications observability; do
-  curl -fsS -H "Authorization: Bearer $CRON_SECRET" "https://www.pictocart.in/api/cron/$p"
-done
-```
+Until Paid + a vinext `scheduled` handler, `.github/workflows/cron.yml` calls production
+`/api/cron/*` (every 5 min: expire-orders, notifications; half-hourly: social-publish, domains;
+daily: gbp-reviews, observability). It is **off** until the repo variable
+`PRODUCTION_CRON_ENABLED=true`. Run one job by hand: Actions → Cron (production) → Run workflow.
+Staging is never scheduled (it shares the production database). See ADR-042.
 
 ## Error 1102 "Worker exceeded resource limits" (CPU budget)
 

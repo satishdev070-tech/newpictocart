@@ -78,6 +78,9 @@ jobs:
       workers_dev_host: ${{ vars.STAGING_WORKERS_DEV_HOST || 'pictocart-staging.airy-fact.workers.dev' }}
       default_email_from: "Pictocart Staging <no-reply@pictocart.in>"
       allow_shared_database: ${{ vars.STAGING_SHARES_PRODUCTION_DATABASE == 'true' }}
+      # Second Worker from the same build (role storefront); empty variable = single Worker.
+      storefront_worker_name: ${{ vars.STAGING_STOREFRONT_WORKER || '' }}
+      storefront_workers_dev_host: ${{ vars.STAGING_STOREFRONT_WORKER && format('{0}.airy-fact.workers.dev', vars.STAGING_STOREFRONT_WORKER) || '' }}
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

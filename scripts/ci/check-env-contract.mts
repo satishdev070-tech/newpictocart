@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { serverEnvSchema } from "../../src/lib/env/schema";
 
 /** Read by the app outside serverEnvSchema (platform hosts, feature switches, deploy metadata). */
-const EXTRA_RUNTIME_KEYS = new Set(["WORKERS_DEV_HOST", "GOOGLE_IDENTITY_SIGNIN", "DEPLOY_COMMIT_SHA", "DEPLOY_ENVIRONMENT"]);
+const EXTRA_RUNTIME_KEYS = new Set(["WORKERS_DEV_HOST", "GOOGLE_IDENTITY_SIGNIN", "DEPLOY_COMMIT_SHA", "DEPLOY_ENVIRONMENT", "DEPLOY_WORKER_ROLE"]);
 /** Documented in .env.example but read only by scripts or optional integrations. */
 const EXAMPLE_ONLY_ALLOWED = new Set(["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "SUPER_ADMIN_EMAIL", "SUPER_ADMIN_INITIAL_PASSWORD"]);
 const WIPE_SAFE = ["APP_SECRET", "CRON_SECRET", "SUPABASE_SECRET_KEY", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN", "NEXT_PUBLIC_PLATFORM_URL", "EMAIL_FROM"];
