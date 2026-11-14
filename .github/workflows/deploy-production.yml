@@ -88,6 +88,9 @@ jobs:
       platform_url: https://www.pictocart.in
       base_url: https://www.pictocart.in
       workers_dev_host: ${{ vars.PRODUCTION_WORKERS_DEV_HOST || 'pictocart.airy-fact.workers.dev' }}
+      # Second Worker from the same build (role storefront); empty variable = single Worker.
+      storefront_worker_name: ${{ vars.PRODUCTION_STOREFRONT_WORKER || '' }}
+      storefront_workers_dev_host: ${{ vars.PRODUCTION_STOREFRONT_WORKER && format('{0}.airy-fact.workers.dev', vars.PRODUCTION_STOREFRONT_WORKER) || '' }}
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

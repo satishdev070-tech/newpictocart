@@ -2,6 +2,12 @@
 # verify the live domain serves that commit, and roll back to the previous Worker version if
 # verification fails. Called by deploy-staging.yml and deploy-production.yml only.
 #
+# Multi-Worker (docs/CLOUDFLARE_DISTRIBUTION_PLAN.md): when `storefront_worker_name` is set, the SAME
+# build is also deployed as a second Worker (only the `name` in the Build Output differs) with
+# DEPLOY_WORKER_ROLE=storefront. Each Worker carries the whole app; domains/routes decide which one
+# serves a host and are managed outside this workflow. Both are verified, and if any check fails
+# both are rolled back together. Empty `storefront_worker_name` = the previous single-Worker flow.
+#
 # Never runs database migrations. Never rotates secrets: values come from the caller's secrets
 # (`cf deploy --secrets-file` replaces the Worker's secret bindings, so the file is always complete).
 name: Deploy Worker (reusable)
@@ -20,6 +26,8 @@ on:
       default_host_aliases: { type: string, required: false, default: "" }
       default_email_from: { type: string, required: false, default: "Pictocart <no-reply@pictocart.in>" }
       allow_shared_database: { type: boolean, required: false, default: false }
+      storefront_worker_name: { type: string, required: false, default: "", description: "Second Worker (role storefront) from the same build; empty = single Worker" }
+      storefront_workers_dev_host: { type: string, required: false, default: "", description: "workers.dev host of the storefront Worker (verification)" }
     secrets:
       CLOUDFLARE_API_TOKEN: { required: true }
       CLOUDFLARE_ACCOUNT_ID: { required: true }
@@ -51,6 +59,8 @@ jobs:
       url: ${{ inputs.base_url }}
     env:
       CF_WORKER_NAME: ${{ inputs.worker_name }}
+      SF_WORKER_NAME: ${{ inputs.storefront_worker_name }}
+      SF_DEV_HOST: ${{ inputs.storefront_workers_dev_host }}
       CF_KV_NAMESPACE_ID: ${{ inputs.kv_namespace_id }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -80,7 +90,15 @@ jobs:
               fi ;;
             *) echo "::error::unknown target $TARGET"; exit 1 ;;
           esac
-          echo "Deploying $DEPLOY_SHA to $TARGET (Worker $CF_WORKER_NAME)"
+          if [ -n "$SF_WORKER_NAME" ]; then
+            [ -n "$SF_DEV_HOST" ] || { echo "::error::storefront_workers_dev_host is required with storefront_worker_name"; exit 1; }
+            [ "$SF_WORKER_NAME" != "$CF_WORKER_NAME" ] || { echo "::error::storefront Worker must differ from the platform Worker"; exit 1; }
+            case "$TARGET" in
+              production) [ "$SF_WORKER_NAME" = "pictocart-storefront" ] || { echo "::error::production storefront Worker must be 'pictocart-storefront'"; exit 1; } ;;
+              staging) case "$SF_WORKER_NAME" in pictocart|pictocart-storefront) echo "::error::staging must never deploy a production Worker"; exit 1 ;; esac ;;
+            esac
+          fi
+          echo "Deploying $DEPLOY_SHA to $TARGET (Worker $CF_WORKER_NAME${SF_WORKER_NAME:+ + $SF_WORKER_NAME})"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -142,6 +160,7 @@ jobs:
               "EMAIL_FROM": opt("EMAIL_FROM") or req("DEFAULT_EMAIL_FROM"),
               "DEPLOY_COMMIT_SHA": req("DEPLOY_SHA"),
               "DEPLOY_ENVIRONMENT": req("TARGET"),
+              "DEPLOY_WORKER_ROLE": "platform",
           }
           aliases = opt("PLATFORM_HOST_ALIASES") or opt("DEFAULT_ALIASES")
           if aliases:
@@ -162,27 +181,66 @@ jobs:
           extra=()
           [ -n "${RESEND_API_KEY:-}" ] || extra=(--allow-db-resend)
           pnpm exec tsx scripts/ci/validate-worker-secrets.mts "$RUNNER_TEMP/worker-secrets.json" "${extra[@]}"
+          if [ -n "$SF_WORKER_NAME" ]; then
+            # Same values; only the role and the Worker's own workers.dev host differ.
+            python3 - "$RUNNER_TEMP/worker-secrets.json" "$SF_DEV_HOST" > "$RUNNER_TEMP/storefront-secrets.json" <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          d["DEPLOY_WORKER_ROLE"] = "storefront"
+          d["WORKERS_DEV_HOST"] = sys.argv[2]
+          print(json.dumps(d, separators=(",", ":")))
+          PY
+            pnpm exec tsx scripts/ci/validate-worker-secrets.mts "$RUNNER_TEMP/storefront-secrets.json" "${extra[@]}"
+          fi
 
-      - name: Record the version currently serving (rollback point)
+      - name: Record the versions currently serving (rollback point)
         id: before
         run: |
           set -euo pipefail
-          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$CF_WORKER_NAME/deployments"
-          code=$(curl -sS -o "$RUNNER_TEMP/deployments.json" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api" || true)
-          if [ "$code" != "200" ]; then
-            echo "No readable deployment history (HTTP $code): first deploy of $CF_WORKER_NAME, or token lacks Workers read. Rollback disabled for this run."
-            echo "versions=" >> "$GITHUB_OUTPUT"; exit 0
-          fi
-          versions=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1]))["result"]["deployments"]; print(json.dumps(d[0]["versions"]) if d else "")' "$RUNNER_TEMP/deployments.json")
-          echo "Serving before deploy: ${versions:-none}"
+          serving() { # worker -> JSON versions array, or empty (first deploy / unreadable)
+            local api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$1/deployments" code
+            code=$(curl -sS -o "$RUNNER_TEMP/deployments.json" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api" || true)
+            if [ "$code" != "200" ]; then
+              echo "No readable deployment history for $1 (HTTP $code): first deploy, or token lacks Workers read. No rollback for it." >&2
+              return 0
+            fi
+            python3 -c 'import json,sys; d=json.load(open(sys.argv[1]))["result"]["deployments"]; print(json.dumps(d[0]["versions"]) if d else "")' "$RUNNER_TEMP/deployments.json"
+          }
+          versions=$(serving "$CF_WORKER_NAME")
+          echo "Serving before deploy ($CF_WORKER_NAME): ${versions:-none}"
           echo "versions=$versions" >> "$GITHUB_OUTPUT"
+          sf_versions=""
+          if [ -n "$SF_WORKER_NAME" ]; then
+            sf_versions=$(serving "$SF_WORKER_NAME")
+            echo "Serving before deploy ($SF_WORKER_NAME): ${sf_versions:-none}"
+          fi
+          echo "sf_versions=$sf_versions" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to Cloudflare
         run: pnpm exec cf deploy --prebuilt --secrets-file "$RUNNER_TEMP/worker-secrets.json" --message "gha:$TARGET:$DEPLOY_SHA"
 
-      - name: Remove secrets file
+      - name: Deploy storefront Worker (same build)
+        if: inputs.storefront_worker_name != ''
+        run: |
+          set -euo pipefail
+          cfg=.cloudflare/output/v0/workers/default/worker.config.json
+          test -f "$cfg" || { echo "::error::Build Output not found at $cfg"; exit 1; }
+          # The Worker name is the only difference; bindings (same KV), assets and bundle are identical.
+          python3 - "$cfg" "$SF_WORKER_NAME" <<'PY'
+          import json, sys
+          p, name = sys.argv[1], sys.argv[2]
+          d = json.load(open(p)); d["name"] = name
+          json.dump(d, open(p, "w"), indent=2)
+          PY
+          pnpm exec cf deploy --prebuilt --secrets-file "$RUNNER_TEMP/storefront-secrets.json" --message "gha:$TARGET:$DEPLOY_SHA"
+          # Keep its workers.dev URL on (verification target until routes point at it). Idempotent.
+          curl -fsS -X POST -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" \
+            --data '{"enabled":true,"previews_enabled":true}' \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$SF_WORKER_NAME/subdomain" > /dev/null
+
+      - name: Remove secrets files
         if: always()
-        run: rm -f "$RUNNER_TEMP/worker-secrets.json"
+        run: rm -f "$RUNNER_TEMP/worker-secrets.json" "$RUNNER_TEMP/storefront-secrets.json"
 
       - name: Verify deployment
         id: verify
@@ -200,18 +258,20 @@ jobs:
             done
             echo "::error::✗ $name failed after retries"; return 1
           }
-          active_is_this_commit() {
-            curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api" \
+          active_is_this_commit() { # [worker]
+            curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/${1:-$CF_WORKER_NAME}/deployments" \
               | python3 -c 'import json,sys,os; d=json.load(sys.stdin)["result"]["deployments"]; m=(d[0].get("annotations") or {}).get("workers/message","") if d else ""; sys.exit(0 if os.environ["DEPLOY_SHA"] in m else 1)'
           }
+          # [origin] [role]: commit matches; role matches when given. A platform build from before roles
+          # existed reports role=null, so re-deploying an older commit to production still verifies.
           health_reports_commit() {
-            curl -fsS "$BASE_URL/api/health" | python3 -c 'import json,sys,os; b=json.load(sys.stdin); sys.exit(0 if b.get("ok") and b.get("commit")==os.environ["DEPLOY_SHA"] else 1)'
+            curl -fsS "${1:-$BASE_URL}/api/health" | ROLE="${2:-}" python3 -c 'import json,sys,os; b=json.load(sys.stdin); r=os.environ["ROLE"]; role_ok=(not r) or b.get("role")==r or (r=="platform" and b.get("role") is None); sys.exit(0 if b.get("ok") and b.get("commit")==os.environ["DEPLOY_SHA"] and role_ok else 1)'
           }
-          ready_ok() {
-            curl -fsS "$BASE_URL/api/health/ready" | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin).get("ok") is True else 1)'
+          ready_ok() { # [origin]
+            curl -fsS "${1:-$BASE_URL}/api/health/ready" | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin).get("ok") is True else 1)'
           }
-          self_test_ok() {
-            curl -sS -H "Authorization: Bearer $CRON_SECRET" "$BASE_URL/api/cron/preview-token-self-test" | grep -q '"mintVerify":"ok"'
+          self_test_ok() { # [origin]
+            curl -sS -H "Authorization: Bearer $CRON_SECRET" "${1:-$BASE_URL}/api/cron/preview-token-self-test" | grep -q '"mintVerify":"ok"'
           }
           public_routes_ok() {
             for p in / /seller/login; do
@@ -220,24 +280,38 @@ jobs:
           }
           ok=true
           check "Cloudflare active deployment is $DEPLOY_SHA" active_is_this_commit || ok=false
-          check "$BASE_URL/api/health serves commit $DEPLOY_SHA" health_reports_commit || ok=false
+          check "$BASE_URL/api/health serves commit $DEPLOY_SHA (role platform)" health_reports_commit "$BASE_URL" platform || ok=false
           check "$BASE_URL/api/health/ready is ok (env + Supabase)" ready_ok || ok=false
           check "preview-token self-test (APP_SECRET mint/verify)" self_test_ok || ok=false
           check "public routes / and /seller/login return 200" public_routes_ok || ok=false
+          if [ -n "$SF_WORKER_NAME" ]; then
+            sf="https://$SF_DEV_HOST"
+            check "Cloudflare active deployment of $SF_WORKER_NAME is $DEPLOY_SHA" active_is_this_commit "$SF_WORKER_NAME" || ok=false
+            check "$sf/api/health serves commit $DEPLOY_SHA (role storefront)" health_reports_commit "$sf" storefront || ok=false
+            check "$sf/api/health/ready is ok" ready_ok "$sf" || ok=false
+            check "storefront preview-token self-test" self_test_ok "$sf" || ok=false
+          fi
           echo "ok=$ok" >> "$GITHUB_OUTPUT"
           $ok
 
-      - name: Roll back to the previous version
-        if: failure() && steps.verify.outcome == 'failure' && steps.before.outputs.versions != ''
+      - name: Roll back every Worker of this run to its previous version
+        # Any failure after the rollback point (a failed deploy of the 2nd Worker, or failed checks) rolls
+        # back both Workers, so the platform and storefront never stay on different commits.
+        if: failure() && steps.before.outcome == 'success' && (steps.before.outputs.versions != '' || steps.before.outputs.sf_versions != '')
         env:
           VERSIONS: ${{ steps.before.outputs.versions }}
+          SF_VERSIONS: ${{ steps.before.outputs.sf_versions }}
         run: |
           set -euo pipefail
-          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$CF_WORKER_NAME/deployments"
-          # Re-deploy the exact versions that served before (code + their own bindings/secrets).
-          body=$(python3 -c 'import json,os; print(json.dumps({"strategy":"percentage","versions":json.loads(os.environ["VERSIONS"]),"annotations":{"workers/message":"gha:rollback:"+os.environ["DEPLOY_SHA"]}}))')
-          curl -fsS -X POST -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" --data "$body" "$api" > /dev/null
-          echo "::warning::Verification of $DEPLOY_SHA failed; $CF_WORKER_NAME rolled back to $VERSIONS"
+          rollback() { # worker, versions JSON — re-deploy the exact versions that served before (code + their own bindings/secrets)
+            local api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$1/deployments" body
+            body=$(V="$2" python3 -c 'import json,os; print(json.dumps({"strategy":"percentage","versions":json.loads(os.environ["V"]),"annotations":{"workers/message":"gha:rollback:"+os.environ["DEPLOY_SHA"]}}))')
+            curl -fsS -X POST -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" --data "$body" "$api" > /dev/null
+            echo "::warning::Verification of $DEPLOY_SHA failed; $1 rolled back to $2"
+          }
+          [ -z "$VERSIONS" ] || rollback "$CF_WORKER_NAME" "$VERSIONS"
+          # A first-time storefront deploy has nothing to roll back to; it serves no route until phase 5.
+          [ -z "$SF_WORKER_NAME" ] || [ -z "$SF_VERSIONS" ] || rollback "$SF_WORKER_NAME" "$SF_VERSIONS"
           sleep 15
           c=$(curl -sS -o /dev/null -w '%{http_code}' "$BASE_URL/api/health/ready"); echo "After rollback /api/health/ready -> HTTP $c"
 
@@ -250,7 +324,7 @@ jobs:
             echo "| | |"
             echo "|---|---|"
             echo "| Commit | \`$DEPLOY_SHA\` |"
-            echo "| Worker | \`$CF_WORKER_NAME\` |"
+            echo "| Worker | \`$CF_WORKER_NAME\`${SF_WORKER_NAME:+ + \`$SF_WORKER_NAME\`} |"
             echo "| URL | $BASE_URL |"
             echo "| Verified | ${{ steps.verify.outputs.ok || 'no' }} |"
           } >> "$GITHUB_STEP_SUMMARY"

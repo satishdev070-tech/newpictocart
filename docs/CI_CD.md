@@ -20,6 +20,7 @@ feature/x pushed ──► Auto PR (opens PR to main, once) ──► CI (8 para
 | `deploy-production.yml` | manual only | promotes a commit on main to production via `deploy-worker.yml` |
 | `deploy-worker.yml` | reusable | build → complete secrets file → validate → `cf deploy` → verify → roll back on failure |
 | `capture-theme-previews.yml` | manual | unchanged |
+| `cron.yml` | schedule (every 5 / 30 min, daily); manual | calls production `/api/cron/*` with `CRON_SECRET`; off until `PRODUCTION_CRON_ENABLED=true` |
 
 Database migrations are never run by any workflow. Apply them by hand: staging project first, then
 production (`supabase db push --linked` after `supabase link --project-ref <ref>`), and only additive
@@ -51,6 +52,16 @@ The push opens the PR and starts CI. Fix failures by pushing more commits to the
 | Promote staging → production | Actions → Deploy production → Run workflow (sha blank = main, type `deploy production`), or `gh workflow run deploy-production.yml -f confirm="deploy production" -f sha=<sha>` |
 | Revert a bad merge | `git checkout main && git pull && git checkout -b fix/revert-x && git revert -m 1 <merge-sha>` (or `git revert <squash-sha>`), push, merge the PR; staging redeploys |
 | Roll back a Worker now | Cloudflare dashboard → Workers → the Worker → Deployments → previous version → Deploy (or `npx wrangler rollback --name pictocart` with an API token). Code + its bindings revert; the database does not. |
+
+## Several Workers per environment (ADR-042)
+
+Set the repo variable `STAGING_STOREFRONT_WORKER` (e.g. `pictocart-storefront-staging`) or
+`PRODUCTION_STOREFRONT_WORKER` (must be `pictocart-storefront`) and the next deploy also uploads the
+same build as that Worker with `DEPLOY_WORKER_ROLE=storefront`. It is verified through its
+`workers.dev` host (health + role, ready, self-test). If any check fails, or its upload fails, both
+Workers return to the versions that served before the run. Leave the variable empty for the
+single-Worker flow. Pointing `*.<root>/*` and custom hostnames at it is a separate, manual step
+(docs/CLOUDFLARE_DISTRIBUTION_PLAN.md, phase 5).
 
 ## Verification and rollback
 
