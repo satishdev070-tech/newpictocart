@@ -1,0 +1,62 @@
+# Production schedules for /api/cron/* (Workers Free has no Cron Triggers; see
+# docs/CLOUDFLARE_DISTRIBUTION_PLAN.md). Calls the PRODUCTION platform host only. Staging is never
+# scheduled: while it shares the production database, a staging cron would double-send customer
+# messages and double-expire orders.
+#
+# OFF until the repo variable PRODUCTION_CRON_ENABLED is "true" (set in phase 5 of the plan).
+# GitHub runs schedules on main only, best-effort (runs can start late under load).
+# Every /api/cron/* route must be listed below; tests/unit/ci/cron-schedule.test.ts enforces it.
+name: Cron (production)
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # frequent: unpaid-order expiry (30-min stock holds) + notifications
+    - cron: "7,37 * * * *"  # half-hourly: scheduled social posts, custom-domain verification
+    - cron: "23 2 * * *"    # daily 02:23 UTC: Google Business reviews, observability rollups
+  workflow_dispatch:
+    inputs:
+      path:
+        description: "Run one job now"
+        type: choice
+        options: [expire-orders, notifications, social-publish, domains, gbp-reviews, observability]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cron-${{ github.event.schedule || inputs.path }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Cron ${{ github.event.schedule || inputs.path }}
+    if: vars.PRODUCTION_CRON_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # No `environment:` on purpose: required reviewers on `production` would block every run.
+    steps:
+      - name: Call cron endpoints
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          MANUAL: ${{ inputs.path }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BASE_URL: https://www.pictocart.in
+        run: |
+          set -uo pipefail
+          CRON_SECRET="$(printf '%s' "$CRON_SECRET" | tr -d '[:space:]')"
+          [ -n "$CRON_SECRET" ] || { echo "::error::CRON_SECRET is empty"; exit 1; }
+          case "$SCHEDULE" in
+            "*/5 * * * *")  paths="expire-orders notifications" ;;
+            "7,37 * * * *") paths="social-publish domains" ;;
+            "23 2 * * *")   paths="gbp-reviews observability" ;;
+            "")             paths="$MANUAL" ;;
+            *) echo "::error::unmapped schedule '$SCHEDULE'"; exit 1 ;;
+          esac
+          failed=0
+          for p in $paths; do
+            code=$(curl -sS -m 70 -o "$RUNNER_TEMP/out.json" -w '%{http_code}' -H "Authorization: Bearer $CRON_SECRET" "$BASE_URL/api/cron/$p" || echo 000)
+            # Bodies are counts/status only (no PII); trimmed for the log.
+            echo "$p -> HTTP $code $(head -c 300 "$RUNNER_TEMP/out.json" 2>/dev/null)"
+            [ "$code" = "200" ] || { echo "::error::/api/cron/$p returned HTTP $code"; failed=1; }
+          done
+          exit $failed

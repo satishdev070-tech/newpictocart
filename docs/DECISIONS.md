@@ -298,3 +298,19 @@ enforced by tests); store themes are untouched. Everything sits behind `FEATURE_
 bell and billing/team pages are not available to Informative accounts in v1. Code can deploy before
 the migrations: reads fall back to ONLINE_STORE when the column is missing. Rollout:
 docs/informative/ROLLOUT.md.
+
+## ADR-042 — One build, several Workers; schedules from GitHub Actions · Accepted
+**Context.** One Worker (`pictocart`) served every host, so seller/admin cold starts and shopper traffic
+shared isolates and could only be rolled back together; Workers Free has no Cron Triggers, so
+`/api/cron/*` never ran (unpaid orders kept stock reserved).
+**Decision.** Every commit is built once and deployed as several Workers that differ only by name and
+`DEPLOY_WORKER_ROLE` (`platform` | `storefront`); each carries the whole app and shares the
+environment's KV cache, so no route can be missing on any host. Domains and routes decide which
+Worker serves a host and are changed outside the deploy workflow. A deploy verifies every Worker
+(`/api/health` reports `role`) and rolls all of them back together. Schedules run from
+`.github/workflows/cron.yml` against production only, off until `PRODUCTION_CRON_ENABLED=true`;
+a contract test keeps it in sync with the cron routes. Plan: docs/CLOUDFLARE_DISTRIBUTION_PLAN.md.
+**Consequences.** Free-plan request quota is per account, so splitting adds isolation, not capacity;
+Error 1102 needs Workers Paid. GitHub schedules are best-effort (can start late). While staging shares
+the production database it is never scheduled and gets no wildcard store route.
+
