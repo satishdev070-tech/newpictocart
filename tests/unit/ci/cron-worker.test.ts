@@ -64,6 +64,18 @@ describe("cron Worker behaviour", () => {
     expect(r.every((x) => x.ok)).toBe(true);
   });
 
+  it("sends the platform Host header (the app routes by Host; without it every job 404s)", async () => {
+    const hosts: (string | null)[] = [];
+    const e = env(() => new Response("{}", { status: 200 }));
+    const inner = e.APP.fetch;
+    e.APP.fetch = async (req: Request) => {
+      hosts.push(req.headers.get("host"));
+      return inner(req);
+    };
+    await runJobs("23 2 * * *", e);
+    expect(hosts).toEqual(["www.pictocart.in", "www.pictocart.in"]);
+  });
+
   it("runs every job even if one fails, then fails the invocation", async () => {
     const e = env((u) => new Response("x", { status: u.endsWith("expire-orders") ? 500 : 200 }));
     await expect(worker.scheduled({ cron: "*/5 * * * *" }, e)).rejects.toThrow(/expire-orders=500/);

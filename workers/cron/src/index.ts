@@ -32,8 +32,12 @@ export async function runJobs(cron: string, env: Env): Promise<JobResult[]> {
     let status = 0;
     let body = "";
     try {
+      // A Request built inside a Worker has no Host header, and the app routes by Host (no Host =>
+      // unknown host => 404). Send the platform host explicitly, as a browser would.
       const res = await env.APP.fetch(
-        new Request(`${env.APP_ORIGIN}/api/cron/${job}`, { headers: { authorization: `Bearer ${secret}`, "x-cron-source": "pictocart-cron" } }),
+        new Request(`${env.APP_ORIGIN}/api/cron/${job}`, {
+          headers: { host: new URL(env.APP_ORIGIN).host, authorization: `Bearer ${secret}`, "x-cron-source": "pictocart-cron" },
+        }),
       );
       status = res.status;
       body = (await res.text()).slice(0, 300); // counts / status only, never PII
