@@ -258,9 +258,11 @@ jobs:
             done
             echo "::error::✗ $name failed after retries"; return 1
           }
-          active_is_this_commit() { # [worker]
+          # [worker] Matches the first 12 chars of the SHA: Cloudflare truncates the message of a Worker's
+          # FIRST deployment to 50 chars ("gha:staging:<35 chars>..."). /api/health proves the full SHA.
+          active_is_this_commit() {
             curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/${1:-$CF_WORKER_NAME}/deployments" \
-              | python3 -c 'import json,sys,os; d=json.load(sys.stdin)["result"]["deployments"]; m=(d[0].get("annotations") or {}).get("workers/message","") if d else ""; sys.exit(0 if os.environ["DEPLOY_SHA"] in m else 1)'
+              | python3 -c 'import json,sys,os; d=json.load(sys.stdin)["result"]["deployments"]; m=(d[0].get("annotations") or {}).get("workers/message","") if d else ""; sys.exit(0 if os.environ["DEPLOY_SHA"][:12] in m else 1)'
           }
           # [origin] [role]: commit matches; role matches when given. A platform build from before roles
           # existed reports role=null, so re-deploying an older commit to production still verifies.
