@@ -55,6 +55,26 @@ Rollback target for production: version `e4f6bc29` (commit `5b33760`).
 | Gate: every name the `Deploy staging` preflight checks is present | ✅ (checked by name; the first real run is phase 3) |
 | `production` environment required reviewer, branch ruleset | deferred, needs owner OK (changes how merges/deploys are approved) |
 
+## Phase 2 result (2026-11-15)
+
+PR #129 merged (`9ca503e`). First `Deploy staging` created Worker `pictocart-staging` (version
+`50667b7e`); on `pictocart-staging.airy-fact.workers.dev` it serves the right commit, `role: platform`,
+`/api/health/ready` ok, APP_SECRET self-test ok, `/` and `/seller/login` 200. Domain checks failed as
+expected (`pictocartdev.in` still on production). Found and fixed (PR #130): Cloudflare truncates a
+new Worker's first deployment message to 50 chars, so the deployment check now matches a 12-char SHA prefix.
+
+## Phase 3 runbook (staging domains)
+
+| # | Action | Rollback |
+|---|---|---|
+| 1 | Merge PR #130 | revert commit |
+| 2 | Detach Custom Domains `pictocartdev.in`, `www.pictocartdev.in` from `pictocart` | re-attach to `pictocart` (backup `worker-custom-domains.json`) |
+| 3 | Attach both to `pictocart-staging` | same as 2 |
+| 4 | Re-run `Deploy staging` → every check must pass | step 2–3 rollback |
+| 5 | (optional, next production deploy) clear `pictocartdev.in` from production `PLATFORM_HOST_ALIASES` | restore the secret |
+
+Not done in phase 3 (shared-DB guard): no `*.pictocartdev.in` route or wildcard DNS.
+
 **Shared-database guard (must hold until staging has its own DB):** no `*.pictocartdev.in` route or
 wildcard DNS, so real stores are not reachable through staging; staging gets no cron schedule and
 no payment/WhatsApp webhooks.
