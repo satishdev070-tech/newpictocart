@@ -42,7 +42,7 @@ describe("cron.yml schedules every cron route", () => {
   });
 
   it("stays off unless explicitly enabled and never targets staging", () => {
-    expect(workflow).toMatch(/if: vars\.PRODUCTION_CRON_ENABLED == 'true'/);
+    expect(workflow).toMatch(/if: github\.event_name == 'workflow_dispatch' \|\| vars\.PRODUCTION_CRON_ENABLED == 'true'/);
     expect(workflow).toContain("BASE_URL: https://www.pictocart.in");
     expect(workflow).not.toMatch(/pictocartdev\.in/);
   });
