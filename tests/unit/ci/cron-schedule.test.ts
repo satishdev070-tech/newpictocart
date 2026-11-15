@@ -58,3 +58,14 @@ describe("deploy-worker.yml tags each Worker with its role", () => {
     expect(deploy).toMatch(/staging\) case "\$SF_WORKER_NAME" in pictocart\|pictocart-storefront\)/);
   });
 });
+
+describe("deploy-worker.yml active-deployment check", () => {
+  const deploy = readFileSync(".github/workflows/deploy-worker.yml", "utf8");
+  it("matches a SHA prefix, because Cloudflare truncates a first deployment's message to 50 chars", () => {
+    expect(deploy).toContain('os.environ["DEPLOY_SHA"][:12] in m');
+    const sha = "9ca503e9a24437138232769fb5f2b52dcc464790";
+    const truncated = `gha:staging:${sha.slice(0, 35)}...`;
+    expect(truncated.length).toBe(50);
+    expect(truncated).toContain(sha.slice(0, 12));
+  });
+});
