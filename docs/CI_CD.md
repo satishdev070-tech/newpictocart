@@ -74,7 +74,7 @@ After `cf deploy --message gha:<target>:<sha>`, `deploy-worker.yml` checks, each
 4. `/api/cron/preview-token-self-test` gives `mintVerify: ok` (APP_SECRET mint and verify).
 5. `/` and `/seller/login` return 200.
 
-If any check fails, it redeploys the versions that were serving before the run (recorded from the
+If any check fails, it redeploys (with `?force=true`, required because `DEPLOY_COMMIT_SHA` changes every deploy) the versions that were serving before the run (recorded from the
 Cloudflare Deployments API). Those versions carry their own bindings and secrets. Then it marks the
 run failed. It never touches secrets or the database. The first deploy of a new Worker has nothing
 to roll back to.

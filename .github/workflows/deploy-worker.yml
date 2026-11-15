@@ -308,7 +308,10 @@ jobs:
           rollback() { # worker, versions JSON — re-deploy the exact versions that served before (code + their own bindings/secrets)
             local api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$1/deployments" body
             body=$(V="$2" python3 -c 'import json,os; print(json.dumps({"strategy":"percentage","versions":json.loads(os.environ["V"]),"annotations":{"workers/message":"gha:rollback:"+os.environ["DEPLOY_SHA"]}}))')
-            curl -fsS -X POST -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" --data "$body" "$api" > /dev/null
+            # force=true: every deploy writes a new DEPLOY_COMMIT_SHA secret, and Cloudflare refuses to
+            # re-activate a version "when a secret has changed since" (error 10220) without it. The target
+            # versions are the ones that served before this run, with their own secrets: that is the point.
+            curl -fsS -X POST -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" --data "$body" "$api?force=true" > /dev/null
             echo "::warning::Verification of $DEPLOY_SHA failed; $1 rolled back to $2"
           }
           [ -z "$VERSIONS" ] || rollback "$CF_WORKER_NAME" "$VERSIONS"
