@@ -17,7 +17,7 @@ _Status: proposed 2026-11-14. Nothing in this plan has been executed yet._
 |---|---|
 | Production | One Worker `pictocart` serves **everything**: `pictocart.in`, `www`, `*.pictocart.in`, and the canary aliases `pictocartdev.in` / `www.pictocartdev.in`. Live commit `5b33760` (= `main`), `/api/health/ready` ok. |
 | Staging | Does not exist. `Deploy staging` has failed at preflight on every merge because no `STAGING_*` secrets/KV exist. `pictocartdev.in` points at **production** (same DB). |
-| Plan | Workers **Free**: 10 ms CPU per request → intermittent **Error 1102**; no Cron Triggers. |
+| Plan | Workers **Free**: 10 ms CPU per request → intermittent **Error 1102**. (Free does allow 5 Cron Triggers; corrected 2026-11-15.) |
 | Crons | 7 `/api/cron/*` endpoints exist; nothing calls them on a schedule (the `vercel.json` crons are dead). Unpaid online orders hold stock until someone calls `expire-orders`. |
 | Pipeline | `ci.yml` → `deploy-staging.yml` (auto) → `deploy-production.yml` (manual, typed confirm) → `deploy-worker.yml` (build, secrets, deploy, verify, auto-rollback). Good foundation; reused, not replaced. |
 | GitHub secrets | Repo-level: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `APP_SECRET`, `CRON_SECRET`, Supabase ×3, `PLATFORM_HOST_ALIASES`, `FEATURE_INFORMATIVE_WEBSITE`. No `EMAIL_FROM` / `RESEND_API_KEY` / `GOOGLE_IDENTITY_SIGNIN` / `EDGE_SHARED_SECRET` at repo level (must be checked against the live Worker before any deploy, because `--secrets-file` **replaces** secrets). |

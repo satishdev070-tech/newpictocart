@@ -181,7 +181,11 @@ Same Worker. Custom Domains for apex + `www`. DNS cleanup: delete apex/`www` A/A
 
 ## Crons
 
-Workers **Free** allows **0** Cron Triggers. On **Paid**, add to `cloudflare.config.ts`:
+Workers **Free** allows **5** Cron Triggers per account (10 ms CPU each; waiting on subrequests is not CPU).
+The schedules run in the **`pictocart-cron`** Worker (`workers/cron`, ADR-043): three triggers that call the
+platform Worker's `/api/cron/*` through a service binding with `CRON_SECRET`. Deploy it with
+Actions → *Deploy cron Worker (production)* (type `deploy cron`). Logs: Workers → `pictocart-cron` → Logs.
+The app Worker itself has no `scheduled` handler (vinext), so do not add triggers to the root config:
 
 ```ts
 import { triggers } from "cf/config";
@@ -197,7 +201,7 @@ Staging is never scheduled (it shares the production database). See ADR-042.
 
 ## Error 1102 "Worker exceeded resource limits" (CPU budget)
 
-**Root cause.** The Worker runs on the **Workers Free plan** (no Cron Triggers, see Crons), which
+**Root cause.** The Worker runs on the **Workers Free plan** (see Crons for schedules), which
 allows **10 ms of CPU per request**. A cold isolate must compile and evaluate the always-loaded
 RSC/SSR graph (vinext runtime, React server renderer, Supabase, zod: ~2.8 MB of JS after the fix
 below) before it renders anything. Even a local pre-parse of that graph costs ~10 ms of CPU on a

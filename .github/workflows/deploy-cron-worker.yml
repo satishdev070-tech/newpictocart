@@ -1,0 +1,74 @@
+# Deploys the production scheduler Worker `pictocart-cron` (workers/cron, ADR-043). Manual only:
+# it rarely changes and is independent of app deploys. Production only: staging shares the
+# production database and must never be scheduled.
+#
+# Uploads CRON_SECRET (the production value, same as the platform Worker) with the version, then
+# verifies Cloudflare lists exactly the declared Cron Triggers.
+name: Deploy cron Worker (production)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type: deploy cron"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-cron-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy pictocart-cron
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Confirmation and ref
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          [ "$CONFIRM" = "deploy cron" ] || { echo "::error::Type exactly: deploy cron"; exit 1; }
+          [ "${{ github.ref }}" = "refs/heads/main" ] || { echo "::error::Run from main only"; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      - name: Write secrets file
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - > "$RUNNER_TEMP/cron-secrets.json" <<'PY'
+          import json, os
+          v = (os.environ.get("CRON_SECRET") or "").strip()
+          if len(v) < 24:
+              raise SystemExit("CRON_SECRET missing or shorter than 24 chars")
+          print(json.dumps({"CRON_SECRET": v}))
+          PY
+
+      - name: Deploy
+        working-directory: workers/cron
+        run: ../../node_modules/.bin/cf deploy --secrets-file "$RUNNER_TEMP/cron-secrets.json" --message "gha:cron:${{ github.sha }}"
+
+      - name: Remove secrets file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/cron-secrets.json"
+
+      - name: Verify Cron Triggers
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/pictocart-cron/schedules"
+          got=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api" | python3 -c 'import json,sys; print(" | ".join(sorted(s["cron"] for s in json.load(sys.stdin)["result"]["schedules"])))')
+          want="*/5 * * * * | 23 2 * * * | 7,37 * * * *"
+          echo "Cron Triggers: $got"
+          [ "$got" = "$want" ] || { echo "::error::expected '$want'"; exit 1; }
+          {
+            echo "### pictocart-cron deployed"
+            echo "Commit \`${{ github.sha }}\` · triggers: \`$got\`"
+          } >> "$GITHUB_STEP_SUMMARY"
