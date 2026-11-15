@@ -61,3 +61,26 @@ jobs:
             [ "$code" = "200" ] || { echo "::error::/api/cron/$p returned HTTP $code"; failed=1; }
           done
           exit $failed
+
+      # Uptime (every 5 min with the frequent schedule): a failure fails this run, and GitHub emails
+      # the workflow's owner. Also proves the multi-Worker routing still holds (ADR-042).
+      - name: Uptime and routing check
+        if: always() && (github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch')
+        env:
+          STORE_HOST: ${{ vars.PRODUCTION_UPTIME_STORE_HOST }}
+          EXPECT_STOREFRONT: ${{ vars.PRODUCTION_STOREFRONT_WORKER != '' }}
+        run: |
+          set -uo pipefail
+          role() { curl -fsS -m 20 "$1/api/health" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("role") or "")'; }
+          failed=0
+          for i in 1 2 3; do curl -fsS -m 20 -o /dev/null https://www.pictocart.in/api/health/ready && break; [ $i = 3 ] && { echo "::error::www.pictocart.in /api/health/ready failing"; failed=1; }; sleep 10; done
+          r=$(role https://www.pictocart.in || true); [ "$r" = "platform" ] || { echo "::error::www.pictocart.in role='$r' (want platform)"; failed=1; }
+          if [ -n "$STORE_HOST" ]; then
+            c=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "https://$STORE_HOST/" || echo 000)
+            [ "$c" = "200" ] || { sleep 10; c=$(curl -sS -m 20 -o /dev/null -w '%{http_code}' "https://$STORE_HOST/" || echo 000); }
+            [ "$c" = "200" ] || { echo "::error::https://$STORE_HOST/ returned $c"; failed=1; }
+            want=$([ "$EXPECT_STOREFRONT" = "true" ] && echo storefront || echo platform)
+            r=$(role "https://$STORE_HOST" || true); [ "$r" = "$want" ] || { echo "::error::$STORE_HOST role='$r' (want $want)"; failed=1; }
+          fi
+          [ $failed = 0 ] && echo "uptime ok"
+          exit $failed

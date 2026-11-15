@@ -189,10 +189,38 @@ staging green → `Deploy production` → manual run of each job → enable sche
 4. Enable cron triggers. Verify `expire-orders` and `notifications` in logs.
 5. Gate: 24 h with error rate ≤ baseline.
 
+**Phase 5 result (2026-11-15):**
+- PR #132 (cron staleness guards) merged; first production deploy of the rollout `5b33760` → `1ac2a32`,
+  5/5 checks; all secret bindings kept.
+- Each cron job run once by hand (all HTTP 200; no backlog: 0 expired orders, 0 overdue posts,
+  0 queued WhatsApp; 1 custom domain still unverifiable without Cloudflare for SaaS);
+  `PRODUCTION_CRON_ENABLED=true`.
+- `STAGING_STOREFRONT_WORKER=pictocart-storefront-staging`, `PRODUCTION_STOREFRONT_WORKER=pictocart-storefront`:
+  both two-Worker deploys 9/9 checks.
+- Route `*.pictocart.in/*` → `pictocart-storefront` (route id in `.cf-backups/storefront-route-id.txt`).
+  30 store URLs (homes, product pages, cart, search, account, robots, sitemaps) identical to the
+  pre-switch baseline (all 200); store hosts report `role: storefront`, apex/www `role: platform`.
+- Rollback: `PUT /zones/<pictocart.in>/workers/routes/<id>` with `"script":"pictocart"`.
+
+| Host | Worker |
+|---|---|
+| `pictocart.in`, `www.pictocart.in` | `pictocart` (platform) |
+| `*.pictocart.in` | `pictocart-storefront` |
+| `pictocartdev.in`, `www.pictocartdev.in` | `pictocart-staging` |
+| (workers.dev only, shared-DB guard) | `pictocart-storefront-staging` |
+
 ### Phase 6: Edge hardening
 WAF rate-limit rules (login, OTP, checkout, webhooks allowlisted), cache rules for `/_next/static`
 and images, security-header audit, Health Checks + Notifications (email) on `/api/health/ready`
 for both hosts, Workers Logs/Observability on, Logpush optional, token rotation runbook.
+
+**Phase 6 (2026-11-15):** Workers Logs declared in `cloudflare.config.ts` (query strings redacted);
+uptime + routing check in the 5-minute cron run (`vars.PRODUCTION_UPTIME_STORE_HOST`; a failed run
+emails the workflow owner). On the Free plan: no zone Health Checks (Pro+); one rate-limiting rule is
+available but the app already rate-limits login/OTP/checkout in Postgres, so none was added.
+Still open, owner decisions: Workers Paid (Error 1102 ≈ 5% of production requests), Cloudflare for
+SaaS (seller custom domains), least-privilege API tokens, `production` environment reviewers and
+branch rules, platform/WhatsApp/email-hook webhook configuration.
 
 ### Phase 7: Documentation and handover
 Update `DEPLOY_CLOUDFLARE_WORKERS.md`, `CI_CD.md`, `IMPLEMENTATION_STATUS.md`, ADR in `DECISIONS.md`;
