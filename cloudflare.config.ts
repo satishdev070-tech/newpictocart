@@ -31,6 +31,14 @@ export default defineConfig({
     entrypoint: "vinext/server/fetch-handler",
     compatibilityDate: "2026-11-05",
     compatibilityFlags: ["nodejs_compat"],
+    // Workers Logs (Free plan includes 200k events/day; production uses ~10k requests/day). Declared
+    // here so a deploy can never switch them off. Query strings are redacted: URLs can carry preview
+    // tokens, OAuth codes and signed links.
+    observability: {
+      enabled: true,
+      redactQueryString: true,
+      logs: { enabled: true, invocationLogs: true, headSamplingRate: 1 },
+    },
     assets: {
       htmlHandling: "none",
       notFoundHandling: "none",

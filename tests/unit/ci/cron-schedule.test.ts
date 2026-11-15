@@ -77,3 +77,20 @@ describe("deploy-worker.yml rollback", () => {
     expect(rollback).toContain('"$api?force=true"');
   });
 });
+
+describe("cron.yml uptime check", () => {
+  const wf = readFileSync(".github/workflows/cron.yml", "utf8");
+  it("checks platform readiness and the Worker role of the platform and a store host", () => {
+    expect(wf).toContain("Uptime and routing check");
+    expect(wf).toContain("https://www.pictocart.in/api/health/ready");
+    expect(wf).toMatch(/role='\$r' \(want platform\)/);
+    expect(wf).toContain("vars.PRODUCTION_UPTIME_STORE_HOST");
+  });
+});
+
+describe("cloudflare.config.ts", () => {
+  const cfg = readFileSync("cloudflare.config.ts", "utf8");
+  it("declares Workers Logs with query strings redacted, so deploys cannot switch them off", () => {
+    expect(cfg).toMatch(/observability:\s*{\s*enabled: true,\s*redactQueryString: true/);
+  });
+});
