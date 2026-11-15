@@ -1,4 +1,5 @@
-# Production schedules for /api/cron/* (Workers Free has no Cron Triggers; see
+# Manual runs (and a fallback schedule) for /api/cron/*. The primary scheduler is the pictocart-cron
+# Worker (workers/cron, ADR-043): GitHub never fired these schedules in practice. See
 # docs/CLOUDFLARE_DISTRIBUTION_PLAN.md). Calls the PRODUCTION platform host only. Staging is never
 # scheduled: while it shares the production database, a staging cron would double-send customer
 # messages and double-expire orders.

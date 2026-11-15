@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 /**
  * Contract: every scheduled /api/cron/* route is called by .github/workflows/cron.yml, every
  * schedule in `on.schedule` is mapped to paths, and every mapped path is a real route.
- * (Workers Free has no Cron Triggers, so an unlisted route would silently never run.)
+ * (cron.yml is the manual-run tool; the pictocart-cron Worker runs the schedules, ADR-043.)
  */
 const CRON_DIR = "src/app/api/cron";
 /** Ops probes, not jobs: called by deploy verification, never on a schedule. */

@@ -88,6 +88,10 @@ jobs:
       - run: pnpm build:vinext
       # Storefront CSS guard: cascade-layer order + key .sf-* rules in the emitted Worker CSS.
       - run: pnpm exec tsx scripts/ci/check-worker-css.mts
+      # Scheduler Worker (workers/cron, ADR-043): bundle + config check, uploads nothing.
+      - name: Cron Worker build (dry run)
+        working-directory: workers/cron
+        run: ../../node_modules/.bin/cf deploy --dry-run
 
   env-contract:
     name: Env variable contract

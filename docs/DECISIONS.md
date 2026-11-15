@@ -95,7 +95,7 @@ Proposal: enable it at the start of Phase 7 with tags `tenant:{id}`, `tenant:{id
 
 **Why vinext:** official Workers guide; App Router + `proxy.ts` + Server Actions check at ~93% compatible; non-destructive alongside `next` scripts.
 
-**Constraints on Workers:** native `sharp` unavailable (soft-fail + Cloudflare Images); Cron Triggers need Workers Paid (Free = 0) — use HTTP `Authorization: Bearer $CRON_SECRET` against `/api/cron/*` until Paid; Custom Domains do not support wildcards.
+**Constraints on Workers:** native `sharp` unavailable (soft-fail + Cloudflare Images); schedules: see ADR-043 (Free allows 5 Cron Triggers; the earlier "Free = 0" note was wrong); Custom Domains do not support wildcards.
 
 **Rollback:** restore Vercel nameservers (`ns1/ns2.vercel-dns.com`) while Vercel project domains remain configured. Runbook: [DEPLOY_CLOUDFLARE_WORKERS.md](./DEPLOY_CLOUDFLARE_WORKERS.md). Keep [`workers/domain-router`](../workers/domain-router) for Hostinger / SaaS custom hosts only; unused when the vinext Worker is the zone origin.
 
@@ -301,7 +301,7 @@ docs/informative/ROLLOUT.md.
 
 ## ADR-042 — One build, several Workers; schedules from GitHub Actions · Accepted
 **Context.** One Worker (`pictocart`) served every host, so seller/admin cold starts and shopper traffic
-shared isolates and could only be rolled back together; Workers Free has no Cron Triggers, so
+shared isolates and could only be rolled back together; no schedule was configured, so
 `/api/cron/*` never ran (unpaid orders kept stock reserved).
 **Decision.** Every commit is built once and deployed as several Workers that differ only by name and
 `DEPLOY_WORKER_ROLE` (`platform` | `storefront`); each carries the whole app and shares the
@@ -313,4 +313,17 @@ a contract test keeps it in sync with the cron routes. Plan: docs/CLOUDFLARE_DIS
 **Consequences.** Free-plan request quota is per account, so splitting adds isolation, not capacity;
 Error 1102 needs Workers Paid. GitHub schedules are best-effort (can start late). While staging shares
 the production database it is never scheduled and gets no wildcard store route.
+
+## ADR-043 — Schedules run in a dedicated `pictocart-cron` Worker · Accepted
+**Context.** ADR-042 scheduled `/api/cron/*` from GitHub Actions; GitHub never fired those schedules
+(nothing ran for 5+ hours after enabling). Workers Free does allow 5 Cron Triggers per account.
+**Decision.** `workers/cron` is a ~60-line Worker with three Cron Triggers (`*/5`, `7,37 * * * *`,
+`23 2 * * *`) that calls the platform Worker through a service binding with `CRON_SECRET`; it has no
+app code, no routes and no workers.dev URL. The schedule map lives in `workers/cron/src/schedule.ts`;
+tests keep it, the trigger list, the cron routes and `cron.yml`'s manual mapping identical. Deployed
+manually (`deploy-cron-worker.yml`, production only); CI dry-runs its build on every PR.
+`cron.yml` stays for manual runs and the uptime check; `PRODUCTION_CRON_ENABLED=false` so the two
+can never both schedule.
+**Consequences.** Each job call is a normal request to the platform Worker (Free: 10 ms CPU, may
+1102; the next trigger retries). Staging is never scheduled while it shares the production DB.
 

@@ -20,7 +20,8 @@ feature/x pushed ──► Auto PR (opens PR to main, once) ──► CI (8 para
 | `deploy-production.yml` | manual only | promotes a commit on main to production via `deploy-worker.yml` |
 | `deploy-worker.yml` | reusable | build → complete secrets file → validate → `cf deploy` → verify → roll back on failure |
 | `capture-theme-previews.yml` | manual | unchanged |
-| `cron.yml` | schedule (every 5 / 30 min, daily); manual | calls production `/api/cron/*` with `CRON_SECRET`; off until `PRODUCTION_CRON_ENABLED=true` |
+| `cron.yml` | manual (schedule only if `PRODUCTION_CRON_ENABLED=true`) | runs one production `/api/cron/*` job by hand + uptime/routing check |
+| `deploy-cron-worker.yml` | manual (`deploy cron`) | deploys the `pictocart-cron` scheduler Worker (ADR-043), verifies its 3 Cron Triggers |
 
 Database migrations are never run by any workflow. Apply them by hand: staging project first, then
 production (`supabase db push --linked` after `supabase link --project-ref <ref>`), and only additive

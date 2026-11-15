@@ -6,7 +6,8 @@ const cache = await createWorkersCacheConfig();
 /**
  * vinext app Worker (production + canary). Serves pictocart.in / www / *.pictocart.in
  * and pictocartdev.in aliases — see docs/DEPLOY_CLOUDFLARE_WORKERS.md.
- * Cron Triggers need Workers Paid (Free = 0 schedules). Until then, HTTP-call
+ * Schedules live in the separate `pictocart-cron` Worker (workers/cron, ADR-043; Free allows 5
+ * Cron Triggers per account). Manual runs: HTTP-call
  * `/api/cron/*` with `Authorization: Bearer $CRON_SECRET`.
  * To enable on Paid: import { triggers } from "cf/config" and add
  * `triggers: [triggers.scheduled({ schedule: "0 0 * * *" })]`.
