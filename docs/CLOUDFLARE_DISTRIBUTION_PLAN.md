@@ -176,6 +176,11 @@ cart → COD and test-mode online payment → webhook → order email → shippi
 cron runs observed in logs; zero 1102/5xx in Workers analytics.
 
 ### Phase 5: Production rollout (low-traffic window, one step at a time)
+
+**5.0 Cron safety (2026-11-15):** first-run review found two jobs that would act on a backlog of any
+age (overdue social posts, queued WhatsApp retries). Guarded in `fix/cron-staleness-guards`; the
+guard must be **deployed to production before** `PRODUCTION_CRON_ENABLED=true`. Order: merge →
+staging green → `Deploy production` → manual run of each job → enable schedules.
 1. Deploy `pictocart-storefront` and `pictocart-cron` with **no routes**; smoke-test via `workers.dev`
    with a signed host header (as the domain router does).
 2. Attach `*.pictocart.in/*` to `pictocart-storefront`. Verify 5 real stores + 1 custom domain.

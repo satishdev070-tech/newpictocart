@@ -4,6 +4,7 @@ import { isAuthorizedCronRequest } from "@/features/domains/cron-auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/observability/logger";
 import { claimPost, publishPost } from "@/features/social/server/publish";
+import { SOCIAL_POST_MAX_LATE_HOURS, staleBefore } from "@/lib/cron/stale";
 
 /**
  * Cron (every 5 min): publishes scheduled social posts that are due. Each post is claimed with a
@@ -20,6 +21,14 @@ export async function GET(request: NextRequest) {
     .update({ status: "failed" })
     .eq("status", "publishing")
     .lt("updated_at", new Date(Date.now() - 30 * 60_000).toISOString());
+  // Posts whose slot passed long ago (cron was late or down) are failed for the seller to
+  // reschedule, never published late on their real accounts.
+  const { error: staleError } = await admin
+    .from("social_posts")
+    .update({ status: "failed" })
+    .eq("status", "scheduled")
+    .lt("scheduled_at", staleBefore(SOCIAL_POST_MAX_LATE_HOURS));
+  if (staleError) logger.warn("cron.social_publish_expire_failed", { error: staleError.message });
   const { data: due, error } = await admin.from("social_posts").select("id, tenant_id").eq("status", "scheduled").lte("scheduled_at", new Date().toISOString()).order("scheduled_at").limit(20);
   if (error) {
     logger.error("cron.social_publish_failed", { error: error.message });

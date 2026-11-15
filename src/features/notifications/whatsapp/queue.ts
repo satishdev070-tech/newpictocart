@@ -8,6 +8,7 @@ import { sendTemplateMessage, type FetchLike } from "./cloud-api";
 import { nextState, type AttemptOutcome } from "./policy";
 import { buildTemplatePayload, type JobParam } from "./templates";
 import { waIdFromE164 } from "./phone";
+import { WHATSAPP_RETRY_MAX_AGE_HOURS, staleBefore } from "@/lib/cron/stale";
 
 /**
  * notification_jobs queue. Background work with the secret-key client (ADR-006: background
@@ -122,6 +123,13 @@ export async function processJob(jobId: string): Promise<JobRow["status"] | null
 /** Cron: claims due jobs and sends them sequentially. */
 export async function processDueJobs(limit = 25): Promise<{ claimed: number; sent: number; retrying: number; failed: number }> {
   const admin = createSupabaseAdminClient();
+  // Too old to still be useful (an "order shipped" message days later only confuses the customer).
+  const { error: expireError } = await admin
+    .from("notification_jobs")
+    .update({ status: "failed", locked_at: null, last_error: `Expired: not sent within ${WHATSAPP_RETRY_MAX_AGE_HOURS} hours, so it was dropped instead of arriving late.` })
+    .eq("status", "queued")
+    .lt("created_at", staleBefore(WHATSAPP_RETRY_MAX_AGE_HOURS));
+  if (expireError) logger.warn("whatsapp_notify.expire_stale_failed", { error: expireError.message });
   const { data, error } = await admin.rpc("svc_claim_notification_jobs", { p_limit: limit });
   if (error) {
     logger.error("whatsapp_notify.claim_failed", { error: error.message });
