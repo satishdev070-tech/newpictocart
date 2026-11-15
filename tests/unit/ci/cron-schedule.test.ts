@@ -69,3 +69,11 @@ describe("deploy-worker.yml active-deployment check", () => {
     expect(truncated).toContain(sha.slice(0, 12));
   });
 });
+
+describe("deploy-worker.yml rollback", () => {
+  const deploy = readFileSync(".github/workflows/deploy-worker.yml", "utf8");
+  it("forces the rollback deployment (DEPLOY_COMMIT_SHA changes every deploy; Cloudflare error 10220 otherwise)", () => {
+    const rollback = deploy.slice(deploy.indexOf("rollback() {"), deploy.indexOf("rolled back to $2"));
+    expect(rollback).toContain('"$api?force=true"');
+  });
+});

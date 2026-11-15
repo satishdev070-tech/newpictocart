@@ -75,6 +75,17 @@ new Worker's first deployment message to 50 chars, so the deployment check now m
 
 Not done in phase 3 (shared-DB guard): no `*.pictocartdev.in` route or wildcard DNS.
 
+**Phase 3 result (2026-11-15):** PR #130 merged (`8058ca3`). `pictocartdev.in` and `www` moved to
+`pictocart-staging` atomically (`override_existing_origin`, no gap). `Deploy staging` passed all five
+checks (deployment, health + role, ready, APP_SECRET self-test, public routes). Production
+(`pictocart.in`, `www`, `*.pictocart.in`) unchanged on `5b33760`.
+
+**Found:** the workflow's automatic rollback never worked. Every deploy writes a new
+`DEPLOY_COMMIT_SHA` secret, and Cloudflare refuses to re-activate an older version after a secret
+changed (error 10220) unless `?force=true`. Proven on staging (rollback without force → 10220; with
+force → served the previous commit; then rolled forward). Fixed in the follow-up PR. Manual
+dashboard rollbacks show the same prompt; confirm it.
+
 **Shared-database guard (must hold until staging has its own DB):** no `*.pictocartdev.in` route or
 wildcard DNS, so real stores are not reachable through staging; staging gets no cron schedule and
 no payment/WhatsApp webhooks.
