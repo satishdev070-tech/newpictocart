@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { OnbProgress, OnbTopBar, OnboardingTheme, onbButton, onbError, onbField, onbHint, onbLabel } from "@/components/onboarding-ui";
 import { cn } from "@/lib/cn";
+import { infoCopy } from "@/features/start/i18n/info-copy";
 
 export type OnboardingLogo = { src: string; width: number | null; height: number | null; name: string };
 
@@ -29,7 +30,8 @@ export const ui = {
 const STEP_NUMBER: Record<string, number> = { "basic-info": 1, theme: 2, services: 3, account: 4 };
 export const INFO_STEP_TOTAL = 4;
 
-export function InformativeShell({ logo, step, children, wide = false }: { logo: OnboardingLogo; step: string | null; children: ReactNode; wide?: boolean }) {
+export function InformativeShell({ logo, step, children, wide = false, locale = "en-IN" }: { logo: OnboardingLogo; step: string | null; children: ReactNode; wide?: boolean; locale?: string }) {
+  const c = infoCopy(locale);
   const n = step ? STEP_NUMBER[step] : undefined;
   return (
     <OnboardingTheme>
@@ -42,7 +44,7 @@ export function InformativeShell({ logo, step, children, wide = false }: { logo:
             <span className="font-brand text-xl font-extrabold tracking-tight text-mk-text">{logo.name}</span>
           )
         }
-        progress={n ? <OnbProgress step={n} total={INFO_STEP_TOTAL} label="Website" /> : undefined}
+        progress={n ? <OnbProgress step={n} total={INFO_STEP_TOTAL} label={c.progressLabel} /> : undefined}
       />
       <main id="main" className={cn("mx-auto w-full min-w-0 px-4 pb-16 sm:px-6", n ? "pt-12 sm:pt-6" : "pt-6", wide ? "max-w-6xl" : "max-w-2xl")}>
         {children}

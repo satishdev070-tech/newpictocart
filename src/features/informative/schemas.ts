@@ -4,7 +4,7 @@ import { bool, intWithDefault, optionalHttpsUrl, optionalInt, optionalRupees, op
 import { INFO_CATEGORY_IDS } from "./categories";
 import { PRICE_TYPES, priceTypeNeedsAmount } from "./pricing";
 import { INFO_SLUG_RE, RESERVED_PAGE_SLUGS } from "./slug";
-import { sectionsSchema } from "./sections";
+import { SECTION_TYPES, sectionsSchema } from "./sections";
 
 /**
  * Input validators for the Informative Website (pure; shared by server actions and client forms).
@@ -61,6 +61,56 @@ export const appearanceSchema = z.object({
   heroImagePath: storagePath,
 });
 export type AppearanceInput = z.infer<typeof appearanceSchema>;
+
+// ---- Customizer ------------------------------------------------------------------------------
+
+/**
+ * Home page layout as the Customizer edits it: order + visibility of the HOME page's sections,
+ * referenced by section id (props stay in info_pages.sections; the server merges them back).
+ * Ids that are not on the page yet add a section of `type`.
+ */
+export const homeLayoutSchema = z
+  .array(z.object({ id: z.string().trim().min(1).max(40).regex(/^[a-zA-Z0-9_-]+$/), type: z.enum(SECTION_TYPES), visible: z.boolean() }))
+  .max(40, "A page can have at most 40 sections")
+  .refine((list) => new Set(list.map((s) => s.id)).size === list.length, "Section ids must be unique");
+export type HomeLayout = z.infer<typeof homeLayoutSchema>;
+
+/**
+ * One Customizer save: presentation columns (as Appearance) + hero text (HOME page hero props) +
+ * the site-wide button label (info_sites.options.ctaLabel). `home` is omitted by members without
+ * content.write (the home page is content).
+ */
+export const customizerSchema = appearanceSchema.extend({
+  ctaLabel: optionalText(40),
+  heroHeading: optionalText(120),
+  heroSubheading: optionalText(240),
+  home: homeLayoutSchema.optional(),
+});
+export type CustomizerInput = z.infer<typeof customizerSchema>;
+
+/** Customizer keys kept in info_sites.options (merged; other option keys are never touched). */
+export const customizeOptionsSchema = z.object({ ctaLabel: z.string().trim().min(1).max(40).optional().catch(undefined) });
+export type CustomizeOptions = { ctaLabel: string | null };
+
+/** Stored options JSON → customizer options (render path: invalid values are ignored, never thrown). */
+export function parseCustomizeOptions(raw: unknown): CustomizeOptions {
+  const o = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  const r = customizeOptionsSchema.safeParse(o);
+  return { ctaLabel: r.success ? (r.data.ctaLabel ?? null) : null };
+}
+
+/**
+ * Shallow-merge `patch` into stored options: keys set to null/undefined are removed, every other
+ * existing key (locale, enquiry settings, …) is kept as is.
+ */
+export function mergeSiteOptions(prev: unknown, patch: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = prev && typeof prev === "object" && !Array.isArray(prev) ? { ...(prev as Record<string, unknown>) } : {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === null || v === undefined) delete out[k];
+    else out[k] = v;
+  }
+  return out;
+}
 
 export const seoSchema = z.object({
   title: optionalText(70),

@@ -4,6 +4,7 @@ import {
   confirmationReady,
   extractFactsFromText,
   factsComplete,
+  fillFactGaps,
   normalizeFacts,
   parseVoiceFactsJson,
   resolveFactLists,
@@ -196,5 +197,53 @@ describe("multi-category voice facts", () => {
       city: null,
       tagline: null,
     });
+  });
+});
+
+describe("spoken extraction (STT drift + Hinglish)", () => {
+  it("keeps the store name as said and normalises jewelry spelling", () => {
+    expect(
+      extractFactsFromText("My store is called Kia Javels. I sell fashion jewelry and bridal sets in Noida."),
+    ).toEqual({ name: "Kia Javels", categories: ["jewellery"], subcategories: ["imitation", "bridal"], city: "Noida" });
+    expect(extractFactsFromText("Our shop's name is Glow Box and we sell skincare")).toMatchObject({
+      name: "Glow Box",
+      categories: ["beauty"],
+      subcategories: ["skincare"],
+    });
+  });
+
+  it("understands common Hinglish and Hindi shop words", () => {
+    expect(extractFactsFromText("Main kapde aur gehne bechti hoon")).toEqual({ categories: ["fashion", "jewellery"] });
+    expect(extractFactsFromText("hum mithai aur namkeen bechte hain")).toEqual({
+      categories: ["sweets"],
+      subcategories: ["mithai", "namkeen"],
+    });
+    expect(extractFactsFromText("हम साड़ी और गहने बेचते हैं")).toEqual({
+      categories: ["fashion", "jewellery"],
+      subcategories: ["ethnic"],
+    });
+    expect(extractFactsFromText("Mere store ka naam Shree Sarees hai")).toEqual({ name: "Shree Sarees" });
+    // "sare" (= all) is not "saree".
+    expect(extractFactsFromText("sare kapde")).toEqual({ categories: ["fashion"] });
+  });
+
+  it("accepts singular / plural forms without inventing product types", () => {
+    expect(extractFactsFromText("We sell toy and gift")).toEqual({ categories: ["toys", "gifts"] });
+    expect(extractFactsFromText("I sell sarees, kurtis and bangles")).toEqual({
+      categories: ["fashion", "jewellery"],
+      subcategories: ["ethnic"],
+    });
+    expect(mapCategoryToIndustry("shoe")).toBe("footwear");
+  });
+
+  it("fills only gaps the model left", () => {
+    const model = mergeFacts(EMPTY_FACTS, { name: "Kia Jewels", categories: ["jewellery"] });
+    const local = extractFactsFromText("My store is called Kia Javels. I sell bridal sets in Noida");
+    const filled = fillFactGaps(model, local);
+    expect(filled.name).toBe("Kia Jewels"); // model value kept
+    expect(filled.categories).toEqual(["jewellery"]);
+    expect(filled.subcategories).toEqual(["bridal"]); // gap filled
+    expect(filled.city).toBe("Noida");
+    expect(fillFactGaps(EMPTY_FACTS, {})).toEqual(EMPTY_FACTS);
   });
 });

@@ -2,6 +2,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// The first dynamic import compiles the auth UI (onboarding kit + fonts); allow for a busy machine.
+vi.setConfig({ testTimeout: 30_000 });
+
 vi.mock("@/lib/observability/logger", () => ({
   logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));

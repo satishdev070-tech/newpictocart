@@ -66,4 +66,13 @@ describe("runTaraTurn", () => {
     expect(out.reply).toBe("Sounds great!");
     expect(out.facts.categories).toEqual(["fashion", "beauty"]);
   });
+
+  it("fills facts the model missed from the seller's own words (Hinglish)", async () => {
+    sarvam.chatTurn.mockResolvedValue({
+      content: JSON.stringify({ reply: "Bahut badhiya! Aap kaun se gehne bechte hain?", facts: { categories: [], subcategories: [] } }),
+    });
+    const out = await runTaraTurn({ locale: "hi-IN", facts: EMPTY_FACTS, text: "Mere store ka naam Kia Javels hai. Main kapde aur gehne bechti hoon" });
+    expect(out.facts.name).toBe("Kia Javels");
+    expect(out.facts.categories).toEqual(["fashion", "jewellery"]);
+  });
 });

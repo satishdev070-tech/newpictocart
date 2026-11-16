@@ -28,10 +28,10 @@ export default async function InformativeDashboardPage({ searchParams }: PagePro
   }
   const ownServices = services.filter((s) => s.isActive && !s.isSample).length;
   const checklist = [
-    { done: Boolean(site.logoPath), label: "Add your logo", href: "/informative/appearance" },
+    { done: Boolean(site.logoPath), label: "Add your logo", href: "/informative/customize" },
     { done: ownServices >= 3, label: `Add 3 or more services (${ownServices}/3)`, href: "/informative/services" },
     { done: Boolean(site.contact.phone && site.contact.email && site.contact.city), label: "Complete your contact info", href: "/informative/business" },
-    { done: Boolean(findInformativeTheme(site.themeId)), label: "Choose a design", href: "/informative/appearance" },
+    { done: Boolean(findInformativeTheme(site.themeId)), label: "Choose a design and customize it", href: "/informative/customize" },
     { done: site.status === "PUBLISHED", label: "Publish your website", href: "#publish" },
   ];
   const doneCount = checklist.filter((c) => c.done).length;

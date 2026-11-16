@@ -16,8 +16,9 @@ export function fileExtension(mime: string): string {
 }
 
 const DEFAULT_MIN_MS = 1_500;
-const DEFAULT_MAX_MS = 14_000;
-const DEFAULT_SILENCE_MS = 1_000;
+const DEFAULT_MAX_MS = 29_000;
+/** ~1.6 s: shorter cut people off mid-sentence (they pause to think). */
+const DEFAULT_SILENCE_MS = 1_600;
 /** RMS-ish threshold on time-domain samples (0–1); above = speech energy. */
 const SPEECH_THRESHOLD = 0.018;
 
@@ -28,14 +29,14 @@ export type UseVoiceRecorderOptions = {
   onError?: (kind: VoiceRecorderError) => void;
   /** Minimum capture length before silence can auto-stop (default ~1.5s). */
   minMs?: number;
-  /** Hard stop (default ~14s). */
+  /** Hard stop (default ~29s; Sarvam STT accepts ≤30s). */
   maxMs?: number;
-  /** Quiet stretch after speech energy that ends the take (default ~1s). */
+  /** Quiet stretch after speech energy that ends the take (default ~1.6s). */
   silenceMs?: number;
 };
 
 /**
- * Push-to-talk recorder: starts on demand, auto-stops after ~1s of silence once speech
+ * Push-to-talk recorder: starts on demand, auto-stops after ~1.6s of silence once speech
  * was heard, with min/max duration guards. Shared by Tara onboarding and /start voice.
  */
 export function useVoiceRecorder(options: UseVoiceRecorderOptions) {

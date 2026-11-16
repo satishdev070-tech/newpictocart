@@ -8,7 +8,7 @@ import { parseInput } from "@/lib/validation/common";
 import { AppError } from "@/lib/errors";
 import { requireUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { rateLimit } from "@/lib/rate-limit";
+import { clientIpKey, rateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/observability/logger";
 import { isSarvamConfigured } from "@/lib/sarvam/client";
 import { parseTaraHistory, runTaraTurn } from "./turn";
@@ -17,6 +17,7 @@ import { assertEmailVerifiedForOnboarding } from "../email-gate";
 import { parseVoiceFactsJson } from "./facts";
 import { voiceTurnInputSchema } from "./schemas";
 import type { TaraTurnOutput } from "./turn";
+import { taraSpokenGreeting, type TaraSpokenLine } from "./greet";
 
 /**
  * One Tara turn as the browser sees it. `transcript` / `userText` = what the seller said
@@ -54,6 +55,26 @@ export async function voiceTurnAction(_prev: ActionResult<VoiceTurnData> | null,
       audio,
       history: parseTaraHistory(raw.historyJson ?? input.historyJson),
     });
+  });
+}
+
+const greetingSchema = z.object({
+  locale: z.string().refine(isSarvamLocaleCode, "Choose a language from the list"),
+  kind: z.enum(["welcome", "resume"]).default("welcome"),
+});
+
+/**
+ * Tara's spoken opener (text + Bulbul audio) for the hands-free call. Pre-account like
+ * `/start`'s voice turn, so it is rate-limited by client IP; audio is cached per isolate.
+ */
+export async function taraGreetingAction(
+  _prev: ActionResult<TaraSpokenLine> | null,
+  fd: FormData,
+): Promise<ActionResult<TaraSpokenLine>> {
+  return runAction("onboarding.voiceGreeting", async () => {
+    await rateLimit("tara-greeting", await clientIpKey(), 30, 3600);
+    const input = parseInput(greetingSchema, formToObject(fd));
+    return taraSpokenGreeting(input.locale as SarvamLocaleCode, input.kind);
   });
 }
 

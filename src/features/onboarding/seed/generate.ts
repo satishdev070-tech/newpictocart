@@ -178,7 +178,9 @@ async function fallbackPlan(args: {
     industry: args.industry,
     subcategory: args.subcategory,
     niche: args.niche,
-    brief: args.brief,
+    // The brief is machine-built instructions for the AI ("Site mode: …", "Voice session facts: …").
+    // It must never become customer-facing copy, so the fallback plan doesn't use it.
+    brief: undefined,
   });
   return maybeLocalize(plan, args.locale);
 }
@@ -209,6 +211,9 @@ export async function generateReadyStorePlan(args: {
       ],
       languageCode: args.locale ?? "en-IN",
       temperature: 0.4,
+      // sarvam-105b-conversations caps output at 8192; without a limit the plan JSON was truncated
+      // and every store fell back to the built-in plan (verified 2026-11-16: complete in ~7 s).
+      maxTokens: 8192,
     });
     const raw = extractJson(turn.content);
     const plan = validateAiPlan(raw);

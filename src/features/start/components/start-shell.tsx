@@ -3,7 +3,7 @@
 import { Mic, MicOff } from "lucide-react";
 import { OnbProgress, OnbTopBar, OnboardingTheme } from "@/components/onboarding-ui";
 import { cn } from "@/lib/cn";
-import { SARVAM_LOCALES, type SarvamLocaleCode } from "@/lib/sarvam/locales";
+import { getSarvamLocale, type SarvamLocale, type SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { progressFor } from "../flow";
 import type { StartDraft, StartScreen } from "../draft/schema";
 import { startCopy } from "../copy";
@@ -11,7 +11,7 @@ import { START_UI_LOCALES } from "../supported-locales";
 
 export type StartLogo = { src: string; width: number | null; height: number | null; name: string };
 
-const UI_LOCALES = SARVAM_LOCALES.filter((l) => (START_UI_LOCALES as readonly string[]).includes(l.code));
+const UI_LOCALES: readonly SarvamLocale[] = START_UI_LOCALES.map((code) => getSarvamLocale(code)).filter((l): l is SarvamLocale => Boolean(l));
 
 /** Dark onboarding frame for /start/*: logo, "Online store" progress, sign-in link, voice toggle, language menu. */
 export function StartShell({
@@ -92,8 +92,8 @@ export function StartShell({
                 className="min-h-10 cursor-pointer appearance-none rounded-full border border-mk-line-strong bg-mk-elev-1 py-0 pl-3 pr-8 text-sm font-medium text-mk-text transition-colors hover:border-mk-text/40 focus-visible:outline-2 focus-visible:outline-mk-accent"
               >
                 {UI_LOCALES.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.nativeLabel}
+                  <option key={l.code} value={l.code} lang={l.code.slice(0, 2)}>
+                    {l.nativeLabel === l.englishName ? l.nativeLabel : `${l.nativeLabel} · ${l.englishName}`}
                   </option>
                 ))}
               </select>

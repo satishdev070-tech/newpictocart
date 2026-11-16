@@ -46,7 +46,22 @@ export function ActionForm<T>({
 }
 
 /** Image picker: uploads to tenant/<id>/informative/ and keeps the storage path in a hidden input. */
-export function ImageField({ name, label, initialPath, initialUrl, hint }: { name: string; label: string; initialPath?: string | null; initialUrl?: string | null; hint?: string }) {
+export function ImageField({
+  name,
+  label,
+  initialPath,
+  initialUrl,
+  hint,
+  onChange,
+}: {
+  name: string;
+  label: string;
+  initialPath?: string | null;
+  initialUrl?: string | null;
+  hint?: string;
+  /** Called after an upload or removal (the Customizer keeps the path in its own state). */
+  onChange?: (path: string, url: string | null) => void;
+}) {
   const [path, setPath] = useState(initialPath ?? "");
   const [url, setUrl] = useState(initialUrl ?? null);
   const [busy, setBusy] = useState(false);
@@ -65,6 +80,7 @@ export function ImageField({ name, label, initialPath, initialUrl, hint }: { nam
     if (r.ok) {
       setPath(r.data.path);
       setUrl(r.data.url);
+      onChange?.(r.data.path, r.data.url);
     } else setError(r.error.fieldErrors?.file?.[0] ?? r.error.message);
     if (input.current) input.current.value = "";
   }
@@ -86,7 +102,7 @@ export function ImageField({ name, label, initialPath, initialUrl, hint }: { nam
         )}
         <input ref={input} id={id} type="file" accept="image/png,image/jpeg,image/webp,image/avif,image/gif" onChange={(e) => upload(e.target.files?.[0])} disabled={busy} className="text-small" aria-describedby={`${id}-hint`} />
         {path ? (
-          <Button type="button" variant="ghost" size="sm" onClick={() => { setPath(""); setUrl(null); }}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => { setPath(""); setUrl(null); onChange?.("", null); }}>
             Remove
           </Button>
         ) : null}

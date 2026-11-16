@@ -267,7 +267,7 @@ describe("store snapshot and wallet", () => {
       categories: ["Kurtas", "Sarees"],
       plan: { planName: "Starter", status: "trial", trialEndsAt: "2026-11-15T00:00:00Z" },
     });
-    expect(s).toContain("revenue 250000 paise (12% vs previous 30 days)");
+    expect(s).toContain("revenue ₹2,500 (12% vs previous 30 days)");
     expect(s).toContain("Block print kurta — 3 sold");
     expect(s).toContain("Block print kurta (M): 1 left");
     expect(s).toContain("#1001");
@@ -275,7 +275,7 @@ describe("store snapshot and wallet", () => {
     expect(s).toContain("Fulfilment queue: 1");
     expect(s).toContain("Categories (2): Kurtas; Sarees");
     expect(s).toContain("Plan: Starter, status trial, trial ends 2026-11-15");
-    expect(s).toContain("Saree [draft], price not set paise, stock not tracked");
+    expect(s).toContain("Saree [draft], price not set, stock not tracked");
     expect(s).toContain("Setup steps still to do: Add a logo");
     expect(s).not.toContain("Add a product;");
     expect(coachMetrics({ ...home, sales: null })).toMatchObject({ revenueMinor30d: null, orders30d: null, allProducts: 7 });

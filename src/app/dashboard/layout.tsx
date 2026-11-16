@@ -20,15 +20,13 @@ import { getI18n } from "@/lib/i18n/server";
 import { localizeNav } from "@/components/dashboard/nav-i18n";
 import { LanguageSwitcher } from "@/components/dashboard/language-switcher";
 import { TourLauncher } from "@/features/dashboard-ui/tours/tour-launcher";
-import { StoreAgentLauncher } from "@/features/seller-ai/components/store-agent-launcher";
+import { StoreCopilot } from "@/features/seller-ai/components/copilot/store-copilot";
 import { SellerTopbarChrome, SellerTopbarChromeFallback, SellerTrialBanner } from "@/features/dashboard-ui/shell-chrome";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
 import { accountAccessFor } from "@/lib/auth/landing";
 import { canSwitchPanels } from "@/lib/auth/role-routing";
 import { SUPPORT_LOGIN_COOKIE, readSupportLogin } from "@/features/platform/server/store-admin";
 import { endSupportLoginAction } from "@/features/platform/store-admin-actions";
-/** Fallback when catalog is not loaded on the layout critical path (matches seller-ai actions). */
-const FAQ_APPLY_CREDITS_FALLBACK = 5;
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: { default: "Dashboard", template: "%s · Dashboard" }, robots: { index: false, follow: false }, ...(await platformIconMetadata()) };
@@ -224,11 +222,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     <AppShell groups={groups} homeHref="/dashboard" brand={brand} brandMark={brandMark} sidebarFooter={sidebarFooter} topbarEnd={topbarEnd} banner={banner} storageKey="paliya-seller-sidebar" lang={locale} text={shellText}>
       {children}
       {ctx.permissions.has("analytics.read") ? (
-        <StoreAgentLauncher
-          text={m.ai.agent}
-          canApplyFaqs={ctx.permissions.has("content.write")}
-          faqApplyCredits={FAQ_APPLY_CREDITS_FALLBACK}
-        />
+        <StoreCopilot panelLanguage={locale} />
       ) : null}
     </AppShell>
   );

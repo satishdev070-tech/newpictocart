@@ -4,6 +4,7 @@ import { cachedStorefront, storefrontTag } from "@/lib/cache/storefront";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/observability/logger";
+import { parseCustomizeOptions, type CustomizeOptions } from "../schemas";
 import { toFaq, toGalleryItem, toPage, toService, toSite, toTeamMember, toTestimonial, type InfoFaq, type InfoGalleryItem, type InfoPage, type InfoService, type InfoSite, type InfoTeamMember, type InfoTestimonial } from "../model";
 
 /**
@@ -20,6 +21,8 @@ export type SiteBundle = {
   team: InfoTeamMember[];
   testimonials: InfoTestimonial[];
   faqs: InfoFaq[];
+  /** Customizer keys of info_sites.options that InfoSite doesn't model (button label). */
+  customize: CustomizeOptions;
 };
 
 type Client = ReturnType<typeof createSupabasePublicClient> | Awaited<ReturnType<typeof createSupabaseServerClient>>;
@@ -50,6 +53,7 @@ async function load(client: Client, tenantId: string, requirePublished: boolean)
     team: (team.data ?? []).map(toTeamMember),
     testimonials: (testimonials.data ?? []).map(toTestimonial),
     faqs: (faqs.data ?? []).map(toFaq),
+    customize: parseCustomizeOptions(site.data.options),
   };
 }
 

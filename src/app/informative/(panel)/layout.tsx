@@ -8,7 +8,7 @@ import { SignOutButton } from "@/components/app-shell/sign-out-button";
 import { AppearanceQuickToggle } from "@/components/ui/appearance-toggle";
 import { switchTenantAction } from "@/features/tenants/actions";
 import { informativeNavFor } from "@/features/informative/panel/nav";
-import { InformativeAssistant } from "@/features/informative/ai/assistant-panel";
+import { InformativeCopilot } from "@/features/informative/ai/copilot";
 import { requireInformativeTenant } from "@/features/informative/server/context";
 import { countNewEnquiries } from "@/features/informative/server/repo";
 import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
@@ -114,7 +114,7 @@ export default async function InformativePanelLayout({ children }: LayoutProps<"
   return (
     <AppShell groups={informativeNavFor(ctx.permissions)} homeHref="/informative/dashboard" brand={brand} brandMark={brandMark} sidebarFooter={sidebarFooter} topbarEnd={topbarEnd} banner={banner} storageKey="paliya-informative-sidebar">
       {children}
-      <InformativeAssistant canWrite={ctx.permissions.has("content.write") && ctx.permissions.has("settings.write")} />
+      <InformativeCopilot canWrite={ctx.permissions.has("content.write")} canRebuild={ctx.permissions.has("settings.write")} />
     </AppShell>
   );
 }

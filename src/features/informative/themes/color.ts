@@ -72,3 +72,35 @@ export function ensureFill(fill: string, ratio = AA_TEXT, dark = "#111111", ligh
   }
   return "#000000";
 }
+
+export type ContrastAdvice = {
+  /** Contrast of white text on the colour. */
+  withLight: number;
+  /** Contrast of dark (#111111) text on the colour. */
+  withDark: number;
+  /** The text colour the site will put on buttons / bands of this colour. */
+  bestText: "light" | "dark";
+  /** Some text colour reaches AA (4.5:1) on it as is. */
+  ok: boolean;
+  /** The fill the site actually renders (darkened just enough when `ok` is false). */
+  rendered: string;
+  /** Readable as link / heading text on the page background as is. */
+  okAsText: boolean;
+};
+
+/**
+ * Customizer contrast check for a brand colour used as a fill (buttons, bands) with white or dark
+ * text, and as text on the design's background. Mirrors what resolveColors() will do on the site.
+ */
+export function contrastAdvice(color: string, background = "#ffffff", dark = "#111111", light = "#ffffff"): ContrastAdvice {
+  const withLight = contrastRatio(light, color);
+  const withDark = contrastRatio(dark, color);
+  return {
+    withLight,
+    withDark,
+    bestText: withDark >= withLight ? "dark" : "light",
+    ok: Math.max(withLight, withDark) >= AA_TEXT,
+    rendered: ensureFill(color, AA_TEXT, dark, light),
+    okAsText: contrastRatio(color, background) >= AA_TEXT,
+  };
+}

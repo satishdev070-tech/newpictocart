@@ -35,6 +35,10 @@ export type ChatTurnInput = {
    * English (or nearest chat locale) then translated back for the seller.
    */
   languageCode?: SarvamLocaleCode;
+  /** Cap on generated tokens (long JSON like the seed plan truncates without it). */
+  maxTokens?: number;
+  /** Reasoning depth on models that support it; omitted = provider default. */
+  reasoningEffort?: "low" | "high" | "max";
 };
 
 export type ChatTurnResult = {
@@ -116,6 +120,8 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
       temperature: input.temperature ?? 0.4,
       messages: input.messages as SarvamAI.ChatCompletionRequestMessage[],
       ...(input.responseFormat === "json" ? { response_format: { type: "json_object" as const } } : {}),
+      ...(input.maxTokens ? { max_tokens: input.maxTokens } : {}),
+      ...(input.reasoningEffort ? { reasoning_effort: input.reasoningEffort } : {}),
     });
     const raw = res.choices?.[0]?.message?.content;
     let text = typeof raw === "string" ? raw.trim() : "";
