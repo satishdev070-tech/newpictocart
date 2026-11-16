@@ -15,7 +15,7 @@ const MERCHANT_POINTS = [
 export function MerchantAside({ mode }: { mode: "login" | "register" }) {
   return (
     <>
-      <BrandLogo tone="light" />
+      <BrandLogo tone="light" chip />
       <div className="max-w-xl">
         <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-mk-line-strong bg-white/[0.03] px-3 py-1 font-mk-mono text-[11px] font-medium uppercase tracking-[0.16em] text-mk-muted">
           <span aria-hidden className="size-1.5 rounded-full bg-mk-accent" />
@@ -64,7 +64,7 @@ const CONSOLE_POINTS = [
 export function ConsoleAside() {
   return (
     <>
-      <BrandLogo tone="light" />
+      <BrandLogo tone="light" chip />
       <div className="max-w-xl">
         <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-mk-line-strong bg-white/[0.03] px-3 py-1 font-mk-mono text-[11px] font-medium uppercase tracking-[0.16em] text-mk-muted">
           <span aria-hidden className="size-1.5 rounded-full bg-mk-accent" />

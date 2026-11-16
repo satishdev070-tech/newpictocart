@@ -15,13 +15,24 @@ const IMG_SIZE = {
   compact: "h-10 max-w-[220px]",
 } as const;
 
-export async function BrandLogo({ className, tone = "dark", size = "compact" }: { className?: string; tone?: "dark" | "light"; size?: keyof typeof IMG_SIZE }) {
+export async function BrandLogo({
+  className,
+  tone = "dark",
+  size = "compact",
+  chip: forceChip = false,
+}: {
+  className?: string;
+  tone?: "dark" | "light";
+  size?: keyof typeof IMG_SIZE;
+  /** Always sit the logo on a white chip (dark auth/onboarding pages: uploaded logos have dark lettering too). */
+  chip?: boolean;
+}) {
   const config = await getPublicPlatformConfig();
   const uploaded = brandImageView(tone === "light" ? (config.footerLogo ?? config.headerLogo) : config.headerLogo);
   const logo = uploaded ?? PLATFORM_LOGO;
   // The built-in logo has navy lettering, so on dark backgrounds it sits on a white chip
   // (as on the earlier pictocart.in). An uploaded footer logo is shown as-is.
-  const chip = tone === "light" && !uploaded && logo !== null;
+  const chip = logo !== null && (forceChip || (tone === "light" && !uploaded));
   return (
     <Link
       href="/"

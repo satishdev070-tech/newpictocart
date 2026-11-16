@@ -42,6 +42,8 @@ on:
       GOOGLE_IDENTITY_SIGNIN: { required: false }
       # Informative Website product flag: off | internal | all (docs/informative/ROLLOUT.md). Unset = off.
       FEATURE_INFORMATIVE_WEBSITE: { required: false }
+      # Sarvam AI (Tara voice onboarding + AI store seed). Unset = voice hidden, seed uses the built-in plan.
+      SARVAM_API_KEY: { required: false }
       # Staging only: the production Supabase URL (public), to refuse a staging deploy that points
       # at the production database unless allow_shared_database is set.
       PRODUCTION_SUPABASE_URL: { required: false }
@@ -127,6 +129,7 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           GOOGLE_IDENTITY_SIGNIN: ${{ secrets.GOOGLE_IDENTITY_SIGNIN }}
           FEATURE_INFORMATIVE_WEBSITE: ${{ secrets.FEATURE_INFORMATIVE_WEBSITE }}
+          SARVAM_API_KEY: ${{ secrets.SARVAM_API_KEY }}
           ROOT_DOMAIN: ${{ inputs.root_domain }}
           PLATFORM_URL: ${{ inputs.platform_url }}
           WORKERS_DEV_HOST: ${{ inputs.workers_dev_host }}
@@ -176,6 +179,10 @@ jobs:
           informative = opt("FEATURE_INFORMATIVE_WEBSITE")
           if informative:
               payload["FEATURE_INFORMATIVE_WEBSITE"] = informative
+          # Same reason: without this the deploy wipes a dashboard-set Sarvam key (Tara voice off).
+          sarvam = opt("SARVAM_API_KEY")
+          if sarvam:
+              payload["SARVAM_API_KEY"] = sarvam
           print(json.dumps(payload, separators=(",", ":")))
           PY
           extra=()
