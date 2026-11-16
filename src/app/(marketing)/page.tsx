@@ -7,6 +7,8 @@ import { getLandingContent } from "@/features/marketing-site/server/landing";
 import { findTheme, SHOWCASE_INDUSTRIES, showcaseThemes } from "@/features/marketing-site/themes";
 import { ecommerceMarketplaceThemes } from "@/features/theme/marketplace/catalog";
 import { themeCardImage } from "@/features/theme/layouts/imagery";
+import { heroThemesForWords } from "@/features/marketing-site/hero-themes";
+import { hasThemeShots } from "@/features/marketing-site/theme-shots";
 import { stripHighlights, themesShown, type SectionKey } from "@/features/marketing-site/landing";
 import {
   Features,
@@ -51,8 +53,13 @@ export default async function HomePage() {
   // Hero fallback slideshow (when the CMS has no slides or image): the hero theme, then the showcase.
   const heroThemes = [...(hero ? [hero] : []), ...themes.filter((t) => t.key !== hero?.key)].slice(0, 4);
 
+  // Hero: one theme (with screenshots) per rotating headline word, matched to the word's business.
+  const words = content.hero.rotatingWords.filter(Boolean);
+  const paired = heroThemesForWords(words, ecommerceMarketplaceThemes(), themes, (t) => hasThemeShots(t.key));
+  const wordThemes = paired.every((t) => t !== null) ? (paired as NonNullable<(typeof paired)[number]>[]) : [];
+
   const sections: Record<SectionKey, () => ReactNode> = {
-    hero: () => <LandingHero content={content.hero} themes={heroThemes} tokens={tokens} />,
+    hero: () => <LandingHero content={content.hero} themes={heroThemes} wordThemes={wordThemes} tokens={tokens} />,
     trust: () => <TrustStrip content={content.trust} />,
     solutions: () => <Solutions content={content.solutions} />,
     steps: () => <Steps content={content.steps} />,
