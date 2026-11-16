@@ -49,7 +49,7 @@ export function AuthSplit({ variant, aside, children, back }: { variant: "mercha
           <main className="flex min-w-0 flex-col px-4 py-4 sm:px-10 sm:py-6 lg:px-12 xl:px-16">
             <div className="flex min-h-10 items-center justify-between gap-4">
               <span className="lg:hidden">
-                <BrandLogo tone="light" />
+                <BrandLogo tone="light" chip />
               </span>
               {back ? (
                 <Link href={back.href} className="inline-flex items-center gap-1.5 text-sm text-mk-muted transition-colors hover:text-mk-text">
