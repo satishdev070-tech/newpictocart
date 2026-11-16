@@ -14,7 +14,7 @@ import { publicEnv } from "@/lib/env/public";
 import { googleSignInAvailable } from "@/features/auth/google";
 import { isSarvamConfigured } from "@/lib/sarvam/client";
 import type { StartStepId } from "./steps";
-// INFORMATIVE: branch point — see docs/informative/PLAN.md (Back from the first step returns to Step 0)
+// INFORMATIVE: branch point — /start/build (Online Store | Informative) exists only when allowed.
 import { informativeOnboardingAllowed } from "@/features/informative/server/onboarding-gate";
 
 export type StartPageSearchParams = {
@@ -83,8 +83,8 @@ export async function StartPageContent({
   const rootDomain = publicEnv().NEXT_PUBLIC_PLATFORM_ROOT_DOMAIN;
   const googleAvailable = await googleSignInAvailable("sellers");
   const voiceReady = isSarvamConfigured();
-  // INFORMATIVE: branch point. Only when Step 0 exists; flag off → undefined → no Back button (as today).
-  const typeSelectorHref = (await informativeOnboardingAllowed()) ? "/start/build" : undefined;
+  // INFORMATIVE: branch point. Gate off → no build step (lang → path).
+  const buildStep = await informativeOnboardingAllowed();
 
   return (
     <StartJourney
@@ -97,7 +97,7 @@ export async function StartPageContent({
       googleAvailable={googleAvailable}
       voiceReady={voiceReady}
       initialStep={initialStep}
-      typeSelectorHref={typeSelectorHref}
+      buildStep={buildStep}
     />
   );
 }

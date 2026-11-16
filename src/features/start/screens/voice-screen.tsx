@@ -1,13 +1,64 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, PhoneOff } from "lucide-react";
+import { OnbCard, OnbSub, onbButton } from "@/components/onboarding-ui";
 import { cn } from "@/lib/cn";
+import { isIndustry } from "@/features/stores/industries";
 import { startVoiceTurnAction } from "../actions";
-import { startCopy } from "../copy";
 import type { StartDraft, StartVoiceTurn } from "../draft/schema";
-import { TaraOrb } from "../components/tara-orb";
-import { factsComplete, type VoiceFacts } from "@/features/onboarding/voice/facts";
+import {
+  confirmationReady,
+  normalizeFacts,
+  toConfirmedFacts,
+  type ConfirmedStoreFacts,
+  type VoiceFacts,
+} from "@/features/onboarding/voice/facts";
+import {
+  entriesFromTurns,
+  entriesToHistory,
+  formatCallClock,
+  makeEntry,
+  turnToEntries,
+  type TranscriptEntry,
+} from "@/features/onboarding/voice/transcript";
 import { fileExtension, useVoiceRecorder } from "@/features/onboarding/voice/use-voice-recorder";
+import { CallPanel, MicButton, callStateLabel, type CallState } from "../components/voice/call-panel";
+import { ConfirmCard } from "../components/voice/confirm-card";
+import { TranscriptPanel } from "../components/voice/transcript-panel";
+import { voiceUiCopy } from "../components/voice/voice-copy";
+
+export type VoiceScreenProps = {
+  draft: StartDraft;
+  /** Sarvam configured on this platform. False → quiz / manual fallback only. */
+  voiceReady: boolean;
+  /** Shell "Voice on" toggle: speak Tara's replies aloud (TTS) when true. */
+  voiceEnabled: boolean;
+  onBack: () => void;
+  /** Every turn: latest facts, done flag and the recent conversation (persist to the draft). */
+  onFacts: (facts: VoiceFacts, done: boolean, turns: StartVoiceTurn[]) => void;
+  /** Legacy completion; used on confirm only when `onConfirm` isn't passed. */
+  onDone: () => void;
+  onManual: () => void;
+  onQuiz: () => void;
+  /** Seller tapped "Looks good — continue" on Tara's summary card. */
+  onConfirm?: (facts: ConfirmedStoreFacts) => void;
+};
+
+function initialFacts(draft: StartDraft): VoiceFacts {
+  const f = draft.voice.facts as StartDraft["voice"]["facts"] & { categories?: string[]; subcategories?: string[] };
+  return normalizeFacts({
+    name: f.name,
+    category: f.category && isIndustry(f.category) ? f.category : null,
+    subcategory: f.subcategory,
+    productsServices: f.productsServices,
+    siteMode: f.siteMode,
+    tagline: f.tagline,
+    city: f.city,
+    categories: f.categories ?? [],
+    subcategories: f.subcategories ?? [],
+  });
+}
 
 export function VoiceScreen({
   draft,
@@ -18,201 +69,294 @@ export function VoiceScreen({
   onDone,
   onManual,
   onQuiz,
-}: {
-  draft: StartDraft;
-  voiceReady: boolean;
-  voiceEnabled: boolean;
-  onBack: () => void;
-  onFacts: (facts: VoiceFacts, done: boolean, turns: StartVoiceTurn[]) => void;
-  onDone: () => void;
-  onManual: () => void;
-  onQuiz: () => void;
-}) {
-  const c = startCopy(draft.locale);
-  const [text, setText] = useState("");
+  onConfirm,
+}: VoiceScreenProps) {
+  const t = voiceUiCopy(draft.locale);
+  const [facts, setFacts] = useState<VoiceFacts>(() => initialFacts(draft));
+  const [entries, setEntries] = useState<TranscriptEntry[]>(() => {
+    const saved = entriesFromTurns(draft.voice.turns ?? []);
+    return saved.length ? saved : [makeEntry("tara", voiceUiCopy(draft.locale).greeting, null)];
+  });
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const turns = draft.voice.turns;
+  const [speaking, setSpeaking] = useState(false);
+  const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
+  const [endedElapsed, setEndedElapsed] = useState<number | null>(null);
+  const [now, setNow] = useState(0);
+  const [micBlocked, setMicBlocked] = useState(false);
+  const [micNotice, setMicNotice] = useState<string | null>(null);
+  const [typingOpen, setTypingOpen] = useState(false);
+  /** Transcript length when the seller tapped "Keep talking" (card hides until the next turn). */
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
 
-  const playSpeech = useCallback((audioBase64: string, mimeType: string) => {
-    try {
-      const bin = atob(audioBase64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const blob = new Blob([bytes], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const audioEl = new Audio(url);
-      audioEl.play().finally(() => URL.revokeObjectURL(url));
-    } catch {
-      /* playback is optional; the written reply stays on screen */
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+  const discardRecordingRef = useRef(false);
+
+  const callOn = callStartedAt !== null;
+
+  useEffect(() => {
+    if (callStartedAt === null) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [callStartedAt]);
+
+  const stopSpeech = useCallback(() => {
+    const el = audioRef.current;
+    if (el) {
+      el.pause();
+      el.src = "";
     }
+    audioRef.current = null;
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    audioUrlRef.current = null;
+    setSpeaking(false);
   }, []);
 
-  const submitTurn = useCallback(
-    async (audio?: Blob | null) => {
-      const typed = text.trim();
-      if (!typed && (!audio || audio.size === 0)) {
-        setError(c.voice.typePlaceholder);
-        return;
+  useEffect(() => stopSpeech, [stopSpeech]);
+
+  const playSpeech = useCallback(
+    (audioBase64: string, mimeType: string) => {
+      stopSpeech();
+      try {
+        const bin = atob(audioBase64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+        const el = new Audio(url);
+        audioRef.current = el;
+        audioUrlRef.current = url;
+        el.onended = stopSpeech;
+        el.onerror = stopSpeech;
+        setSpeaking(true);
+        el.play().catch(stopSpeech);
+      } catch {
+        stopSpeech(); // playback is optional; the written reply stays on screen
       }
+    },
+    [stopSpeech],
+  );
+
+  const runTurn = useCallback(
+    async (payload: { text?: string; audio?: Blob }) => {
       const fd = new FormData();
       fd.set("locale", draft.locale);
-      fd.set("factsJson", JSON.stringify(draft.voice.facts));
-      fd.set("historyJson", JSON.stringify(turns));
-      if (typed) fd.set("text", typed);
-      if (audio && audio.size > 0) {
-        const mime = audio.type || "audio/webm";
-        fd.set("audio", audio, `turn.${fileExtension(mime)}`);
+      fd.set("factsJson", JSON.stringify(facts));
+      fd.set("historyJson", JSON.stringify(entriesToHistory(entries)));
+      if (payload.text) fd.set("text", payload.text);
+      if (payload.audio && payload.audio.size > 0) {
+        const mime = payload.audio.type || "audio/webm";
+        fd.set("audio", payload.audio, `turn.${fileExtension(mime)}`);
       }
-      setError(null);
       setBusy(true);
       try {
         const result = await startVoiceTurnAction(null, fd);
-        if (result?.ok && result.data) {
-          const next: StartVoiceTurn[] = [
-            ...turns.slice(-10).map((turn) => ({
-              role: turn.role === "tara" ? ("tara" as const) : ("seller" as const),
-              text: turn.text.slice(0, 800),
-            })),
-            { role: "seller", text: result.data.transcript.slice(0, 800) },
-            { role: "tara", text: result.data.reply.slice(0, 800) },
-          ];
-          onFacts(result.data.facts, result.data.done, next);
-          setText("");
-          if (result.data.audioBase64 && result.data.audioMimeType) {
-            playSpeech(result.data.audioBase64, result.data.audioMimeType);
-          }
-        } else if (result && !result.ok) {
-          setError(result.error.fieldErrors?._form?.[0] ?? result.error.message);
+        if (!result) return;
+        if (!result.ok) {
+          const msg = result.error.fieldErrors?._form?.[0] ?? result.error.message;
+          setEntries((prev) => [...prev, makeEntry("system", msg)]);
+          return;
         }
+        const data = result.data;
+        const added = turnToEntries(data, Date.now(), t.didntCatch);
+        const nextEntries = [...entries, ...added];
+        setEntries(nextEntries);
+        if (data.heard === false) return;
+        const nextFacts = normalizeFacts(data.facts);
+        setFacts(nextFacts);
+        onFacts(nextFacts, data.done, entriesToHistory(nextEntries));
+        if (voiceEnabled && data.audioBase64 && data.audioMimeType) playSpeech(data.audioBase64, data.audioMimeType);
+      } catch {
+        setEntries((prev) => [...prev, makeEntry("system", t.didntCatch)]);
       } finally {
         setBusy(false);
       }
     },
-    [c.voice.typePlaceholder, draft.locale, draft.voice.facts, onFacts, playSpeech, text, turns],
+    [draft.locale, entries, facts, onFacts, playSpeech, t.didntCatch, voiceEnabled],
   );
 
-  const { recording, toggle } = useVoiceRecorder({
+  const openTyping = useCallback(() => {
+    setTypingOpen(true);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }, []);
+
+  const { recording, startRecording, stopRecording } = useVoiceRecorder({
     onRecordingComplete: (blob) => {
-      void submitTurn(blob);
+      if (discardRecordingRef.current) {
+        discardRecordingRef.current = false;
+        return;
+      }
+      void runTurn({ audio: blob });
     },
     onError: (kind) => {
-      setError(kind === "denied" ? c.voice.micDenied : c.voice.micUnsupported);
+      if (kind === "unknown") {
+        setMicNotice(t.micUnsupported);
+      } else {
+        setMicBlocked(true);
+        setMicNotice(kind === "denied" ? t.micBlocked : t.micUnsupported);
+      }
+      openTyping();
     },
   });
 
-  if (!voiceReady) {
-    return (
-      <section className="mx-auto flex max-w-lg flex-col items-center gap-6 text-center">
-        <p className="text-[#5E5568]">{c.voice.noVoice}</p>
-        <button type="button" onClick={onManual} className="rounded-full bg-[#F97316] px-6 py-3 font-semibold text-white">
-          {c.voice.continueManual}
-        </button>
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-full border border-white/90 bg-white/60 px-5 py-3 text-sm font-medium text-[#5E5568]"
-        >
-          ← {c.back}
-        </button>
-      </section>
+  const state: CallState = recording ? "listening" : busy ? "thinking" : speaking ? "speaking" : "ready";
+  const elapsedMs = callStartedAt !== null ? Math.max(0, (now || callStartedAt) - callStartedAt) : endedElapsed;
+
+  function pressMic() {
+    if (micBlocked || busy) return;
+    if (recording) {
+      stopRecording();
+      return;
+    }
+    if (speaking) stopSpeech();
+    if (callStartedAt === null) {
+      const start = Date.now();
+      setCallStartedAt(start);
+      setNow(start);
+      setEndedElapsed(null);
+    }
+    discardRecordingRef.current = false;
+    void startRecording();
+  }
+
+  function endCall() {
+    if (recording) {
+      discardRecordingRef.current = true;
+      stopRecording();
+    }
+    stopSpeech();
+    if (callStartedAt !== null) setEndedElapsed(Math.max(0, Date.now() - callStartedAt));
+    setCallStartedAt(null);
+  }
+
+  function sendText(text: string) {
+    if (callStartedAt === null) {
+      const start = Date.now();
+      setCallStartedAt(start);
+      setNow(start);
+      setEndedElapsed(null);
+    }
+    void runTurn({ text });
+  }
+
+  function clearTranscript() {
+    const fresh = [makeEntry("tara", t.greeting)];
+    setEntries(fresh);
+    setDismissedAt(null);
+    onFacts(facts, confirmationReady(facts), []);
+  }
+
+  function editFacts(patch: Partial<VoiceFacts>) {
+    setFacts((f) =>
+      normalizeFacts({
+        ...f,
+        ...patch,
+        // Lists are the source of truth for chips; clear the mirrors so normalize re-derives them.
+        ...(patch.categories ? { category: null } : {}),
+        ...(patch.subcategories ? { subcategory: null } : {}),
+      }),
     );
   }
 
-  const facts = draft.voice.facts;
+  function confirm() {
+    const confirmed = toConfirmedFacts(facts);
+    if (confirmed.name.length < 2 || !confirmed.categories.length || !confirmed.subcategories.length) return;
+    endCall();
+    const final = normalizeFacts({ ...facts, name: confirmed.name, city: confirmed.city });
+    onFacts(final, true, entriesToHistory(entries));
+    if (onConfirm) onConfirm(confirmed);
+    else onDone();
+  }
+
+  if (!voiceReady) {
+    return (
+      <OnbCard className="mx-auto flex max-w-lg flex-col items-center gap-5 text-center">
+        <OnbSub>{t.noVoice}</OnbSub>
+        <button type="button" onClick={onQuiz} className={onbButton.primary}>
+          {t.useQuiz}
+        </button>
+        <button type="button" onClick={onManual} className={onbButton.secondary}>
+          {t.manual}
+        </button>
+        <button type="button" onClick={onBack} className={onbButton.ghost}>
+          <ArrowLeft className="size-4" aria-hidden />
+          {t.back}
+        </button>
+      </OnbCard>
+    );
+  }
+
+  const showConfirm = confirmationReady(facts) && (dismissedAt === null || entries.length > dismissedAt);
 
   return (
-    <section className="grid gap-8 lg:grid-cols-[1fr_1.2fr]">
-      <div className="space-y-3">
-        <p className="text-xs font-semibold tracking-wide text-[#6B6275]">{c.voice.understood}</p>
-        <div className="max-h-80 space-y-2 overflow-y-auto rounded-2xl border border-white/90 bg-white/70 p-4 text-sm">
-          {turns.length ? (
-            turns.map((turn, i) => (
-              <p key={`${turn.role}-${i}`} className={turn.role === "tara" ? "text-[#C2410C]" : "text-[#2A2233]"}>
-                <span className="font-semibold">{turn.role === "tara" ? "Tara" : "You"}: </span>
-                {turn.text}
+    <section className="mx-auto w-full max-w-6xl pb-24 lg:pb-0">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
+        <CallPanel
+          t={t}
+          state={state}
+          callOn={callOn}
+          elapsedMs={elapsedMs}
+          micBlocked={micBlocked}
+          micNotice={micNotice}
+          busy={busy}
+          inputRef={inputRef}
+          typingOpen={typingOpen}
+          onTypingOpen={openTyping}
+          onMic={pressMic}
+          onEndCall={endCall}
+          onSendText={sendText}
+        />
+        <TranscriptPanel
+          t={t}
+          entries={entries}
+          thinking={busy}
+          onClear={clearTranscript}
+          footer={
+            showConfirm ? (
+              <ConfirmCard
+                t={t}
+                facts={facts}
+                onChange={editFacts}
+                onConfirm={confirm}
+                onKeepTalking={() => setDismissedAt(entries.length)}
+              />
+            ) : null
+          }
+        />
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <button type="button" onClick={onBack} className={onbButton.ghost}>
+          <ArrowLeft className="size-4" aria-hidden />
+          {t.back}
+        </button>
+        <button type="button" onClick={onQuiz} className={onbButton.ghost}>
+          {t.preferQuiz}
+        </button>
+      </div>
+
+      {/* Mobile: sticky mic bar once the call is on, so the seller can answer while reading the transcript. */}
+      {callOn ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-mk-line bg-mk-bg/95 px-4 py-3 backdrop-blur lg:hidden">
+          <div className="mx-auto flex max-w-md items-center gap-3">
+            <MicButton state={state} micBlocked={micBlocked} onPress={pressMic} t={t} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-mk-text" aria-hidden>
+                {callStateLabel(state, t)}
               </p>
-            ))
-          ) : (
-            <p className="text-[#6B6275]">{c.voice.understoodHint}</p>
-          )}
-          {facts.name || facts.category || facts.city || facts.tagline ? (
-            <ul className="mt-3 space-y-1 border-t border-[#2A2233]/10 pt-3">
-              {facts.name ? <li><strong>Name:</strong> {facts.name}</li> : null}
-              {facts.category ? <li><strong>Category:</strong> {facts.category}</li> : null}
-              {facts.city ? <li><strong>City:</strong> {facts.city}</li> : null}
-              {facts.tagline ? <li><strong>Tagline:</strong> {facts.tagline}</li> : null}
-            </ul>
-          ) : null}
-        </div>
-        <button type="button" onClick={onManual} className="text-sm text-[#C2410C] underline">
-          {c.switchManual}
-        </button>
-      </div>
-      <div className="flex flex-col items-center gap-4 text-center">
-        <TaraOrb size="lg" className="mx-auto" />
-        <div className="flex h-8 items-end justify-center gap-1" aria-hidden>
-          {Array.from({ length: 12 }).map((_, i) => (
-            <span
-              key={i}
-              className={cn("w-1 rounded-full bg-linear-to-t from-[#FDBA74] to-[#F97316]", recording ? "animate-pulse" : "opacity-40")}
-              style={{ height: `${12 + (i % 4) * 6}px` }}
-            />
-          ))}
-        </div>
-        <p className="text-sm text-[#6B6275]">{busy ? c.voice.thinking : c.voice.tapMic}</p>
-        <div className="max-w-md rounded-2xl bg-white/80 px-5 py-3 text-sm shadow-sm">{c.voice.prompt}</div>
-        {voiceEnabled ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (!voiceEnabled || !voiceReady || busy) return;
-              void toggle();
-            }}
-            disabled={busy}
-            className={cn(
-              "grid size-20 place-items-center rounded-full bg-[#F97316] text-white shadow-lg disabled:opacity-50",
-              recording && "ring-4 ring-[#FED7AA]",
-            )}
-            aria-label={c.voice.tapTalk}
-          >
-            <span className="text-2xl">🎤</span>
-          </button>
-        ) : null}
-        <p className="text-xs text-[#6B6275]">{c.voice.tapTalk}</p>
-        <div className="flex w-full max-w-md gap-2">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={c.voice.typePlaceholder}
-            disabled={busy}
-            className="flex-1 rounded-full border border-[#2A2233]/10 bg-white px-4 py-2 text-sm"
-          />
-          <button type="button" onClick={() => void submitTurn()} disabled={busy} className="rounded-full bg-[#2A2233] px-4 py-2 text-sm text-white disabled:opacity-50">
-            {c.voice.send}
-          </button>
-        </div>
-        {error ? <p className="text-sm text-red-600" role="alert">{error}</p> : null}
-        <button type="button" onClick={onQuiz} className="rounded-full border border-[#2A2233]/10 bg-white/60 px-4 py-2 text-sm">
-          {c.voice.preferQuiz}
-        </button>
-        <div className="flex w-full max-w-md flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="rounded-full border border-white/90 bg-white/60 px-5 py-3 text-sm font-medium text-[#5E5568]"
-          >
-            ← {c.back}
-          </button>
-          {factsComplete(draft.voice.facts as VoiceFacts) ? (
-            <button type="button" onClick={onDone} className="rounded-full bg-[#F97316] px-6 py-3 font-semibold text-white">
-              Continue →
+              {elapsedMs !== null ? <p className="font-mk-mono text-xs tabular-nums text-mk-dim">{formatCallClock(elapsedMs)}</p> : null}
+            </div>
+            <button
+              type="button"
+              onClick={endCall}
+              aria-label={t.endCall}
+              className={cn("grid size-11 place-items-center rounded-full bg-red-600 text-white hover:bg-red-500")}
+            >
+              <PhoneOff className="size-5" aria-hidden />
             </button>
-          ) : (
-            <span />
-          )}
+          </div>
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }

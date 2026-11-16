@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Check, Copy } from "lucide-react";
+import { OnbHeading, OnbSub, onbButton } from "@/components/onboarding-ui";
 import { publicEnv } from "@/lib/env/public";
 import { storefrontPreviewUrl } from "@/lib/platform/urls";
 import { startCopy } from "../copy";
@@ -37,71 +39,51 @@ export function DoneScreen({
   }
 
   return (
-    <section className="relative flex w-full flex-col gap-10 lg:gap-12">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 overflow-hidden" aria-hidden>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <span
-            key={i}
-            className="absolute size-1.5 rounded-full opacity-40"
-            style={{
-              left: `${8 + ((i * 11) % 84)}%`,
-              top: `${12 + ((i * 17) % 60)}%`,
-              background: ["#F97316", "#FB923C", "#22C55E", "#FDBA74"][i % 4],
-            }}
-          />
-        ))}
-      </div>
-
-      <div className="relative z-10 grid items-start gap-8 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.6fr)] lg:gap-12">
-        <aside className="flex flex-col gap-5 lg:sticky lg:top-6">
-          <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[#DCFCE7] px-3 py-1 text-sm font-medium text-[#166534]">
-            <span className="size-2 rounded-full bg-[#22C55E]" />
-            {c.done.badge}
-          </span>
-          <h2 className="font-brand text-4xl leading-tight sm:text-5xl">
-            {c.done.title}
-            <span className="text-[#C2410C]">{c.done.titleAccent}</span>
-          </h2>
-          <p className="max-w-md text-[#5E5568]">{subtitle}</p>
-          <div className="flex items-center gap-2 rounded-2xl border border-white/90 bg-white/80 p-2 shadow-sm">
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="flex-1 truncate px-2 text-sm underline-offset-2 hover:underline"
-            >
-              {host}
-            </a>
-            <button
-              type="button"
-              onClick={() => void copy()}
-              className="rounded-xl bg-[#2A2233] px-3 py-2 text-sm text-white"
-            >
-              {copied ? c.done.copied : c.done.copy}
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <a
-              href={`https://wa.me/?text=${encodeURIComponent(url)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full bg-[#22C55E] px-5 py-3 text-sm font-semibold text-white"
-            >
-              {c.done.whatsapp}
-            </a>
-            <button
-              type="button"
-              onClick={onDashboard}
-              className="rounded-full bg-[#F97316] px-5 py-3 text-sm font-semibold text-white"
-            >
-              {c.done.dashboard}
-            </button>
-          </div>
-        </aside>
-
-        <div className="relative z-10 min-w-0 max-h-[640px] overflow-hidden lg:max-h-[720px]">
-          <LivePreview locale={locale} rootDomain={rootDomain} liveSlug={slug} size="hero" />
+    <section className="relative grid w-full items-start gap-8 pt-4 sm:pt-8 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.6fr)] lg:gap-12">
+      <aside className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-6">
+        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-mk-accent/40 bg-mk-accent-tint px-3 py-1 font-mk-mono text-[11px] uppercase tracking-[0.14em] text-mk-text">
+          <span className="size-2 rounded-full bg-mk-accent" aria-hidden />
+          {c.done.badge}
+        </span>
+        <OnbHeading as="h2" accent={c.done.titleAccent.trim()}>
+          {c.done.title.trim()}
+        </OnbHeading>
+        <OnbSub className="max-w-md">{subtitle}</OnbSub>
+        <div className="flex min-w-0 items-center gap-2 rounded-[var(--r-md)] border border-mk-line-strong bg-mk-elev-1 p-2">
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="min-w-0 flex-1 truncate px-2 text-sm text-mk-text underline-offset-4 hover:underline"
+          >
+            {host}
+          </a>
+          <button
+            type="button"
+            onClick={() => void copy()}
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-[var(--r-sm)] bg-mk-elev-2 px-3 text-sm font-medium text-mk-text transition-colors hover:bg-white/10"
+          >
+            {copied ? <Check aria-hidden className="size-4 text-mk-accent" /> : <Copy aria-hidden className="size-4" />}
+            {copied ? c.done.copied : c.done.copy}
+          </button>
         </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <button type="button" onClick={onDashboard} className={onbButton.primary}>
+            {c.done.dashboard}
+          </button>
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(url)}`}
+            target="_blank"
+            rel="noreferrer"
+            className={onbButton.secondary}
+          >
+            {c.done.whatsapp}
+          </a>
+        </div>
+      </aside>
+
+      <div className="min-w-0 max-h-[640px] overflow-hidden lg:max-h-[720px]">
+        <LivePreview locale={locale} rootDomain={rootDomain} liveSlug={slug} size="hero" />
       </div>
     </section>
   );

@@ -131,9 +131,12 @@ export async function updateSeo(ctx: RepoCtx, input: SeoInput): Promise<InfoSite
 
 export async function updateSiteOptions(ctx: RepoCtx, input: { enquirySuccessMessage?: string; showPreferredDateTime?: boolean; privacyText?: string }): Promise<InfoSite> {
   need(ctx, "settings.write");
+  // Merge: onboarding stores `options.locale` (and future keys) that this form doesn't edit.
+  const { data: current } = await (await db()).from("info_sites").select("options").eq("tenant_id", ctx.tenantId).is("deleted_at", null).maybeSingle();
+  const prev = current?.options && typeof current.options === "object" && !Array.isArray(current.options) ? (current.options as Record<string, unknown>) : {};
   return updateSite(
     ctx,
-    { options: { enquirySuccessMessage: input.enquirySuccessMessage ?? null, showPreferredDateTime: input.showPreferredDateTime ?? null, privacyText: input.privacyText ?? null } },
+    { options: { ...prev, enquirySuccessMessage: input.enquirySuccessMessage ?? null, showPreferredDateTime: input.showPreferredDateTime ?? null, privacyText: input.privacyText ?? null } },
     "info.updateSiteOptions",
   );
 }

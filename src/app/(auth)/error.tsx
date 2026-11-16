@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { ErrorState } from "@/components/ui/states";
+import { OnbCard, OnbEyebrow, OnbHeading, OnbSub, OnboardingTheme, onbButton } from "@/components/onboarding-ui";
 
 type AuthErrorProps = {
   error: Error & { digest?: string };
@@ -29,15 +28,21 @@ export default function AuthError({ error, retry, reset }: AuthErrorProps) {
   const digest = error && typeof error === "object" && "digest" in error ? (error as { digest?: string }).digest : undefined;
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 items-center px-4 py-16">
-      <ErrorState
-        description={digest ? `Reference: ${digest}` : "Please try again in a moment."}
-        action={
-          <Button variant="secondary" onClick={recover}>
-            Try again
-          </Button>
-        }
-      />
-    </main>
+    <div data-theme="dark" className="flex min-h-dvh flex-1 flex-col">
+      <OnboardingTheme className="flex flex-1 flex-col">
+        <main className="mx-auto flex w-full max-w-xl flex-1 items-center px-4 py-16">
+          <OnbCard role="alert" className="w-full text-center">
+            <OnbEyebrow>Sign-in</OnbEyebrow>
+            <OnbHeading as="h2" className="mt-3">
+              Something went wrong
+            </OnbHeading>
+            <OnbSub className="mt-3 break-words">{digest ? `Reference: ${digest}` : "Please try again in a moment."}</OnbSub>
+            <button type="button" onClick={recover} className={`${onbButton.secondary} mt-6`}>
+              Try again
+            </button>
+          </OnbCard>
+        </main>
+      </OnboardingTheme>
+    </div>
   );
 }

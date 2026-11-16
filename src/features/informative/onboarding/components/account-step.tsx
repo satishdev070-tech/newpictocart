@@ -3,6 +3,7 @@
 import { EmailCodeFlow } from "@/components/auth/email-code-flow";
 import { GoogleButton } from "@/components/auth/google-button";
 import { googleSignInAction, requestStartEmailCodeAction, verifyStartEmailCodeAction } from "@/features/auth/actions";
+import { OnbEyebrow, OnbHeading, OnbSub } from "@/components/onboarding-ui";
 import { ui } from "./shell";
 
 const FINISH = "/start/informative/finish";
@@ -15,9 +16,12 @@ const FINISH = "/start/informative/finish";
 export function AccountStep({ signedIn, googleAvailable, businessName, onBack, onFinish }: { signedIn: boolean; googleAvailable: boolean; businessName: string; onBack: () => void; onFinish: () => void }) {
   return (
     <section className="flex flex-col gap-6" aria-labelledby="account-title">
-      <div>
-        <h1 id="account-title" className="font-brand text-3xl sm:text-4xl">{signedIn ? "Create your website" : "Create your account"}</h1>
-        <p className="mt-2 text-[#5E5568]">{signedIn ? "We'll set up your website as a private draft. Publish it when you're ready." : "Your website is saved as a draft until you publish it."}</p>
+      <div className="flex flex-col gap-3">
+        <OnbEyebrow>Almost there</OnbEyebrow>
+        <div id="account-title">
+          <OnbHeading>{signedIn ? "Create your website" : "Create your account"}</OnbHeading>
+        </div>
+        <OnbSub>{signedIn ? "We'll set up your website as a private draft, with photos picked for your business. Publish it when you're ready." : "Your website is saved as a draft until you publish it."}</OnbSub>
       </div>
       <div className={`${ui.card} flex flex-col gap-5`}>
         {signedIn ? (
@@ -27,8 +31,8 @@ export function AccountStep({ signedIn, googleAvailable, businessName, onBack, o
             {googleAvailable ? (
               <>
                 <GoogleButton action={googleSignInAction} next={FINISH} label="Continue with Google" className="[&_button]:min-h-12 [&_button]:!rounded-full" />
-                <p className="flex items-center gap-3 text-xs tracking-wider text-[#5E5568] uppercase" role="separator">
-                  <span className="h-px flex-1 bg-[#2A2233]/15" />or<span className="h-px flex-1 bg-[#2A2233]/15" />
+                <p className="flex items-center gap-3 font-mk-mono text-[11px] tracking-[0.18em] text-mk-dim uppercase" role="separator">
+                  <span className="h-px flex-1 bg-mk-line" />or<span className="h-px flex-1 bg-mk-line" />
                 </p>
               </>
             ) : null}
@@ -39,8 +43,8 @@ export function AccountStep({ signedIn, googleAvailable, businessName, onBack, o
               submitLabel="Email me a code"
               verifyLabel="Verify and create website"
             />
-            <p className="text-center text-xs text-[#5E5568]">
-              By continuing you agree to the <a className="underline" href="/terms">Terms</a> and <a className="underline" href="/privacy">Privacy Policy</a>.
+            <p className="text-center text-xs text-mk-dim">
+              By continuing you agree to the <a className="text-mk-muted underline underline-offset-2 hover:text-mk-text" href="/terms">Terms</a> and <a className="text-mk-muted underline underline-offset-2 hover:text-mk-text" href="/privacy">Privacy Policy</a>.
             </p>
           </>
         )}

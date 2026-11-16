@@ -5,10 +5,13 @@ import type { SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { AppError } from "@/lib/errors";
 import {
   EMPTY_FACTS,
+  extractFactsFromText,
   factsComplete,
   mapCategoryInput,
   mapSiteMode,
   mergeFacts,
+  normalizeFacts,
+  resolveFactLists,
   suggestSubcategory,
   type VoiceFacts,
 } from "./facts";
@@ -17,7 +20,12 @@ import { taraTurnResultSchema } from "./schemas";
 import type { IndustrySlug } from "@/features/stores/industries";
 
 export type TaraTurnOutput = {
+  /** What the seller said: the STT transcript for audio turns, the typed text otherwise. */
   transcript: string;
+  /** Same as `transcript` (explicit name for UIs that show the seller's bubble). */
+  userText: string;
+  /** False when an audio turn produced no recognisable speech (no chat/TTS ran; `reply` is ""). */
+  heard: boolean;
   reply: string;
   facts: VoiceFacts;
   done: boolean;
@@ -93,7 +101,7 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
     });
   }
 
-  const facts = input.facts ?? { ...EMPTY_FACTS };
+  const facts = normalizeFacts(input.facts ?? { ...EMPTY_FACTS });
   let transcript = (input.text ?? "").trim();
   const audio = input.audio;
   if ((!transcript || transcript.length < 1) && audio instanceof File && audio.size > 0) {
@@ -102,6 +110,20 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
     }
     const stt = await transcribeAudio({ audio, languageCode: input.locale, filename: audio.name || "turn.webm" });
     transcript = stt.transcript;
+    if (!transcript) {
+      // Silence / noise: tell the UI "didn't catch that" without spending a chat + TTS call.
+      return {
+        transcript: "",
+        userText: "",
+        heard: false,
+        reply: "",
+        facts,
+        done: factsComplete(facts),
+        audioBase64: null,
+        audioMimeType: null,
+        ttsAvailable: false,
+      };
+    }
   }
   if (!transcript) {
     throw new AppError("VALIDATION", { fieldErrors: { _form: ["Say something or type a short answer."] } });
@@ -142,10 +164,23 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
       typeof parsed.data.facts.productsServices === "string"
         ? parsed.data.facts.productsServices.trim().slice(0, 300)
         : null;
-    nextFacts = mergeFacts(facts, {
+    const lists = resolveFactLists(
+      parsed.data.facts.categories ?? [],
+      parsed.data.facts.subcategories ?? [],
+      resolvedCategory ? [resolvedCategory, ...facts.categories] : facts.categories,
+    );
+    // Tara returns the full current lists; when she does, they replace (so corrections stick).
+    const base = {
+      ...facts,
+      ...(lists.categories.length ? { categories: [], category: null } : {}),
+      ...(lists.subcategories.length ? { subcategories: [], subcategory: null } : {}),
+    };
+    nextFacts = mergeFacts(base, {
       name: parsed.data.facts.name ?? null,
-      category: resolvedCategory,
-      subcategory,
+      categories: lists.categories,
+      subcategories: lists.subcategories,
+      ...(lists.categories.length ? {} : { category: resolvedCategory }),
+      ...(lists.subcategories.length ? {} : { subcategory }),
       productsServices: productsServices || null,
       siteMode: mapSiteMode(parsed.data.facts.siteMode ?? null),
       tagline: parsed.data.facts.tagline ?? null,
@@ -155,6 +190,7 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
   } else {
     logger.warn("onboarding.voice_parse_failed", { preview: turn.content.slice(0, 200) });
     reply = turn.content.slice(0, 500);
+    nextFacts = mergeFacts(facts, extractFactsFromText(transcript));
     done = factsComplete(nextFacts);
   }
 
@@ -162,6 +198,8 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
 
   return {
     transcript,
+    userText: transcript,
+    heard: true,
     reply,
     facts: nextFacts,
     done,

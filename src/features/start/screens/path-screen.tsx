@@ -1,18 +1,19 @@
 "use client";
 
-import { ListChecks } from "lucide-react";
+import { Check, ListChecks } from "lucide-react";
+import { OnbHeading, OnbSub, onbButton, onbChoice } from "@/components/onboarding-ui";
 import { cn } from "@/lib/cn";
 import { startCopy } from "../copy";
 import { TaraOrb } from "../components/tara-orb";
 
 export type PathChoice = { path: "ai"; mode: "talk" | "quiz" };
 
-const voiceOnboardingEnabled = process.env.NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED === "true";
-
+/** Online store: Tara voice (when Sarvam is configured) or the quick quiz. */
 export function PathScreen({
   locale,
   path,
   mode,
+  voiceReady,
   onSelect,
   onBack,
   onContinue,
@@ -20,37 +21,33 @@ export function PathScreen({
   locale: string;
   path: "ai" | "manual" | null;
   mode: "talk" | "quiz";
+  /** Sarvam configured on the server. False → voice card disabled, quiz only. */
+  voiceReady: boolean;
   onSelect: (choice: PathChoice) => void;
   onBack: () => void;
   onContinue: () => void;
 }) {
   const c = startCopy(locale);
-  // When voice is off, talk-only selections visually prefer quiz and continue only for quiz.
-  const effectiveMode = !voiceOnboardingEnabled && mode === "talk" ? "quiz" : mode;
-  const voiceActive = voiceOnboardingEnabled && path === "ai" && mode === "talk";
+  const effectiveMode = !voiceReady && mode === "talk" ? "quiz" : mode;
+  const voiceActive = voiceReady && path === "ai" && effectiveMode === "talk";
   const quizActive = path === "ai" && effectiveMode === "quiz";
   const canContinue = voiceActive || quizActive;
 
   return (
-    <section className="flex w-full max-w-4xl flex-col gap-8">
-      <div className="text-center">
-        <h1 className="font-brand text-3xl font-normal leading-tight text-balance sm:text-5xl">
-          {c.path.headline}
-        </h1>
-        <p className="mt-3 text-base text-[#5E5568] sm:text-lg">{c.path.sub}</p>
+    <section className="mx-auto flex w-full max-w-4xl flex-col gap-8 pt-6 sm:pt-10">
+      <div className="space-y-3 text-center">
+        <OnbHeading>{c.path.headline}</OnbHeading>
+        <OnbSub>{c.path.sub}</OnbSub>
       </div>
-      <div className="grid gap-4 sm:gap-5 lg:grid-cols-2" role="listbox" aria-label={c.path.headline}>
+      <div className="grid gap-4 sm:gap-5 md:grid-cols-2" role="listbox" aria-label={c.path.headline}>
         <PathCard
           active={voiceActive}
-          disabled={!voiceOnboardingEnabled}
-          onClick={() => {
-            if (!voiceOnboardingEnabled) return;
-            onSelect({ path: "ai", mode: "talk" });
-          }}
+          disabled={!voiceReady}
+          onClick={() => onSelect({ path: "ai", mode: "talk" })}
           title={c.path.voiceTitle}
-          desc={c.path.voiceDesc}
-          visual={<TaraOrb size="sm" className="mx-auto" />}
-          badge={voiceOnboardingEnabled ? c.path.voiceBadge : c.path.comingSoon}
+          desc={voiceReady ? c.path.voiceDesc : c.path.voiceUnavailable}
+          visual={<TaraOrb size="sm" />}
+          badge={voiceReady ? c.path.voiceBadge : null}
         />
         <PathCard
           active={quizActive}
@@ -58,30 +55,18 @@ export function PathScreen({
           title={c.path.quizTitle}
           desc={c.path.quizDesc}
           visual={
-            <div
-              className="mx-auto grid size-16 place-items-center rounded-2xl bg-[#FFF7ED] text-[#C2410C]"
-              aria-hidden
-            >
+            <div className="grid size-16 place-items-center rounded-[var(--r-md)] bg-mk-accent-tint text-mk-accent" aria-hidden>
               <ListChecks className="size-8" strokeWidth={2} />
             </div>
           }
           badge={c.path.quizBadge}
         />
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-full border border-white/90 bg-white/60 px-5 py-3 text-sm font-medium text-[#5E5568]"
-        >
+      <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button type="button" onClick={onBack} className={onbButton.secondary}>
           ← {c.back}
         </button>
-        <button
-          type="button"
-          disabled={!canContinue}
-          onClick={onContinue}
-          className="rounded-full bg-linear-to-br from-[#FB923C] to-[#F97316] px-8 py-3.5 font-semibold text-white shadow-[0_16px_36px_-12px_rgba(249,115,22,0.65)] disabled:opacity-40"
-        >
+        <button type="button" disabled={!canContinue} onClick={onContinue} className={onbButton.primary}>
           {quizActive ? c.path.ctaQuiz : c.path.ctaVoice}
         </button>
       </div>
@@ -104,7 +89,7 @@ function PathCard({
   title: string;
   desc: string;
   visual: React.ReactNode;
-  badge: string;
+  badge: string | null;
 }) {
   return (
     <button
@@ -112,35 +97,31 @@ function PathCard({
       role="option"
       aria-selected={active}
       aria-disabled={disabled || undefined}
-      tabIndex={disabled ? -1 : undefined}
-      onClick={() => {
-        if (disabled) return;
-        onClick();
-      }}
-      className={cn(
-        "flex min-h-56 flex-col gap-5 rounded-[28px] border p-7 text-left transition sm:min-h-64 sm:p-8",
-        disabled && "cursor-not-allowed opacity-50",
-        active
-          ? "border-[#F97316] bg-white shadow-[0_24px_50px_-24px_rgba(249,115,22,0.5)] ring-2 ring-[#F97316]/30"
-          : disabled
-            ? "border-white/90 bg-white/55"
-            : "border-white/90 bg-white/55 hover:bg-white/80",
+      disabled={disabled}
+      onClick={onClick}
+      className={onbChoice(
+        active,
+        cn("flex min-h-52 flex-col gap-5 p-6 sm:min-h-60 sm:p-7", disabled && "cursor-not-allowed opacity-55 hover:border-mk-line hover:bg-mk-elev-1"),
       )}
     >
       <div className="flex items-start justify-between gap-3">
         {visual}
-        <span className="rounded-full bg-[#FFF7ED] px-2.5 py-1 text-xs font-semibold text-[#C2410C]">{badge}</span>
+        {badge ? (
+          <span className="rounded-full border border-mk-line-strong px-2.5 py-1 font-mk-mono text-[11px] uppercase tracking-[0.14em] text-mk-muted">
+            {badge}
+          </span>
+        ) : null}
       </div>
       <div className="mt-auto space-y-2">
-        <h2 className="flex items-center justify-between gap-2 text-2xl font-semibold tracking-tight">
+        <h2 className="flex items-center justify-between gap-2 font-brand text-xl font-semibold tracking-tight text-mk-text sm:text-2xl">
           {title}
           {active ? (
-            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#F97316] text-sm text-white" aria-hidden>
-              ✓
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-mk-accent text-mk-accent-ink" aria-hidden>
+              <Check className="size-4" strokeWidth={3} />
             </span>
           ) : null}
         </h2>
-        <p className="text-base leading-relaxed text-[#5E5568]">{desc}</p>
+        <p className="text-[15px] leading-relaxed text-mk-muted">{desc}</p>
       </div>
     </button>
   );

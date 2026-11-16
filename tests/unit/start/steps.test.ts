@@ -10,6 +10,7 @@ describe("start steps", () => {
   it("lists journey mounts and rejects legacy ids", () => {
     expect(START_STEP_IDS).toEqual([
       "lang",
+      "build",
       "path",
       "quiz",
       "voice",

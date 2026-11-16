@@ -21,6 +21,13 @@ type RequestAction = (prev: ActionResult<{ email: string; codeLength?: number }>
 type VerifyAction = (prev: ActionResult | null, fd: FormData) => Promise<ActionResult>;
 
 export const CODE_LENGTH = 6;
+
+/**
+ * Platform-tone primary button: a full-width pill on the semantic accent (Pictocart orange inside
+ * the dark `.theme-marketing` auth/onboarding screens; the theme accent elsewhere).
+ */
+const PLATFORM_SUBMIT =
+  "w-full !h-auto !min-h-12 !rounded-full !bg-accent !px-6 !text-[15px] !font-semibold !text-accent-foreground hover:!bg-accent/90";
 export const RESEND_COOLDOWN_S = 30;
 
 /** Digits only, at most `length` (paste of "855 189" → "855189"). Pure. */
@@ -114,7 +121,7 @@ export function EmailCodeFlow({
         ) : (
           <TextField label={emailLabel} name="email" type="email" autoComplete="email" inputMode="email" required placeholder="you@yourbusiness.in" errors={errs.email} />
         )}
-        {store ? <StoreSubmit>{submitLabel}</StoreSubmit> : <SubmitButton className="w-full">{submitLabel}</SubmitButton>}
+        {store ? <StoreSubmit>{submitLabel}</StoreSubmit> : <SubmitButton className={PLATFORM_SUBMIT}>{submitLabel}</SubmitButton>}
       </form>
     );
   }
@@ -126,7 +133,7 @@ export function EmailCodeFlow({
       <input type="hidden" name="email" value={email} />
       <input type="hidden" name="token" value={code} />
       {store ? null : (
-        <span className="mx-auto grid size-12 place-items-center rounded-full bg-success/10 text-success">
+        <span className="mx-auto grid size-12 place-items-center rounded-full border border-accent/30 bg-accent-soft text-accent">
           <MailCheck aria-hidden className="size-6" />
         </span>
       )}
@@ -153,7 +160,7 @@ export function EmailCodeFlow({
       {store ? (
         <StoreSubmit disabled={code.length !== length}>{verifyLabel}</StoreSubmit>
       ) : (
-        <SubmitButton disabled={code.length !== length} className="w-full">
+        <SubmitButton disabled={code.length !== length} className={PLATFORM_SUBMIT}>
           {verifyLabel}
         </SubmitButton>
       )}
@@ -278,7 +285,11 @@ export function CodeBoxes({
             "text-center font-semibold tabular-nums",
             store
               ? cn("sf-input !px-0", invalid && "!border-[var(--sf-sale)]")
-              : cn("rounded-lg border bg-white outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30", invalid ? "border-danger" : "border-border"),
+              : cn(
+                  // Semantic tokens: dark fields inside `.theme-marketing` (auth, /start), light elsewhere.
+                  "rounded-[var(--r-sm,0.5rem)] border bg-surface-secondary text-foreground caret-accent outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30",
+                  invalid ? "border-danger" : "border-border-strong",
+                ),
           )}
         />
       ))}

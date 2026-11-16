@@ -13,6 +13,7 @@ export const START_DRAFT_COOKIE = "pc_start_draft";
 export const START_SCREENS = [
   "welcome",
   "lang",
+  "build",
   "intent",
   "path",
   "voice",
@@ -37,6 +38,10 @@ const voiceFactsSchema = z.object({
   siteMode: z.enum(SITE_MODES).nullable(),
   tagline: z.string().max(160).nullable(),
   city: z.string().max(80).nullable(),
+  /** Multi-select (up to 3 industry slugs). Missing on drafts saved before multi-select. */
+  categories: z.array(z.string().max(40)).max(12).optional().default([]),
+  /** Known subcategory slugs (any selected category) or custom labels. Up to 8. */
+  subcategories: z.array(z.string().max(80)).max(24).optional().default([]),
 });
 
 const voiceTurnSchema = z.object({
@@ -83,6 +88,14 @@ export const startDraftSchema = z.object({
       .nullable()
       .refine((v) => v === null || isIndustry(v)),
     subcategory: z.string().max(80).nullable(),
+    /** Selected industries (1–3). First is mirrored into `category`. Old drafts: []. */
+    categories: z.array(z.string().max(40)).max(12).optional().default([]),
+    /**
+     * Selected product types (0–8): known subcategory slugs of any selected category, or custom
+     * labels. First compatible entry is mirrored into `subcategory`; the rest are also encoded in
+     * `productsServices` as `sub:a,b` so the seed pipeline keeps working.
+     */
+    subcategories: z.array(z.string().max(80)).max(24).optional().default([]),
     productsServices: z.string().max(300),
     city: z.string().max(80),
     whatsapp: z.string().max(20),
@@ -108,11 +121,10 @@ export type StartDraftProduct = z.infer<typeof productSchema>;
 const LEGACY_SCREEN_MAP: Partial<Record<StartScreen, StartScreen>> = {
   welcome: "lang",
   intent: "path",
-  products: "business",
+  products: "quiz",
+  business: "quiz",
   mood: "theme",
   payment: "theme",
-  voice: "business",
-  quiz: "business",
 };
 
 function remapScreen(screen: unknown): StartScreen {
@@ -169,6 +181,8 @@ export function emptyStartDraft(overrides?: Partial<Pick<StartDraft, "plan" | "t
         siteMode: null,
         tagline: null,
         city: null,
+        categories: [],
+        subcategories: [],
       },
       done: false,
       turns: [],
@@ -179,6 +193,8 @@ export function emptyStartDraft(overrides?: Partial<Pick<StartDraft, "plan" | "t
       tagline: "",
       category: null,
       subcategory: null,
+      categories: [],
+      subcategories: [],
       productsServices: "",
       city: "",
       whatsapp: "",
@@ -252,6 +268,49 @@ export function draftProductsServices(draft: StartDraft): string {
     draft.voice.facts.productsServices?.trim() ||
     ""
   );
+}
+
+/** Prefix used to encode extra product types into `productsServices` (seed compat). */
+export const SUB_EXTRAS_PREFIX = "sub:";
+
+/** Selected industries, primary first (multi-select fields, else the single legacy fields). */
+export function draftCategories(draft: StartDraft): IndustrySlug[] {
+  const out: IndustrySlug[] = [];
+  const add = (v: string | null | undefined) => {
+    if (v && isIndustry(v) && !out.includes(v)) out.push(v);
+  };
+  const fromBusiness = draft.business.categories ?? [];
+  const fromVoice = draft.voice.facts.categories ?? [];
+  if (fromBusiness.length) fromBusiness.forEach(add);
+  else if (fromVoice.length) fromVoice.forEach(add);
+  if (!out.length) add(draftCategory(draft));
+  return out.slice(0, 3);
+}
+
+/**
+ * Selected product types (known slugs or custom labels). Falls back to the single
+ * `subcategory` + `sub:a,b` extras in `productsServices` for drafts saved before multi-select.
+ */
+export function draftSubcategories(draft: StartDraft): string[] {
+  const out: string[] = [];
+  const add = (v: string | null | undefined) => {
+    const t = v?.trim();
+    if (!t) return;
+    if (out.some((x) => x.toLowerCase() === t.toLowerCase())) return;
+    out.push(t);
+  };
+  const fromBusiness = draft.business.subcategories ?? [];
+  const fromVoice = draft.voice.facts.subcategories ?? [];
+  if (fromBusiness.length) fromBusiness.forEach(add);
+  else if (fromVoice.length) fromVoice.forEach(add);
+  else {
+    add(draft.business.subcategory ?? draft.voice.facts.subcategory);
+    const raw = draftProductsServices(draft);
+    if (raw.toLowerCase().startsWith(SUB_EXTRAS_PREFIX)) {
+      raw.slice(SUB_EXTRAS_PREFIX.length).split(",").forEach(add);
+    }
+  }
+  return out.slice(0, 8);
 }
 
 export function normalizeThemeKey(theme: string | null): string | null {

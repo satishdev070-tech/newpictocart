@@ -2,13 +2,24 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { BrandLogo } from "@/features/marketing-site/components/brand-logo";
+import { OnbCard, OnbProgress, OnbTopBar, OnboardingTheme, onbButton } from "@/components/onboarding-ui";
+import { PLATFORM_LOGO, PLATFORM_NAME } from "@/config/platform";
 import { ONBOARDING_STEPS, progressStep, stepIndex, type OnboardingStepKey, type WizardStep } from "../steps";
 import { StepHeading } from "./step-heading";
 
 export { StepHeading };
 
-/** Brand-styled frame for onboarding: logo, step progress and a centred card. */
+/** Static platform logo (OnbTopBar already wraps it in a home link). */
+function BrandLogoMark() {
+  return PLATFORM_LOGO ? (
+    // eslint-disable-next-line @next/next/no-img-element -- static platform logo
+    <img src={PLATFORM_LOGO.src} width={PLATFORM_LOGO.width ?? undefined} height={PLATFORM_LOGO.height ?? undefined} alt={PLATFORM_NAME} className="h-8 w-auto max-w-[160px] object-contain object-left sm:h-9" />
+  ) : (
+    <span className="font-brand text-xl font-extrabold tracking-tight text-mk-text">{PLATFORM_NAME}</span>
+  );
+}
+
+/** Dark onboarding frame (shared kit): logo, step progress and a centred card. */
 export function OnboardingShell({
   step,
   children,
@@ -24,17 +35,18 @@ export function OnboardingShell({
       : progressStep(step as WizardStep);
   const current = stepIndex(rail);
   return (
-    <div data-theme="light" className="theme-brand flex min-h-dvh flex-1 flex-col bg-brand-canvas">
-      <header className="border-b border-border bg-white">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
-          <BrandLogo />
-          <Link href="/dashboard" className="text-sm font-semibold text-muted hover:text-brand-ink">
+    <OnboardingTheme className="flex flex-col">
+      <OnbTopBar
+        logo={<BrandLogoMark />}
+        progress={<OnbProgress step={current + 1} total={ONBOARDING_STEPS.length} label="Setup" />}
+        right={
+          <Link href="/dashboard" className={onbButton.ghost}>
             Save and exit
           </Link>
-        </div>
-      </header>
-      <nav aria-label="Setup progress" className="border-b border-border bg-white">
-        <ol className="relative mx-auto flex max-w-5xl items-center gap-2 overflow-x-auto px-4 py-4 sm:gap-4 sm:px-6">
+        }
+      />
+      <nav aria-label="Setup progress" className="mx-auto w-full max-w-5xl px-4 pt-10 sm:px-6 sm:pt-0">
+        <ol className="flex items-center gap-2 overflow-x-auto py-3 sm:gap-4">
           {ONBOARDING_STEPS.map((s, i) => {
             const done = i < current;
             const active = i === current;
@@ -43,26 +55,26 @@ export function OnboardingShell({
                 <span
                   className={cn(
                     "grid size-7 place-items-center rounded-full text-xs font-bold",
-                    done && "bg-brand text-white",
-                    active && "bg-brand-soft text-brand ring-2 ring-brand",
-                    !done && !active && "bg-brand-canvas text-muted ring-1 ring-border",
+                    done && "bg-mk-accent text-mk-accent-ink",
+                    active && "bg-mk-accent-tint text-mk-accent ring-2 ring-mk-accent",
+                    !done && !active && "bg-mk-elev-2 text-mk-dim ring-1 ring-mk-line-strong",
                   )}
                 >
                   {done ? <Check aria-hidden className="size-4" strokeWidth={3} /> : i + 1}
                 </span>
-                <span className={cn("text-sm font-semibold", active ? "text-brand-ink" : "text-muted")}>
+                <span className={cn("text-sm font-semibold", active ? "text-mk-text" : "text-mk-muted")}>
                   {s.label}
                   <span className="sr-only">{done ? " (done)" : active ? " (current step)" : ""}</span>
                 </span>
-                {i < ONBOARDING_STEPS.length - 1 ? <span aria-hidden className={cn("h-px w-6 sm:w-10", done ? "bg-brand" : "bg-border")} /> : null}
+                {i < ONBOARDING_STEPS.length - 1 ? <span aria-hidden className={cn("h-px w-6 sm:w-10", done ? "bg-mk-accent" : "bg-mk-line-strong")} /> : null}
               </li>
             );
           })}
         </ol>
       </nav>
-      <main id="main" className="flex-1 px-4 py-10 sm:px-6">
-        <div className={cn("mx-auto rounded-brand-lg border border-border bg-white p-6 shadow-brand-card sm:p-10", wide ? "max-w-5xl" : "max-w-xl")}>{children}</div>
+      <main id="main" className="flex-1 px-4 pb-16 pt-6 sm:px-6">
+        <OnbCard className={cn("mx-auto", wide ? "max-w-5xl" : "max-w-xl")}>{children}</OnbCard>
       </main>
-    </div>
+    </OnboardingTheme>
   );
 }

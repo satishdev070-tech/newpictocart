@@ -13,7 +13,23 @@ export type VoiceFacts = {
   siteMode: SiteMode | null;
   tagline: string | null;
   city: string | null;
+  /** All industries the seller named (max 3). `category` mirrors the first. */
+  categories: IndustrySlug[];
+  /** Subcategory slugs for those industries, or custom labels (max 8). `subcategory` mirrors the first. */
+  subcategories: string[];
 };
+
+/** Older shapes (drafts saved before multi-select) may lack the lists. */
+export type VoiceFactsInput = Omit<VoiceFacts, "categories" | "subcategories"> & {
+  categories?: readonly string[];
+  subcategories?: readonly string[];
+};
+
+/** Kept as an alias: facts after `normalizeFacts` (lists always present, scalars mirror item 0). */
+export type NormalizedVoiceFacts = VoiceFacts;
+
+export const MAX_FACT_CATEGORIES = 3;
+export const MAX_FACT_SUBCATEGORIES = 8;
 
 export type CategoryMapping = {
   category: IndustrySlug | null;
@@ -24,7 +40,7 @@ function normalizeCategoryText(raw: string): string {
   return raw.trim().toLowerCase().replace(/[_/]+/g, " ").replace(/\s+/g, " ");
 }
 
-export const EMPTY_FACTS: VoiceFacts = {
+export const EMPTY_FACTS: NormalizedVoiceFacts = {
   name: null,
   category: null,
   subcategory: null,
@@ -32,6 +48,8 @@ export const EMPTY_FACTS: VoiceFacts = {
   siteMode: null,
   tagline: null,
   city: null,
+  categories: [],
+  subcategories: [],
 };
 
 const CATEGORY_ALIASES: Record<string, IndustrySlug> = {
@@ -256,29 +274,259 @@ export function mapSiteMode(raw: string | null | undefined): SiteMode | null {
   return null;
 }
 
-/** Merge partial fact updates (null/empty leaves previous). */
-export function mergeFacts(prev: VoiceFacts, patch: Partial<VoiceFacts>): VoiceFacts {
-  const next = { ...prev };
+function dedupe<T extends string>(items: readonly T[], max: number): T[] {
+  const out: T[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    const key = item.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/** True when `slug` is a known subcategory of any industry (vs. a seller's custom label). */
+function isKnownSubcategorySlug(slug: string): boolean {
+  return INDUSTRIES.some((ind) => isSubcategory(ind.slug, slug));
+}
+
+/**
+ * Keep single + list fields in sync: `category` = categories[0], `subcategory` = subcategories[0].
+ * A set scalar that is missing from its list is moved to the front. Known subcategory slugs that
+ * belong to none of the categories are dropped; custom labels are kept.
+ */
+export function normalizeFacts(facts: VoiceFactsInput): NormalizedVoiceFacts {
+  let categories = dedupe(
+    [...(facts.category ? [facts.category] : []), ...(facts.categories ?? [])].filter((c): c is IndustrySlug => isIndustry(c)),
+    MAX_FACT_CATEGORIES,
+  );
+  let subcategories = dedupe(
+    [...(facts.subcategory ? [facts.subcategory] : []), ...(facts.subcategories ?? [])].map((s) => s.trim().slice(0, 80)),
+    MAX_FACT_SUBCATEGORIES * 2,
+  );
+  if (categories.length) {
+    subcategories = subcategories.filter(
+      (s) => categories.some((c) => isSubcategory(c, s)) || !isKnownSubcategorySlug(s),
+    );
+  }
+  subcategories = subcategories.slice(0, MAX_FACT_SUBCATEGORIES);
+  categories = categories.slice(0, MAX_FACT_CATEGORIES);
+  return {
+    ...facts,
+    categories,
+    subcategories,
+    category: categories[0] ?? null,
+    subcategory: subcategories[0] ?? null,
+  };
+}
+
+/**
+ * Merge partial fact updates (null/empty leaves previous). Lists are unioned (new items appended,
+ * capped); a scalar `category`/`subcategory` in the patch becomes the first list item.
+ * Tolerates `prev` without lists (drafts saved before multi-select).
+ */
+export function mergeFacts(prev: VoiceFactsInput, patch: Partial<VoiceFacts>): NormalizedVoiceFacts {
+  const base: NormalizedVoiceFacts = {
+    ...EMPTY_FACTS,
+    ...prev,
+    categories: (prev.categories ?? []).filter((c): c is IndustrySlug => isIndustry(c)),
+    subcategories: [...(prev.subcategories ?? [])],
+  };
+  const next: NormalizedVoiceFacts = { ...base };
   for (const key of Object.keys(patch) as (keyof VoiceFacts)[]) {
+    if (key === "categories" || key === "subcategories") continue;
     const val = patch[key];
     if (val === undefined || val === null) continue;
     if (typeof val === "string" && !val.trim()) continue;
     next[key] = val as never;
   }
-  return next;
+  // Scalars from the patch lead; then previous lists; then new list items.
+  next.categories = [
+    ...(patch.category ? [patch.category] : []),
+    ...(base.category && base.category !== patch.category ? [base.category] : []),
+    ...base.categories,
+    ...(patch.categories ?? []),
+  ];
+  next.subcategories = [
+    ...(patch.subcategory && patch.subcategory.trim() ? [patch.subcategory] : []),
+    ...(base.subcategory ? [base.subcategory] : []),
+    ...base.subcategories,
+    ...(patch.subcategories ?? []),
+  ];
+  next.category = null;
+  next.subcategory = null;
+  return normalizeFacts(next);
 }
 
 /** Required for five-screen /start: name, category, subcategory. siteMode defaults at finalize. */
-export function factsComplete(facts: VoiceFacts): boolean {
-  return Boolean(facts.name && facts.category && facts.subcategory);
+export function factsComplete(facts: VoiceFactsInput): boolean {
+  return Boolean(
+    facts.name && (facts.category || facts.categories?.length) && (facts.subcategory || facts.subcategories?.length),
+  );
 }
 
-export function missingFactLabels(facts: VoiceFacts): string[] {
+/** Tara shows the confirmation card once name + ≥1 category + ≥1 subcategory are known. */
+export function confirmationReady(facts: VoiceFactsInput): boolean {
+  const n = normalizeFacts(facts);
+  return Boolean(n.name?.trim() && n.categories.length >= 1 && n.subcategories.length >= 1);
+}
+
+export function missingFactLabels(facts: VoiceFactsInput): string[] {
+  const n = normalizeFacts(facts);
   const missing: string[] = [];
-  if (!facts.name) missing.push("business name");
-  if (!facts.category) missing.push("category");
-  if (!facts.subcategory) missing.push("subcategory");
+  if (!n.name) missing.push("business name");
+  if (!n.categories.length) missing.push("category");
+  if (!n.subcategories.length) missing.push("subcategory");
   return missing;
+}
+
+/** Facts handed to the journey when the seller confirms Tara's summary. */
+export type ConfirmedStoreFacts = {
+  name: string;
+  categories: string[];
+  subcategories: string[];
+  city: string | null;
+  tagline: string | null;
+};
+
+export function toConfirmedFacts(facts: VoiceFactsInput): ConfirmedStoreFacts {
+  const n = normalizeFacts(facts);
+  return {
+    name: (n.name ?? "").trim(),
+    categories: [...n.categories],
+    subcategories: [...n.subcategories],
+    city: n.city?.trim() || null,
+    tagline: n.tagline?.trim() || null,
+  };
+}
+
+function toStringList(raw: unknown): string[] {
+  if (typeof raw === "string") return raw.trim() ? [raw] : [];
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((v): v is string => typeof v === "string" && Boolean(v.trim()));
+}
+
+function customLabel(raw: string): string | null {
+  const t = raw.trim().replace(/\s+/g, " ");
+  if (t.length < 2 || t.length > 60) return null;
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/**
+ * Resolve free-text / model category + subcategory lists into industry slugs and
+ * industry-scoped subcategory slugs (unknown niches survive as custom labels).
+ */
+export function resolveFactLists(
+  rawCategories: readonly string[],
+  rawSubcategories: readonly string[],
+  known: readonly IndustrySlug[] = [],
+): { categories: IndustrySlug[]; subcategories: string[] } {
+  const categories: IndustrySlug[] = [];
+  const subcategories: string[] = [];
+  for (const raw of rawCategories) {
+    const m = mapCategoryInput(raw);
+    if (m.category) categories.push(m.category);
+    if (m.subcategory) subcategories.push(m.subcategory);
+  }
+  for (const raw of rawSubcategories) {
+    const scope = [...categories, ...known];
+    let hit: string | null = null;
+    for (const c of scope) {
+      hit = suggestSubcategory(c, raw);
+      if (hit) break;
+    }
+    if (!hit) {
+      const m = mapCategoryInput(raw);
+      if (m.category && m.subcategory) {
+        categories.push(m.category);
+        hit = m.subcategory;
+      }
+    }
+    const value = hit ?? (mapCategoryToIndustry(raw) ? null : customLabel(raw));
+    if (value) subcategories.push(value);
+  }
+  return {
+    categories: dedupe(categories, MAX_FACT_CATEGORIES),
+    subcategories: dedupe(subcategories, MAX_FACT_SUBCATEGORIES),
+  };
+}
+
+const LEAD_PHRASES =
+  /^(?:(?:hi|hello|namaste)[,!.\s]+)?(?:i|we)\s+(?:sell|make|deal\s+in|run\s+a\s+shop\s+for|have\s+a\s+(?:shop|store)\s+(?:for|of)|create|offer)\s+|^(?:my|our)\s+(?:shop|store|business)\s+(?:sells|is\s+about|is\s+for)\s+/i;
+const CITY_TAIL = /\s+(?:in|from|at|based\s+in)\s+([a-z][a-z .'-]{1,40}?)\s*[.!]?$/i;
+
+/**
+ * Local, model-free extraction from one seller sentence, e.g.
+ * "I sell fashion jewellery and bridal sets in Noida" → jewellery, [imitation, bridal], Noida.
+ * Used as a fallback when Tara's JSON can't be parsed, and in tests.
+ */
+export function extractFactsFromText(text: string): Partial<VoiceFacts> {
+  let rest = text.trim().replace(/[.!?]+$/, "");
+  if (!rest) return {};
+  let city: string | null = null;
+  const cityMatch = rest.match(CITY_TAIL);
+  if (cityMatch?.[1]) {
+    city = cityMatch[1]
+      .trim()
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+    rest = rest.slice(0, cityMatch.index).trim();
+  }
+  rest = rest.replace(LEAD_PHRASES, "");
+  const segments = rest
+    .split(/\s*(?:,|&|\+|\band\b|\baur\b|\bplus\b|\balso\b)\s*/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const categories: IndustrySlug[] = [];
+  const subcategories: string[] = [];
+  for (const seg of segments) {
+    const m = mapCategoryInput(seg);
+    if (m.category) categories.push(m.category);
+    if (m.subcategory) subcategories.push(m.subcategory);
+  }
+  const out: Partial<VoiceFacts> = {};
+  const cats = dedupe(categories, MAX_FACT_CATEGORIES);
+  const subs = dedupe(subcategories, MAX_FACT_SUBCATEGORIES);
+  if (cats.length) out.categories = cats;
+  if (subs.length) out.subcategories = subs;
+  if (city) out.city = city;
+  return out;
+}
+
+/**
+ * Parse the client's `factsJson` (single + list fields) into normalized facts.
+ * Shared by `voiceTurnAction` and `/start`'s `startVoiceTurnAction`.
+ */
+export function parseVoiceFactsJson(raw: unknown): NormalizedVoiceFacts {
+  if (typeof raw !== "string" || !raw.trim()) return { ...EMPTY_FACTS };
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const str = (v: unknown) => (typeof v === "string" ? v : null);
+    const mapped = mapCategoryInput(str(parsed.category));
+    const category = mapped.category;
+    const subcategoryRaw = str(parsed.subcategory);
+    const subcategory =
+      (category && subcategoryRaw ? suggestSubcategory(category, subcategoryRaw) : null) ??
+      mapped.subcategory ??
+      subcategoryRaw;
+    const lists = resolveFactLists(toStringList(parsed.categories), toStringList(parsed.subcategories), category ? [category] : []);
+    return mergeFacts(EMPTY_FACTS, {
+      name: str(parsed.name),
+      category,
+      subcategory,
+      categories: lists.categories,
+      subcategories: lists.subcategories,
+      productsServices: str(parsed.productsServices),
+      siteMode: mapSiteMode(str(parsed.siteMode)),
+      tagline: str(parsed.tagline),
+      city: str(parsed.city),
+    });
+  } catch {
+    return { ...EMPTY_FACTS };
+  }
 }
 
 /** Suggest a store slug from a business name (form-compatible). */

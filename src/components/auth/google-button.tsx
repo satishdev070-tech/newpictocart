@@ -2,22 +2,47 @@
 
 import { useFormStatus } from "react-dom";
 
+const BUTTON_TONE = {
+  /** Google's neutral light button (storefronts, light screens). */
+  light:
+    "rounded-md border border-[#dadce0] bg-white px-4 py-2.5 text-sm font-medium text-[#3c4043] shadow-sm hover:bg-[#f8f9fa] focus-visible:outline-[#1a73e8]",
+  /** Dark secondary pill for the dark auth / onboarding screens (marketing look). */
+  dark: "min-h-12 rounded-full border border-mk-line-strong bg-white/[0.03] px-6 text-[15px] font-semibold text-mk-text hover:border-mk-text/40 hover:bg-white/[0.06] focus-visible:outline-mk-accent",
+} as const;
+
 /** "Continue with Google" (Google sign-in branding: the multicolour G on a neutral button). */
-export function GoogleButton({ action, next, className = "", label = "Continue with Google" }: { action: (fd: FormData) => Promise<void>; next?: string; className?: string; label?: string }) {
+export function GoogleButton({
+  action,
+  next,
+  className = "",
+  label = "Continue with Google",
+  tone = "light",
+}: {
+  action: (fd: FormData) => Promise<void>;
+  next?: string;
+  className?: string;
+  label?: string;
+  tone?: keyof typeof BUTTON_TONE;
+}) {
   return (
     <form action={action} className={className}>
       <input type="hidden" name="next" value={next ?? ""} />
-      <GoogleSubmit label={label} />
+      <GoogleSubmit label={label} tone={tone} />
     </form>
   );
 }
 
-function GoogleSubmit({ label }: { label: string }) {
+function GoogleSubmit({ label, tone }: { label: string; tone: keyof typeof BUTTON_TONE }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} aria-busy={pending} className="flex w-full items-center justify-center gap-3 rounded-md border border-[#dadce0] bg-white px-4 py-2.5 text-sm font-medium text-[#3c4043] shadow-sm transition hover:bg-[#f8f9fa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8] disabled:cursor-wait disabled:opacity-70">
+    <button
+      type="submit"
+      disabled={pending}
+      aria-busy={pending}
+      className={`flex w-full items-center justify-center gap-3 transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-70 ${BUTTON_TONE[tone]}`}
+    >
       {pending ? (
-        <span className="size-[18px] animate-spin rounded-full border-2 border-[#dadce0] border-t-[#3c4043]" aria-hidden />
+        <span className={tone === "dark" ? "size-[18px] animate-spin rounded-full border-2 border-white/20 border-t-white" : "size-[18px] animate-spin rounded-full border-2 border-[#dadce0] border-t-[#3c4043]"} aria-hidden />
       ) : (
         <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
           <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.2l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z" />
@@ -31,12 +56,16 @@ function GoogleSubmit({ label }: { label: string }) {
   );
 }
 
-export function OrDivider() {
+export function OrDivider({ tone = "light" }: { tone?: "light" | "dark" }) {
+  const dark = tone === "dark";
   return (
-    <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-wider opacity-60" role="separator">
-      <span className="h-px flex-1 bg-current opacity-30" />
+    <div
+      className={dark ? "my-6 flex items-center gap-3 font-mk-mono text-[11px] uppercase tracking-[0.18em] text-mk-dim" : "my-5 flex items-center gap-3 text-xs uppercase tracking-wider opacity-60"}
+      role="separator"
+    >
+      <span className={dark ? "h-px flex-1 bg-mk-line-strong" : "h-px flex-1 bg-current opacity-30"} />
       or
-      <span className="h-px flex-1 bg-current opacity-30" />
+      <span className={dark ? "h-px flex-1 bg-mk-line-strong" : "h-px flex-1 bg-current opacity-30"} />
     </div>
   );
 }

@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
+import { OnbHeading, OnbSub, onbButton } from "@/components/onboarding-ui";
 import { cn } from "@/lib/cn";
+import { startCopy } from "../copy";
 import { findTheme, themePreviewHref } from "@/features/marketing-site/themes";
 import { ThemeMockup } from "@/features/theme/marketplace/mockup";
 import { listStartThemeOptionsAction } from "../actions";
@@ -23,6 +26,8 @@ export function ThemeScreen({
   onBack: () => void;
   onContinue: () => void;
 }) {
+  const c = startCopy(draft.locale);
+  // Ranked by the primary category (first of the multi-select).
   const industry = draftCategory(draft) ?? "general";
   const [bundle, setBundle] = useState<{
     industry: string;
@@ -71,20 +76,15 @@ export function ThemeScreen({
 
   return (
     <section className="flex w-full flex-col gap-6 sm:gap-7">
-      <div className="text-center">
-        <h2 className="font-brand text-3xl font-normal leading-tight text-balance sm:text-5xl">
-          Let&apos;s design your{" "}
-          <span className="italic text-[#C2410C]">storefront</span>
-        </h2>
-        <p className="mt-2.5 text-[15.5px] text-[#5E5568]">
-          {options
-            ? "Tara picked a look for your category — tap another if you prefer."
-            : "Finding themes that fit your store…"}
-        </p>
+      <div className="space-y-3 text-center">
+        <OnbHeading as="h2" accent={c.theme.titleAccent}>
+          {c.theme.title}
+        </OnbHeading>
+        <OnbSub>{options ? c.theme.subReady : c.theme.subLoading}</OnbSub>
       </div>
 
       {error ? (
-        <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <p role="alert" className="rounded-[var(--r-md)] border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
           {error}
         </p>
       ) : null}
@@ -94,13 +94,13 @@ export function ThemeScreen({
         <div
           className="flex max-h-[280px] flex-col gap-2.5 overflow-y-auto overscroll-contain pr-1 md:max-h-[min(70vh,720px)]"
           role="listbox"
-          aria-label="Theme options"
+          aria-label={c.theme.listLabel}
         >
           {loading && themes.length === 0
             ? Array.from({ length: 5 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-[76px] w-full shrink-0 animate-pulse rounded-2xl border border-white/90 bg-white/50"
+                  className="h-[76px] w-full shrink-0 animate-pulse rounded-[var(--r-md)] border border-mk-line bg-mk-elev-1"
                 />
               ))
             : themes.map((t) => (
@@ -108,22 +108,23 @@ export function ThemeScreen({
                   key={t.key}
                   theme={t}
                   recommended={options?.recommended.key === t.key}
+                  recommendedLabel={c.theme.recommended}
                   active={selectedKey === t.key}
                   onSelect={() => onPatch({ theme: t.key })}
                 />
               ))}
         </div>
 
-        <div className="overflow-hidden rounded-[28px] border border-white/90 bg-white/70 shadow-[0_24px_60px_-28px_rgba(249,115,22,0.4)]">
-          <div className="flex items-center justify-between gap-3 border-b border-[#2A2233]/8 px-4 py-3.5 sm:px-6">
+        <div className="overflow-hidden rounded-[var(--r-lg)] border border-mk-line bg-mk-elev-1 shadow-[var(--brand-shadow-card)]">
+          <div className="flex items-center justify-between gap-3 border-b border-mk-line px-4 py-3.5 sm:px-6">
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-[#2A2233] sm:text-lg">
-                {selectedMeta?.name ?? (loading ? "Loading…" : "Pick a theme")}
+              <p className="truncate text-base font-semibold text-mk-text sm:text-lg">
+                {selectedMeta?.name ?? (loading ? c.theme.loading : c.theme.pick)}
               </p>
               {selectedKey && options?.recommended.key === selectedKey ? (
-                <p className="text-xs font-medium text-[#C2410C] sm:text-sm">AI recommended</p>
+                <p className="font-mk-mono text-[11px] uppercase tracking-[0.14em] text-mk-accent">{c.theme.aiRecommended}</p>
               ) : selectedMeta?.industry ? (
-                <p className="text-xs capitalize text-[#6B6275] sm:text-sm">
+                <p className="text-xs capitalize text-mk-muted sm:text-sm">
                   {selectedMeta.industry.replace(/-/g, " ")}
                 </p>
               ) : null}
@@ -133,17 +134,14 @@ export function ThemeScreen({
                 href={themePreviewHref(selectedKey)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 rounded-full bg-[#FFF7ED] px-3 py-1.5 text-xs font-semibold text-[#C2410C] underline-offset-2 transition hover:bg-[#FFEDD5] hover:underline sm:text-sm"
+                className={cn(onbButton.secondary, "min-h-10 shrink-0 px-4 text-sm")}
               >
-                Click to Preview
+                {c.theme.preview} ↗
               </a>
-            ) : (
-              <span className="shrink-0 rounded-full bg-[#FFF7ED]/60 px-3 py-1.5 text-xs font-semibold text-[#C2410C]/50 sm:text-sm">
-                Click to Preview
-              </span>
-            )}
+            ) : null}
           </div>
-          <div className="relative min-h-[320px] overflow-hidden bg-[#FFF7ED]/50 sm:min-h-[420px] lg:min-h-[560px]">
+          {/* Light island: the preview depicts the seller's (light) storefront. */}
+          <div className="mk-light relative min-h-[320px] overflow-hidden bg-brand-canvas sm:min-h-[420px] lg:min-h-[560px]">
             {selectedFull ? (
               <div className="max-h-[480px] overflow-hidden sm:max-h-[560px] lg:max-h-[720px]">
                 <ThemeMockup
@@ -162,29 +160,20 @@ export function ThemeScreen({
                 className="max-h-[480px] w-full object-cover object-top sm:max-h-[560px] lg:max-h-[720px]"
               />
             ) : (
-              <div className="grid min-h-[320px] place-items-center text-sm text-[#6B6275] sm:min-h-[420px] lg:min-h-[560px]">
-                {loading ? "Loading themes…" : "Select a theme to preview"}
+              <div className="grid min-h-[320px] place-items-center text-sm text-muted sm:min-h-[420px] lg:min-h-[560px]">
+                {loading ? c.theme.subLoading : c.theme.selectToPreview}
               </div>
             )}
           </div>
         </div>
       </div>
 
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-full border border-white/90 bg-white/60 px-5 py-3 text-sm font-medium text-[#5E5568]"
-        >
-          ← Back
+      <div className="mt-auto flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button type="button" onClick={onBack} className={onbButton.secondary}>
+          ← {c.back}
         </button>
-        <button
-          type="button"
-          disabled={!canContinue}
-          onClick={onContinue}
-          className="rounded-full bg-linear-to-br from-[#FB923C] to-[#F97316] px-7 py-3.5 font-semibold text-white shadow-[0_16px_36px_-12px_rgba(249,115,22,0.65)] disabled:opacity-40"
-        >
-          Continue
+        <button type="button" disabled={!canContinue} onClick={onContinue} className={onbButton.primary}>
+          {c.theme.continue}
         </button>
       </div>
     </section>
@@ -194,11 +183,13 @@ export function ThemeScreen({
 function ThemeCard({
   theme,
   recommended,
+  recommendedLabel,
   active,
   onSelect,
 }: {
   theme: StartThemeOption;
   recommended: boolean;
+  recommendedLabel: string;
   active: boolean;
   onSelect: () => void;
 }) {
@@ -209,15 +200,15 @@ function ThemeCard({
       role="option"
       onClick={onSelect}
       className={cn(
-        "relative flex w-full shrink-0 gap-3 overflow-hidden rounded-2xl border p-2.5 text-left transition",
+        "relative flex w-full shrink-0 gap-3 overflow-hidden rounded-[var(--r-md)] border p-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mk-accent",
         active
-          ? "border-[#F97316] bg-white shadow-[0_16px_36px_-20px_rgba(249,115,22,0.55)] ring-2 ring-[#F97316]/30"
-          : "border-white/90 bg-white/55 hover:bg-white/80",
+          ? "border-mk-accent bg-mk-accent-tint shadow-[0_0_0_1px_var(--mk-accent)]"
+          : "border-mk-line bg-mk-elev-1 hover:border-mk-line-strong hover:bg-mk-elev-2",
       )}
       aria-selected={active}
     >
       <div
-        className="h-[56px] w-[84px] shrink-0 overflow-hidden rounded-xl border border-[#2A2233]/8 bg-[#FFF7ED]/50"
+        className="mk-light h-[56px] w-[84px] shrink-0 overflow-hidden rounded-[var(--r-sm)] border border-mk-line bg-brand-canvas"
         aria-hidden
       >
         {full ? (
@@ -234,22 +225,22 @@ function ThemeCard({
           // eslint-disable-next-line @next/next/no-img-element -- static theme preview webp
           <img src={theme.thumbnail} alt="" className="size-full object-cover object-top" />
         ) : (
-          <div className="grid size-full place-items-center text-[10px] text-[#6B6275]">Preview</div>
+          <div className="grid size-full place-items-center text-[10px] text-muted">—</div>
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 pr-5">
-        <span className="line-clamp-2 text-sm font-semibold leading-snug text-[#2A2233]">{theme.name}</span>
+        <span className="line-clamp-2 text-sm font-semibold leading-snug text-mk-text">{theme.name}</span>
         {recommended ? (
-          <span className="w-fit rounded-full bg-[#FFF7ED] px-2 py-0.5 text-[11px] font-semibold text-[#C2410C]">
-            Recommended
+          <span className="w-fit rounded-full bg-mk-accent-tint px-2 py-0.5 font-mk-mono text-[10px] uppercase tracking-[0.12em] text-mk-accent">
+            {recommendedLabel}
           </span>
         ) : theme.industry ? (
-          <span className="text-[11px] capitalize text-[#6B6275]">{theme.industry.replace(/-/g, " ")}</span>
+          <span className="text-[11px] capitalize text-mk-muted">{theme.industry.replace(/-/g, " ")}</span>
         ) : null}
       </div>
       {active ? (
-        <span className="absolute bottom-2.5 right-2.5 grid size-5 place-items-center rounded-full bg-[#F97316] text-[10px] text-white">
-          ✓
+        <span className="absolute bottom-2.5 right-2.5 grid size-5 place-items-center rounded-full bg-mk-accent text-mk-accent-ink" aria-hidden>
+          <Check className="size-3" strokeWidth={3} />
         </span>
       ) : null}
     </button>

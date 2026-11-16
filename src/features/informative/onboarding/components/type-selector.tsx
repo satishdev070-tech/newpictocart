@@ -1,32 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Globe, ShoppingBag } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { Check, Globe, ShoppingBag } from "lucide-react";
+import { OnbEyebrow, OnbHeading, OnbSub, onbButton, onbChoice } from "@/components/onboarding-ui";
+import { startCopy } from "@/features/start/copy";
 import { trackInformativeEvent } from "../analytics";
 import { START_TYPE_KEY } from "../draft";
-import { ui } from "./shell";
 
 type Choice = "ONLINE_STORE" | "INFORMATIVE";
 
-const OPTIONS: { id: Choice; title: string; text: string; icon: typeof ShoppingBag }[] = [
-  { id: "ONLINE_STORE", title: "Online Store", text: "Sell products online with cart, payments and orders.", icon: ShoppingBag },
-  {
-    id: "INFORMATIVE",
-    title: "Informative Website",
-    text: "Showcase your services, get enquiries and bookings. Ideal for clinics, salons, gyms, consultancies, academies, interior designers.",
-    icon: Globe,
-  },
-];
+/** Where the Informative choice continues; the informative journey reads `lang`. */
+export function informativeEntryHref(locale: string): string {
+  return `/start/informative/basic-info?lang=${encodeURIComponent(locale)}`;
+}
 
 /**
- * Step 0 (docs/informative/PLAN.md): two large single-select cards (native radios, so keyboard and
- * screen readers work), choice persisted so refresh and Back keep it. Online Store continues to the
- * existing first step, same URL and component as today.
+ * /start/build (step 2, after language): Online Store or Informative Website. Two large single-select
+ * cards (native radios, so keyboard and screen readers work); the choice is persisted so refresh and
+ * Back keep it. Rendered inside StartJourney, which owns navigation.
  */
-export function TypeSelector({ storeQuery }: { storeQuery: string }) {
-  const router = useRouter();
+export function TypeSelector({
+  locale,
+  onStore,
+  onInformative,
+  onBack,
+}: {
+  locale: string;
+  onStore: () => void;
+  onInformative: () => void;
+  onBack: () => void;
+}) {
+  const c = startCopy(locale);
   const [choice, setChoice] = useState<Choice | null>(null);
 
   useEffect(() => {
@@ -39,10 +43,10 @@ export function TypeSelector({ storeQuery }: { storeQuery: string }) {
     }
   }, []);
 
-  function select(c: Choice) {
-    setChoice(c);
+  function select(next: Choice) {
+    setChoice(next);
     try {
-      window.localStorage.setItem(START_TYPE_KEY, c);
+      window.localStorage.setItem(START_TYPE_KEY, next);
     } catch {
       // ignore
     }
@@ -51,44 +55,73 @@ export function TypeSelector({ storeQuery }: { storeQuery: string }) {
   function next() {
     if (!choice) return;
     trackInformativeEvent({ name: "onboarding_type_selected", params: { type: choice } });
-    router.push(choice === "INFORMATIVE" ? "/start/informative/basic-info" : storeQuery ? `/start/lang?${storeQuery}` : "/start/lang");
+    if (choice === "INFORMATIVE") onInformative();
+    else onStore();
   }
 
+  const options: { id: Choice; title: string; text: string; icon: typeof ShoppingBag }[] = [
+    { id: "ONLINE_STORE", title: c.build.storeTitle, text: c.build.storeDesc, icon: ShoppingBag },
+    { id: "INFORMATIVE", title: c.build.infoTitle, text: c.build.infoDesc, icon: Globe },
+  ];
+
   return (
-    <section className="flex flex-col gap-8" aria-labelledby="build-title">
-      <div className="text-center">
-        <h1 id="build-title" className="font-brand text-4xl leading-tight text-balance sm:text-5xl">
-          What do you want to build?
-        </h1>
-        <p className="mt-3 text-lg text-[#5E5568]">Pick one to get started. You can&apos;t switch type later, so choose what fits your business.</p>
+    <section className="mx-auto flex w-full max-w-4xl flex-col gap-8 pt-6 sm:pt-10" aria-labelledby="build-title">
+      <div className="space-y-3 text-center">
+        <OnbEyebrow>{c.build.eyebrow}</OnbEyebrow>
+        <OnbHeading accent={c.build.titleAccent}>
+          <span id="build-title">{c.build.title}</span>
+        </OnbHeading>
+        <OnbSub className="mx-auto max-w-xl">{c.build.sub}</OnbSub>
       </div>
       <fieldset>
-        <legend className="sr-only">Website type</legend>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {OPTIONS.map((o) => {
+        <legend className="sr-only">{c.build.legend}</legend>
+        <div className="grid gap-4 md:grid-cols-2">
+          {options.map((o) => {
             const active = choice === o.id;
             const Icon = o.icon;
             return (
               <label
                 key={o.id}
-                className={cn(
-                  "relative flex cursor-pointer flex-col gap-3 rounded-3xl border bg-white/80 p-6 shadow-sm transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#C2410C]",
-                  active ? "border-[#C2410C] ring-2 ring-[#C2410C]/30" : "border-[#2A2233]/15 hover:border-[#2A2233]/40",
+                className={onbChoice(
+                  active,
+                  "flex cursor-pointer flex-col gap-3 p-6 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-mk-accent sm:p-7",
                 )}
               >
-                <input type="radio" name="website-type" value={o.id} checked={active} onChange={() => select(o.id)} className="sr-only" aria-labelledby={`type-${o.id}`} aria-describedby={`type-${o.id}-text`} />
-                <Icon aria-hidden className="size-8 text-[#C2410C]" />
-                <span id={`type-${o.id}`} className="text-xl font-semibold">{o.title}</span>
-                <span id={`type-${o.id}-text`} className="text-[#5E5568]">{o.text}</span>
-                {active ? <span className="absolute top-4 right-4 grid size-6 place-items-center rounded-full bg-[#C2410C] text-xs text-white" aria-hidden>✓</span> : null}
+                <input
+                  type="radio"
+                  name="website-type"
+                  value={o.id}
+                  checked={active}
+                  onChange={() => select(o.id)}
+                  className="sr-only"
+                  aria-labelledby={`type-${o.id}`}
+                  aria-describedby={`type-${o.id}-text`}
+                />
+                <span className="grid size-12 place-items-center rounded-[var(--r-md)] bg-mk-accent-tint text-mk-accent">
+                  <Icon aria-hidden className="size-6" />
+                </span>
+                <span id={`type-${o.id}`} className="font-brand text-xl font-semibold text-mk-text">
+                  {o.title}
+                </span>
+                <span id={`type-${o.id}-text`} className="text-[15px] leading-relaxed text-mk-muted">
+                  {o.text}
+                </span>
+                {active ? (
+                  <span className="absolute right-4 top-4 grid size-7 place-items-center rounded-full bg-mk-accent text-mk-accent-ink" aria-hidden>
+                    <Check className="size-4" strokeWidth={3} />
+                  </span>
+                ) : null}
               </label>
             );
           })}
         </div>
       </fieldset>
-      <div className="flex justify-end">
-        <button type="button" onClick={next} disabled={!choice} className={ui.primaryBtn}>
-          Continue
+      <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button type="button" onClick={onBack} className={onbButton.secondary}>
+          ← {c.back}
+        </button>
+        <button type="button" onClick={next} disabled={!choice} className={onbButton.primary}>
+          {c.build.continue}
         </button>
       </div>
     </section>

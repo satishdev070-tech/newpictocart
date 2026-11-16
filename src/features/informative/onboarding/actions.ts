@@ -15,6 +15,7 @@ import { clientIpKey, rateLimit } from "@/lib/rate-limit";
 import { uploadTenantImage } from "@/lib/storage/upload";
 import { logger } from "@/lib/observability/logger";
 import { assertEmailVerifiedForOnboarding } from "@/features/onboarding/email-gate";
+import { seedInformativeImages } from "../images/seed";
 import { informativeOnboardingAllowed } from "../server/onboarding-gate";
 import { findInformativeTheme } from "../themes/registry";
 import { INFORMATIVE_HOME } from "../website-type";
@@ -50,7 +51,9 @@ export async function checkInformativeSlugAction(input: { slug: string }): Promi
 /**
  * Step 4 completion: one transaction (complete_informative_onboarding) creates the tenant
  * (INFORMATIVE), site (DRAFT), default pages and starter / sample services. Idempotent. The logo is
- * uploaded afterwards (best effort, `informative/` prefix) because storage is not transactional.
+ * uploaded afterwards (best effort, `informative/` prefix) because storage is not transactional,
+ * and so are the curated category/service photos (hero, gallery, service images; images/seed.ts).
+ * The onboarding language is kept in info_sites.options.locale.
  */
 export async function completeInformativeOnboardingAction(input: { draft: unknown }): Promise<ActionResult<{ redirectTo: string; tenantId: string; themeId: string }>> {
   return runAction("informative.completeOnboarding", async () => {
@@ -84,11 +87,29 @@ export async function completeInformativeOnboardingAction(input: { draft: unknow
     if (!tenantId) throw new AppError("INTERNAL", { context: { op: "complete_informative_onboarding" } });
 
     await setActiveTenant(tenantId);
-    if (draft.logoDataUrl) await saveLogo(tenantId, draft.logoDataUrl);
+    const [, images] = await Promise.all([
+      draft.logoDataUrl ? saveLogo(tenantId, draft.logoDataUrl) : null,
+      seedInformativeImages({ tenantId, userId: user.id, plan: payload.images, serviceSlugs: payload.services.map((s) => s.slug) }),
+      saveLocale(tenantId, payload.locale),
+    ]);
 
-    logger.info("informative_onboarding_completed", { tenantId, themeId: theme.id, samples: payload.usedSamples });
+    logger.info("informative_onboarding_completed", { tenantId, themeId: theme.id, samples: payload.usedSamples, locale: payload.locale, images });
     return { redirectTo: `${INFORMATIVE_HOME}?welcome=1`, tenantId, themeId: theme.id };
   });
+}
+
+/** Keeps the onboarding language with the site (merged into options; best effort). */
+async function saveLocale(tenantId: string, locale: string): Promise<void> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.from("info_sites").select("options").eq("tenant_id", tenantId).maybeSingle();
+    const current = data?.options && typeof data.options === "object" && !Array.isArray(data.options) ? data.options : {};
+    if ((current as Record<string, Json | undefined>).locale === locale) return;
+    const { error } = await supabase.from("info_sites").update({ options: { ...current, locale } }).eq("tenant_id", tenantId);
+    if (error) logger.warn("informative.locale_save_failed", { tenantId, code: error.code });
+  } catch (err) {
+    logger.warn("informative.locale_save_failed", { tenantId, err: err instanceof Error ? err.message : "unknown" });
+  }
 }
 
 async function saveLogo(tenantId: string, dataUrl: string): Promise<void> {

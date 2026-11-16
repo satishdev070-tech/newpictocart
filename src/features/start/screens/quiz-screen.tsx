@@ -1,21 +1,30 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { Globe2, ShoppingBag } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Check, Plus, Search, X } from "lucide-react";
+import { OnbCard, OnbEyebrow, onbButton, onbChip, onbField, onbHint } from "@/components/onboarding-ui";
 import { cn } from "@/lib/cn";
-import { INDUSTRIES, isIndustry, type IndustrySlug } from "@/features/stores/industries";
-import { isSubcategory, subcategoriesFor } from "@/features/stores/subcategories";
-import { informativeSitesEnabled } from "@/features/stores/informative-flag";
-import type { SiteMode } from "@/features/stores/site-mode";
-import { type VoiceFacts } from "@/features/onboarding/voice/facts";
+import { INDUSTRIES, industryShort, type IndustrySlug } from "@/features/stores/industries";
+import { subcategoriesFor } from "@/features/stores/subcategories";
 import { startCopy } from "../copy";
-import type { StartDraft } from "../draft/schema";
-import { voiceFactsComplete } from "../flow";
+import { draftCategories, draftStoreName, draftSubcategories, type StartDraft } from "../draft/schema";
+import {
+  MAX_STORE_CATEGORIES,
+  MAX_STORE_SUBCATEGORIES,
+  storeFactsComplete,
+  subcategoryOwner,
+  type StoreFacts,
+} from "../draft/apply-facts";
 
 const FEATURED: IndustrySlug[] = ["fashion", "jewellery", "home-decor", "grocery", "beauty", "handicrafts"];
-/** name → category → subcategory → [siteMode?] → city (tagline auto/null) */
-const SUB_EXTRAS_PREFIX = "sub:";
+/** name → categories (≤3) → product types (≤8, grouped by category + custom) → city. */
+const STEPS = 4;
+const CITY_STEP = 3;
 
+/**
+ * Online-store quiz. Site mode is decided at /start/build, so there is no "What should we build?".
+ * Every answer goes through `onSave(facts, done)` → `applyStoreFacts` (same as Tara's confirm).
+ */
 export function QuizScreen({
   draft,
   onBack,
@@ -23,469 +32,341 @@ export function QuizScreen({
 }: {
   draft: StartDraft;
   onBack: () => void;
-  onSave: (facts: VoiceFacts, done: boolean) => void;
+  onSave: (facts: StoreFacts, done: boolean) => void;
 }) {
   const c = startCopy(draft.locale);
-  const includeSiteMode = informativeSitesEnabled();
-  const steps = includeSiteMode ? 5 : 4;
-  const cityStep = includeSiteMode ? 4 : 3;
-  const [step, setStep] = useState(() =>
-    firstOpenStep(
-      draft.voice.facts.name,
-      draft.voice.facts.category,
-      draft.voice.facts.subcategory,
-      draft.voice.facts.siteMode,
-      includeSiteMode,
-    ),
-  );
+  const [name, setName] = useState(() => draftStoreName(draft));
+  const [city, setCity] = useState(() => draft.business.city || draft.voice.facts.city || "");
+  const [categories, setCategories] = useState<IndustrySlug[]>(() => draftCategories(draft));
+  const [subs, setSubs] = useState<string[]>(() => draftSubcategories(draft));
+  const [step, setStep] = useState(() => firstOpenStep(draftStoreName(draft), draftCategories(draft), draftSubcategories(draft)));
   const [more, setMore] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState("");
-  const [name, setName] = useState(draft.voice.facts.name ?? draft.business.name);
-  const [city, setCity] = useState(draft.voice.facts.city ?? draft.business.city);
-  const [customSub, setCustomSub] = useState("");
-  const facts = draft.voice.facts;
-  const category = facts.category && isIndustry(facts.category) ? facts.category : null;
-  const subs = category ? subcategoriesFor(category) : [];
-  const { selected: selectedSubs, customs: customSubs } = parseSubSelection(
-    category,
-    facts.subcategory,
-    facts.productsServices,
-  );
-  const subQuery = customSub.trim().toLowerCase();
-  const filteredSubs = subQuery
-    ? subs.filter(
-        (s) =>
-          s.label.toLowerCase().includes(subQuery) ||
-          s.slug.includes(subQuery.replace(/\s+/g, "-")),
-      )
-    : subs;
-  // Keep already-selected chips visible even when search filters them out.
-  const visibleSubs = [
-    ...subs.filter((s) => selectedSubs.includes(s.slug)),
-    ...filteredSubs.filter((s) => !selectedSubs.includes(s.slug)),
-  ];
-  const subExactMatch = subQuery
-    ? subs.some(
-        (s) =>
-          s.label.toLowerCase() === subQuery ||
-          s.slug === subQuery.replace(/\s+/g, "-"),
-      ) || customSubs.some((x) => x.toLowerCase() === subQuery)
-    : false;
-  const showSubAddCta = Boolean(subQuery) && filteredSubs.length === 0 && !subExactMatch;
+  const [subQueryRaw, setSubQueryRaw] = useState("");
 
-  function current(patch: Partial<VoiceFacts> = {}): VoiceFacts {
+  function facts(patch: Partial<StoreFacts> = {}): StoreFacts {
     return {
       name: (patch.name ?? name).trim() || null,
-      category: patch.category !== undefined ? patch.category : category,
-      subcategory: patch.subcategory !== undefined ? patch.subcategory : facts.subcategory,
-      productsServices:
-        patch.productsServices !== undefined ? patch.productsServices : facts.productsServices,
-      siteMode: includeSiteMode
-        ? patch.siteMode !== undefined
-          ? patch.siteMode
-          : facts.siteMode
-        : "ecommerce",
-      city: (patch.city ?? city).trim() || null,
-      // Tagline is auto/null — quiz no longer asks for it.
-      tagline: patch.tagline !== undefined ? patch.tagline : null,
+      categories: patch.categories ?? categories,
+      subcategories: patch.subcategories ?? subs,
+      city: (patch.city ?? city).trim(),
     };
   }
 
-  // Flag off: never keep a stale informative choice from a prior draft hydrate.
-  useEffect(() => {
-    if (includeSiteMode) return;
-    if (draft.voice.facts.siteMode !== "informative") return;
-    onSave(current({ siteMode: "ecommerce" }), false);
-    // Mount/hydrate only — parent draft updates after coerce.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot coerce
-  }, []);
-
-  function persistSubs(nextSelected: string[], nextCustoms: string[]) {
-    // Schema expects a single primary subcategory string; extras/customs ride in productsServices.
-    const primary = nextSelected[0] ?? nextCustoms[0]?.trim() ?? null;
-    const extras = nextSelected.slice(1);
-    const remainingCustoms = nextSelected.length > 0 ? nextCustoms : nextCustoms.slice(1);
-    const productsServices = encodeSubExtras(extras, remainingCustoms);
-    onSave(current({ subcategory: primary, productsServices }), false);
+  function toggleCategory(slug: IndustrySlug) {
+    let next: IndustrySlug[];
+    let nextSubs = subs;
+    if (categories.includes(slug)) {
+      next = categories.filter((s) => s !== slug);
+      // Drop product types only that category owned; customs stay.
+      nextSubs = subs.filter((s) => subcategoryOwner(next, s) || !subcategoryOwner([slug], s));
+    } else {
+      if (categories.length >= MAX_STORE_CATEGORIES) return;
+      next = [...categories, slug];
+    }
+    setCategories(next);
+    setSubs(nextSubs);
+    onSave(facts({ categories: next, subcategories: nextSubs }), false);
   }
 
-  function chooseCategory(slug: IndustrySlug) {
-    const nextFacts = current({
-      category: slug,
-      subcategory: category === slug ? facts.subcategory : null,
-      productsServices: category === slug ? facts.productsServices : null,
-    });
-    onSave(nextFacts, false);
+  function setSubsAndSave(next: string[]) {
+    setSubs(next);
+    onSave(facts({ subcategories: next }), false);
   }
 
-  function toggleSubcategory(slug: string) {
-    const next = selectedSubs.includes(slug)
-      ? selectedSubs.filter((s) => s !== slug)
-      : [...selectedSubs, slug];
-    persistSubs(next, customSubs);
+  function toggleSub(slug: string) {
+    if (subs.includes(slug)) setSubsAndSave(subs.filter((s) => s !== slug));
+    else if (subs.length < MAX_STORE_SUBCATEGORIES) setSubsAndSave([...subs, slug]);
   }
 
   function addCustomSub() {
-    const label = customSub.trim();
+    const label = subQueryRaw.replace(/,/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
     if (!label) return;
-    if (category) {
-      const match = subs.find(
-        (s) =>
-          s.slug === label.toLowerCase().replace(/\s+/g, "-") ||
-          s.label.toLowerCase() === label.toLowerCase(),
-      );
-      if (match) {
-        const next = selectedSubs.includes(match.slug) ? selectedSubs : [...selectedSubs, match.slug];
-        persistSubs(next, customSubs);
-        setCustomSub("");
-        return;
-      }
+    const asSlug = label.toLowerCase().replace(/\s+/g, "-");
+    const known = categories
+      .flatMap((cat) => subcategoriesFor(cat))
+      .find((s) => s.slug === asSlug || s.label.toLowerCase() === label.toLowerCase());
+    const token = known?.slug ?? label;
+    if (!subs.some((s) => s.toLowerCase() === token.toLowerCase()) && subs.length < MAX_STORE_SUBCATEGORIES) {
+      setSubsAndSave([...subs, token]);
     }
-    const exists = customSubs.some((x) => x.toLowerCase() === label.toLowerCase());
-    if (!exists) persistSubs(selectedSubs, [...customSubs, label]);
-    setCustomSub("");
+    setSubQueryRaw("");
   }
 
-  function removeCustomSub(label: string) {
-    persistSubs(
-      selectedSubs,
-      customSubs.filter((x) => x !== label),
-    );
-  }
-
-  function chooseSite(mode: SiteMode) {
-    onSave(current({ siteMode: mode }), false);
+  function finish(cityValue = city) {
+    const f = facts({ city: cityValue });
+    onSave(f, storeFactsComplete(f));
   }
 
   function next() {
-    const nextFacts = current();
-    if (step < steps - 1) {
-      onSave(nextFacts, false);
+    if (step < STEPS - 1) {
+      onSave(facts(), false);
       setStep((s) => s + 1);
       return;
     }
-    // Done when name + category + subcategory are set (siteMode defaults at finalize).
-    const draftLike = {
-      ...draft,
-      voice: { ...draft.voice, facts: nextFacts },
-      business: {
-        ...draft.business,
-        name: nextFacts.name?.trim() || draft.business.name,
-        category: nextFacts.category ?? draft.business.category,
-        subcategory: nextFacts.subcategory ?? draft.business.subcategory,
-      },
-    };
-    onSave(nextFacts, voiceFactsComplete(draftLike));
+    finish();
   }
 
+  const customs = subs.filter((s) => !subcategoryOwner(categories, s));
   const canNext =
     (step === 0 && name.trim().length >= 2) ||
-    (step === 1 && Boolean(category)) ||
-    (step === 2 && (selectedSubs.length > 0 || customSubs.length > 0)) ||
-    (includeSiteMode && step === 3 && Boolean(facts.siteMode)) ||
-    step >= cityStep;
+    (step === 1 && categories.length > 0) ||
+    (step === 2 && subs.length > 0) ||
+    step >= CITY_STEP;
 
+  // Category chips: featured (or all) + always the selected ones; search spans everything.
   const q = categoryQuery.trim().toLowerCase();
-  const pool = more
-    ? INDUSTRIES
-    : INDUSTRIES.filter((ind) => FEATURED.includes(ind.slug) || ind.slug === category);
-  const categories = q
-    ? INDUSTRIES.filter(
-        (ind) =>
-          ind.name.toLowerCase().includes(q) ||
-          ind.short.toLowerCase().includes(q) ||
-          ind.slug.includes(q),
-      )
+  const pool = more ? INDUSTRIES : INDUSTRIES.filter((ind) => FEATURED.includes(ind.slug) || categories.includes(ind.slug));
+  const categoryChips = q
+    ? INDUSTRIES.filter((ind) => ind.name.toLowerCase().includes(q) || ind.short.toLowerCase().includes(q) || ind.slug.includes(q))
     : pool;
+  const categoriesFull = categories.length >= MAX_STORE_CATEGORIES;
+
+  // Product types grouped by selected category; search filters every group.
+  const subQuery = subQueryRaw.trim().toLowerCase();
+  const groups = categories.map((cat) => {
+    const all = subcategoriesFor(cat);
+    const matches = subQuery
+      ? all.filter((s) => s.label.toLowerCase().includes(subQuery) || s.slug.includes(subQuery.replace(/\s+/g, "-")))
+      : all;
+    // Keep selected chips visible even when search filters them out.
+    const visible = [...all.filter((s) => subs.includes(s.slug) && !matches.includes(s)), ...matches];
+    return { cat, visible, matchCount: matches.length };
+  });
+  const anyMatch = groups.some((g) => g.matchCount > 0);
+  const exact =
+    subQuery &&
+    (groups.some((g) => g.visible.some((s) => s.label.toLowerCase() === subQuery)) || customs.some((x) => x.toLowerCase() === subQuery));
+  const subsFull = subs.length >= MAX_STORE_SUBCATEGORIES;
+  const showAddCta = Boolean(subQuery) && !anyMatch && !exact;
 
   return (
-    <section className="mx-auto flex min-h-[min(70vh,36rem)] w-full max-w-2xl flex-col justify-center gap-8 px-1">
-      <div className="mx-auto w-full max-w-xl space-y-5">
-        <p className="text-xs font-semibold tracking-wide text-[#6B6275]">{c.quiz.step(step + 1, steps)}</p>
+    <section className="mx-auto flex w-full max-w-2xl flex-col gap-6 pt-4 sm:pt-8">
+      <OnbCard className="space-y-5 p-5 sm:p-7">
+        <OnbEyebrow>{c.quiz.step(step + 1, STEPS)}</OnbEyebrow>
         {step === 0 ? (
-          <Question title={c.quiz.nameTitle}>
+          <Question title={c.quiz.nameTitle} htmlFor="quiz-name">
             <input
+              id="quiz-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && canNext) next();
+              }}
               placeholder={c.quiz.nameHint}
-              className="w-full rounded-2xl border border-[#2A2233]/10 bg-white px-4 py-3 text-base"
+              maxLength={120}
+              className={onbField}
               autoFocus
             />
           </Question>
         ) : null}
+
         {step === 1 ? (
-          <Question title={c.quiz.categoryTitle}>
-            <input
-              value={categoryQuery}
-              onChange={(e) => setCategoryQuery(e.target.value)}
-              placeholder={c.quiz.categorySearch}
-              className="w-full rounded-xl border border-[#2A2233]/10 bg-white px-3 py-2.5 text-sm"
-              autoFocus
-            />
-            <div className="flex flex-wrap gap-1.5">
-              {categories.map((ind) => (
-                <button
-                  key={ind.slug}
-                  type="button"
-                  onClick={() => chooseCategory(ind.slug)}
-                  className={cn(
-                    "rounded-full border px-3 py-1.5 text-sm",
-                    category === ind.slug
-                      ? "border-[#F97316] bg-[#FFF7ED] font-semibold text-[#C2410C]"
-                      : "border-[#2A2233]/10 bg-white",
-                  )}
-                >
-                  {ind.short}
-                </button>
-              ))}
+          <Question title={c.quiz.categoryTitle} hint={c.quiz.categoryHint(categories.length, MAX_STORE_CATEGORIES)}>
+            <SearchField value={categoryQuery} onChange={setCategoryQuery} placeholder={c.quiz.categorySearch} />
+            <div className="flex flex-wrap gap-2">
+              {categoryChips.map((ind) => {
+                const active = categories.includes(ind.slug);
+                const disabled = !active && categoriesFull;
+                return (
+                  <button
+                    key={ind.slug}
+                    type="button"
+                    aria-pressed={active}
+                    disabled={disabled}
+                    onClick={() => toggleCategory(ind.slug)}
+                    className={onbChip(active, "disabled:cursor-not-allowed disabled:opacity-40")}
+                  >
+                    {active ? <Check aria-hidden className="size-3.5 text-mk-accent" strokeWidth={3} /> : null}
+                    {ind.short}
+                  </button>
+                );
+              })}
             </div>
             {!q ? (
-              <button
-                type="button"
-                onClick={() => setMore((v) => !v)}
-                className="text-sm text-[#C2410C] underline"
-              >
+              <button type="button" onClick={() => setMore((v) => !v)} className={cn(onbButton.link, "text-sm")}>
                 {more ? c.quiz.less : c.quiz.more}
               </button>
             ) : null}
           </Question>
         ) : null}
+
         {step === 2 ? (
-          <Question title={c.quiz.subcategoryTitle}>
+          <Question title={c.quiz.subcategoryTitle} hint={c.quiz.subcategoryHint(subs.length, MAX_STORE_SUBCATEGORIES)}>
             <div className="flex gap-2">
-              <input
-                value={customSub}
-                onChange={(e) => setCustomSub(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addCustomSub();
-                  }
-                }}
+              <SearchField
+                value={subQueryRaw}
+                onChange={setSubQueryRaw}
                 placeholder={c.quiz.customSubHint}
-                className="min-w-0 flex-1 rounded-xl border border-[#2A2233]/10 bg-white px-3 py-2.5 text-sm"
-                autoFocus
+                onEnter={addCustomSub}
+                className="min-w-0 flex-1"
               />
               <button
                 type="button"
                 onClick={addCustomSub}
-                disabled={!customSub.trim()}
-                className={cn(
-                  "shrink-0 rounded-xl px-5 py-3 text-base font-semibold transition disabled:opacity-40",
-                  showSubAddCta
-                    ? "bg-linear-to-br from-[#FB923C] to-[#F97316] text-white shadow-[0_10px_24px_-12px_rgba(249,115,22,0.7)]"
-                    : "border border-[#2A2233]/10 bg-white text-[#C2410C]",
-                )}
+                disabled={!subQueryRaw.trim() || subsFull}
+                className={cn(showAddCta ? onbButton.primary : onbButton.secondary, "shrink-0 px-5")}
               >
+                <Plus aria-hidden className="size-4" />
                 {c.quiz.customSubAdd}
               </button>
             </div>
-            {showSubAddCta ? (
-              <p className="text-sm text-[#6B6275]">{c.quiz.customSubNoMatch(customSub.trim())}</p>
-            ) : null}
-            <div className="flex flex-wrap gap-1.5">
-              {visibleSubs.map((sub) => {
-                const active = selectedSubs.includes(sub.slug);
-                return (
-                  <button
-                    key={sub.slug}
-                    type="button"
-                    onClick={() => toggleSubcategory(sub.slug)}
-                    className={cn(
-                      "rounded-full border px-3 py-1.5 text-sm",
-                      active
-                        ? "border-[#F97316] bg-[#FFF7ED] font-semibold text-[#C2410C]"
-                        : "border-[#2A2233]/10 bg-white",
-                    )}
-                  >
-                    {sub.label}
-                  </button>
-                );
-              })}
-              {customSubs.map((label) => (
-                <button
-                  key={`custom-${label}`}
-                  type="button"
-                  onClick={() => removeCustomSub(label)}
-                  className="rounded-full border border-[#F97316] bg-[#FFF7ED] px-3 py-1.5 text-sm font-semibold text-[#C2410C]"
-                  title={c.quiz.customSubRemove}
-                >
-                  {label} ×
-                </button>
-              ))}
+            {showAddCta ? <p className="text-sm text-mk-muted">{c.quiz.customSubNoMatch(subQueryRaw.trim())}</p> : null}
+            <div className="space-y-4">
+              {groups.map(({ cat, visible }) =>
+                visible.length ? (
+                  <div key={cat} className="space-y-2">
+                    {categories.length > 1 ? (
+                      <p className="font-mk-mono text-[11px] uppercase tracking-[0.14em] text-mk-dim">{industryShort(cat)}</p>
+                    ) : null}
+                    <div className="flex flex-wrap gap-2">
+                      {visible.map((sub) => {
+                        const active = subs.includes(sub.slug);
+                        return (
+                          <button
+                            key={`${cat}-${sub.slug}`}
+                            type="button"
+                            aria-pressed={active}
+                            disabled={!active && subsFull}
+                            onClick={() => toggleSub(sub.slug)}
+                            className={onbChip(active, "disabled:cursor-not-allowed disabled:opacity-40")}
+                          >
+                            {active ? <Check aria-hidden className="size-3.5 text-mk-accent" strokeWidth={3} /> : null}
+                            {sub.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null,
+              )}
+              {customs.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {customs.map((label) => (
+                    <button
+                      key={`custom-${label}`}
+                      type="button"
+                      onClick={() => setSubsAndSave(subs.filter((s) => s !== label))}
+                      className={onbChip(true)}
+                      aria-label={`${c.quiz.customSubRemove} ${label}`}
+                    >
+                      {label}
+                      <X aria-hidden className="size-3.5" />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </Question>
         ) : null}
-        {includeSiteMode && step === 3 ? (
-          <Question title={c.quiz.siteTitle}>
-            <div className="grid gap-3">
-              <Choice
-                active={facts.siteMode === "ecommerce"}
-                title={c.quiz.storeTitle}
-                desc={c.quiz.storeDesc}
-                icon={<ShoppingBag className="size-6 shrink-0 text-[#C2410C]" aria-hidden />}
-                onClick={() => chooseSite("ecommerce")}
-              />
-              <Choice
-                active={facts.siteMode === "informative"}
-                title={c.quiz.siteInfoTitle}
-                desc={c.quiz.siteInfoDesc}
-                icon={<Globe2 className="size-6 shrink-0 text-[#C2410C]" aria-hidden />}
-                onClick={() => chooseSite("informative")}
-              />
-            </div>
-          </Question>
-        ) : null}
-        {step === cityStep ? (
-          <Question title={c.quiz.cityTitle}>
+
+        {step === CITY_STEP ? (
+          <Question title={c.quiz.cityTitle} htmlFor="quiz-city">
             <input
+              id="quiz-city"
               value={city}
               onChange={(e) => setCity(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") next();
+              }}
               placeholder={c.quiz.cityHint}
-              className="w-full rounded-2xl border border-[#2A2233]/10 bg-white px-4 py-3 text-base"
+              maxLength={80}
+              className={onbField}
+              autoFocus
             />
           </Question>
         ) : null}
-      </div>
-      <div className="mx-auto flex w-full max-w-xl flex-wrap items-center justify-between gap-3 pt-2">
-        <div className="flex items-center gap-3">
+      </OnbCard>
+
+      <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center justify-between gap-3 sm:justify-start">
           <button
             type="button"
             onClick={() => {
               if (step > 0) {
+                onSave(facts(), false);
                 setStep((s) => s - 1);
                 return;
               }
               onBack();
             }}
-            className="rounded-full border border-white/90 bg-white/60 px-5 py-3 text-sm font-medium text-[#5E5568]"
+            className={onbButton.secondary}
           >
             ← {c.back}
           </button>
-          {step === cityStep ? (
+          {step === CITY_STEP ? (
             <button
               type="button"
               onClick={() => {
                 setCity("");
-                const cleared = current({ city: "" });
-                const draftLike = {
-                  ...draft,
-                  voice: { ...draft.voice, facts: cleared },
-                  business: {
-                    ...draft.business,
-                    name: cleared.name?.trim() || draft.business.name,
-                    category: cleared.category ?? draft.business.category,
-                    subcategory: cleared.subcategory ?? draft.business.subcategory,
-                  },
-                };
-                onSave(cleared, voiceFactsComplete(draftLike));
+                finish("");
               }}
-              className="text-sm text-[#6B6275] underline"
+              className={onbButton.ghost}
             >
               {c.quiz.skip}
             </button>
           ) : null}
         </div>
-        <button
-          type="button"
-          disabled={!canNext}
-          onClick={next}
-          className="rounded-full bg-linear-to-br from-[#FB923C] to-[#F97316] px-6 py-3 font-semibold text-white disabled:opacity-40"
-        >
-          {step === steps - 1 ? c.quiz.finish : c.quiz.next}
+        <button type="button" disabled={!canNext} onClick={next} className={onbButton.primary}>
+          {step === STEPS - 1 ? c.quiz.finish : c.quiz.next}
         </button>
       </div>
     </section>
   );
 }
 
-function firstOpenStep(
-  name: string | null,
-  category: string | null,
-  subcategory: string | null,
-  siteMode: string | null,
-  includeSiteMode: boolean,
-): number {
-  if (!name?.trim()) return 0;
-  if (!category) return 1;
-  if (!subcategory?.trim()) return 2;
-  if (includeSiteMode) {
-    if (!siteMode) return 3;
-    return 4;
-  }
-  return 3;
+function firstOpenStep(name: string, categories: readonly string[], subs: readonly string[]): number {
+  if (name.trim().length < 2) return 0;
+  if (!categories.length) return 1;
+  if (!subs.length) return 2;
+  return CITY_STEP;
 }
 
-/** Primary slug in subcategory; extras/custom in productsServices as `sub:slug2,Custom`. */
-function encodeSubExtras(extraSlugs: string[], customs: string[]): string | null {
-  const parts = [...extraSlugs, ...customs.map((c) => c.trim()).filter(Boolean)];
-  if (!parts.length) return null;
-  return `${SUB_EXTRAS_PREFIX}${parts.join(",")}`;
-}
-
-function parseSubSelection(
-  category: IndustrySlug | null,
-  subcategory: string | null,
-  productsServices: string | null,
-): { selected: string[]; customs: string[] } {
-  const selected: string[] = [];
-  const customs: string[] = [];
-  const primary = subcategory?.trim();
-  if (primary) {
-    if (!category || isSubcategory(category, primary)) selected.push(primary);
-    else customs.push(primary);
-  }
-  const raw = productsServices?.trim() ?? "";
-  if (raw.startsWith(SUB_EXTRAS_PREFIX)) {
-    for (const part of raw.slice(SUB_EXTRAS_PREFIX.length).split(",")) {
-      const token = part.trim();
-      if (!token) continue;
-      if (category && isSubcategory(category, token)) {
-        if (!selected.includes(token)) selected.push(token);
-      } else if (!customs.some((c) => c.toLowerCase() === token.toLowerCase())) {
-        customs.push(token);
-      }
-    }
-  }
-  return { selected, customs };
-}
-
-function Question({ title, children }: { title: string; children: ReactNode }) {
+function SearchField({
+  value,
+  onChange,
+  placeholder,
+  onEnter,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  onEnter?: () => void;
+  className?: string;
+}) {
   return (
-    <div className="space-y-4 rounded-3xl border border-[#2A2233]/08 bg-white/70 p-5 shadow-sm sm:p-6">
-      <h2 className="font-brand text-3xl sm:text-4xl">{title}</h2>
-      {children}
+    <div className={cn("relative", className)}>
+      <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-mk-dim" />
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && onEnter) {
+            e.preventDefault();
+            onEnter();
+          }
+        }}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        className={cn(onbField, "pl-10")}
+        autoFocus
+      />
     </div>
   );
 }
 
-function Choice({
-  active,
-  title,
-  desc,
-  icon,
-  onClick,
-}: {
-  active: boolean;
-  title: string;
-  desc: string;
-  icon: ReactNode;
-  onClick: () => void;
-}) {
+function Question({ title, hint, htmlFor, children }: { title: string; hint?: string; htmlFor?: string; children: ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-start gap-4 rounded-2xl border bg-white p-4 text-left",
-        active ? "border-[#F97316] ring-2 ring-[#FDBA74]" : "border-[#2A2233]/10",
-      )}
-    >
-      <span className="mt-0.5 flex size-10 items-center justify-center rounded-xl bg-[#FFF7ED]">{icon}</span>
-      <span className="min-w-0">
-        <p className="font-semibold">{title}</p>
-        <p className="mt-1 text-sm text-[#6B6275]">{desc}</p>
-      </span>
-    </button>
+    <div className="space-y-4">
+      <div>
+        <h2 className="font-brand text-2xl font-semibold leading-tight tracking-[-0.01em] text-mk-text sm:text-3xl">
+          {htmlFor ? <label htmlFor={htmlFor}>{title}</label> : title}
+        </h2>
+        {hint ? <p className={onbHint}>{hint}</p> : null}
+      </div>
+      {children}
+    </div>
   );
 }

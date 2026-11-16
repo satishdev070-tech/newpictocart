@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { googleSignInAvailable } from "@/features/auth/google";
-import { isInfoStep } from "@/features/informative/onboarding/draft";
+import { isInfoStep, parseInfoLocale } from "@/features/informative/onboarding/draft";
 import { InformativeJourney } from "@/features/informative/onboarding/components/journey";
 import { informativeOnboardingAllowed } from "@/features/informative/server/onboarding-gate";
 import { onboardingLogo, themeCards } from "@/features/informative/server/onboarding-page";
@@ -11,10 +11,13 @@ import { publicEnv } from "@/lib/env/public";
 export const metadata: Metadata = { title: "Create your website", robots: { index: false, follow: false } };
 
 /** Informative onboarding steps 1–4 + finish. 404 unless FEATURE_INFORMATIVE_WEBSITE allows this visitor. */
-export default async function InformativeStartStepPage({ params }: PageProps<"/start/informative/[step]">) {
+export default async function InformativeStartStepPage({ params, searchParams }: PageProps<"/start/informative/[step]">) {
   if (!(await informativeOnboardingAllowed())) notFound();
   const { step } = await params;
   if (!isInfoStep(step)) redirect("/start/informative/basic-info");
+  const sp = await searchParams;
+  // ?lang= from /start/lang → /start/build (validated; the journey keeps it in the draft).
+  const lang = parseInfoLocale(Array.isArray(sp.lang) ? sp.lang[0] : sp.lang);
   const user = await getSessionUser();
   if (step === "finish" && !user) redirect("/start/informative/account");
   const [logo, googleAvailable] = await Promise.all([onboardingLogo(), googleSignInAvailable("sellers")]);
@@ -26,6 +29,7 @@ export default async function InformativeStartStepPage({ params }: PageProps<"/s
       themes={themeCards()}
       signedIn={Boolean(user)}
       googleAvailable={googleAvailable}
+      lang={lang}
     />
   );
 }

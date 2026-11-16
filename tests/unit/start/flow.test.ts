@@ -4,6 +4,7 @@ import {
   businessComplete,
   draftHasProgress,
   draftReadyToFinalize,
+  nextScreenAfterLang,
   nextScreenAfterPath,
   progressFor,
   voiceFactsComplete,
@@ -11,49 +12,62 @@ import {
 import { emptyStartDraft } from "@/features/start/draft/schema";
 
 describe("start flow progress", () => {
-  it("labels five-screen steps", () => {
-    expect(progressFor("lang", null, "en-IN").overall).toBe("Step 1 of 5");
-    expect(progressFor("lang", null, "hi-IN").overall).toBe("चरण 1 / 5");
-    expect(progressFor("path", null, "en-IN")).toMatchObject({ overall: "Step 2 of 5", percent: 40 });
-    expect(progressFor("business", "manual", "en-IN")).toMatchObject({
-      overall: "Step 3 of 5",
-      manual: null,
-      percent: 60,
-    });
-    expect(progressFor("voice", "ai", "en-IN").overall).toBe("Step 3 of 5");
-    expect(progressFor("quiz", "ai", "en-IN").overall).toBe("Step 3 of 5");
-    expect(progressFor("theme", "manual", "en-IN").overall).toBe("Step 4 of 5");
-    expect(progressFor("account", "ai", "en-IN").overall).toBe("Step 5 of 5");
+  it("numbers the online-store journey with the build step (6 steps)", () => {
+    const o = { buildStep: true };
+    expect(progressFor("lang", o)).toEqual({ step: 1, total: 6 });
+    expect(progressFor("build", o)).toEqual({ step: 2, total: 6 });
+    expect(progressFor("path", o)).toEqual({ step: 3, total: 6 });
+    expect(progressFor("quiz", o)).toEqual({ step: 4, total: 6 });
+    expect(progressFor("voice", o)).toEqual({ step: 4, total: 6 });
+    expect(progressFor("theme", o)).toEqual({ step: 5, total: 6 });
+    expect(progressFor("account", o)).toEqual({ step: 6, total: 6 });
   });
 
-  it("hides progress on welcome, building, and done", () => {
-    expect(progressFor("welcome", null, "en-IN").overall).toBeNull();
-    expect(progressFor("building", "ai", "en-IN").overall).toBeNull();
-    expect(progressFor("done", "manual", "en-IN").overall).toBeNull();
+  it("skips the build step when the informative gate is off (5 steps)", () => {
+    const o = { buildStep: false };
+    expect(progressFor("lang", o)).toEqual({ step: 1, total: 5 });
+    expect(progressFor("path", o)).toEqual({ step: 2, total: 5 });
+    expect(progressFor("quiz", o)).toEqual({ step: 3, total: 5 });
+    expect(progressFor("account", o)).toEqual({ step: 5, total: 5 });
   });
 
-  it("maps legacy content screens onto theme/business progress", () => {
-    expect(progressFor("intent", null, "en-IN").overall).toBe("Step 2 of 5");
-    expect(progressFor("mood", "manual", "en-IN").overall).toBe("Step 4 of 5");
-    expect(progressFor("payment", "manual", "en-IN").overall).toBe("Step 4 of 5");
+  it("hides progress on building and done; maps legacy screens", () => {
+    expect(progressFor("building", { buildStep: true })).toBeNull();
+    expect(progressFor("done", { buildStep: true })).toBeNull();
+    expect(progressFor("intent", { buildStep: false })).toEqual({ step: 2, total: 5 });
+    expect(progressFor("mood", { buildStep: false })).toEqual({ step: 4, total: 5 });
+    expect(progressFor("business", { buildStep: false })).toEqual({ step: 3, total: 5 });
+  });
+});
+
+describe("start flow order", () => {
+  it("goes lang → build when the build step exists, else lang → path", () => {
+    expect(nextScreenAfterLang(true)).toBe("build");
+    expect(nextScreenAfterLang(false)).toBe("path");
+  });
+
+  it("backs path → build → lang with the build step", () => {
+    expect(backTarget("path", "ai", "quiz", true)).toBe("build");
+    expect(backTarget("build", null, undefined, true)).toBe("lang");
+    expect(backTarget("path", "ai", "quiz", false)).toBe("lang");
   });
 });
 
 describe("start flow graph", () => {
-  it("routes path → voice/quiz for AI modes and path → business for manual", () => {
+  it("routes path → voice/quiz for AI modes and legacy manual → quiz", () => {
     expect(nextScreenAfterPath("ai")).toBe("voice");
     expect(nextScreenAfterPath("ai", "talk")).toBe("voice");
     expect(nextScreenAfterPath("ai", "quiz")).toBe("quiz");
-    expect(nextScreenAfterPath("manual")).toBe("business");
+    expect(nextScreenAfterPath("manual")).toBe("quiz");
   });
 
-  it("backs through the five-screen graph", () => {
+  it("backs through the graph", () => {
     expect(backTarget("lang", null)).toBeNull();
     expect(backTarget("path", null)).toBe("lang");
     expect(backTarget("business", "manual")).toBe("path");
     expect(backTarget("voice", "ai")).toBe("path");
     expect(backTarget("quiz", "ai", "quiz")).toBe("path");
-    expect(backTarget("theme", "manual")).toBe("business");
+    expect(backTarget("theme", "manual")).toBe("quiz");
     expect(backTarget("theme", "ai", "talk")).toBe("voice");
     expect(backTarget("theme", "ai", "quiz")).toBe("quiz");
     expect(backTarget("account", "ai")).toBe("theme");
@@ -71,6 +85,17 @@ describe("start flow completeness", () => {
     d.business.category = "fashion";
     expect(businessComplete(d)).toBe(false);
     d.business.subcategory = "ethnic";
+    expect(businessComplete(d)).toBe(true);
+    expect(draftReadyToFinalize(d)).toBe(true);
+  });
+
+  it("accepts multi-select categories + custom product types", () => {
+    const d = emptyStartDraft();
+    d.path = "ai";
+    d.business.name = "Meera";
+    d.business.categories = ["jewellery", "fashion"];
+    expect(businessComplete(d)).toBe(false);
+    d.business.subcategories = ["Temple pieces"];
     expect(businessComplete(d)).toBe(true);
     expect(draftReadyToFinalize(d)).toBe(true);
   });

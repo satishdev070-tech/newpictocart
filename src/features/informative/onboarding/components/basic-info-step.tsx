@@ -6,6 +6,8 @@ import { findServiceType, serviceTypesByFamily } from "../../service-types";
 import { slugify } from "../../slug";
 import { checkInformativeSlugAction, type SlugCheck } from "../actions";
 import { basicInfoStepSchema, LOGO_MAX_BYTES, type InformativeDraft } from "../draft";
+import { OnbEyebrow, OnbHeading, OnbSub } from "@/components/onboarding-ui";
+import { cn } from "@/lib/cn";
 import { ui } from "./shell";
 
 type Fields = {
@@ -157,9 +159,12 @@ export function BasicInfoStep({
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-6" aria-labelledby="basic-title">
-      <div>
-        <h1 id="basic-title" className="font-brand text-3xl sm:text-4xl">Tell us about your business</h1>
-        <p className="mt-2 text-[#5E5568]">This shows on your website. You can change it any time.</p>
+      <div className="flex flex-col gap-3">
+        <OnbEyebrow>Your business</OnbEyebrow>
+        <div id="basic-title">
+          <OnbHeading>Tell us about your business</OnbHeading>
+        </div>
+        <OnbSub>This shows on your website. You can change it any time.</OnbSub>
       </div>
       <div className={`${ui.card} grid gap-5 sm:grid-cols-2`}>
         <label className={`${ui.label} sm:col-span-2`}>
@@ -210,8 +215,8 @@ export function BasicInfoStep({
             WhatsApp number
             <input {...a11y("whatsapp")} className={ui.input} value={f.whatsappSameAsPhone ? f.phone : f.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} disabled={f.whatsappSameAsPhone} type="tel" inputMode="tel" />
           </label>
-          <label className="mt-2 flex min-h-11 items-center gap-2 text-sm">
-            <input type="checkbox" checked={f.whatsappSameAsPhone} onChange={(e) => set("whatsappSameAsPhone", e.target.checked)} className="size-4 accent-[#C2410C]" />
+          <label className="mt-2 flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-mk-muted">
+            <input type="checkbox" checked={f.whatsappSameAsPhone} onChange={(e) => set("whatsappSameAsPhone", e.target.checked)} className={ui.checkbox} />
             Same as phone
           </label>
           {err("whatsapp")}
@@ -232,12 +237,12 @@ export function BasicInfoStep({
         </label>
         <div className="sm:col-span-2">
           <label className={ui.label} htmlFor="f-logo">Logo</label>
-          <div className="mt-1 flex items-center gap-4">
+          <div className="mt-1.5 flex flex-wrap items-center gap-3 sm:gap-4">
             {logo ? (
               // eslint-disable-next-line @next/next/no-img-element -- local data URL preview
-              <img src={logo} alt="Your logo" width={56} height={56} className="size-14 rounded-xl border border-[#2A2233]/15 bg-white object-contain" />
+              <img src={logo} alt="Your logo" width={56} height={56} className="size-14 shrink-0 rounded-[var(--r-sm)] border border-mk-line-strong bg-white object-contain" />
             ) : null}
-            <input id="f-logo" type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => onLogo(e.target.files?.[0])} className="text-sm file:mr-3 file:min-h-11 file:rounded-full file:border-0 file:bg-[#2A2233] file:px-4 file:text-white" aria-describedby="logo-hint" />
+            <input id="f-logo" type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => onLogo(e.target.files?.[0])} className={`${ui.file} sm:w-auto`} aria-describedby="logo-hint" />
             {logo ? (
               <button type="button" className={ui.ghostBtn} onClick={() => setLogo(null)}>Remove</button>
             ) : null}
@@ -248,10 +253,10 @@ export function BasicInfoStep({
         <div className="sm:col-span-2">
         <label className={ui.label}>
           Website address *
-          <span className="mt-1 flex items-stretch overflow-hidden rounded-xl border border-[#2A2233]/20 bg-white focus-within:border-[#C2410C]">
+          <span className="mt-1.5 flex min-h-12 items-stretch overflow-hidden rounded-[var(--r-sm)] border border-mk-line-strong bg-mk-elev-2 transition-colors focus-within:border-mk-accent focus-within:ring-2 focus-within:ring-mk-accent/30 has-[[aria-invalid=true]]:border-red-500/70">
             <input
               {...a11y("slug", "h-slug")}
-              className="min-h-11 min-w-0 flex-1 px-3 py-2 outline-none"
+              className="min-h-11 min-w-0 flex-1 bg-transparent px-4 py-2 text-[15px] text-mk-text outline-none placeholder:text-mk-dim"
               value={f.slug}
               onChange={(e) => {
                 setSlugTouched(true);
@@ -262,17 +267,17 @@ export function BasicInfoStep({
               spellCheck={false}
               required
             />
-            <span className="flex items-center bg-[#2A2233]/5 px-3 text-sm text-[#5E5568]" aria-hidden>.{rootDomain}</span>
+            <span className="flex max-w-[55%] shrink-0 items-center truncate border-l border-mk-line bg-white/[0.04] px-3 text-sm text-mk-muted" aria-hidden>.{rootDomain}</span>
           </span>
         </label>
           {/* Outside the label: announced politely, and not part of the field's accessible name. */}
-          <p id="h-slug" className={ui.hint} aria-live="polite">
+          <p id="h-slug" className={cn(ui.hint, slugState && slugState !== "checking" && slugState.available && "text-emerald-400")} aria-live="polite">
             {slugState === "checking" ? "Checking…" : slugState?.available ? `✓ ${slugState.slug}.${rootDomain} is available` : slugState?.reason === "taken" ? "That address is taken. Try another." : slugState?.reason === "invalid" ? "Use lowercase letters, numbers and single hyphens." : " "}
           </p>
           {err("slug")}
         </div>
       </div>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <button type="button" onClick={onBack} className={ui.ghostBtn}>← Back</button>
         <button type="submit" className={ui.primaryBtn} disabled={slugState === "checking"}>Continue</button>
       </div>

@@ -7,6 +7,37 @@ export type StartCopy = {
   switchManual: string;
   switchAi: string;
   livePreview: string;
+  /** Journey name on the progress bar. */
+  progressLabel: string;
+  /** Language menu label in the top bar. */
+  language: string;
+  voiceUnavailable: string;
+  build: {
+    eyebrow: string;
+    title: string;
+    titleAccent: string;
+    sub: string;
+    legend: string;
+    storeTitle: string;
+    storeDesc: string;
+    infoTitle: string;
+    infoDesc: string;
+    continue: string;
+  };
+  theme: {
+    title: string;
+    titleAccent: string;
+    subReady: string;
+    subLoading: string;
+    listLabel: string;
+    loading: string;
+    pick: string;
+    recommended: string;
+    aiRecommended: string;
+    preview: string;
+    selectToPreview: string;
+    continue: string;
+  };
   welcome: {
     headline: string;
     headlineAccent: string;
@@ -37,6 +68,7 @@ export type StartCopy = {
     quizBadge: string;
     quizDesc: string;
     comingSoon: string;
+    voiceUnavailable: string;
     ctaVoice: string;
     ctaQuiz: string;
     /** @deprecated Prefer voice* / quiz* fields for five-screen onboarding. */
@@ -80,6 +112,10 @@ export type StartCopy = {
     customSubNoMatch: (q: string) => string;
     more: string;
     less: string;
+    /** "Pick up to 3 · 1 selected" */
+    categoryHint: (n: number, max: number) => string;
+    /** "Pick up to 8 · 2 selected" */
+    subcategoryHint: (n: number, max: number) => string;
     siteTitle: string;
     storeTitle: string;
     storeDesc: string;
@@ -223,6 +259,36 @@ const EN: StartCopy = {
   switchManual: "Switch to manual",
   switchAi: "Switch to AI help",
   livePreview: "Live preview",
+  progressLabel: "Online store",
+  language: "Language",
+  voiceUnavailable: "Voice unavailable",
+  build: {
+    eyebrow: "Get started",
+    title: "What do you want to",
+    titleAccent: "build?",
+    sub: "Pick one to get started. You can't switch type later, so choose what fits your business.",
+    legend: "Website type",
+    storeTitle: "Online Store",
+    storeDesc: "Sell products online with cart, payments and orders.",
+    infoTitle: "Informative Website",
+    infoDesc:
+      "Showcase your services, get enquiries and bookings. Ideal for clinics, salons, gyms, consultancies, academies, interior designers.",
+    continue: "Continue →",
+  },
+  theme: {
+    title: "Let's design your",
+    titleAccent: "storefront",
+    subReady: "Tara picked a look for your category — tap another if you prefer.",
+    subLoading: "Finding themes that fit your store…",
+    listLabel: "Theme options",
+    loading: "Loading…",
+    pick: "Pick a theme",
+    recommended: "Recommended",
+    aiRecommended: "AI recommended",
+    preview: "Open preview",
+    selectToPreview: "Select a theme to preview",
+    continue: "Continue →",
+  },
   welcome: {
     headline: "Your store, ",
     headlineAccent: "dreamt up",
@@ -257,6 +323,7 @@ const EN: StartCopy = {
     quizBadge: "Tap",
     quizDesc: "Answer a few simple questions. Fast, clear, and no microphone needed.",
     comingSoon: "Coming Soon",
+    voiceUnavailable: "Voice isn't available right now",
     ctaVoice: "Talk with Tara →",
     ctaQuiz: "Start the quiz →",
     aiTitle: "AI Voice Assistant",
@@ -291,13 +358,15 @@ const EN: StartCopy = {
     nameHint: "e.g. Kia Garments",
     categoryTitle: "What do you sell?",
     categorySearch: "Search categories…",
-    subcategoryTitle: "Select Products Category For Your Store?",
-    customSubHint: "Add more type of products.",
+    subcategoryTitle: "Select product categories for your store",
+    customSubHint: "Search or add your own product type",
     customSubAdd: "Add",
     customSubRemove: "Remove",
     customSubNoMatch: (q) => `No match — tap Add to create “${q}”`,
     more: "More categories",
     less: "Fewer categories",
+    categoryHint: (n, max) => `Pick up to ${max} · ${n} selected`,
+    subcategoryHint: (n, max) => `Pick up to ${max} · ${n} selected`,
     siteTitle: "What should we build?",
     storeTitle: "Online store",
     storeDesc: "A shop with a cart, checkout and orders.",
@@ -457,6 +526,36 @@ const HI: StartCopy = {
   switchManual: "मैन्युअल पर जाएँ",
   switchAi: "AI सहायता पर जाएँ",
   livePreview: "लाइव प्रीव्यू",
+  progressLabel: "ऑनलाइन स्टोर",
+  language: "भाषा",
+  voiceUnavailable: "आवाज़ अनुपलब्ध",
+  build: {
+    eyebrow: "शुरुआत करें",
+    title: "आप क्या",
+    titleAccent: "बनाना चाहते हैं?",
+    sub: "शुरू करने के लिए एक चुनें। बाद में टाइप बदला नहीं जा सकता, इसलिए अपने बिज़नेस के हिसाब से चुनें।",
+    legend: "वेबसाइट का प्रकार",
+    storeTitle: "ऑनलाइन स्टोर",
+    storeDesc: "कार्ट, पेमेंट और ऑर्डर के साथ प्रोडक्ट ऑनलाइन बेचें।",
+    infoTitle: "जानकारी वाली वेबसाइट",
+    infoDesc:
+      "अपनी सेवाएँ दिखाएँ, पूछताछ और बुकिंग पाएँ। क्लिनिक, सैलून, जिम, कंसल्टेंसी, अकादमी और इंटीरियर डिज़ाइनर के लिए बढ़िया।",
+    continue: "आगे बढ़ें →",
+  },
+  theme: {
+    title: "आइए अपना",
+    titleAccent: "स्टोरफ्रंट डिज़ाइन करें",
+    subReady: "तारा ने आपकी कैटेगरी के लिए एक लुक चुना है — चाहें तो दूसरा चुनें।",
+    subLoading: "आपकी दुकान के लिए थीम ढूँढ रहे हैं…",
+    listLabel: "थीम विकल्प",
+    loading: "लोड हो रहा है…",
+    pick: "एक थीम चुनें",
+    recommended: "सुझाई गई",
+    aiRecommended: "AI की पसंद",
+    preview: "प्रीव्यू खोलें",
+    selectToPreview: "प्रीव्यू के लिए थीम चुनें",
+    continue: "आगे बढ़ें →",
+  },
   welcome: {
     headline: "आपकी दुकान, ",
     headlineAccent: "एक फोटो",
@@ -491,6 +590,7 @@ const HI: StartCopy = {
     quizBadge: "टैप",
     quizDesc: "कुछ आसान सवालों के जवाब दें। तेज़, साफ़, माइक की ज़रूरत नहीं।",
     comingSoon: "जल्द आ रहा है",
+    voiceUnavailable: "आवाज़ अभी उपलब्ध नहीं है",
     ctaVoice: "तारा से बात करें →",
     ctaQuiz: "क्विज़ शुरू करें →",
     aiTitle: "AI वॉइस असिस्टेंट",
@@ -525,13 +625,15 @@ const HI: StartCopy = {
     nameHint: "जैसे Kia Garments",
     categoryTitle: "आप क्या बेचते हैं?",
     categorySearch: "कैटेगरी खोजें…",
-    subcategoryTitle: "Select Products Category For Your Store?",
-    customSubHint: "Add more type of products.",
+    subcategoryTitle: "अपनी दुकान के लिए प्रोडक्ट कैटेगरी चुनें",
+    customSubHint: "खोजें या अपना प्रोडक्ट टाइप जोड़ें",
     customSubAdd: "जोड़ें",
     customSubRemove: "हटाएँ",
     customSubNoMatch: (q) => `कोई मैच नहीं — “${q}” जोड़ने के लिए Add दबाएँ`,
     more: "और कैटेगरी",
     less: "कम कैटेगरी",
+    categoryHint: (n, max) => `अधिकतम ${max} चुनें · ${n} चुनी गईं`,
+    subcategoryHint: (n, max) => `अधिकतम ${max} चुनें · ${n} चुने गए`,
     siteTitle: "हम क्या बनाएँ?",
     storeTitle: "ऑनलाइन दुकान",
     storeDesc: "कार्ट, चेकआउट और ऑर्डर वाली दुकान।",

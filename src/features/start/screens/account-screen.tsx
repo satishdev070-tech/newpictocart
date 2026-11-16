@@ -5,16 +5,18 @@ import Link from "next/link";
 import { MailCheck } from "lucide-react";
 import { CodeBoxes, RESEND_COOLDOWN_S, boxCount } from "@/components/auth/email-code-flow";
 import { GoogleButton } from "@/components/auth/google-button";
-import { TextField } from "@/components/ui/field";
 import { FormMessage, SubmitButton, fieldErrors } from "@/components/ui/form";
+import { OnbCard, OnbEyebrow, onbButton, onbError, onbField, onbLabel } from "@/components/onboarding-ui";
+import { cn } from "@/lib/cn";
 import { PLATFORM_ICON } from "@/config/platform";
 import { googleSignInAction, requestStartEmailCodeAction, verifyStartEmailCodeAction } from "@/features/auth/actions";
 import { startCopy, type StartCopy } from "../copy";
 import type { StartDraft } from "../draft/schema";
 import { draftStoreName } from "../draft/schema";
 
-const submitClass =
-  "w-full !rounded-full !bg-[#F97316] !text-white hover:!bg-[#EA580C] focus-visible:!outline-[#F97316]";
+const submitClass = cn(
+  "w-full !min-h-12 !rounded-full !border-0 !bg-mk-accent !text-[15px] !font-semibold !text-mk-accent-ink hover:!bg-mk-accent-hover focus-visible:!outline-mk-accent disabled:!opacity-45",
+);
 
 export function AccountScreen({
   draft,
@@ -33,18 +35,14 @@ export function AccountScreen({
   const [codeEmail, setCodeEmail] = useState<string | null>(null);
 
   const backLink = onBack ? (
-    <button
-      type="button"
-      onClick={onBack}
-      className="mt-4 text-sm font-medium text-[#5E5568] underline-offset-2 hover:underline"
-    >
+    <button type="button" onClick={onBack} className={cn(onbButton.ghost, "mt-4")}>
       ← {c.back}
     </button>
   ) : null;
 
   if (codeEmail) {
     return (
-      <div className="mx-auto flex w-full max-w-md flex-col items-start">
+      <div className="mx-auto flex w-full max-w-md flex-col items-start pt-4 sm:pt-8">
         <AuthCard>
           <BrandHeader
             eyebrow={c.account.eyebrow}
@@ -67,7 +65,7 @@ export function AccountScreen({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col items-start">
+    <div className="mx-auto flex w-full max-w-md flex-col items-start pt-4 sm:pt-8">
       <AuthCard>
         <BrandHeader
           eyebrow={c.account.eyebrow}
@@ -101,12 +99,12 @@ export function AccountScreen({
           />
         </div>
 
-        <p className="mt-6 text-center text-sm text-[#6B6275]">
+        <p className="mt-6 text-center text-sm text-mk-muted">
           {mode === "signup" ? c.account.haveAccount : c.account.needAccount}{" "}
           <button
             type="button"
             onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
-            className="font-semibold text-[#C2410C] underline-offset-2 hover:underline"
+            className={onbButton.link}
           >
             {mode === "signup" ? c.account.signIn : c.account.signUp}
           </button>
@@ -119,9 +117,7 @@ export function AccountScreen({
 
 function AuthCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-[28px] border border-white/90 bg-white/85 p-6 shadow-[0_24px_60px_-28px_rgba(42,34,51,0.4)] backdrop-blur-md sm:p-9">
-      {children}
-    </div>
+    <OnbCard className="w-full p-5 sm:p-8">{children}</OnbCard>
   );
 }
 
@@ -144,24 +140,24 @@ function BrandHeader({
         alt=""
         width={56}
         height={56}
-        className="mb-4 size-14 rounded-full object-contain shadow-[0_10px_24px_-12px_rgba(249,115,22,0.55)] ring-4 ring-white"
+        className="mb-4 size-12 rounded-full bg-white object-contain p-1 ring-1 ring-mk-line-strong"
       />
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#C2410C]">{eyebrow}</p>
-      <h2 className="mt-2 font-brand text-3xl leading-tight sm:text-4xl">
+      <OnbEyebrow>{eyebrow}</OnbEyebrow>
+      <h2 className="mt-2 font-brand text-[1.75rem] font-semibold leading-tight tracking-[-0.02em] text-mk-text sm:text-4xl">
         {title}
-        <span className="text-[#C2410C]">{titleAccent}</span>
+        <span className="text-mk-accent">{titleAccent}</span>
       </h2>
-      {sub ? <p className="mt-2.5 max-w-sm text-sm leading-relaxed text-[#5E5568]">{sub}</p> : null}
+      {sub ? <p className="mt-2.5 max-w-sm text-sm leading-relaxed text-mk-muted">{sub}</p> : null}
     </div>
   );
 }
 
 function OrDividerLabel({ label }: { label: string }) {
   return (
-    <div className="my-1 flex items-center gap-3 text-xs uppercase tracking-wider text-[#6B6275]" role="separator">
-      <span className="h-px flex-1 bg-[#2A2233]/12" />
+    <div className="my-1 flex items-center gap-3 font-mk-mono text-[11px] uppercase tracking-[0.14em] text-mk-dim" role="separator">
+      <span className="h-px flex-1 bg-mk-line-strong" />
       {label}
-      <span className="h-px flex-1 bg-[#2A2233]/12" />
+      <span className="h-px flex-1 bg-mk-line-strong" />
     </div>
   );
 }
@@ -181,13 +177,13 @@ function hiddenJourneyFields(draft: StartDraft, storeName: string) {
 
 function TermsLine({ copy }: { copy: StartCopy }) {
   return (
-    <p className="text-center text-xs text-[#6B6275]">
+    <p className="text-center text-xs text-mk-dim">
       {copy.account.agree}{" "}
-      <Link href="/terms" className="underline underline-offset-2">
+      <Link href="/terms" className="text-mk-muted underline underline-offset-2 hover:text-mk-text">
         {copy.account.terms}
       </Link>{" "}
       {copy.account.and}{" "}
-      <Link href="/privacy" className="underline underline-offset-2">
+      <Link href="/privacy" className="text-mk-muted underline underline-offset-2 hover:text-mk-text">
         {copy.account.privacy}
       </Link>
       .
@@ -224,19 +220,31 @@ function EmailCodeRequest({
     <form action={action} className="space-y-4" noValidate>
       {hiddenJourneyFields(draft, storeName)}
       <FormMessage state={state} />
-      <TextField
-        label={copy.account.email}
-        name="email"
-        type="email"
-        autoComplete="email"
-        autoCapitalize="none"
-        spellCheck={false}
-        required
-        placeholder="you@yourbusiness.in"
-        errors={errors.email}
-        value={email}
-        onChange={(e) => onEmailChange(e.target.value)}
-      />
+      <div>
+        <label htmlFor="start-email" className={onbLabel}>
+          {copy.account.email}
+        </label>
+        <input
+          id="start-email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          required
+          placeholder="you@yourbusiness.in"
+          aria-invalid={errors.email ? true : undefined}
+          aria-describedby={errors.email ? "start-email-error" : undefined}
+          value={email}
+          onChange={(e) => onEmailChange(e.target.value)}
+          className={onbField}
+        />
+        {errors.email ? (
+          <p id="start-email-error" className={onbError}>
+            {errors.email[0]}
+          </p>
+        ) : null}
+      </div>
       <SubmitButton size="lg" className={submitClass} disabled={!email.trim()}>
         {submitLabel}
       </SubmitButton>
@@ -299,14 +307,14 @@ function StartCodeForm({
 
   return (
     <form ref={formRef} action={action} className="mt-6 space-y-5 text-center" noValidate>
-      <span className="mx-auto grid size-14 place-items-center rounded-full bg-[#FFF1E6] text-[#EA580C] shadow-inner">
+      <span className="mx-auto grid size-14 place-items-center rounded-full bg-mk-accent-tint text-mk-accent">
         <MailCheck aria-hidden className="size-7" />
       </span>
       <div className="space-y-1.5">
-        <p role="status" className="text-[15px] leading-relaxed text-[#3F3A47]">
+        <p role="status" className="text-[15px] leading-relaxed text-mk-text">
           {copy.account.codeSentTo(email)}
         </p>
-        <p className="text-xs text-[#9A91A4]">{copy.account.checkEmail}</p>
+        <p className="text-xs text-mk-dim">{copy.account.checkEmail}</p>
       </div>
       <input type="hidden" name="email" value={email} />
       <input type="hidden" name="type" value={type} />
@@ -319,26 +327,26 @@ function StartCodeForm({
         onChange={setCode}
         onComplete={() => formRef.current?.requestSubmit()}
         invalid={Boolean(errors.token)}
-        className="[&_input]:h-12 [&_input]:w-10 [&_input]:rounded-xl [&_input]:border-[#E8DFD6] [&_input]:text-lg [&_input]:font-semibold [&_input]:focus:border-[#F97316] [&_input]:focus:ring-[#F97316]/25 sm:[&_input]:h-14 sm:[&_input]:w-12"
+        className="[&_input]:h-12 [&_input]:w-10 [&_input]:rounded-[var(--r-sm)] [&_input]:border-mk-line-strong [&_input]:bg-mk-elev-2 [&_input]:text-lg [&_input]:font-semibold [&_input]:text-mk-text [&_input]:focus:border-mk-accent [&_input]:focus:ring-mk-accent/30 sm:[&_input]:h-14 sm:[&_input]:w-12"
       />
-      {errors.token ? <p className="text-sm text-danger">{errors.token[0]}</p> : null}
+      {errors.token ? <p className={onbError}>{errors.token[0]}</p> : null}
       {canResend ? (
-        <p className="text-sm text-[#6B6275]">
+        <p className="text-sm text-mk-muted">
           {copy.account.didntGetIt}{" "}
           <button
             type="button"
             onClick={resend}
             disabled={cooldown > 0 || resending}
-            className="font-semibold text-[#C2410C] underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-[#9A91A4] disabled:no-underline"
+            className="font-semibold text-mk-accent underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:text-mk-dim disabled:no-underline"
           >
             {resending ? copy.account.resending : cooldown > 0 ? copy.account.resendIn(cooldown) : copy.account.resend}
           </button>
         </p>
       ) : (
-        <p className="text-sm text-[#6B6275]">{copy.account.codeHint}</p>
+        <p className="text-sm text-mk-muted">{copy.account.codeHint}</p>
       )}
       {resendNote ? (
-        <p role="status" className="text-xs text-[#6B6275]">
+        <p role="status" className="text-xs text-mk-muted">
           {resendNote}
         </p>
       ) : null}
@@ -348,7 +356,7 @@ function StartCodeForm({
       <button
         type="button"
         onClick={onChangeEmail}
-        className="text-sm font-medium text-[#6B6275] underline underline-offset-2 hover:text-[#2A2233]"
+        className={onbButton.ghost}
       >
         {copy.account.changeEmail}
       </button>

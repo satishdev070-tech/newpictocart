@@ -55,11 +55,11 @@ export function SiteTypePicker({ selected, plan, theme }: { selected: SiteMode |
               aria-checked={active}
               onClick={() => setMode(m)}
               className={cn(
-                "group relative flex h-full flex-col items-start gap-3 rounded-brand-md border bg-white p-5 text-left transition",
-                active ? "border-brand ring-2 ring-brand" : "border-border hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md",
+                "group relative flex h-full flex-col items-start gap-3 rounded-brand-md border bg-mk-elev-2 p-5 text-left transition",
+                active ? "border-mk-accent ring-2 ring-mk-accent" : "border-border hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md",
               )}
             >
-              <span className={cn("grid size-11 place-items-center rounded-xl", active ? "bg-brand text-white" : "bg-brand-soft/60 text-brand")}>
+              <span className={cn("grid size-11 place-items-center rounded-xl", active ? "bg-mk-accent text-mk-accent-ink" : "bg-brand-soft/60 text-brand")}>
                 <Icon aria-hidden className="size-5" />
               </span>
               <span>

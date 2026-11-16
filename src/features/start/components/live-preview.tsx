@@ -38,7 +38,7 @@ export function LivePreview({
   const name = draft ? draftStoreName(draft) : "";
   const host = slug ? `${slug}.${rootDomain}` : startPreviewHost(name, rootDomain);
   const mood = moodById(draft?.mood ?? null);
-  const accent = draft?.accent || mood?.accentA || "#F97316";
+  const accent = draft?.accent || mood?.accentA || "#ea580c";
   const bg = mood?.bg || "#FFF4E8";
   const tagline = draft?.business.tagline.trim() || draft?.voice.facts.tagline?.trim() || "";
   const category = draft ? draftCategory(draft) : null;
@@ -55,16 +55,17 @@ export function LivePreview({
           : "flex h-full min-h-[320px] flex-col gap-2 lg:min-h-[480px]"
       }
     >
-      <div className="flex items-center justify-between gap-2 text-sm text-[#5E5568]">
+      <div className="flex items-center justify-between gap-2 text-sm text-mk-muted">
         <span className="inline-flex items-center gap-2">
-          <span className="size-2 rounded-full bg-[#22C55E]" aria-hidden />
+          <span className="size-2 rounded-full bg-mk-accent" aria-hidden />
           {c.livePreview}
         </span>
-        {draft && products.length ? <span className="text-[#6B6275]">{c.products.count(products.length)}</span> : null}
+        {draft && products.length ? <span className="text-mk-dim">{c.products.count(products.length)}</span> : null}
       </div>
-      <div className="relative flex flex-1 flex-col overflow-hidden rounded-[20px] border border-[#2A2233]/10 bg-white shadow-inner">
+      {/* Light island: depicts the seller's (light) storefront. */}
+      <div className="mk-light relative flex flex-1 flex-col overflow-hidden rounded-[var(--r-lg)] border border-mk-line bg-white">
         {host ? (
-          <div className="border-b border-[#2A2233]/8 bg-white/70 px-4 py-2 text-center text-xs font-medium text-[#6B6275]">{host}</div>
+          <div className="border-b border-border bg-brand-canvas px-4 py-2 text-center text-xs font-medium text-muted">{host}</div>
         ) : null}
         {slug ? (
           <iframe
@@ -95,15 +96,15 @@ export function LivePreview({
                     ) : (
                       <div className="mb-2 h-14 rounded-lg" style={{ background: `linear-gradient(135deg, ${accent}, ${mood?.accentB ?? "#FDBA74"})` }} />
                     )}
-                    <p className="text-xs font-medium text-[#2A2233]">{title}</p>
-                    {price ? <p className="mt-1 text-xs text-[#6B6275]">{price}</p> : null}
+                    <p className="text-xs font-medium text-brand-ink">{title}</p>
+                    {price ? <p className="mt-1 text-xs text-muted">{price}</p> : null}
                   </div>
                 );
               })}
             </div>
           </div>
         ) : (
-          <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-[#6B6275]">
+          <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted">
             <span className="max-w-[200px]">Your storefront will appear here as you build.</span>
           </div>
         )}

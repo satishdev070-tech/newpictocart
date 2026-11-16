@@ -89,11 +89,11 @@ describe("start draft schema", () => {
       },
     };
     expect(parseStartDraft({ ...asV1, screen: "intent" })?.screen).toBe("path");
-    expect(parseStartDraft({ ...asV1, screen: "products" })?.screen).toBe("business");
+    expect(parseStartDraft({ ...asV1, screen: "products" })?.screen).toBe("quiz");
     expect(parseStartDraft({ ...asV1, screen: "mood" })?.screen).toBe("theme");
     expect(parseStartDraft({ ...asV1, screen: "payment" })?.screen).toBe("theme");
-    expect(parseStartDraft({ ...asV1, screen: "voice" })?.screen).toBe("business");
-    expect(parseStartDraft({ ...asV1, screen: "quiz" })?.screen).toBe("business");
+    expect(parseStartDraft({ ...asV1, screen: "voice" })?.screen).toBe("voice");
+    expect(parseStartDraft({ ...asV1, screen: "quiz" })?.screen).toBe("quiz");
   });
 
   it("exports storage key constant", () => {

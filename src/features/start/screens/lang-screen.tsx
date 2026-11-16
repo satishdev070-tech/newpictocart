@@ -1,22 +1,21 @@
 "use client";
 
 import { useMemo } from "react";
-import { cn } from "@/lib/cn";
+import { Check } from "lucide-react";
+import { OnbHeading, OnbSub, onbButton, onbChoice } from "@/components/onboarding-ui";
 import { SARVAM_LOCALES, type SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { startCopy } from "../copy";
 import { START_UI_LOCALES } from "../supported-locales";
 
+/** Step 1 of every journey: English | हिन्दी. Continue → /start/build (or /start/path when that step is off). */
 export function LangScreen({
   locale,
   onSelect,
   onContinue,
-  onBack,
 }: {
   locale: SarvamLocaleCode;
   onSelect: (code: SarvamLocaleCode) => void;
   onContinue: () => void;
-  /** INFORMATIVE: branch point — see docs/informative/PLAN.md. Back to Step 0; absent (flag off) = no button, as before. */
-  onBack?: () => void;
 }) {
   const c = startCopy(locale);
   const primaryLocales = useMemo(
@@ -26,18 +25,12 @@ export function LangScreen({
   const selected = SARVAM_LOCALES.find((l) => l.code === locale) ?? primaryLocales[0];
 
   return (
-    <section className="flex w-full max-w-5xl flex-col gap-8">
-      <div className="text-center">
-        <h1 className="font-brand text-4xl font-normal leading-tight text-balance sm:text-5xl md:text-6xl">
-          {c.lang.headline}
-        </h1>
-        <p className="mt-3 text-lg text-[#5E5568] sm:text-xl">{c.lang.sub}</p>
+    <section className="mx-auto flex w-full max-w-2xl flex-col gap-8 pt-6 sm:pt-12">
+      <div className="space-y-3 text-center">
+        <OnbHeading>{c.lang.headline}</OnbHeading>
+        <OnbSub>{c.lang.sub}</OnbSub>
       </div>
-      <ul
-        className="mx-auto grid w-full max-w-xl grid-cols-2 gap-3 md:gap-4"
-        role="listbox"
-        aria-label={c.lang.sub}
-      >
+      <ul className="grid w-full grid-cols-2 gap-3 sm:gap-4" role="listbox" aria-label={c.lang.sub}>
         {primaryLocales.map((l) => {
           const active = locale === l.code;
           return (
@@ -48,19 +41,14 @@ export function LangScreen({
                 aria-selected={active}
                 aria-label={`${l.englishName} (${l.nativeLabel})`}
                 onClick={() => onSelect(l.code)}
-                className={cn(
-                  "flex min-h-28 w-full flex-col justify-between rounded-[24px] border px-4 py-4 text-left backdrop-blur-md transition sm:min-h-32 sm:px-5 sm:py-5",
-                  active
-                    ? "border-[#F97316] bg-white shadow-[0_16px_36px_-16px_rgba(249,115,22,0.55)] ring-2 ring-[#F97316]/30"
-                    : "border-white/90 bg-white/55 hover:bg-white/80",
-                )}
+                className={onbChoice(active, "flex min-h-28 flex-col justify-between sm:min-h-32")}
               >
-                <span className="text-2xl font-medium leading-snug sm:text-3xl">{l.nativeLabel}</span>
-                <span className="mt-3 flex items-center justify-between gap-2 text-sm text-[#6B6275]">
+                <span className="font-brand text-2xl font-semibold leading-snug text-mk-text sm:text-3xl">{l.nativeLabel}</span>
+                <span className="mt-3 flex items-center justify-between gap-2 text-sm text-mk-muted">
                   {l.englishName}
                   {active ? (
-                    <span className="grid size-6 place-items-center rounded-full bg-[#F97316] text-xs text-white" aria-hidden>
-                      ✓
+                    <span className="grid size-6 place-items-center rounded-full bg-mk-accent text-mk-accent-ink" aria-hidden>
+                      <Check className="size-3.5" strokeWidth={3} />
                     </span>
                   ) : null}
                 </span>
@@ -69,17 +57,8 @@ export function LangScreen({
           );
         })}
       </ul>
-      <div className={onBack ? "flex items-center justify-between" : "flex justify-end"}>
-        {onBack ? (
-          <button type="button" onClick={onBack} className="text-sm font-medium text-[#5E5568] underline-offset-2 hover:underline">
-            ← Back
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={onContinue}
-          className="rounded-full bg-linear-to-br from-[#FB923C] to-[#F97316] px-8 py-3.5 text-base font-semibold text-white shadow-[0_16px_36px_-12px_rgba(249,115,22,0.65)]"
-        >
+      <div className="flex justify-end">
+        <button type="button" onClick={onContinue} className={`${onbButton.primary} w-full sm:w-auto`}>
           {c.lang.continue(selected?.englishName ?? "English")}
         </button>
       </div>

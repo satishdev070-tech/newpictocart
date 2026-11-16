@@ -2,11 +2,10 @@ import "server-only";
 import type { Json } from "@/lib/supabase/database.types";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/observability/logger";
-import { toDecimalString } from "@/lib/money";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mapDbError } from "@/lib/supabase/errors";
 import type { TenantContext } from "@/lib/tenant/membership";
-import { productInputSchema, toSaveProductPayload } from "@/features/catalog/schemas";
+import { toSaveProductPayload } from "@/features/catalog/schemas";
 import { callSaveProduct } from "@/features/catalog/server/products";
 import { saveCategory } from "@/features/catalog/server/categories";
 import { saveCollection } from "@/features/catalog/server/collections";
@@ -19,9 +18,30 @@ import type { SectionInstance, SectionType } from "@/features/theme/sections/typ
 import type { IndustrySlug } from "@/features/stores/industries";
 import { fillEmptyThemeImages, seedCatalogueImages, type SeedImagePaths } from "./images";
 import type { ReadyStorePlan, SeedReadyStoreResult } from "./schemas";
-import { withSamplePrefix } from "./sample-title";
+import { parseSeedProduct } from "./product-input";
 
 type Ids = { categories: Record<string, string>; collections: Record<string, string>; products: string[] };
+
+/**
+ * Runs a slug-keyed insert; when it loses a race to a concurrent finalize (unique violation →
+ * CONFLICT / slug VALIDATION), reuses the row that won instead of failing the whole store.
+ */
+async function onConflictReuse(
+  tenantId: string,
+  table: "categories" | "collections",
+  slug: string,
+  save: () => Promise<{ id: string }>,
+): Promise<{ id: string }> {
+  try {
+    return await save();
+  } catch (err) {
+    if (!(err instanceof AppError) || (err.code !== "CONFLICT" && err.code !== "VALIDATION")) throw err;
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.from(table).select("id").eq("tenant_id", tenantId).eq("slug", slug).maybeSingle();
+    if (!data?.id) throw err;
+    return { id: data.id };
+  }
+}
 
 async function ensureCategories(tenantId: string, plan: ReadyStorePlan): Promise<{ ids: Record<string, string>; skipped: number }> {
   const supabase = await createSupabaseServerClient();
@@ -35,7 +55,7 @@ async function ensureCategories(tenantId: string, plan: ReadyStorePlan): Promise
       skipped += 1;
       continue;
     }
-    const r = await saveCategory(
+    const r = await onConflictReuse(tenantId, "categories", c.slug, () => saveCategory(
       tenantId,
       {
         id: null,
@@ -51,7 +71,7 @@ async function ensureCategories(tenantId: string, plan: ReadyStorePlan): Promise
         removeImage: false,
       },
       undefined,
-    );
+    ));
     bySlug.set(c.slug, r.id);
   }
   const ids: Record<string, string> = {};
@@ -79,7 +99,7 @@ async function ensureCollections(tenantId: string, plan: ReadyStorePlan): Promis
       skipped += 1;
       continue;
     }
-    const r = await saveCollection(
+    const r = await onConflictReuse(tenantId, "collections", c.slug, () => saveCollection(
       tenantId,
       {
         id: null,
@@ -96,7 +116,7 @@ async function ensureCollections(tenantId: string, plan: ReadyStorePlan): Promis
         removeImage: false,
       },
       undefined,
-    );
+    ));
     bySlug.set(c.slug, r.id);
   }
   const ids: Record<string, string> = {};
@@ -121,6 +141,7 @@ async function ensureProducts(
   let skipped = 0;
   const ids: string[] = [];
   const productType = defaultTypeForIndustry(industry);
+  const failures: Record<string, unknown>[] = [];
   for (const [i, p] of plan.products.entries()) {
     const have = bySlug.get(p.slug);
     if (have) {
@@ -128,63 +149,52 @@ async function ensureProducts(
       ids.push(have);
       continue;
     }
-    const sku = `SEED-${String(i + 1).padStart(2, "0")}`;
-    const title = withSamplePrefix(p.title);
-    let input;
-    try {
-      // Active products require countryOfOrigin (catalog schema); seed defaults to India.
-      input = productInputSchema.parse({
-        title,
-        slug: p.slug,
-        description: p.description || p.shortDescription,
-        shortDescription: p.shortDescription,
-        productType,
-        brand: storeName,
-        categoryId: catIds[p.categorySlug] ?? null,
-        status: "active",
-        countryOfOrigin: "India",
-        featured: p.featured || i < 2,
-        tags: p.tags.length ? p.tags : i === 0 ? ["bestseller"] : [],
-        attributes: { occasion: [], specs: [] },
-        careInstructions: null,
-        shippingInfo: null,
-        returnInfo: null,
-        hsnCode: p.hsnCode ?? null,
-        seoTitle: p.seoTitle ?? `${title} | ${storeName}`.slice(0, 120),
-        seoDescription: p.seoDescription ?? (p.shortDescription || p.description).slice(0, 320),
-        options: [],
-        variants: [
-          {
-            option1: null,
-            option2: null,
-            option3: null,
-            sku,
-            price: toDecimalString(p.pricePaise),
-            compareAtPrice: p.compareAtPaise != null ? toDecimalString(p.compareAtPaise) : "",
-            weightGrams: String(p.weightGrams),
-            trackInventory: true,
-            lowStockThreshold: "3",
-            initialStock: "10",
-            status: "active",
-          },
-        ],
-      });
-    } catch (err) {
-      throw new AppError("INTERNAL", {
-        context: { operation: "seed_save_product", reason: "seed_product_parse", slug: p.slug },
-        cause: err,
-      });
+    // Every field is normalised to the catalog schema first (see product-input.ts).
+    const parsed = parseSeedProduct({ product: p, index: i, storeName, productType, categoryId: catIds[p.categorySlug] ?? null });
+    if (!parsed.ok) {
+      failures.push({ slug: p.slug, reason: "seed_product_parse", issues: parsed.issues });
+      continue;
     }
-    const payload = toSaveProductPayload(input, { allowInitialStock: true });
+    const payload = toSaveProductPayload(parsed.input, { allowInitialStock: true });
     const { data: id, error: saveErr } = await callSaveProduct(supabase, tenantId, payload);
     if (saveErr || !id) {
-      if (saveErr) throw mapDbError(saveErr, { operation: "seed_save_product" });
-      throw new AppError("INTERNAL", { context: { operation: "seed_save_product" } });
+      // A concurrent finalize (or an earlier half-finished one) may have saved this slug already.
+      const existingId = saveErr?.code === "23505" ? await findProductIdBySlug(tenantId, p.slug) : null;
+      if (existingId) {
+        skipped += 1;
+        bySlug.set(p.slug, existingId);
+        ids.push(existingId);
+        continue;
+      }
+      failures.push({
+        slug: p.slug,
+        reason: "seed_save_product_db",
+        code: saveErr?.code ?? null,
+        db: saveErr?.message?.slice(0, 200) ?? null,
+        hint: saveErr?.hint ?? null,
+        details: saveErr?.details?.slice(0, 200) ?? null,
+      });
+      continue;
     }
     bySlug.set(p.slug, id);
     ids.push(id);
   }
+  if (failures.length) {
+    // One odd sample product must not block the seller's new store; the real cause is logged.
+    logger.warn("onboarding.seed_products_skipped", { tenantId, failed: failures.length, saved: ids.length, failures: failures.slice(0, 5) });
+  }
+  if (ids.length === 0 && plan.products.length > 0) {
+    throw new AppError("INTERNAL", {
+      context: { operation: "seed_save_product", reason: "no_seed_products_saved", failures: failures.slice(0, 5) },
+    });
+  }
   return { ids, skipped };
+}
+
+async function findProductIdBySlug(tenantId: string, slug: string): Promise<string | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.from("products").select("id").eq("tenant_id", tenantId).eq("slug", slug).maybeSingle();
+  return data?.id ?? null;
 }
 
 async function ensureMenu(tenantId: string, plan: ReadyStorePlan, catIds: Record<string, string>): Promise<{ menuId: string | null; skipped: boolean }> {

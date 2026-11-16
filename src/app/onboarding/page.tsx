@@ -222,7 +222,7 @@ function Ready({
   return (
     <OnboardingShell step="ready" wide>
       <div className="mb-8 flex items-start gap-4">
-        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-brand-mint text-[#15803d]" aria-hidden>
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-mk-accent-tint text-mk-accent" aria-hidden>
           <CheckCircle2 className="size-6" />
         </span>
         <div>

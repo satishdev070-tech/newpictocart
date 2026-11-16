@@ -47,7 +47,7 @@ export function LanguagePicker({
                 onClick={() => setLocale(l.code)}
                 className={cn(
                   "flex w-full flex-col items-start rounded-brand-md border px-4 py-3 text-left transition",
-                  active ? "border-brand bg-brand-soft/40 ring-2 ring-brand" : "border-border bg-white hover:border-brand/40",
+                  active ? "border-mk-accent bg-brand-soft/40 ring-2 ring-mk-accent" : "border-border bg-mk-elev-2 hover:border-brand/40",
                 )}
                 aria-pressed={active}
               >

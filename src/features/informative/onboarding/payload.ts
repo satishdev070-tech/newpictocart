@@ -1,5 +1,6 @@
 import { minorToDb } from "@/features/settings/fields";
 import { defaultPageSections } from "../defaults";
+import { planInfoImages } from "../images/catalog";
 import { sampleServices } from "../demo";
 import { findServiceType, seedFor } from "../service-types";
 import { SYSTEM_PAGES } from "../sections";
@@ -14,6 +15,9 @@ import type { CompleteDraft } from "./draft";
  * With a picked service type (M9) the site also gets that type's ready-made tagline (when the
  * seller left it blank), About text and FAQs. Services are the seller's starter list; when they
  * skipped Step 3, the type's (or else the category's) samples are added, flagged is_sample.
+ *
+ * `images` plans the curated photos for the chosen category + service type (hero, gallery, one per
+ * service in `services` order); the action copies them into the site's media after the RPC.
  */
 export function buildCompletionPayload(d: CompleteDraft, theme: ThemeConfig) {
   const b = d.basic;
@@ -51,7 +55,8 @@ export function buildCompletionPayload(d: CompleteDraft, theme: ThemeConfig) {
       is_sample: useSamples,
     };
   });
-  return { site, pages, services, usedSamples: useSamples };
+  const images = planInfoImages({ category: b.category, serviceTypeId: b.serviceTypeId, serviceCount: services.length });
+  return { site, pages, services, usedSamples: useSamples, images, locale: d.locale };
 }
 
 function normalizeIn(v: string): string | null {
