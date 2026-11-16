@@ -76,4 +76,15 @@ describe("onboarding languages", () => {
   it("fills named placeholders in any order", () => {
     expect(fillTemplate("{total} में से {n}", ["n", "total"], [2, 5])).toBe("5 में से 2");
   });
+
+  it("has the browser-speech / STT-outage keys in every locale, translated", () => {
+    const keys = ["heardLive", "sttUnavailable", "notHeard", "speakNow"] as const;
+    for (const locale of START_UI_LOCALES) {
+      const v = voiceUiCopy(locale);
+      for (const key of keys) {
+        expect(v[key].trim().length, `${locale}.${key}`).toBeGreaterThan(0);
+        if (locale !== "en-IN") expect(v[key], `${locale}.${key}`).not.toBe(VOICE_EN[key]);
+      }
+    }
+  });
 });

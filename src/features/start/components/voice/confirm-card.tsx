@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { INDUSTRIES, type IndustrySlug } from "@/features/stores/industries";
 import { isSubcategory, subcategoryLabel } from "@/features/stores/subcategories";
 import type { VoiceFacts } from "@/features/onboarding/voice/facts";
+import { categoryLabel } from "@/features/onboarding/voice/category-labels";
 import type { VoiceUiCopy } from "./voice-copy";
 
 export function industryName(slug: IndustrySlug): string {
@@ -21,12 +22,15 @@ export function productTypeLabel(categories: readonly IndustrySlug[], token: str
 /** Tara's summary card: editable name + city, removable chips, confirm / keep talking. */
 export function ConfirmCard({
   t,
+  locale = "en-IN",
   facts,
   onChange,
   onConfirm,
   onKeepTalking,
 }: {
   t: VoiceUiCopy;
+  /** Draft locale: category chips show in the seller's language. */
+  locale?: string;
   facts: VoiceFacts;
   onChange: (patch: Partial<VoiceFacts>) => void;
   onConfirm: () => void;
@@ -59,11 +63,11 @@ export function ConfirmCard({
       <div className="flex flex-wrap gap-2">
         {facts.categories.map((c) => (
           <span key={c} className={onbChip(true, "pr-2")}>
-            {industryName(c)}
+            {categoryLabel(c, locale)}
             {facts.categories.length > 1 ? (
               <button
                 type="button"
-                aria-label={t.remove(industryName(c))}
+                aria-label={t.remove(categoryLabel(c, locale))}
                 onClick={() => onChange({ categories: facts.categories.filter((x) => x !== c) })}
                 className="grid size-6 place-items-center rounded-full text-mk-muted hover:bg-white/10 hover:text-mk-text"
               >

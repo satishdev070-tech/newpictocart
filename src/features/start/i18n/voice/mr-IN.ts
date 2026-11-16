@@ -64,4 +64,8 @@ export const VOICE_MR_IN: VoiceUiCopyTranslation = {
   orbSendNow: "मी बोललेलं आत्ता पाठवा",
   typeSuggestion: "तुमचं नीट ऐकू येत नाहीये. तुम्ही बोलत राहू शकता, किंवा खाली उत्तर टाइप करा.",
   restart: "पुन्हा सुरू करा",
+  heardLive: "ऐकतेय…",
+  sttUnavailable: "सध्या आवाज ओळख उपलब्ध नाही — कृपया तुमचे उत्तर टाइप करा.",
+  notHeard: "मला नीट कळलं नाही — कृपया पुन्हा सांगा.",
+  speakNow: "आता बोला",
 };

@@ -64,6 +64,13 @@ export type VoiceUiCopy = {
   orbSendNow: string;
   typeSuggestion: string;
   restart: string;
+  /** Live caption label while browser speech recognition is hearing the seller. */
+  heardLive: string;
+  /** Speech-to-text is down (no credits, outage): the server error carries fieldErrors.reason ["stt_unavailable", …]. */
+  sttUnavailable: string;
+  /** Recognition ended with no words. */
+  notHeard: string;
+  speakNow: string;
 };
 
 const en: VoiceUiCopy = {
@@ -128,6 +135,10 @@ const en: VoiceUiCopy = {
   orbSendNow: "Send what I said now",
   typeSuggestion: "I'm having trouble hearing you. You can keep talking, or type your answer below.",
   restart: "Start again",
+  heardLive: "Hearing you…",
+  sttUnavailable: "Voice recognition isn't available right now — please type your answer.",
+  notHeard: "I didn't catch that — please say it again.",
+  speakNow: "Speak now",
 };
 
 const hi: VoiceUiCopy = {
@@ -192,6 +203,10 @@ const hi: VoiceUiCopy = {
   orbSendNow: "जो कहा वह अभी भेजें",
   typeSuggestion: "मुझे आपकी आवाज़ ठीक से सुनाई नहीं दे रही। आप बोलते रहें, या नीचे टाइप करें।",
   restart: "फिर से शुरू करें",
+  heardLive: "सुन रही हूँ…",
+  sttUnavailable: "अभी आवाज़ पहचान उपलब्ध नहीं है — कृपया अपना जवाब टाइप करें।",
+  notHeard: "मैं ठीक से समझ नहीं पाई — कृपया फिर से बोलिए।",
+  speakNow: "अब बोलिए",
 };
 
 /** English source dictionary (the translate script reads it). */

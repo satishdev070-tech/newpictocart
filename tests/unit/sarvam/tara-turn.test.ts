@@ -11,6 +11,7 @@ vi.mock("@/lib/observability/logger", () => ({ logger: { warn: vi.fn(), info: vi
 
 import { runTaraTurn } from "@/features/onboarding/voice/turn";
 import { EMPTY_FACTS, mergeFacts } from "@/features/onboarding/voice/facts";
+import { AppError } from "@/lib/errors";
 
 const audio = () => new File([new Uint8Array(2000)], "turn.webm", { type: "audio/webm" });
 
@@ -74,5 +75,23 @@ describe("runTaraTurn", () => {
     const out = await runTaraTurn({ locale: "hi-IN", facts: EMPTY_FACTS, text: "Mere store ka naam Kia Javels hai. Main kapde aur gehne bechti hoon" });
     expect(out.facts.name).toBe("Kia Javels");
     expect(out.facts.categories).toEqual(["fashion", "jewellery"]);
+  });
+
+  it("rethrows stt_unavailable (no credits) so the client opens typing", async () => {
+    const err = new AppError("VALIDATION", {
+      fieldErrors: { _form: ["Voice recognition isn't available right now — please type your answer."], reason: ["stt_unavailable", "quota"] },
+      context: { reason: "stt_unavailable", class: "quota" },
+    });
+    sarvam.transcribeAudio.mockRejectedValue(err);
+    await expect(runTaraTurn({ locale: "hi-IN", facts: EMPTY_FACTS, audio: audio() })).rejects.toBe(err);
+    expect(sarvam.chatTurn).not.toHaveBeenCalled();
+  });
+
+  it("never fails a turn when TTS throws", async () => {
+    sarvam.chatTurn.mockResolvedValue({ content: JSON.stringify({ reply: "Badhiya!", facts: {} }) });
+    sarvam.synthesizeSpeech.mockRejectedValue(new Error("402"));
+    const out = await runTaraTurn({ locale: "hi-IN", facts: EMPTY_FACTS, text: "Main Noida se hoon" });
+    expect(out).toMatchObject({ reply: "Badhiya!", audioBase64: null, ttsAvailable: false });
+    expect(out.facts.city).toBe("Noida");
   });
 });

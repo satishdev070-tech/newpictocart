@@ -480,6 +480,96 @@ const LEAD_PHRASES =
   /^(?:(?:hi|hello|namaste|namaskar)[,!.\s]+)?(?:i|we)\s+(?:(?:mainly|mostly|also|just|only)\s+)?(?:sell|make|deal\s+in|run\s+a\s+shop\s+for|have\s+a\s+(?:shop|store)\s+(?:for|of)|create|offer)\s+|^(?:my|our)\s+(?:shop|store|business)\s+(?:sells|is\s+about|is\s+for)\s+/i;
 const CITY_TAIL = /\s+(?:in|from|at|based\s+in)\s+([a-z][a-z .'-]{1,40}?)\s*[.!]?$/i;
 
+/** Common Indian cities (lowercase Latin or Devanagari spelling → display name). */
+const KNOWN_CITIES: Readonly<Record<string, string>> = {
+  delhi: "Delhi", "new delhi": "New Delhi", dilli: "Delhi", noida: "Noida", "greater noida": "Greater Noida",
+  gurgaon: "Gurgaon", gurugram: "Gurugram", ghaziabad: "Ghaziabad", faridabad: "Faridabad", mumbai: "Mumbai",
+  bombay: "Mumbai", pune: "Pune", thane: "Thane", nagpur: "Nagpur", nashik: "Nashik", bangalore: "Bengaluru",
+  bengaluru: "Bengaluru", mysore: "Mysuru", mysuru: "Mysuru", chennai: "Chennai", madras: "Chennai",
+  coimbatore: "Coimbatore", madurai: "Madurai", hyderabad: "Hyderabad", vijayawada: "Vijayawada",
+  visakhapatnam: "Visakhapatnam", vizag: "Visakhapatnam", kolkata: "Kolkata", calcutta: "Kolkata",
+  ahmedabad: "Ahmedabad", surat: "Surat", vadodara: "Vadodara", baroda: "Vadodara", rajkot: "Rajkot",
+  jaipur: "Jaipur", jodhpur: "Jodhpur", udaipur: "Udaipur", lucknow: "Lucknow", kanpur: "Kanpur",
+  varanasi: "Varanasi", banaras: "Varanasi", agra: "Agra", meerut: "Meerut", prayagraj: "Prayagraj",
+  allahabad: "Prayagraj", patna: "Patna", ranchi: "Ranchi", bhopal: "Bhopal", indore: "Indore",
+  chandigarh: "Chandigarh", ludhiana: "Ludhiana", amritsar: "Amritsar", jalandhar: "Jalandhar",
+  dehradun: "Dehradun", kochi: "Kochi", cochin: "Kochi", thiruvananthapuram: "Thiruvananthapuram",
+  trivandrum: "Thiruvananthapuram", kozhikode: "Kozhikode", bhubaneswar: "Bhubaneswar", guwahati: "Guwahati",
+  raipur: "Raipur", goa: "Goa", srinagar: "Srinagar", jammu: "Jammu", mangalore: "Mangaluru", mangaluru: "Mangaluru",
+  "दिल्ली": "Delhi", "नई दिल्ली": "New Delhi", "नोएडा": "Noida", "नोयडा": "Noida", "गुड़गांव": "Gurgaon",
+  "गुरुग्राम": "Gurugram", "गाज़ियाबाद": "Ghaziabad", "गाजियाबाद": "Ghaziabad", "फरीदाबाद": "Faridabad",
+  "मुंबई": "Mumbai", "पुणे": "Pune", "नागपुर": "Nagpur", "बेंगलुरु": "Bengaluru", "बैंगलोर": "Bengaluru",
+  "चेन्नई": "Chennai", "हैदराबाद": "Hyderabad", "कोलकाता": "Kolkata", "अहमदाबाद": "Ahmedabad", "सूरत": "Surat",
+  "जयपुर": "Jaipur", "जोधपुर": "Jodhpur", "उदयपुर": "Udaipur", "लखनऊ": "Lucknow", "कानपुर": "Kanpur",
+  "वाराणसी": "Varanasi", "बनारस": "Varanasi", "आगरा": "Agra", "मेरठ": "Meerut", "पटना": "Patna", "रांची": "Ranchi",
+  "भोपाल": "Bhopal", "इंदौर": "Indore", "चंडीगढ़": "Chandigarh", "लुधियाना": "Ludhiana", "अमृतसर": "Amritsar",
+  "देहरादून": "Dehradun", "प्रयागराज": "Prayagraj", "इलाहाबाद": "Prayagraj",
+};
+
+/** Capitalised words before a postposition that are clearly not places. */
+const NOT_A_PLACE = new Set([
+  "main", "mai", "mein", "hum", "ham", "mera", "meri", "mere", "hamara", "hamari", "humara", "humari", "apna", "apni",
+  "ghar", "dukaan", "dukan", "shop", "store", "market", "bazaar", "bazar", "online", "instagram", "whatsapp",
+  "facebook", "amazon", "flipkart", "meesho", "india", "bharat", "city", "shehar", "sheher", "gaon", "gaanv", "area",
+  "mohalla", "saal", "years", "pehle", "abhi", "yahan", "wahan", "kahan", "isme", "usme", "inme", "sab", "kya",
+]);
+
+/** Hinglish postposition after a city ("Noida mein", "Noida se", "Noida ki dukaan"). */
+const LATIN_CITY_BEFORE_POSTPOSITION =
+  /(?:^|\s)((?:[A-Za-z][A-Za-z'.-]+\s+)?[A-Za-z][A-Za-z'.-]+)\s+(?:mein|mei|me|men|mai|se|ka|ki|ke)(?=$|[\s,.!?])/gu;
+/** Devanagari postposition after a city ("नोएडा में", "दिल्ली से"). */
+const DEVANAGARI_CITY_BEFORE_POSTPOSITION =
+  /(?:^|\s)((?:[\u0900-\u097F]+\s+)?[\u0900-\u097F]+)\s+(?:में|मे|से|का|की|के)(?=$|[\s,.!?।])/gu;
+/** English preposition before a known city anywhere in the sentence ("in Noida we sell…"). */
+const KNOWN_CITY_AFTER_PREPOSITION = /(?:^|\s)(?:in|from|at|based\s+in)\s+([A-Za-z][A-Za-z'.-]+(?:\s+[A-Za-z][A-Za-z'.-]+)?)(?=$|[\s,.!?])/giu;
+
+function titleCase(raw: string): string {
+  return raw
+    .trim()
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/** City name for a candidate phrase: a known city, or (Latin only) a capitalised non-product word. */
+function cityFromCandidate(candidate: string, allowUnknownCapitalised: boolean): string | null {
+  const words = candidate.trim().split(/\s+/);
+  // Prefer the two-word form ("New Delhi"), then the word next to the postposition / preposition.
+  const options = words.length > 1 ? [words.join(" "), words[words.length - 1]!, words[0]!] : words;
+  for (const option of options) {
+    const known = KNOWN_CITIES[option.toLowerCase()];
+    if (known) return known;
+  }
+  if (!allowUnknownCapitalised) return null;
+  const last = words[words.length - 1]!;
+  if (!/^[A-Z][a-z'.-]{2,}$/.test(last)) return null;
+  if (NOT_A_PLACE.has(last.toLowerCase()) || FILLER_WORDS.has(last.toLowerCase())) return null;
+  if (mapCategoryInput(canonicalizeSpokenText(last)).category) return null;
+  return titleCase(last);
+}
+
+/**
+ * City said with a Hindi / Hinglish postposition or mid-sentence English preposition:
+ * "Noida mein meri dukaan hai", "Main Noida se hoon", "नोएडा में", "in Noida we sell…".
+ * Returns the city and the sentence with that phrase removed.
+ */
+export function extractCityPhrase(sentence: string): { city: string; rest: string } | null {
+  const tries: [RegExp, boolean][] = [
+    [KNOWN_CITY_AFTER_PREPOSITION, false],
+    [DEVANAGARI_CITY_BEFORE_POSTPOSITION, false],
+    [LATIN_CITY_BEFORE_POSTPOSITION, true],
+  ];
+  for (const [pattern, allowUnknown] of tries) {
+    for (const m of sentence.matchAll(pattern)) {
+      const city = m[1] ? cityFromCandidate(m[1], allowUnknown) : null;
+      if (!city || m.index === undefined) continue;
+      const rest = `${sentence.slice(0, m.index)} ${sentence.slice(m.index + m[0].length)}`.replace(/\s+/g, " ").trim();
+      return { city, rest };
+    }
+  }
+  return null;
+}
+
 /** Letters or combining marks (Indic vowel signs) — used instead of `\b`, which is ASCII-only. */
 const L = "[\\p{L}\\p{M}]";
 
@@ -591,6 +681,12 @@ export function extractFactsFromText(text: string): Partial<VoiceFacts> {
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
         .join(" ");
       part = part.slice(0, cityMatch.index).trim();
+    } else {
+      const phrase = extractCityPhrase(part);
+      if (phrase) {
+        city ??= phrase.city;
+        part = phrase.rest;
+      }
     }
     part = canonicalizeSpokenText(part.replace(LEAD_PHRASES, ""));
     const segments = part

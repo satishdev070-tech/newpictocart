@@ -4,6 +4,8 @@ import {
   callReducer,
   callUiState,
   initialCallMachine,
+  wantsRecognition,
+  wantsRecorder,
   type CallEvent,
   type CallMachine,
 } from "@/features/onboarding/voice/call-machine";
@@ -145,5 +147,81 @@ describe("Tara call machine", () => {
       expect(callReducer(ended, { type: "FRAME", level: LOUD, dtMs: 20 })).toBe(ended);
       expect(callReducer(ended, { type: "START" }).phase).toBe("connecting");
     }
+  });
+
+  describe("browser speech listener", () => {
+    const heard = () =>
+      run([{ type: "START" }, { type: "MIC_READY", listener: "browser" }, { type: "REPLY_READY", speak: true }, { type: "SPEAK_END" }]);
+
+    it("greets, then listens with recognition (never while Tara speaks)", () => {
+      const speaking = run([{ type: "START" }, { type: "MIC_READY", listener: "browser" }, { type: "REPLY_READY", speak: true }]);
+      expect(speaking.listener).toBe("browser");
+      expect(wantsRecognition(speaking)).toBe(false);
+      const s = callReducer(speaking, { type: "SPEAK_END" });
+      expect(wantsRecognition(s)).toBe(true);
+      expect(wantsRecorder(s)).toBe(false);
+    });
+
+    it("VAD frames don't end a browser turn; SPEECH_DONE does", () => {
+      let s = run([...frames(LOUD, 1200), ...frames(QUIET, VAD.silenceMs + 400)], heard());
+      expect(s.phase).toBe("listening");
+      s = callReducer(s, { type: "SPEECH_DONE" });
+      expect(s.phase).toBe("thinking");
+      expect(s.endReason).toBe("speech");
+      expect(wantsRecognition(s)).toBe(false);
+    });
+
+    it("no-speech restarts quietly and shows 'not heard' once after two in a row", () => {
+      const start = heard();
+      let s = callReducer(start, { type: "NO_SPEECH" });
+      expect(s.phase).toBe("listening");
+      expect(s.takeId).toBe(start.takeId + 1);
+      expect(s.notHeard).toBe(false);
+      s = callReducer(s, { type: "NO_SPEECH" });
+      expect(s.notHeard).toBe(true);
+      s = callReducer(s, { type: "SPEECH_HEARD" });
+      expect(s.notHeard).toBe(false);
+      expect(s.noSpeechStreak).toBe(0);
+      expect(callReducer(s, { type: "SPEECH_HEARD" })).toBe(s);
+    });
+
+    it("mute and hidden tab stop recognition", () => {
+      expect(wantsRecognition(callReducer(heard(), { type: "MUTE_TOGGLE" }))).toBe(false);
+      expect(wantsRecognition(callReducer(heard(), { type: "HIDDEN" }))).toBe(false);
+    });
+
+    it("falls back to the recorder for the rest of the call when recognition fails", () => {
+      const start = heard();
+      const s = callReducer(start, { type: "USE_RECORDER" });
+      expect(s.listener).toBe("recorder");
+      expect(s.takeId).toBe(start.takeId + 1);
+      expect(wantsRecorder(s)).toBe(true);
+      expect(callReducer(s, { type: "SPEECH_DONE" })).toBe(s);
+      expect(callReducer(start, { type: "USE_RECORDER", available: false }).listener).toBe("none");
+    });
+
+    it("server STT down while recognition works keeps listening with recognition", () => {
+      const s = callReducer(callReducer(heard(), { type: "SPEECH_DONE" }), { type: "TURN_RESULT", outcome: "stt_unavailable" });
+      expect(s.sttDown).toBe(true);
+      expect(s.listener).toBe("browser");
+    });
+  });
+
+  it("server STT unavailable on the recorder path: stop listening, offer typing, never loop", () => {
+    let s = callReducer(run(frames(LOUD, 1000), listening()), { type: "TAP" });
+    s = callReducer(s, { type: "TURN_RESULT", outcome: "stt_unavailable" });
+    expect(s.sttDown).toBe(true);
+    expect(s.listener).toBe("none");
+    expect(s.suggestTyping).toBe(true);
+    s = callReducer(s, { type: "REPLY_READY", speak: false });
+    expect(s.phase).toBe("listening");
+    expect(wantsRecorder(s)).toBe(false);
+    // Frames can't start a take; a typed turn still works.
+    expect(run(frames(LOUD, 3000), s)).toBe(s);
+    expect(callReducer(s, { type: "TEXT_SENT" }).phase).toBe("thinking");
+    // Restarting the call remembers the dead provider.
+    const again = run([{ type: "END" }, { type: "START" }, { type: "MIC_READY", listener: "recorder" }], s);
+    expect(again.listener).toBe("none");
+    expect(callReducer(s, { type: "USE_RECORDER" })).toBe(s);
   });
 });
