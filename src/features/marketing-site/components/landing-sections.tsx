@@ -14,7 +14,9 @@ import { RotatingWords } from "./rotating-words";
 import { HeroSlideshow } from "./hero-slideshow";
 import { Reveal } from "./reveal";
 import { themeMockupHeroUrl } from "@/features/theme/marketplace/mockup";
-import { themeShot } from "../theme-shots";
+import { SHOT_SIZE, themeShot, themeShotSrcSet } from "../theme-shots";
+import { HeroSyncProvider, HeroThemeShots, type HeroShot } from "./hero-sync";
+import { industryShort } from "@/features/stores/industries";
 import { ThemeCard, ThemeDevicePreview } from "./theme-card";
 import { WhenVisible } from "./when-visible";
 import { StepsStack, StepsStackCard } from "./steps-stack";
@@ -82,23 +84,51 @@ const ctaGhost =
 /** Entrance: each block fades up once on first paint (CSS @starting-style, no JS). */
 const enter = (delay = "", from = "starting:translate-y-4", duration = "duration-700") => cn("transition-[opacity,translate] ease-out starting:opacity-0", from, duration, delay);
 
-export function LandingHero({ content, themes, tokens }: { content: LandingContent["hero"]; themes: MarketplaceTheme[]; tokens: Record<string, string | number> }) {
+export function LandingHero({
+  content,
+  themes,
+  wordThemes = [],
+  tokens,
+}: {
+  content: LandingContent["hero"];
+  themes: MarketplaceTheme[];
+  /** One theme per rotating headline word (same order), each with screenshots: the synced hero. */
+  wordThemes?: MarketplaceTheme[];
+  tokens: Record<string, string | number>;
+}) {
   const stats = content.stats.filter((s) => s.value && s.label);
-  // Preload LCP image: prefer same-origin theme shot WebP, else ThemeMockup Unsplash (no CMS hero).
   const cmsHero = content.slides.some((s) => s.imageUrl) || Boolean(content.imageUrl);
+  const words = content.rotatingWords.filter(Boolean);
+  // Headline and screenshots rotate together when every word has its own theme screenshot.
+  const shots: HeroShot[] | null =
+    !cmsHero && words.length > 0 && wordThemes.length === words.length
+      ? wordThemes.map((t) => ({
+          key: t.key,
+          caption: `${t.name} theme · ${industryShort(t.industry)}`,
+          desktop: themeShot(t.key, "desktop")!,
+          desktopSrcSet: themeShotSrcSet(t.key),
+          phone: themeShot(t.key, "phone")!,
+          background: t.preset.tokens.colors.background ?? "#ffffff",
+        }))
+      : null;
+  // Preload the LCP image: the first synced screenshot, else CMS image, else the first theme's.
   const firstTheme = themes[0];
   const localShot = firstTheme ? themeShot(firstTheme.key, "desktop") : null;
-  const lcpPreload = cmsHero
-    ? content.slides.find((s) => s.imageUrl)?.imageUrl || content.imageUrl || null
-    : localShot || (firstTheme ? themeMockupHeroUrl(firstTheme, 640) : null);
-  if (lcpPreload) preload(lcpPreload, { as: "image", fetchPriority: "high" });
-  return (
-    <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-mk-bg text-mk-text">
+  if (shots?.[0]) {
+    preload(shots[0].desktop, { as: "image", fetchPriority: "high", imageSrcSet: shots[0].desktopSrcSet, imageSizes: shots[0].desktopSrcSet ? HERO_SIZES : undefined });
+  } else {
+    const lcpPreload = cmsHero
+      ? content.slides.find((s) => s.imageUrl)?.imageUrl || content.imageUrl || null
+      : localShot || (firstTheme ? themeMockupHeroUrl(firstTheme, 640) : null);
+    if (lcpPreload) preload(lcpPreload, { as: "image", fetchPriority: "high" });
+  }
+  const body = (
+<section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-mk-bg text-mk-text">
       <div aria-hidden className="mk-grid-texture absolute inset-0 -z-10 opacity-60 [mask-image:radial-gradient(ellipse_at_center,black_25%,transparent_72%)]" />
       <div aria-hidden className="absolute top-1/4 right-[8%] -z-10 size-[min(42vw,28rem)] rounded-full bg-brand-orange/20 blur-3xl" />
       <div aria-hidden className="absolute top-1/4 right-[8%] -z-10 size-[min(42vw,28rem)] rounded-full bg-[radial-gradient(circle,var(--accent-glow),transparent_70%)] blur-2xl" />
       <div aria-hidden className="absolute -top-24 left-1/4 -z-10 size-72 rounded-full bg-mk-accent/10 blur-3xl motion-safe:animate-pulse [animation-duration:7s]" />
-      <Shell className="grid items-center gap-10 py-16 sm:py-20 lg:grid-cols-[0.9fr_1.1fr] lg:gap-10 lg:py-24">
+      <Shell className="grid items-center gap-10 py-12 sm:py-16 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12 lg:py-20">
         <div className="flex flex-col items-start">
           {content.badge ? (
             <p className={cn("mk-label inline-flex items-center gap-2 text-mk-accent", enter())}>
@@ -131,7 +161,7 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
             ) : null}
           </div>
           {stats.length || content.liveLabel ? (
-            <div className={cn("mt-12 flex flex-wrap items-stretch gap-0", enter("delay-300"))}>
+            <div className={cn("mt-10 flex flex-wrap items-stretch gap-0", enter("delay-300"))}>
               {content.liveLabel ? (
                 <p className="mk-label mr-5 mb-4 inline-flex items-center gap-1.5 self-center border border-mk-accent/35 bg-mk-accent-tint px-2.5 py-1 text-mk-accent">
                   <span className="relative grid size-1.5 place-items-center" aria-hidden>
@@ -155,10 +185,29 @@ export function LandingHero({ content, themes, tokens }: { content: LandingConte
           ) : null}
         </div>
         <div className={enter("delay-200", "starting:translate-x-8", "duration-1000")}>
-          <HeroVisual content={content} themes={themes} />
+          {shots ? (
+            <figure className="relative w-full">
+              <HeroGlow />
+              <HeroThemeShots shots={shots} sizes={HERO_SIZES} desktopSize={SHOT_SIZE.desktop} phoneSize={SHOT_SIZE.phone} />
+            </figure>
+          ) : (
+            <HeroVisual content={content} themes={themes} />
+          )}
         </div>
       </Shell>
     </section>
+  );
+  return shots ? <HeroSyncProvider>{body}</HeroSyncProvider> : body;
+}
+
+const HERO_SIZES = "(min-width: 1280px) 620px, (min-width: 1024px) 48vw, 88vw";
+
+function HeroGlow() {
+  return (
+    <>
+      <div aria-hidden className="absolute -inset-10 -z-10 rounded-[40px] bg-brand-orange/25 blur-3xl" />
+      <div aria-hidden className="absolute -inset-8 -z-10 rounded-[40px] bg-[radial-gradient(circle_at_50%_40%,var(--accent-glow),transparent_65%)] blur-2xl" />
+    </>
   );
 }
 
@@ -184,8 +233,7 @@ function HeroVisual({ content, themes }: { content: LandingContent["hero"]; them
   const slides = content.slides.filter((s) => s.imageUrl);
   const glow = (
     <>
-      <div aria-hidden className="absolute -inset-10 -z-10 rounded-[40px] bg-brand-orange/25 blur-3xl" />
-      <div aria-hidden className="absolute -inset-8 -z-10 rounded-[40px] bg-[radial-gradient(circle_at_50%_40%,var(--accent-glow),transparent_65%)] blur-2xl" />
+      <HeroGlow />
       <div aria-hidden className="absolute inset-x-8 top-8 bottom-16 -z-10 rotate-2 rounded-2xl border border-mk-line bg-mk-elev-2/60" />
     </>
   );
@@ -271,7 +319,7 @@ export function TrustStrip({ content }: { content: LandingContent["trust"] }) {
   const rowA = chips.slice(0, mid);
   const rowB = chips.slice(mid);
   return (
-    <section aria-label={content.title || "Business categories"} className="border-y border-mk-line bg-mk-elev-1/40 py-10">
+    <section aria-label={content.title || "Business categories"} className="border-y border-mk-line bg-mk-elev-1/40 py-8">
       {content.title ? <p className="mk-label text-center text-mk-dim">{content.title}</p> : null}
       <div className="mt-6 space-y-3">
         <MarqueeRow chips={rowA.length ? rowA : chips} />
@@ -289,7 +337,7 @@ export function Solutions({ content }: { content: LandingContent["solutions"] })
       <div aria-hidden className="absolute top-24 -left-32 -z-10 size-96 rounded-full bg-mk-accent/10 blur-3xl" />
       <Shell>
         <Heading id="solutions-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
-        <Reveal as="ul" className="mt-14 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <Reveal as="ul" className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {content.items.map((item, i) => {
             const tint = ACCENT[item.color === "auto" ? tagColor(item.tag, i) : item.color];
             return (
@@ -334,7 +382,7 @@ export function Steps({ content }: { content: LandingContent["steps"] }) {
     <section id="steps" aria-labelledby="steps-title" className="mk-section scroll-mt-20 bg-mk-elev-1/30">
       <Shell>
         <Heading id="steps-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
-        <StepsStack className="mx-auto mt-14 max-w-5xl">
+        <StepsStack className="mx-auto mt-10 max-w-5xl">
           {content.items.map((step, i) => (
             <StepsStackCard key={`${step.title}-${i}`} index={i} total={total}>
               <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-10">
@@ -365,7 +413,7 @@ export function Steps({ content }: { content: LandingContent["steps"] }) {
           ))}
         </StepsStack>
         {content.cta.label ? (
-          <div className="mt-16 flex flex-col items-center gap-3 text-center">
+          <div className="mt-10 flex flex-col items-center gap-3 text-center">
             <ButtonLink href={content.cta.href || "/start"} variant="orange" size="lg" className={ctaAccent} track={{ id: "create_store", location: "steps" }}>
               {content.cta.label} <ArrowRight aria-hidden className="size-4" />
             </ButtonLink>
@@ -563,7 +611,7 @@ export function Features({ content }: { content: LandingContent["features"] }) {
     <section id="features" aria-labelledby="features-title" className="mk-section scroll-mt-20 bg-mk-elev-1/20">
       <Shell>
         <Heading id="features-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
-        <div className="mt-14 grid gap-4 lg:grid-cols-3">
+        <div className="mt-10 grid gap-4 lg:grid-cols-3">
           <div className="relative overflow-hidden rounded-[var(--r-lg)] border border-mk-line bg-mk-elev-1 p-8 shadow-brand-card sm:p-10 lg:col-span-2">
             <span aria-hidden className="absolute -top-20 -right-16 size-56 rounded-full bg-mk-accent/15 blur-3xl" />
             <span aria-hidden className="mk-grid-texture absolute inset-0 opacity-40 [mask-image:radial-gradient(ellipse_at_top_right,black,transparent_70%)]" />
@@ -632,7 +680,7 @@ export function LandingThemes({ content, themes, images }: { content: LandingCon
     <section id="themes" aria-labelledby="themes-title" className="mk-section scroll-mt-20 bg-mk-bg">
       <Shell>
         <Heading id="themes-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
-        <ul className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 [content-visibility:auto] [contain-intrinsic-size:auto_420px]">
+        <ul className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 [content-visibility:auto] [contain-intrinsic-size:auto_420px]">
           {themes.map((t, i) => (
             <li key={t.key} className="h-full">
               {/* First row can paint with the page; deeper cards wait until near viewport. */}
@@ -655,7 +703,7 @@ export function LandingThemes({ content, themes, images }: { content: LandingCon
           ))}
         </ul>
         {content.button.label ? (
-          <div className="mt-12 text-center">
+          <div className="mt-10 text-center">
             <ButtonLink
               href={content.button.href || "/themes"}
               variant="primary"
@@ -680,7 +728,7 @@ export function LandingCategories({ content }: { content: LandingContent["catego
       <div aria-hidden className="absolute -top-20 left-1/4 -z-10 size-80 rounded-full bg-mk-accent/10 blur-3xl" />
       <Shell>
         <Heading id="categories-title" badge="" tone="orange" title={content.title} body={content.body} />
-        <Reveal as="ul" className="mx-auto mt-12 flex max-w-5xl flex-wrap justify-center gap-3">
+        <Reveal as="ul" className="mx-auto mt-10 flex max-w-5xl flex-wrap justify-center gap-3">
           {items.map((c, i) => (
             <li key={`${c.label}-${i}`} className={revealItem} style={revealDelay(i)}>
               <CategoryTile item={c} />
@@ -732,7 +780,7 @@ export function LandingPricing({ content, plans }: { content: LandingContent["pr
     <section id="pricing" aria-labelledby="pricing-title" className="mk-section scroll-mt-20 bg-mk-bg">
       <Shell>
         <Heading id="pricing-title" badge={content.badge} tone="orange" title={content.title} body={content.body} />
-        <div className="mx-auto mt-14 max-w-5xl">
+        <div className="mx-auto mt-10 max-w-5xl">
           <PricingTable plans={plans} />
         </div>
         {content.note || content.noteLink.label ? (
@@ -754,7 +802,7 @@ export function Testimonials({ content }: { content: LandingContent["testimonial
     <section id="testimonials" aria-labelledby="testimonials-title" className="mk-section scroll-mt-20 bg-mk-elev-1/20">
       <Shell>
         <Heading id="testimonials-title" badge={content.badge} tone="amber" title={content.title} />
-        <ul className={cn("mx-auto mt-12 grid gap-6", content.items.length === 1 ? "max-w-2xl" : content.items.length === 2 ? "max-w-5xl md:grid-cols-2" : "lg:grid-cols-3")}>
+        <ul className={cn("mx-auto mt-10 grid gap-6", content.items.length === 1 ? "max-w-2xl" : content.items.length === 2 ? "max-w-5xl md:grid-cols-2" : "lg:grid-cols-3")}>
           {content.items.map((t) => (
             <li key={t.name + t.quote.slice(0, 20)} className="relative flex flex-col rounded-[var(--r-md)] border border-mk-line bg-mk-elev-1 p-7 sm:p-8">
               <Quote aria-hidden className="absolute top-6 right-6 size-8 text-mk-accent/25" />
@@ -783,7 +831,7 @@ export function Testimonials({ content }: { content: LandingContent["testimonial
 
 export function LandingCta({ content }: { content: LandingContent["cta"] }) {
   return (
-    <section aria-labelledby="final-cta-title" className="relative isolate overflow-hidden bg-mk-bg py-20 text-center text-mk-text sm:py-28">
+    <section aria-labelledby="final-cta-title" className="relative isolate overflow-hidden bg-mk-bg py-14 text-center text-mk-text sm:py-20">
       <div aria-hidden className="mk-grid-texture absolute inset-0 -z-10 opacity-70" />
       <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(45%_55%_at_50%_0%,var(--accent-glow),transparent_70%)] opacity-60" />
       <Shell>

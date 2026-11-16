@@ -9,7 +9,7 @@ import { industryShort } from "@/features/stores/industries";
 import { analyticsAttributes } from "../analytics";
 import { buttonClass } from "./ui";
 import { DESKTOP_VIEWPORT, PHONE_VIEWPORT } from "./device-viewports";
-import { themeShot, type ShotDevice } from "../theme-shots";
+import { themeShot, themeShotSrcSet, type ShotDevice } from "../theme-shots";
 import { themePreviewHref } from "../themes";
 import { DeferredAfterLcp } from "./deferred-after-lcp";
 import type { ReactNode } from "react";
@@ -43,13 +43,21 @@ function Still({
     return <div className={fill ? "size-full overflow-hidden" : "overflow-hidden"}><InformativeThemeMockup theme={theme} size={device === "phone" ? "phone" : size === "large" ? "large" : "card"} /></div>;
   }
   const shot = themeShot(theme.key, device);
+  const srcSet = device === "desktop" ? themeShotSrcSet(theme.key) : undefined;
   const vp = device === "desktop" ? DESKTOP_VIEWPORT : PHONE_VIEWPORT;
   return (
     <div className={fill ? "size-full overflow-hidden" : "overflow-hidden"} style={{ aspectRatio: fill ? undefined : `${vp.width} / ${vp.height}`, background: theme.preset.tokens.colors.background }}>
       {shot ? (
         // Plain <img> on purpose: a pre-sized static WebP needs no Image Optimization.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={shot} alt="" width={vp.width} height={vp.height} loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : undefined} decoding="async" className="block size-full object-cover object-top" />
+        <img
+          src={shot}
+          srcSet={srcSet}
+          sizes={srcSet ? (size === "card" ? "(min-width: 1024px) 300px, (min-width: 640px) 45vw, 92vw" : "(min-width: 1024px) 620px, 92vw") : undefined}
+          alt=""
+          width={vp.width}
+          height={vp.height}
+          loading={eager ? "eager" : "lazy"} fetchPriority={eager ? "high" : undefined} decoding="async" className="block size-full object-cover object-top" />
       ) : (
         <ThemeMockup
           preset={theme.preset}
