@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toMinor } from "@/lib/money";
 import { PRICE_TYPES, PRICE_TYPE_LABELS, priceTypeNeedsAmount, type PriceType } from "../../pricing";
 import { MAX_DRAFT_SERVICES, type InformativeDraft } from "../draft";
+import { OnbEyebrow, OnbHeading, OnbSub } from "@/components/onboarding-ui";
 import { ui } from "./shell";
 
 type Row = { name: string; shortDescription: string; priceType: PriceType; price: string; durationMinutes: number | null };
@@ -45,11 +46,14 @@ export function ServicesStep({ draft, onSave, onSkip, onBack }: { draft: Informa
 
   return (
     <form onSubmit={save} noValidate className="flex flex-col gap-6" aria-labelledby="services-title">
-      <div>
-        <h1 id="services-title" className="font-brand text-3xl sm:text-4xl">Add your services</h1>
-        <p className="mt-2 text-[#5E5568]">
+      <div className="flex flex-col gap-3">
+        <OnbEyebrow>Services</OnbEyebrow>
+        <div id="services-title">
+          <OnbHeading>Add your services</OnbHeading>
+        </div>
+        <OnbSub>
           {draft.seededFrom ? "We've suggested services for your business. Edit the names and prices, remove any you don't offer, or add your own." : `Add up to ${MAX_DRAFT_SERVICES} now.`} You can add more, with photos and details, from your dashboard.
-        </p>
+        </OnbSub>
       </div>
       {rows.map((r, i) => (
         <fieldset key={i} className={`${ui.card} grid gap-4 sm:grid-cols-2`}>
@@ -77,20 +81,20 @@ export function ServicesStep({ draft, onSave, onSkip, onBack }: { draft: Informa
             {errors[`${i}.price`] ? <span id={`e-${i}-price`} aria-hidden className={`${ui.error} block`}>{errors[`${i}.price`]}</span> : null}
           </label>
           {rows.length > 1 ? (
-            <button type="button" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))} className={`${ui.ghostBtn} sm:col-span-2`}>
+            <button type="button" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))} className={`${ui.ghostBtn} justify-self-start sm:col-span-2`}>
               Remove this service
             </button>
           ) : null}
         </fieldset>
       ))}
       {rows.length < MAX_DRAFT_SERVICES ? (
-        <button type="button" onClick={() => setRows((rs) => [...rs, { ...EMPTY }])} className={`${ui.ghostBtn} self-start`}>
+        <button type="button" onClick={() => setRows((rs) => [...rs, { ...EMPTY }])} className={`${ui.secondaryBtn} self-start`}>
           + Add another service
         </button>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button type="button" onClick={onBack} className={ui.ghostBtn}>← Back</button>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
           <button type="button" onClick={onSkip} className={ui.ghostBtn}>Skip, I&apos;ll add later</button>
           <button type="submit" className={ui.primaryBtn}>Continue</button>
         </div>

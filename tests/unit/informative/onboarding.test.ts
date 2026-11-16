@@ -110,10 +110,10 @@ describe("onboarding entry (bare /start)", () => {
     await expect(StartPage({ searchParams: Promise.resolve({ plan: "pro" }) } as never)).rejects.toMatchObject({ to: "/start/lang?plan=pro" });
     await expect(StartPage({ searchParams: Promise.resolve({}) } as never)).rejects.toMatchObject({ to: "/start/lang" });
   });
-  it("flag on: Step 0, query kept for the store branch", async () => {
+  it("flag on: language first (/start/lang, then /start/build), query kept", async () => {
     allowed = true;
     const { default: StartPage } = await import("@/app/start/page");
-    await expect(StartPage({ searchParams: Promise.resolve({ plan: "pro" }) } as never)).rejects.toMatchObject({ to: "/start/build?plan=pro" });
+    await expect(StartPage({ searchParams: Promise.resolve({ plan: "pro" }) } as never)).rejects.toMatchObject({ to: "/start/lang?plan=pro" });
   });
 });
 

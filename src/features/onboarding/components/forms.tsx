@@ -67,7 +67,7 @@ export function BusinessForm({
                 {(["informative", "ecommerce"] as const).map((mode) => {
                   const option = SITE_MODE_LABELS[mode];
                   return (
-                    <label key={mode} className="cursor-pointer rounded-brand-md border border-border bg-white p-4 has-[:checked]:border-brand has-[:checked]:ring-2 has-[:checked]:ring-brand">
+                    <label key={mode} className="cursor-pointer rounded-brand-md border border-border bg-mk-elev-2 p-4 has-[:checked]:border-mk-accent has-[:checked]:ring-2 has-[:checked]:ring-mk-accent">
                       <input type="radio" name="siteMode" value={mode} defaultChecked={(defaults.siteMode ?? "ecommerce") === mode} className="sr-only" />
                       <span className="block font-semibold text-brand-ink">{option.title}</span>
                       <span className="mt-1 block text-xs leading-relaxed text-muted">{option.description}</span>
@@ -132,7 +132,7 @@ export function ThemeForm({ store, themes, selected, plan, backHref }: { store: 
         <legend className="sr-only">Themes</legend>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {themes.map((t) => (
-            <label key={t.key} className={cn("cursor-pointer overflow-hidden rounded-brand-md border bg-white transition-shadow has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand", choice === t.key ? "border-brand ring-2 ring-brand" : "border-border hover:shadow-brand-card")}>
+            <label key={t.key} className={cn("cursor-pointer overflow-hidden rounded-brand-md border bg-mk-elev-2 transition-shadow has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand", choice === t.key ? "border-mk-accent ring-2 ring-mk-accent" : "border-border hover:shadow-brand-card")}>
               <input type="radio" name="choice" value={t.key} checked={choice === t.key} onChange={() => setChoice(t.key)} className="sr-only" />
               <div className="h-40 overflow-hidden border-b border-border" aria-hidden>
                 <ThemeMockup preset={t.preset} name={t.name.split(" ")[0]!} tagline={t.tagline} themeKey={t.key} />
@@ -182,7 +182,7 @@ export function PlanForm({ store, plans, selected, backHref }: { store: string; 
         <legend className="sr-only">Plans</legend>
         <div className="grid gap-4 md:grid-cols-3">
           {plans.map((p) => (
-            <label key={p.code} className={cn("flex cursor-pointer flex-col rounded-brand-md border bg-white p-5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand", choice === p.code ? "border-brand ring-2 ring-brand" : "border-border")}>
+            <label key={p.code} className={cn("flex cursor-pointer flex-col rounded-brand-md border bg-mk-elev-2 p-5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand", choice === p.code ? "border-mk-accent ring-2 ring-mk-accent" : "border-border")}>
               <input type="radio" name="choice" value={p.code} checked={choice === p.code} onChange={() => setChoice(p.code)} className="sr-only" />
               <span className="font-brand text-lg font-bold text-brand-ink">{p.name}</span>
               <span className="text-xs text-muted">{p.description}</span>

@@ -46,15 +46,15 @@ async function GoogleSignInInner({
         clientId={mode.clientId}
         next={next}
         text={text}
-        fallback={<GoogleButton action={googleSignInAction} next={next ?? ""} label={label} />}
+        fallback={<GoogleButton action={googleSignInAction} next={next ?? ""} label={label} tone="dark" />}
       />
     ) : (
-      <GoogleButton action={googleSignInAction} next={next ?? ""} label={label} />
+      <GoogleButton action={googleSignInAction} next={next ?? ""} label={label} tone="dark" />
     );
   return (
     <>
       {button}
-      <OrDivider />
+      <OrDivider tone="dark" />
     </>
   );
 }

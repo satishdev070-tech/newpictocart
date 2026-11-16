@@ -1,46 +1,50 @@
 import type { StartDraft, StartScreen } from "./draft/schema";
-import { draftCategory, draftStoreName, draftSubcategory } from "./draft/schema";
+import { draftCategories, draftStoreName, draftSubcategories } from "./draft/schema";
 
-export type ProgressInfo = {
-  overall: string | null;
-  manual: string | null;
-  percent: number;
-};
+export type ProgressInfo = { step: number; total: number };
 
-function isHi(locale: string): boolean {
-  return locale === "hi-IN";
+/**
+ * Online-store journey progress: lang → build → path → quiz|voice → theme → account (6 steps).
+ * When the build step (Online Store | Informative Website) is off, it is skipped (5 steps).
+ * Null on screens without a step number (building, done).
+ */
+export function progressFor(screen: StartScreen, opts: { buildStep: boolean }): ProgressInfo | null {
+  const order = opts.buildStep
+    ? (["lang", "build", "path", "business", "theme", "account"] as const)
+    : (["lang", "path", "business", "theme", "account"] as const);
+  const stage: StartScreen | null = (() => {
+    switch (screen) {
+      case "welcome":
+      case "lang":
+        return "lang";
+      case "build":
+        return opts.buildStep ? "build" : "path";
+      case "intent":
+      case "path":
+        return "path";
+      case "voice":
+      case "quiz":
+      case "business":
+      case "products":
+        return "business";
+      case "mood":
+      case "payment":
+      case "theme":
+        return "theme";
+      case "account":
+        return "account";
+      default:
+        return null;
+    }
+  })();
+  if (!stage) return null;
+  const idx = (order as readonly StartScreen[]).indexOf(stage);
+  return idx < 0 ? null : { step: idx + 1, total: order.length };
 }
 
-/** Five-screen progress: lang → path → business → theme → account. */
-export function progressFor(screen: StartScreen, _path: StartDraft["path"], locale: string): ProgressInfo {
-  const hi = isHi(locale);
-  const step = (n: number, total: number) => (hi ? `चरण ${n} / ${total}` : `Step ${n} of ${total}`);
-  const none: ProgressInfo = { overall: null, manual: null, percent: 0 };
-
-  switch (screen) {
-    case "welcome":
-    case "building":
-    case "done":
-      return none;
-    case "lang":
-      return { overall: step(1, 5), manual: null, percent: 20 };
-    case "intent":
-    case "path":
-      return { overall: step(2, 5), manual: null, percent: 40 };
-    case "voice":
-    case "quiz":
-    case "business":
-      return { overall: step(3, 5), manual: null, percent: 60 };
-    case "products":
-    case "mood":
-    case "payment":
-    case "theme":
-      return { overall: step(4, 5), manual: null, percent: 80 };
-    case "account":
-      return { overall: step(5, 5), manual: null, percent: 100 };
-    default:
-      return none;
-  }
+/** Lang → build (Online Store | Informative) when that step exists, else straight to path. */
+export function nextScreenAfterLang(buildStep: boolean): StartScreen {
+  return buildStep ? "build" : "path";
 }
 
 export function canAdvanceFromIntent(intent: StartDraft["intent"]): boolean {
@@ -51,10 +55,10 @@ export function canAdvanceFromPath(path: StartDraft["path"]): boolean {
   return path === "ai" || path === "manual";
 }
 
-/** Business step complete: name + category + subcategory (business or voice facts). */
+/** Business step complete: name + ≥1 category + ≥1 product type (business or voice facts). */
 export function businessComplete(draft: StartDraft): boolean {
   const name = draftStoreName(draft);
-  return name.length >= 2 && draftCategory(draft) !== null && draftSubcategory(draft) !== null;
+  return name.length >= 2 && draftCategories(draft).length > 0 && draftSubcategories(draft).length > 0;
 }
 
 /** @deprecated Prefer businessComplete — same rules for the five-screen flow. */
@@ -65,7 +69,9 @@ export function manualBusinessComplete(draft: StartDraft): boolean {
 /** Voice facts enough to leave the AI step. siteMode defaults at finalize. */
 export function voiceFactsComplete(draft: StartDraft): boolean {
   const f = draft.voice.facts;
-  return Boolean(f.name?.trim() && f.category && f.subcategory?.trim());
+  const hasCategory = Boolean(f.category) || (f.categories ?? []).length > 0;
+  const hasSub = Boolean(f.subcategory?.trim()) || (f.subcategories ?? []).length > 0;
+  return Boolean(f.name?.trim()) && hasCategory && hasSub;
 }
 
 /**
@@ -87,6 +93,7 @@ export function draftHasProgress(draft: StartDraft): boolean {
   if (draft.intent || draft.path) return true;
   if (draft.business.name.trim() || draft.voice.facts.name?.trim()) return true;
   if (draft.business.category || draft.voice.facts.category) return true;
+  if (draft.business.categories?.length || draft.voice.facts.categories?.length) return true;
   if (draft.business.subcategory || draft.voice.facts.subcategory) return true;
   if (draft.business.productsServices.trim() || draft.voice.facts.productsServices?.trim()) return true;
   if (draft.theme || draft.mood || draft.products.length) return true;
@@ -95,28 +102,33 @@ export function draftHasProgress(draft: StartDraft): boolean {
 }
 
 /**
- * After path: Voice (ai + talk) → voice; Quiz (ai + quiz) → quiz; manual → business.
- * Voice and quiz both count as numbered step 3 (business stage).
+ * After path: Voice (ai + talk) → voice; Quiz (ai + quiz) → quiz; legacy manual → quiz.
  */
 export function nextScreenAfterPath(
   path: "ai" | "manual",
   mode: StartDraft["voice"]["mode"] = "talk",
 ): StartScreen {
-  if (path === "manual") return "business";
+  if (path === "manual") return "quiz";
   return mode === "quiz" ? "quiz" : "voice";
 }
 
 function themeBackTarget(path: StartDraft["path"], voiceMode?: StartDraft["voice"]["mode"]): StartScreen {
   if (path === "ai") return voiceMode === "quiz" ? "quiz" : "voice";
-  return "business";
+  return "quiz";
 }
 
-export function backTarget(screen: StartScreen, path: StartDraft["path"], voiceMode?: StartDraft["voice"]["mode"]): StartScreen | null {
+export function backTarget(
+  screen: StartScreen,
+  path: StartDraft["path"],
+  voiceMode?: StartDraft["voice"]["mode"],
+  buildStep = false,
+): StartScreen | null {
   const order: Record<StartScreen, StartScreen | null> = {
     welcome: null,
     lang: null,
+    build: "lang",
     intent: "lang",
-    path: "lang",
+    path: buildStep ? "build" : "lang",
     voice: "path",
     quiz: "path",
     business: "path",

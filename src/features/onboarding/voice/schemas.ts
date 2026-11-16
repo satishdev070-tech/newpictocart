@@ -13,6 +13,13 @@ export const voiceFactsSchema = z.object({
   city: z.string().trim().max(80).nullable().optional(),
 });
 
+/** Model lists sometimes arrive as a bare string or with junk entries; keep strings only. */
+const looseStringList = (max: number) =>
+  z.preprocess(
+    (v) => (typeof v === "string" ? [v] : Array.isArray(v) ? v.filter((x) => typeof x === "string" && x.trim()) : []),
+    z.array(z.string().trim().min(1).max(80)).max(max * 2),
+  );
+
 /** Structured JSON Tara returns each turn (plus a spoken reply). */
 export const taraTurnResultSchema = z.object({
   reply: z.string().trim().min(1).max(800),
@@ -21,6 +28,8 @@ export const taraTurnResultSchema = z.object({
       name: z.string().trim().min(1).max(120).nullable().optional(),
       category: z.string().trim().min(1).max(80).nullable().optional(),
       subcategory: z.string().trim().min(1).max(80).nullable().optional(),
+      categories: looseStringList(3).optional(),
+      subcategories: looseStringList(8).optional(),
       productsServices: z.string().trim().max(300).nullable().optional(),
       siteMode: z.string().trim().min(1).max(40).nullable().optional(),
       tagline: z.string().trim().max(160).nullable().optional(),

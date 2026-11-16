@@ -76,7 +76,7 @@ export function GoogleIdentityButton({ clientId, next, text = "continue_with", f
             }
           },
         });
-        google.accounts.id.renderButton(box.current, { type: "standard", theme: "outline", size: "large", text, shape: "rectangular", logo_alignment: "center", width: Math.min(box.current.clientWidth || 400, 400) });
+        google.accounts.id.renderButton(box.current, { type: "standard", theme: "filled_black", size: "large", text, shape: "pill", logo_alignment: "center", width: Math.min(box.current.clientWidth || 400, 400) });
       } catch {
         if (live) setFailed(true);
       }

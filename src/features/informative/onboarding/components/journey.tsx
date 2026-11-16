@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { canOpenStep, resumeStep, withSeededServices, type InfoStep } from "../draft";
+import { canOpenStep, parseInfoLocale, STORE_DRAFT_KEY, resumeStep, withSeededServices, type InfoStep } from "../draft";
 import { findServiceType, seedFor } from "../../service-types";
 import { AccountStep } from "./account-step";
 import { BasicInfoStep } from "./basic-info-step";
@@ -12,6 +12,16 @@ import { InformativeShell, type OnboardingLogo } from "./shell";
 import { ThemeStep, type ThemeCard } from "./theme-step";
 import { useInformativeDraft } from "./use-draft";
 
+/** The language picked at /start/lang, saved in the store journey's draft (read-only here). */
+function storeJourneyLocale(): ReturnType<typeof parseInfoLocale> {
+  try {
+    const raw = window.localStorage.getItem(STORE_DRAFT_KEY);
+    const locale: unknown = raw ? (JSON.parse(raw) as { locale?: unknown })?.locale : null;
+    return parseInfoLocale(locale);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Informative onboarding (docs/informative/PLAN.md): basic info → theme (live preview) → starter
@@ -19,10 +29,36 @@ import { useInformativeDraft } from "./use-draft";
  * its own URL (/start/informative/<step>); a step that needs earlier data sends the person back to
  * the first incomplete step. Back on the first step returns to the website-type choice.
  */
-export function InformativeJourney({ step, logo, rootDomain, themes, signedIn, googleAvailable }: { step: InfoStep; logo: OnboardingLogo; rootDomain: string; themes: ThemeCard[]; signedIn: boolean; googleAvailable: boolean }) {
+export function InformativeJourney({
+  step,
+  logo,
+  rootDomain,
+  themes,
+  signedIn,
+  googleAvailable,
+  lang = null,
+}: {
+  step: InfoStep;
+  logo: OnboardingLogo;
+  rootDomain: string;
+  themes: ThemeCard[];
+  signedIn: boolean;
+  googleAvailable: boolean;
+  /** `?lang=` from /start/lang → /start/build (validated Sarvam code), if any. */
+  lang?: string | null;
+}) {
   const router = useRouter();
   const { draft, setDraft, hydrated } = useInformativeDraft();
   const go = (s: InfoStep) => router.push(`/start/informative/${s}`);
+
+  // Language: ?lang= wins; otherwise the store journey's choice (same /start/lang screen). A direct
+  // visit with neither keeps the draft's language (English by default).
+  const draftLocale = draft.locale;
+  useEffect(() => {
+    if (!hydrated) return;
+    const next = parseInfoLocale(lang) ?? (draftLocale === "en-IN" ? storeJourneyLocale() : null);
+    if (next && next !== draftLocale) setDraft((d) => ({ ...d, locale: next }));
+  }, [hydrated, lang, draftLocale, setDraft]);
 
   // Deep links can't skip ahead of the data they need.
   const firstIncomplete = resumeStep(draft);
@@ -34,7 +70,7 @@ export function InformativeJourney({ step, logo, rootDomain, themes, signedIn, g
   if (!hydrated || blocked) {
     return (
       <InformativeShell logo={logo} step={step === "finish" ? null : step}>
-        <p className="text-[#5E5568]" aria-live="polite">Loading…</p>
+        <p className="text-mk-muted" aria-live="polite">Loading…</p>
       </InformativeShell>
     );
   }

@@ -85,7 +85,11 @@ export function VoiceSession({
           return;
         }
         const data = result.data as VoiceTurnData;
-        setBubbles((b) => [...b, { role: "user", text: data.transcript }, { role: "tara", text: data.reply }]);
+        if (data.heard === false) {
+          setError("Didn't catch that. Try again a little closer to the mic, or type your answer.");
+          return;
+        }
+        setBubbles((b) => [...b, { role: "user", text: data.userText || data.transcript }, { role: "tara", text: data.reply }]);
         setFacts(data.facts);
         setDone(data.done);
         if (data.audioBase64 && data.audioMimeType) playBase64Audio(data.audioBase64, data.audioMimeType);
@@ -124,7 +128,7 @@ export function VoiceSession({
         {bubbles.map((b, i) => (
           <div
             key={`${i}-${b.role}`}
-            className={cn("max-w-[90%] rounded-brand-md px-3 py-2 text-sm", b.role === "tara" ? "self-start bg-white text-brand-ink shadow-sm" : "self-end bg-brand text-white")}
+            className={cn("max-w-[90%] rounded-brand-md px-3 py-2 text-sm", b.role === "tara" ? "self-start bg-mk-elev-2 text-mk-text" : "self-end bg-mk-accent text-mk-accent-ink")}
           >
             {b.text}
           </div>
@@ -138,7 +142,7 @@ export function VoiceSession({
           disabled={pending}
           className={cn(
             "grid size-14 place-items-center rounded-full transition",
-            recording ? "bg-danger text-white animate-pulse" : "bg-brand text-white hover:bg-brand/90",
+            recording ? "bg-danger text-white animate-pulse" : "bg-mk-accent text-mk-accent-ink hover:bg-mk-accent-hover",
             pending && "opacity-60",
           )}
           aria-pressed={recording}

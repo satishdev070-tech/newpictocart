@@ -14,51 +14,15 @@ import { isSarvamConfigured } from "@/lib/sarvam/client";
 import { parseTaraHistory, runTaraTurn } from "./turn";
 import { isSarvamLocaleCode, type SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { assertEmailVerifiedForOnboarding } from "../email-gate";
-import {
-  EMPTY_FACTS,
-  mapCategoryInput,
-  mapCategoryToIndustry,
-  mapSiteMode,
-  mergeFacts,
-  suggestSubcategory,
-  type VoiceFacts,
-} from "./facts";
+import { parseVoiceFactsJson } from "./facts";
 import { voiceTurnInputSchema } from "./schemas";
+import type { TaraTurnOutput } from "./turn";
 
-export type VoiceTurnData = {
-  transcript: string;
-  reply: string;
-  facts: VoiceFacts;
-  done: boolean;
-  audioBase64: string | null;
-  audioMimeType: string | null;
-  ttsAvailable: boolean;
-};
-
-function parseFactsJson(raw: unknown): VoiceFacts {
-  if (typeof raw !== "string" || !raw.trim()) return { ...EMPTY_FACTS };
-  try {
-    const parsed = JSON.parse(raw) as Partial<VoiceFacts>;
-    const mapped = mapCategoryInput(typeof parsed.category === "string" ? parsed.category : null);
-    const category = mapped.category ?? mapCategoryToIndustry(typeof parsed.category === "string" ? parsed.category : null);
-    const subcategoryRaw = typeof parsed.subcategory === "string" ? parsed.subcategory : null;
-    const subcategory =
-      (category && subcategoryRaw ? suggestSubcategory(category, subcategoryRaw) : null) ??
-      mapped.subcategory ??
-      (typeof subcategoryRaw === "string" ? subcategoryRaw : null);
-    return mergeFacts(EMPTY_FACTS, {
-      name: typeof parsed.name === "string" ? parsed.name : null,
-      category,
-      subcategory,
-      productsServices: typeof parsed.productsServices === "string" ? parsed.productsServices : null,
-      siteMode: mapSiteMode(typeof parsed.siteMode === "string" ? parsed.siteMode : null),
-      tagline: typeof parsed.tagline === "string" ? parsed.tagline : null,
-      city: typeof parsed.city === "string" ? parsed.city : null,
-    });
-  } catch {
-    return { ...EMPTY_FACTS };
-  }
-}
+/**
+ * One Tara turn as the browser sees it. `transcript` / `userText` = what the seller said
+ * (STT text for audio). `heard: false` = audio had no recognisable speech (show "Didn't catch that").
+ */
+export type VoiceTurnData = TaraTurnOutput;
 
 /**
  * One Tara voice/text turn: STT (optional) → chat → TTS (when Bulbul supports the locale).
@@ -80,7 +44,7 @@ export async function voiceTurnAction(_prev: ActionResult<VoiceTurnData> | null,
     const raw = formToObject(fd);
     const input = parseInput(voiceTurnInputSchema, raw);
     const locale = input.locale as SarvamLocaleCode;
-    const facts = parseFactsJson(input.factsJson);
+    const facts = parseVoiceFactsJson(input.factsJson);
 
     const audio = raw.audio instanceof File ? raw.audio : null;
     return runTaraTurn({

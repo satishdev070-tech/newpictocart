@@ -3,28 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { findTheme } from "@/features/marketing-site/themes";
 import { ThemeDevicePreview } from "@/features/marketing-site/components/theme-card";
-import { moodById } from "../moods";
+import { Check } from "lucide-react";
+import { OnbCard, OnbEyebrow, OnbHeading } from "@/components/onboarding-ui";
+import { cn } from "@/lib/cn";
+import { buildingProgressPct, buildingStepIndex } from "../building-progress";
 import { startCopy } from "../copy";
 import type { StartDraft } from "../draft/schema";
-
-/** Soft progress ceiling while signed-in finalize is in flight. */
-export const BUILDING_SOFT_CAP = 92;
-/** Wall-clock ms to reach softCap (unsigned journeys continue to 100%). */
-export const BUILDING_PROGRESS_MS = 4200;
-/** Delay between sequenced status messages. */
-export const BUILDING_STEP_MS = 700;
-
-/** Map elapsed ms → percent, capped while waiting on finalize. */
-export function buildingProgressPct(elapsedMs: number, waitForFinalize: boolean): number {
-  const softCap = waitForFinalize ? BUILDING_SOFT_CAP : 100;
-  return Math.min(softCap, Math.round((elapsedMs / BUILDING_PROGRESS_MS) * softCap));
-}
-
-/** Active step index for the sequenced building messages. */
-export function buildingStepIndex(elapsedMs: number, stepCount: number): number {
-  if (stepCount <= 0) return 0;
-  return Math.min(stepCount - 1, Math.floor(elapsedMs / BUILDING_STEP_MS));
-}
 
 export function BuildingScreen({
   draft,
@@ -47,9 +31,6 @@ export function BuildingScreen({
   const stepCount = c.building.steps.length;
 
   const theme = draft.theme ? findTheme(draft.theme) : undefined;
-  const mood = moodById(draft.mood);
-  const accent = draft.accent || mood?.accentA || theme?.preset.tokens.colors.primary || "#F97316";
-  const accentSoft = mood?.accentB || `${accent}33`;
   const storeLabel =
     draft.business.name.trim() ||
     draft.voice.facts.name?.trim() ||
@@ -87,43 +68,39 @@ export function BuildingScreen({
   }, [draft.locale, stepCount, waitForFinalize]);
 
   return (
-    <section className="grid gap-8 lg:grid-cols-2 lg:items-center">
+    <section className="grid gap-8 pt-4 sm:pt-8 lg:grid-cols-2 lg:items-center" aria-live="polite">
       <div className="space-y-6">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold tracking-[0.14em] uppercase" style={{ color: accent }}>
-            Pictocart
-          </p>
-          <h2 className="font-brand text-3xl sm:text-4xl">{c.building.title}</h2>
+        <div className="space-y-3">
+          <OnbEyebrow>Pictocart</OnbEyebrow>
+          <OnbHeading as="h2">{c.building.title}</OnbHeading>
         </div>
 
-        <ul className="space-y-2.5">
+        <ul className="space-y-2">
           {c.building.steps.map((label, i) => {
             const done = i < step;
             const active = i === step;
             return (
               <li
                 key={label}
-                className={[
-                  "flex items-center gap-3 rounded-2xl border px-3 py-2.5 text-sm transition-all duration-500",
+                className={cn(
+                  "flex items-center gap-3 rounded-[var(--r-md)] border px-3 py-2.5 text-sm transition-[opacity,background-color,border-color] duration-500",
                   active
-                    ? "border-transparent bg-white/90 shadow-sm"
+                    ? "border-mk-accent/50 bg-mk-accent-tint"
                     : done
-                      ? "border-transparent bg-white/50"
-                      : "border-[#2A2233]/06 bg-transparent opacity-55",
-                ].join(" ")}
-                style={active ? { boxShadow: `0 12px 28px -18px ${accent}` } : undefined}
+                      ? "border-mk-line bg-mk-elev-1"
+                      : "border-transparent opacity-50",
+                )}
               >
                 <span
-                  className="grid size-7 place-items-center rounded-full text-xs font-semibold"
-                  style={
-                    done || active
-                      ? { background: `${accent}22`, color: accent }
-                      : { background: "#2A223310", color: "#94A3B8" }
-                  }
+                  className={cn(
+                    "grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold",
+                    done || active ? "bg-mk-accent text-mk-accent-ink" : "bg-mk-elev-2 text-mk-dim",
+                  )}
+                  aria-hidden
                 >
-                  {done ? "✓" : active ? "●" : "○"}
+                  {done ? <Check className="size-3.5" strokeWidth={3} /> : active ? "●" : "○"}
                 </span>
-                <span className={active ? "font-semibold text-[#2A2233]" : "text-[#5E5568]"}>{label}</span>
+                <span className={active ? "font-semibold text-mk-text" : "text-mk-muted"}>{label}</span>
               </li>
             );
           })}
@@ -132,69 +109,49 @@ export function BuildingScreen({
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <div
-              className="h-2.5 flex-1 overflow-hidden rounded-full"
-              style={{ background: accentSoft }}
+              className="h-2 flex-1 overflow-hidden rounded-full bg-white/10"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={pct}
             >
-              <div
-                className="h-full rounded-full transition-all duration-300 ease-out"
-                style={{
-                  width: `${pct}%`,
-                  background: `linear-gradient(90deg, ${accent}, ${mood?.accentB || accent})`,
-                }}
-              />
+              <div className="h-full rounded-full bg-mk-accent transition-[width] duration-300 ease-out" style={{ width: `${pct}%` }} />
             </div>
-            <span className="min-w-[3ch] text-sm font-mono text-[#6B6275]">{pct}%</span>
+            <span className="min-w-[4ch] text-right font-mk-mono text-sm text-mk-muted">{pct}%</span>
           </div>
-          {waitForFinalize ? (
-            <p className="text-sm text-[#6B6275]">{c.building.finishing}</p>
-          ) : null}
+          {waitForFinalize ? <p className="text-sm text-mk-muted">{c.building.finishing}</p> : null}
         </div>
       </div>
 
-      <div className="relative overflow-hidden rounded-[28px] border border-white/90 bg-white/75 p-3 shadow-[0_24px_60px_-28px_rgba(42,34,51,0.35)] sm:p-4">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-40"
-          style={{
-            background: `radial-gradient(ellipse at 30% 20%, ${accent}33, transparent 55%), radial-gradient(ellipse at 80% 90%, ${mood?.bg || "#FFF4E8"}, transparent 50%)`,
-          }}
-          aria-hidden
-        />
-        <div className="relative space-y-3">
+      <OnbCard className="p-3 sm:p-4">
+        <div className="space-y-3">
           <div className="flex items-center justify-between gap-3 px-1">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-[#2A2233]">
-                {theme?.name ?? c.building.themeFallback}
-              </p>
-              <p className="truncate text-xs text-[#6B6275]">{storeLabel}</p>
+              <p className="truncate text-sm font-semibold text-mk-text">{theme?.name ?? c.building.themeFallback}</p>
+              <p className="truncate text-xs text-mk-muted">{storeLabel}</p>
             </div>
-            <span
-              className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-              style={{ background: `${accent}18`, color: accent }}
-            >
-              Live preview
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-mk-line-strong px-2.5 py-1 font-mk-mono text-[10px] uppercase tracking-[0.14em] text-mk-muted">
+              <span className="size-1.5 rounded-full bg-mk-accent motion-safe:animate-pulse" aria-hidden />
+              {c.livePreview}
             </span>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-[#2A2233]/08 bg-white">
+          {/* Light island: depicts the seller's (light) storefront. */}
+          <div className="mk-light overflow-hidden rounded-[var(--r-md)] bg-white">
             {theme ? (
-              <div className="max-h-[420px] overflow-hidden sm:max-h-[520px]">
+              <div className="max-h-[360px] overflow-hidden sm:max-h-[520px]">
                 <ThemeDevicePreview theme={theme} size="large" eager />
               </div>
             ) : (
-              <div
-                className="grid min-h-[280px] place-items-center p-8 text-center sm:min-h-[360px]"
-                style={{ background: `linear-gradient(160deg, ${accentSoft}, ${mood?.bg || "#FFF4E8"} 55%)` }}
-              >
+              <div className="grid min-h-[260px] place-items-center bg-brand-canvas p-8 text-center sm:min-h-[360px]">
                 <div>
-                  <p className="font-brand text-3xl font-normal text-[#2A2233]">{storeLabel}</p>
-                  <p className="mt-2 text-sm text-[#6B6275]">
-                    {draft.business.tagline.trim() || "Your storefront is taking shape"}
-                  </p>
+                  <p className="font-brand text-3xl font-semibold text-brand-ink">{storeLabel}</p>
+                  <p className="mt-2 text-sm text-muted">{draft.business.tagline.trim() || c.building.themeFallback}</p>
                 </div>
               </div>
             )}
           </div>
         </div>
-      </div>
+      </OnbCard>
     </section>
   );
 }

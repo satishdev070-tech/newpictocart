@@ -5,7 +5,7 @@ import {
   BUILDING_STEP_MS,
   buildingProgressPct,
   buildingStepIndex,
-} from "@/features/start/screens/building-screen";
+} from "@/features/start/building-progress";
 import { startCopy } from "@/features/start/copy";
 
 describe("building screen progress helpers", () => {
@@ -32,7 +32,9 @@ describe("building screen progress helpers", () => {
 
   it("keeps quiz subcategory copy keys for EN", () => {
     const quiz = startCopy("en-IN").quiz;
-    expect(quiz.subcategoryTitle).toBe("Select Products Category For Your Store?");
-    expect(quiz.customSubHint).toBe("Add more type of products.");
+    expect(quiz.subcategoryTitle).toBe("Select product categories for your store");
+    expect(quiz.customSubHint).toBe("Search or add your own product type");
+    expect(quiz.categoryHint(1, 3)).toBe("Pick up to 3 · 1 selected");
+    expect(startCopy("hi-IN").quiz.subcategoryTitle).not.toMatch(/Select/);
   });
 });

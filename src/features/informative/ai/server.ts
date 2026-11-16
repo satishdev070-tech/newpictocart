@@ -2,6 +2,7 @@ import "server-only";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/observability/logger";
 import { runSellerAiGeneration } from "@/features/seller-ai/server";
+import { getSarvamLocale } from "@/lib/sarvam/locales";
 import { formatServicePrice } from "../pricing";
 import type { ServiceInput } from "../schemas";
 import type { InformativeContext } from "../server/context";
@@ -28,7 +29,7 @@ import { assistantReplySchema, proposalWrites, siteBuildSchema, toServiceWrite, 
 const ASSISTANT_LIMIT = { key: "informative-assistant", perDay: 40, message: "You've reached today's limit for the website assistant. Try again tomorrow." };
 const BUILD_LIMIT = { key: "informative-site-build", perDay: 4, message: "You've rebuilt your website with AI several times today. Try again tomorrow." };
 
-export async function loadSiteBrief(ctx: InformativeContext, extra?: string | null): Promise<SiteBrief> {
+export async function loadSiteBrief(ctx: InformativeContext, extra?: string | null, locale?: string | null): Promise<SiteBrief> {
   const [site, services, faqs] = await Promise.all([getSite(ctx), listServices(ctx), listFaqs(ctx)]);
   if (!site) throw new AppError("NOT_FOUND", { context: { op: "informative.ai.brief" } });
   return {
@@ -41,7 +42,14 @@ export async function loadSiteBrief(ctx: InformativeContext, extra?: string | nu
     services: services.filter((s) => s.isActive).slice(0, 20).map((s) => ({ name: s.name, priceText: formatServicePrice(s.priceType, s.pricePaise) })),
     faqs: faqs.slice(0, 20).map((f) => f.question),
     extra: extra ?? null,
+    language: languageFor(locale),
   };
+}
+
+/** English name of a non-English onboarding language (e.g. "Hindi"); null for English / unknown. */
+function languageFor(locale: string | null | undefined): string | null {
+  const l = locale ? getSarvamLocale(locale) : undefined;
+  return l && l.code !== "en-IN" ? l.englishName : null;
 }
 
 function newService(w: ServiceWrite): ServiceInput {
@@ -135,8 +143,8 @@ export async function applySiteBuild(ctx: InformativeContext, build: SiteBuild, 
  * the daily limit still applies. Returns false when AI isn't available, so callers keep the
  * ready-made starter content instead of failing.
  */
-export async function buildSiteWithAi(ctx: InformativeContext, opts: { free: boolean; notes?: string | null }): Promise<{ built: boolean; reason?: string }> {
-  const brief = await loadSiteBrief(ctx, opts.notes);
+export async function buildSiteWithAi(ctx: InformativeContext, opts: { free: boolean; notes?: string | null; locale?: string | null }): Promise<{ built: boolean; reason?: string }> {
+  const brief = await loadSiteBrief(ctx, opts.notes, opts.locale);
   let build: SiteBuild;
   try {
     const r = await runSellerAiGeneration({

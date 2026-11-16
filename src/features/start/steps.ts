@@ -1,6 +1,7 @@
 /** Canonical URL steps for `/start/[step]` (journey mounts only; no legacy ids). */
 export const START_STEP_IDS = [
   "lang",
+  "build",
   "path",
   "quiz",
   "voice",

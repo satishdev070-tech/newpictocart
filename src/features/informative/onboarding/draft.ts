@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { email, indianMobile } from "@/lib/validation/common";
 import { isValidStoreSlug } from "@/lib/tenant/host";
+import { isSarvamLocaleCode, toSarvamLocaleCode, type SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { INFO_CATEGORY_IDS } from "../categories";
 import { PRICE_TYPES } from "../pricing";
 
@@ -11,12 +12,27 @@ import { PRICE_TYPES } from "../pricing";
  */
 export const START_TYPE_KEY = "pictocart.start.type.v1";
 export const INFO_DRAFT_KEY = "pictocart.start.informative.v1";
+/** The store journey's draft key (START_DRAFT_STORAGE_KEY), read only for its `locale`. Not imported to keep this bundle small. */
+export const STORE_DRAFT_KEY = "pictocart.start.draft.v1";
 /** sessionStorage key the theme preview iframe reads the user's logo from (same origin). */
 export const INFO_PREVIEW_LOGO_KEY = "pictocart.start.informative.logo";
 
 export const INFO_STEPS = ["basic-info", "theme", "services", "account", "finish"] as const;
 export type InfoStep = (typeof INFO_STEPS)[number];
 export const isInfoStep = (s: string): s is InfoStep => (INFO_STEPS as readonly string[]).includes(s);
+
+/** Language chosen at /start/lang (Sarvam code, e.g. en-IN / hi-IN). Unknown values fall back to English. */
+export const DEFAULT_INFO_LOCALE: SarvamLocaleCode = "en-IN";
+export const infoLocaleSchema = z
+  .string()
+  .refine(isSarvamLocaleCode)
+  .transform((v) => v as SarvamLocaleCode)
+  .catch(DEFAULT_INFO_LOCALE);
+
+/** A `?lang=` value (or the store journey's draft locale) as a Sarvam code; null when absent/unknown. */
+export function parseInfoLocale(raw: unknown): SarvamLocaleCode | null {
+  return typeof raw === "string" && raw.length <= 16 ? toSarvamLocaleCode(raw) : null;
+}
 
 /** Logo after client-side downscaling (≤ 512 px). Original upload is limited to 2 MB, no SVG. */
 export const LOGO_MAX_BYTES = 2 * 1024 * 1024;
@@ -77,10 +93,12 @@ export const informativeDraftSchema = z.object({
   servicesSkipped: z.boolean().default(false),
   /** Service type the starter services were filled from; null once the person edits them. */
   seededFrom: z.string().max(40).nullable().default(null),
+  /** Onboarding language (from /start/lang via ?lang=); the AI writes the site in it. */
+  locale: infoLocaleSchema.default(DEFAULT_INFO_LOCALE),
 });
 export type InformativeDraft = z.infer<typeof informativeDraftSchema>;
 
-export const EMPTY_DRAFT: InformativeDraft = { v: 1, basic: {}, logoDataUrl: null, themeId: null, services: [], servicesSkipped: false, seededFrom: null };
+export const EMPTY_DRAFT: InformativeDraft = { v: 1, basic: {}, logoDataUrl: null, themeId: null, services: [], servicesSkipped: false, seededFrom: null, locale: DEFAULT_INFO_LOCALE };
 
 /**
  * After Step 1: fill the starter services from the chosen service type, unless the person already
@@ -106,6 +124,7 @@ export const completeDraftSchema = z.object({
   themeId: z.string().regex(/^[a-z0-9-]{2,40}$/, "Choose a theme"),
   services: z.array(draftServiceSchema).max(MAX_DRAFT_SERVICES, `Add up to ${MAX_DRAFT_SERVICES} services`).default([]),
   servicesSkipped: z.boolean().default(false),
+  locale: infoLocaleSchema.default(DEFAULT_INFO_LOCALE),
 });
 export type CompleteDraft = z.infer<typeof completeDraftSchema>;
 

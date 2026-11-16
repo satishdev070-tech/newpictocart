@@ -6,6 +6,7 @@ import { trackInformativeEvent } from "../analytics";
 import { completeInformativeOnboardingAction } from "../actions";
 import { buildInformativeSiteWithAiAction } from "../../ai/actions";
 import { INFO_PREVIEW_LOGO_KEY, START_TYPE_KEY, type InformativeDraft } from "../draft";
+import { OnbHeading, OnbSub } from "@/components/onboarding-ui";
 import { ui } from "./shell";
 import { clearInformativeDraft } from "./use-draft";
 
@@ -38,7 +39,7 @@ export function FinishStep({ draft, onEdit }: { draft: InformativeDraft; onEdit:
           // ignore
         }
         setPhase("ai");
-        await Promise.race([buildInformativeSiteWithAiAction({ onboarding: true }).catch(() => null), new Promise((done) => setTimeout(done, AI_BUILD_WAIT_MS))]);
+        await Promise.race([buildInformativeSiteWithAiAction({ onboarding: true, locale: draft.locale }).catch(() => null), new Promise((done) => setTimeout(done, AI_BUILD_WAIT_MS))]);
         router.replace(r.data.redirectTo);
         return;
       }
@@ -53,8 +54,8 @@ export function FinishStep({ draft, onEdit }: { draft: InformativeDraft; onEdit:
     <section className={`${ui.card} flex flex-col items-center gap-4 text-center`} aria-live="polite">
       {error ? (
         <>
-          <h1 className="font-brand text-3xl">We couldn&apos;t create your website</h1>
-          <p className="text-[#5E5568]" role="alert">{error.message}</p>
+          <OnbHeading className="text-[clamp(1.5rem,3vw,2rem)]">We couldn&apos;t create your website</OnbHeading>
+          <p className="text-red-400" role="alert">{error.message}</p>
           {error.step ? (
             <button type="button" className={ui.primaryBtn} onClick={() => onEdit(error.step!)}>Fix it</button>
           ) : (
@@ -63,11 +64,11 @@ export function FinishStep({ draft, onEdit }: { draft: InformativeDraft; onEdit:
         </>
       ) : (
         <>
-          <span aria-hidden className="size-10 animate-spin rounded-full border-4 border-[#C2410C]/20 border-t-[#C2410C] motion-reduce:animate-none" />
-          <h1 className="font-brand text-3xl">{phase === "create" ? "Building your website…" : "Writing your website with AI…"}</h1>
-          <p className="text-[#5E5568]">
-            {phase === "create" ? "Setting up your pages and services. This takes a few seconds." : "Tailoring your About page, services and FAQs to your business. This can take up to a minute."}
-          </p>
+          <span aria-hidden className="size-10 animate-spin rounded-full border-4 border-mk-accent/20 border-t-mk-accent motion-reduce:animate-none" />
+          <OnbHeading className="text-[clamp(1.5rem,3vw,2rem)]">{phase === "create" ? "Building your website…" : "Writing your website with AI…"}</OnbHeading>
+          <OnbSub>
+            {phase === "create" ? "Setting up your pages and services, with photos picked for your business. This takes a few seconds." : "Tailoring your About page, services and FAQs to your business. This can take up to a minute."}
+          </OnbSub>
         </>
       )}
     </section>

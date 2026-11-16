@@ -48,7 +48,12 @@ export async function applyInformativeProposalAction(input: unknown): Promise<Ac
   });
 }
 
-const buildInputSchema = z.object({ onboarding: z.boolean().default(false), notes: z.string().trim().max(1000).optional() });
+const buildInputSchema = z.object({
+  onboarding: z.boolean().default(false),
+  notes: z.string().trim().max(1000).optional(),
+  /** Onboarding language (Sarvam code); anything unknown is treated as English. */
+  locale: z.string().trim().max(16).optional(),
+});
 
 /** Free right after onboarding (the site is under an hour old); otherwise it costs credits. */
 const FREE_WINDOW_MS = 60 * 60 * 1000;
@@ -65,7 +70,7 @@ export async function buildInformativeSiteWithAiAction(input: unknown): Promise<
     needContentWrite(ctx);
     if (!ctx.permissions.has("settings.write")) throw new AppError("FORBIDDEN", { context: { permission: "settings.write" } });
     const free = parsed.onboarding && (await siteIsNew(ctx.tenantId));
-    const r = await buildSiteWithAi(ctx, { free, notes: parsed.notes ?? null });
+    const r = await buildSiteWithAi(ctx, { free, notes: parsed.notes ?? null, locale: parsed.locale ?? null });
     if (r.built) {
       await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "informative.ai_site_built", entityType: "info_site", entityId: ctx.tenantId, metadata: { free } });
       refresh(ctx);

@@ -7,6 +7,7 @@ import { safeRedirectPath } from "@/lib/http/safe-redirect";
 import { AuthHeading, AuthSplit } from "@/components/auth/auth-split";
 import { MerchantAside } from "@/components/auth/auth-asides";
 import { GoogleSignInSlot } from "@/components/auth/google-sign-in-slot";
+import { onbButton } from "@/components/onboarding-ui";
 import { findTheme, isThemeKey } from "@/features/marketing-site/themes";
 import { getMarketingPlans } from "@/features/marketing-site/server/plans";
 import { entryPlan, findPlan, isFreeForeverPlan, signupTrialDays } from "@/features/marketing-site/plans";
@@ -55,17 +56,17 @@ export default async function SellerRegisterPage({ searchParams }: PageProps<"/s
         }
       />
       {themeName || planName || lang ? (
-        <p className="-mt-4 mb-6 flex flex-wrap gap-2 text-caption" aria-label="Your selections">
-          {lang ? <span className="rounded-full bg-accent-soft px-2.5 py-1 font-semibold text-accent">Language: {lang}</span> : null}
-          {themeName ? <span className="rounded-full bg-accent-soft px-2.5 py-1 font-semibold text-accent">Theme: {themeName}</span> : null}
-          {planName ? <span className="rounded-full bg-accent-soft px-2.5 py-1 font-semibold text-accent">Plan: {planName}</span> : null}
+        <p className="-mt-4 mb-6 flex flex-wrap gap-2 text-xs" aria-label="Your selections">
+          {lang ? <span className="rounded-full border border-mk-accent/40 bg-mk-accent-tint px-3 py-1 font-medium text-mk-text">Language: {lang}</span> : null}
+          {themeName ? <span className="rounded-full border border-mk-accent/40 bg-mk-accent-tint px-3 py-1 font-medium text-mk-text">Theme: {themeName}</span> : null}
+          {planName ? <span className="rounded-full border border-mk-accent/40 bg-mk-accent-tint px-3 py-1 font-medium text-mk-text">Plan: {planName}</span> : null}
         </p>
       ) : null}
       <GoogleSignInSlot next={next || onboarding} text="signup_with" label="Sign up with Google" />
       <MerchantSignUp next={next || undefined} plan={plan} theme={theme} lang={lang} intent={intent} />
-      <p className="mt-6 text-center text-small text-muted">
+      <p className="mt-6 text-center text-sm text-mk-muted">
         Already have a store?{" "}
-        <a href="/login" className="font-semibold text-accent underline-offset-2 hover:underline">
+        <a href="/login" className={onbButton.link}>
           Sign in
         </a>
       </p>

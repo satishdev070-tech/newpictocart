@@ -4,20 +4,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { finalizeStartDraftAction } from "../actions";
+import { finalizeOnce, isFinalizeInFlight } from "../finalize-once";
 import type { ActionResult } from "@/lib/actions/result";
 import type { FinalizeStartResult } from "../actions";
 import { useStartDraft } from "../draft/use-start-draft";
 import { clearStartDraftCookie, clearStartDraftStorage, setStartDraftCookie } from "../draft/storage";
 import type { StartDraft, StartScreen } from "../draft/schema";
-import { draftReadyToFinalize, draftHasProgress, backTarget, nextScreenAfterPath } from "../flow";
+import { draftReadyToFinalize, draftHasProgress, backTarget, nextScreenAfterLang, nextScreenAfterPath } from "../flow";
 import { draftStoreName } from "../draft/schema";
 import { suggestSlugFromName } from "@/features/onboarding/voice/facts";
 import { StartShell, type StartLogo } from "./start-shell";
+import { onbButton } from "@/components/onboarding-ui";
 import { LangScreen } from "../screens/lang-screen";
 import { PathScreen } from "../screens/path-screen";
 import { VoiceScreen } from "../screens/voice-screen";
 import { QuizScreen } from "../screens/quiz-screen";
-import { BusinessScreen } from "../screens/business-screen";
 import { ThemeScreen } from "../screens/theme-screen";
 import { BuildingScreen } from "../screens/building-screen";
 import { AccountScreen } from "../screens/account-screen";
@@ -28,18 +29,24 @@ import type { StartVoiceTurn } from "../draft/schema";
 import { emptyStartDraft } from "../draft/schema";
 import { mergeFacts } from "@/features/onboarding/voice/facts";
 import { isStartStepId, startStepPath, type StartStepId } from "../steps";
+import { applyStoreFacts, storeFactsFromDraft, type StoreFacts } from "../draft/apply-facts";
+import { TypeSelector, informativeEntryHref } from "@/features/informative/onboarding/components/type-selector";
 
-/** Legacy screens remapped into the five-screen graph (do not mount the old UIs). */
+/** Legacy screens remapped into the current graph (do not mount the old UIs). The old manual
+ * "business" form is now the quiz (same fields, multi-select). */
 const LEGACY_SCREEN_REMAP: Partial<Record<StartScreen, StartScreen>> = {
   welcome: "lang",
   intent: "path",
-  products: "business",
+  business: "quiz",
+  products: "quiz",
   mood: "theme",
   payment: "theme",
 };
 
-function urlStepFor(screen: StartScreen): StartStepId {
+function urlStepFor(screen: StartScreen, buildStep = true): StartStepId {
   const remapped = LEGACY_SCREEN_REMAP[screen] ?? screen;
+  // No build step (informative gate off) → that screen is the path chooser.
+  if (remapped === "build" && !buildStep) return "path";
   return isStartStepId(remapped) ? remapped : "lang";
 }
 
@@ -53,7 +60,7 @@ export function StartJourney({
   googleAvailable,
   voiceReady,
   initialStep,
-  typeSelectorHref,
+  buildStep = false,
 }: {
   plan?: string | null;
   theme?: string | null;
@@ -65,8 +72,8 @@ export function StartJourney({
   voiceReady: boolean;
   /** From `/start/[step]` — empty drafts adopt this; drafts with progress resume and replace the URL. */
   initialStep?: StartScreen;
-  /** INFORMATIVE: branch point — see docs/informative/PLAN.md. Set only when Step 0 (website type) exists. */
-  typeSelectorHref?: string;
+  /** /start/build (Online Store | Informative Website) exists — informative onboarding gate allows it. */
+  buildStep?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -85,13 +92,13 @@ export function StartJourney({
 
   const replaceStepUrl = useCallback(
     (screen: StartScreen) => {
-      const path = startStepPath(urlStepFor(screen));
+      const path = startStepPath(urlStepFor(screen, buildStep));
       if (pathname !== path) {
         pendingPath.current = path;
         router.replace(path);
       }
     },
-    [pathname, router],
+    [pathname, router, buildStep],
   );
 
   useEffect(() => {
@@ -108,7 +115,9 @@ export function StartJourney({
     setFinalizeState(null);
     const fd = new FormData();
     fd.set("draftJson", JSON.stringify(draft));
-    void finalizeStartDraftAction(null, fd).then((res) => {
+    // Single-flight across remounts (OTP → /start → /start/lang → /start/account): a remounted
+    // journey joins the in-flight call instead of starting a second seed on the same tenant.
+    void finalizeOnce(() => finalizeStartDraftAction(null, fd)).then((res) => {
       setFinalizeState(res);
       if (res.ok) {
         setDraft((d) => ({ ...d, result: { slug: res.data.slug, name: res.data.name }, screen: "done" }));
@@ -152,7 +161,7 @@ export function StartJourney({
       bootstrapped.current = true;
       const remap = LEGACY_SCREEN_REMAP[draft.screen];
       const canonical = remap ?? draft.screen;
-      const draftStep = urlStepFor(canonical);
+      const draftStep = urlStepFor(canonical, buildStep);
 
       if (draftHasProgress(draft)) {
         if (draft.screen !== draftStep) patchDraft({ screen: draftStep });
@@ -180,7 +189,7 @@ export function StartJourney({
         pendingPath.current = null;
       }
       // Programmatic nav in flight: never adopt a stale URL into the draft.
-      const desired = startStepPath(urlStepFor(draft.screen));
+      const desired = startStepPath(urlStepFor(draft.screen, buildStep));
       if (pathname !== desired && pendingPath.current !== desired) {
         pendingPath.current = desired;
         router.replace(desired);
@@ -192,8 +201,8 @@ export function StartJourney({
       popped.current = false;
       const seg = pathname.split("/")[2]?.split("?")[0] ?? "";
       if (isStartStepId(seg)) {
-        const pathStep = urlStepFor(seg);
-        if (pathStep !== urlStepFor(draft.screen)) {
+        const pathStep = urlStepFor(seg, buildStep);
+        if (pathStep !== urlStepFor(draft.screen, buildStep)) {
           patchDraft({ screen: pathStep });
         }
       }
@@ -201,22 +210,15 @@ export function StartJourney({
     }
 
     replaceStepUrl(draft.screen);
-  }, [hydrated, draft, initialStep, pathname, patchDraft, replaceStepUrl, router]);
+  }, [hydrated, draft, initialStep, pathname, patchDraft, replaceStepUrl, router, buildStep]);
 
 
-  // Voice path is gated by NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED (default off).
-  // Prefer quiz whenever the draft still holds talk mode on the path screen.
+  // Voice needs Sarvam: without it, keep the path chooser on the quiz.
   useEffect(() => {
-    if (!hydrated || !draft) return;
-    if (draft.screen !== "path") return;
-    if (process.env.NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED === "true") return;
-    if ((draft.voice.mode ?? "talk") !== "talk") return;
-    setDraft((d) => {
-      if (!d || d.screen !== "path") return d;
-      if ((d.voice.mode ?? "talk") !== "talk") return d;
-      return { ...d, voice: { ...d.voice, mode: "quiz" } };
-    });
-  }, [hydrated, draft, setDraft]);
+    if (!hydrated || !draft || voiceReady) return;
+    if (draft.screen !== "path" || (draft.voice.mode ?? "talk") !== "talk") return;
+    setDraft((d) => (d.screen === "path" && (d.voice.mode ?? "talk") === "talk" ? { ...d, voice: { ...d.voice, mode: "quiz" } } : d));
+  }, [hydrated, draft, setDraft, voiceReady]);
 
   useEffect(() => {
     if (!hydrated || !draft || routedEmpty.current || leavingDone.current) return;
@@ -244,6 +246,8 @@ export function StartJourney({
   useEffect(() => {
     if (!hydrated || !draft || !signedIn || finalizing.current) return;
     if (draft.result) return;
+    // If a previous mount's finalize is still running, `finalize()` joins that same call through
+    // finalizeOnce (no second server action) so this mount still receives the result.
     const shouldFinalize =
       (draft.screen === "building" || draft.screen === "account") && draftReadyToFinalize(draft);
     if (!shouldFinalize) return;
@@ -251,14 +255,16 @@ export function StartJourney({
   }, [hydrated, draft, signedIn, finalize]);
 
   const finishMessage = finalizeState && !finalizeState.ok;
+  // A finalize started by a previous mount of this journey is still running → keep the building UI.
+  const finalizeInFlight = isFinalizeInFlight();
   const screen = draft.screen;
-  const split = screen === "business";
   const openingStore =
-    signedIn &&
-    !draft.result &&
-    !finishMessage &&
-    draftReadyToFinalize(draft) &&
-    (screen === "account" || screen === "building");
+    (signedIn &&
+      !draft.result &&
+      !finishMessage &&
+      draftReadyToFinalize(draft) &&
+      (screen === "account" || screen === "building")) ||
+    (finalizeInFlight && !draft.result && !finishMessage);
 
   function applyVoiceFacts(prevFacts: StartDraft["voice"]["facts"], patch: VoiceFacts): StartDraft["voice"]["facts"] {
     const merged = mergeFacts(
@@ -270,6 +276,8 @@ export function StartJourney({
         siteMode: prevFacts.siteMode,
         tagline: prevFacts.tagline,
         city: prevFacts.city,
+        categories: prevFacts.categories ?? [],
+        subcategories: prevFacts.subcategories ?? [],
       },
       patch,
     );
@@ -282,23 +290,20 @@ export function StartJourney({
       siteMode: merged.siteMode,
       tagline: merged.tagline,
       city: merged.city,
+      categories: [...(merged.categories ?? [])],
+      subcategories: [...(merged.subcategories ?? [])],
     };
   }
 
-  function syncVoiceToBusiness(facts: VoiceFacts) {
-    if (!draft) return;
-    patchDraft({
-      business: {
-        ...draft.business,
-        name: facts.name?.trim() || draft.business.name,
-        tagline: facts.tagline?.trim() || draft.business.tagline,
-        city: facts.city?.trim() || draft.business.city,
-        category: facts.category ?? draft.business.category,
-        subcategory: facts.subcategory ?? draft.business.subcategory,
-        productsServices: facts.productsServices?.trim() || draft.business.productsServices,
-        siteMode: facts.siteMode ?? draft.business.siteMode,
-      },
+  /** Quiz finish and Tara confirm both land here: identical draft fields, then the theme step. */
+  function confirmStoreFacts(facts: StoreFacts, opts: { mode: "talk" | "quiz" }) {
+    setDraft((d) => {
+      const applied = applyStoreFacts(d, facts);
+      return { ...applied, screen: "theme", voice: { ...applied.voice, done: true, mode: opts.mode } };
     });
+    setStartDraftCookie();
+    // Mark URL sync pending so we never re-adopt /quiz or /voice over theme.
+    replaceStepUrl("theme");
   }
 
   const shell = (children: React.ReactNode, opts?: { layout?: "center" | "split"; screen?: StartScreen }) => (
@@ -307,58 +312,70 @@ export function StartJourney({
       screen={opts?.screen ?? screen}
       logo={logo}
       voiceEnabled={voiceEnabled}
+      voiceAvailable={voiceReady}
+      buildStep={buildStep}
       onVoiceToggle={() => setVoiceEnabled((v) => !v)}
-      onLangClick={() => go("lang")}
-      layout={opts?.layout ?? (split ? "split" : "center")}
+      onLocaleChange={(code) => patchDraft({ locale: code })}
+      layout={opts?.layout ?? "center"}
     >
       {children}
     </StartShell>
   );
 
-  // Sync remap: never render an empty shell (white flash) while waiting on the effect.
-  const renderScreen = LEGACY_SCREEN_REMAP[screen] ?? screen;
+  // Sync remap: never render an empty shell while waiting on the effect.
+  const remapped = LEGACY_SCREEN_REMAP[screen] ?? screen;
+  const renderScreen: StartScreen = remapped === "build" && !buildStep ? "path" : remapped;
 
   if (renderScreen === "lang") {
     return shell(
       <LangScreen
         locale={draft.locale as SarvamLocaleCode}
         onSelect={(code) => patchDraft({ locale: code })}
-        onContinue={() => go("path")}
-        onBack={typeSelectorHref ? () => router.push(typeSelectorHref) : undefined}
+        onContinue={() => go(nextScreenAfterLang(buildStep))}
+      />,
+    );
+  }
+
+  if (renderScreen === "build") {
+    return shell(
+      <TypeSelector
+        locale={draft.locale}
+        onBack={() => go("lang")}
+        onStore={() => {
+          setDraft((d) => ({ ...d, screen: "path", business: { ...d.business, siteMode: "ecommerce" } }));
+          setStartDraftCookie();
+          replaceStepUrl("path");
+        }}
+        onInformative={() => router.push(informativeEntryHref(draft.locale))}
       />,
     );
   }
 
   if (renderScreen === "path") {
-    const voiceOnboardingEnabled = process.env.NEXT_PUBLIC_VOICE_ONBOARDING_ENABLED === "true";
-    const pathMode =
-      !voiceOnboardingEnabled && (draft.voice.mode ?? "talk") === "talk"
-        ? "quiz"
-        : (draft.voice.mode ?? "talk");
+    const pathMode = !voiceReady ? "quiz" : (draft.voice.mode ?? "talk");
     return shell(
       <PathScreen
         locale={draft.locale}
         path={draft.path}
         mode={pathMode}
+        voiceReady={voiceReady}
         onSelect={(choice) => {
-          if (!voiceOnboardingEnabled && choice.mode === "talk") return;
+          if (!voiceReady && choice.mode === "talk") return;
           patchDraft({
             path: choice.path,
             voice: { ...draft.voice, mode: choice.mode },
+            business: { ...draft.business, siteMode: "ecommerce" },
           });
         }}
         onBack={() => {
-          const t = backTarget("path", draft.path, draft.voice.mode);
+          const t = backTarget("path", draft.path, draft.voice.mode, buildStep);
           if (t) go(t);
         }}
         onContinue={() => {
           if (!draft.path) return;
-          const mode =
-            !voiceOnboardingEnabled
-              ? "quiz"
-              : (draft.voice.mode ?? "talk");
-          if (!voiceOnboardingEnabled && (draft.voice.mode ?? "talk") === "talk") {
-            patchDraft({ voice: { ...draft.voice, mode: "quiz" } });
+          const mode = voiceReady ? (draft.voice.mode ?? "talk") : "quiz";
+          if (mode !== (draft.voice.mode ?? "talk")) {
+            setDraft((d) => ({ ...d, voice: { ...d.voice, mode } }));
           }
           go(nextScreenAfterPath(draft.path, mode));
         }}
@@ -366,47 +383,36 @@ export function StartJourney({
     );
   }
 
-  // Step 3: voice (ai+talk) | quiz (ai+quiz) | business (manual)
+  // Step 4: voice (ai+talk) | quiz (ai+quiz; legacy manual "business" renders the quiz too)
   if (renderScreen === "voice") {
-    return shell(
-      <VoiceScreen
-        draft={draft}
-        voiceReady={voiceReady}
-        voiceEnabled={voiceEnabled}
-        onBack={() => {
-          const t = backTarget("voice", draft.path, draft.voice.mode);
-          if (t) go(t);
-        }}
-        onFacts={(facts, done, turns: StartVoiceTurn[]) => {
-          const nextFacts = applyVoiceFacts(draft.voice.facts, facts);
-          patchDraft({
-            voice: { facts: nextFacts, done, turns, mode: draft.voice.mode },
-          });
-          syncVoiceToBusiness(facts);
-        }}
-        onDone={() => {
-          syncVoiceToBusiness({
-            name: draft.voice.facts.name,
-            category: (draft.voice.facts.category as VoiceFacts["category"]) ?? null,
-            subcategory: draft.voice.facts.subcategory,
-            productsServices: draft.voice.facts.productsServices,
-            siteMode: draft.voice.facts.siteMode,
-            tagline: draft.voice.facts.tagline,
-            city: draft.voice.facts.city,
-          });
-          go("theme");
-        }}
-        onManual={() => {
-          patchDraft({ path: "manual" });
-          go("business");
-        }}
-        onQuiz={() => {
-          setDraft((d) => ({ ...d, screen: "quiz", voice: { ...d.voice, mode: "quiz" } }));
-          setStartDraftCookie();
-          replaceStepUrl("quiz");
-        }}
-      />,
-    );
+    // Spread so the voice screen can add/remove callbacks without breaking this file's types.
+    // Contract: onConfirm(facts = { name, categories, subcategories, city, tagline? }) → same
+    // draft fields as the quiz (applyStoreFacts) → theme.
+    const voiceProps = {
+      draft,
+      voiceReady,
+      voiceEnabled,
+      onBack: () => {
+        const t = backTarget("voice", draft.path, draft.voice.mode, buildStep);
+        if (t) go(t);
+      },
+      onFacts: (facts: VoiceFacts, done: boolean, turns: StartVoiceTurn[]) => {
+        setDraft((d) => ({ ...d, voice: { ...d.voice, facts: applyVoiceFacts(d.voice.facts, facts), done, turns } }));
+      },
+      onConfirm: (facts: StoreFacts) => confirmStoreFacts(facts, { mode: "talk" }),
+      onDone: () => confirmStoreFacts(storeFactsFromDraft(draft), { mode: "talk" }),
+      onManual: () => {
+        setDraft((d) => ({ ...d, screen: "quiz", voice: { ...d.voice, mode: "quiz" } }));
+        setStartDraftCookie();
+        replaceStepUrl("quiz");
+      },
+      onQuiz: () => {
+        setDraft((d) => ({ ...d, screen: "quiz", voice: { ...d.voice, mode: "quiz" } }));
+        setStartDraftCookie();
+        replaceStepUrl("quiz");
+      },
+    };
+    return shell(<VoiceScreen {...voiceProps} />);
   }
 
   if (renderScreen === "quiz") {
@@ -414,64 +420,20 @@ export function StartJourney({
       <QuizScreen
         draft={draft}
         onBack={() => {
-          const t = backTarget("quiz", draft.path, draft.voice.mode);
+          const t = backTarget("quiz", draft.path, draft.voice.mode, buildStep);
           if (t) go(t);
         }}
         onSave={(facts, done) => {
-          setDraft((d) => {
-            const categoryChanged =
-              facts.category != null && facts.category !== d.voice.facts.category;
-            const nextFacts = applyVoiceFacts(d.voice.facts, facts);
-            if (categoryChanged) {
-              nextFacts.subcategory = facts.subcategory;
-            }
-            return {
-              ...d,
-              screen: done ? "theme" : "quiz",
-              voice: {
-                ...d.voice,
-                facts: nextFacts,
-                done: done || d.voice.done,
-                mode: "quiz",
-              },
-              business: {
-                ...d.business,
-                name: facts.name?.trim() || d.business.name,
-                tagline: facts.tagline?.trim() || d.business.tagline,
-                city: facts.city?.trim() || d.business.city,
-                category: facts.category ?? d.business.category,
-                subcategory: categoryChanged
-                  ? facts.subcategory
-                  : (facts.subcategory ?? d.business.subcategory),
-                productsServices: facts.productsServices?.trim() || d.business.productsServices,
-                siteMode: facts.siteMode ?? d.business.siteMode,
-              },
-            };
-          });
           if (done) {
-            setStartDraftCookie();
-            // Mark URL sync pending so we never re-adopt /quiz over theme.
-            replaceStepUrl("theme");
+            confirmStoreFacts(facts, { mode: "quiz" });
+            return;
           }
+          setDraft((d) => {
+            const applied = applyStoreFacts(d, facts);
+            return { ...applied, screen: "quiz", voice: { ...applied.voice, mode: "quiz" } };
+          });
         }}
       />,
-    );
-  }
-
-  if (renderScreen === "business") {
-    return shell(
-      <BusinessScreen
-        draft={draft}
-        voiceReady={voiceReady}
-        rootDomain={rootDomain}
-        onChange={(b) => patchDraft({ business: { ...draft.business, ...b } })}
-        onBack={() => {
-          const t = backTarget("business", draft.path, draft.voice.mode);
-          if (t) go(t);
-        }}
-        onNext={() => go("theme")}
-      />,
-      { layout: "split" },
     );
   }
 
@@ -481,7 +443,7 @@ export function StartJourney({
         draft={draft}
         onPatch={(patch) => patchDraft(patch)}
         onBack={() => {
-          const t = backTarget("theme", draft.path, draft.voice.mode);
+          const t = backTarget("theme", draft.path, draft.voice.mode, buildStep);
           if (t) go(t);
         }}
         onContinue={() => go("account")}
@@ -518,12 +480,8 @@ export function StartJourney({
           }}
         />
         {finishMessage ? (
-          <div className="mx-auto mt-4 max-w-md space-y-3">
-            <button
-              type="button"
-              onClick={() => finalize()}
-              className="rounded-full bg-linear-to-br from-[#FB923C] to-[#F97316] px-5 py-2.5 text-sm font-semibold text-white"
-            >
+          <div className="mx-auto mt-4 flex max-w-md justify-center">
+            <button type="button" onClick={() => finalize()} className={onbButton.primary}>
               Try again
             </button>
           </div>
