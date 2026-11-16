@@ -1,5 +1,6 @@
 import "server-only";
 import { logger } from "@/lib/observability/logger";
+import { cityAlreadyAsked, nextOfflineStep, offlineReply } from "./offline-replies";
 import { chatTurn, synthesizeSpeech, transcribeAudio, isSarvamConfigured } from "@/lib/sarvam/client";
 import type { SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { AppError } from "@/lib/errors";
@@ -130,15 +131,35 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
     throw new AppError("VALIDATION", { fieldErrors: { _form: ["Say something or type a short answer."] } });
   }
 
-  const turn = await chatTurn({
-    messages: [
-      { role: "system", content: taraSystemPrompt(input.locale) },
-      { role: "user", content: taraUserPrompt({ transcript, facts, locale: input.locale, history: input.history }) },
-    ],
-    responseFormat: "json",
-    temperature: 0.35,
-    languageCode: input.locale,
-  });
+  let turn: Awaited<ReturnType<typeof chatTurn>>;
+  try {
+    turn = await chatTurn({
+      messages: [
+        { role: "system", content: taraSystemPrompt(input.locale) },
+        { role: "user", content: taraUserPrompt({ transcript, facts, locale: input.locale, history: input.history }) },
+      ],
+      responseFormat: "json",
+      temperature: 0.35,
+      languageCode: input.locale,
+    });
+  } catch (err) {
+    // AI chat unavailable (outage, no credits, timeout): keep the seller moving with the local
+    // extractor and a scripted next question, same steps as the quiz. No TTS (same provider).
+    logger.warn("onboarding.voice_offline_turn", { locale: input.locale, reason: err instanceof AppError ? String(err.context?.reason ?? err.code) : "throw" });
+    const offlineFacts = mergeFacts(facts, extractFactsFromText(transcript));
+    const step = nextOfflineStep(offlineFacts, cityAlreadyAsked(input.history));
+    return {
+      transcript,
+      userText: transcript,
+      heard: true,
+      reply: offlineReply(input.locale, step),
+      facts: offlineFacts,
+      done: factsComplete(offlineFacts),
+      audioBase64: null,
+      audioMimeType: null,
+      ttsAvailable: false,
+    };
+  }
 
   const parsedRaw = extractJsonObject(turn.content);
   const parsed = taraTurnResultSchema.safeParse(parsedRaw);
