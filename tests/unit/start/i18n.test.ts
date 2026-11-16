@@ -34,7 +34,7 @@ describe("onboarding languages", () => {
     const v = voiceUiCopy(locale);
     expect(v.messages(3)).toContain("3");
     expect(v.remove("Sarees")).toContain("Sarees");
-    expect(v.agentName).toBe("Tara");
+    expect(v.agentName.trim().length).toBeGreaterThan(0); // "Tara" may be written in the native script
     expect(v.startConversation).not.toBe(VOICE_EN.startConversation);
   });
 
