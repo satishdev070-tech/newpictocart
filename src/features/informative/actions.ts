@@ -16,10 +16,14 @@ import { uploadTenantImage } from "@/lib/storage/upload";
 import { assetUrl } from "@/lib/storage/assets";
 import { requireInformativeTenant, type InformativeContext } from "./server/context";
 import * as repo from "./server/repo";
-import { findInformativeTheme } from "./themes/registry";
+import { findInformativeTheme, themeOrDefault } from "./themes/registry";
+import { findFontPair } from "./themes/fonts";
+import { defaultPageSections } from "./defaults";
+import { applyHeroText, applySectionLayout } from "./site/customize";
 import {
   appearanceSchema,
   businessInfoSchema,
+  customizerSchema,
   enquiryUpdateSchema,
   faqSchema,
   galleryItemSchema,
@@ -115,6 +119,36 @@ export async function saveAppearanceAction(_prev: ActionResult | null, fd: FormD
     await repo.updateAppearance(ctx, input);
     if (before && before.themeId !== input.themeId) {
       await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "informative.theme_changed", entityType: "info_site", entityId: ctx.tenantId, metadata: { from: before.themeId, to: input.themeId } });
+    }
+    done(ctx);
+  });
+}
+
+/**
+ * Customizer save (theme.edit). Presentation columns + button label go to info_sites (options merged);
+ * the home layout and hero text go to the HOME page's sections (content.write), merged with the
+ * stored sections so section text is never lost. Publishing stays a separate step (setSiteStatusAction).
+ */
+export async function saveCustomizerAction(input: unknown): Promise<ActionResult> {
+  return runAction("informative.saveCustomizer", async () => {
+    const v = parseInput(customizerSchema, input);
+    if (!findInformativeTheme(v.themeId)) throw new AppError("VALIDATION", { fieldErrors: { themeId: ["Choose one of the designs"] } });
+    if (v.fontPair && !findFontPair(v.fontPair)) throw new AppError("VALIDATION", { fieldErrors: { fontPair: ["Choose one of the font pairs"] } });
+    const ctx = await requireInformativeTenant();
+    if (!ctx.permissions.has("theme.edit")) throw new AppError("FORBIDDEN", { context: { permission: "theme.edit" } });
+    if (v.home && !ctx.permissions.has("content.write")) throw new AppError("FORBIDDEN", { context: { permission: "content.write" } });
+    const before = await repo.getSite(ctx);
+    if (v.home) {
+      const home = (await repo.listPages(ctx)).find((p) => p.type === "HOME");
+      if (!home) throw new AppError("VALIDATION", { fieldErrors: { _form: ["Your home page is missing. Open Pages to restore it."] } });
+      const base = home.sections.length ? home.sections : defaultPageSections(themeOrDefault(v.themeId), "HOME");
+      const sections = parseInput(sectionsSchema, applyHeroText(applySectionLayout(base, v.home), { heading: v.heroHeading, subheading: v.heroSubheading }));
+      await repo.updatePageSections(ctx, home.id, sections);
+    }
+    const appearance = { themeId: v.themeId, primaryColor: v.primaryColor, secondaryColor: v.secondaryColor, fontPair: v.fontPair, logoPath: v.logoPath, faviconPath: v.faviconPath, heroImagePath: v.heroImagePath };
+    await repo.updateCustomizer(ctx, appearance, { ctaLabel: v.ctaLabel ?? null });
+    if (before && before.themeId !== v.themeId) {
+      await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "informative.theme_changed", entityType: "info_site", entityId: ctx.tenantId, metadata: { from: before.themeId, to: v.themeId } });
     }
     done(ctx);
   });

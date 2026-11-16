@@ -7,6 +7,7 @@ import {
   EMPTY_FACTS,
   extractFactsFromText,
   factsComplete,
+  fillFactGaps,
   mapCategoryInput,
   mapSiteMode,
   mergeFacts,
@@ -186,6 +187,9 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
       tagline: parsed.data.facts.tagline ?? null,
       city: parsed.data.facts.city ?? null,
     });
+    // Back the model up with the local extractor: fills only what is still missing
+    // (e.g. the model skipped the name or a Hinglish "kapde aur gehne"), never overrides.
+    nextFacts = fillFactGaps(nextFacts, extractFactsFromText(transcript));
     done = parsed.data.done || factsComplete(nextFacts);
   } else {
     logger.warn("onboarding.voice_parse_failed", { preview: turn.content.slice(0, 200) });

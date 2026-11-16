@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, PhoneOff } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { OnbCard, OnbSub, onbButton } from "@/components/onboarding-ui";
-import { cn } from "@/lib/cn";
 import { isIndustry } from "@/features/stores/industries";
 import { startVoiceTurnAction } from "../actions";
 import type { StartDraft, StartVoiceTurn } from "../draft/schema";
@@ -22,8 +21,11 @@ import {
   turnToEntries,
   type TranscriptEntry,
 } from "@/features/onboarding/voice/transcript";
-import { fileExtension, useVoiceRecorder } from "@/features/onboarding/voice/use-voice-recorder";
-import { CallPanel, MicButton, callStateLabel, type CallState } from "../components/voice/call-panel";
+import { fileExtension } from "@/features/onboarding/voice/use-voice-recorder";
+import { taraGreetingAction } from "@/features/onboarding/voice/actions";
+import { taraGreetingText, type TaraGreetingKind } from "@/features/onboarding/voice/greetings";
+import { playDetached, useTaraCall, type TaraSpeech, type TaraTurnOutcome } from "@/features/onboarding/voice/use-tara-call";
+import { CallOrb, CallPanel, EndCallButton, MuteButton, callStateLabel } from "../components/voice/call-panel";
 import { ConfirmCard } from "../components/voice/confirm-card";
 import { TranscriptPanel } from "../components/voice/transcript-panel";
 import { voiceUiCopy } from "../components/voice/voice-copy";
@@ -60,6 +62,27 @@ function initialFacts(draft: StartDraft): VoiceFacts {
   });
 }
 
+/** Greeting audio per locale+kind for this page session (one TTS call, replayed on restart). */
+const greetingCache = new Map<string, Promise<TaraSpeech | null>>();
+
+function fetchGreetingSpeech(locale: string, kind: TaraGreetingKind): Promise<TaraSpeech | null> {
+  const key = `${locale}:${kind}`;
+  const hit = greetingCache.get(key);
+  if (hit) return hit;
+  const fd = new FormData();
+  fd.set("locale", locale);
+  fd.set("kind", kind);
+  const pending = taraGreetingAction(null, fd)
+    .then((res) => (res?.ok && res.data.audioBase64 && res.data.mimeType ? { audioBase64: res.data.audioBase64, mimeType: res.data.mimeType } : null))
+    .catch(() => null)
+    .then((speech) => {
+      if (!speech) greetingCache.delete(key);
+      return speech;
+    });
+  greetingCache.set(key, pending);
+  return pending;
+}
+
 export function VoiceScreen({
   draft,
   voiceReady,
@@ -75,25 +98,25 @@ export function VoiceScreen({
   const [facts, setFacts] = useState<VoiceFacts>(() => initialFacts(draft));
   const [entries, setEntries] = useState<TranscriptEntry[]>(() => {
     const saved = entriesFromTurns(draft.voice.turns ?? []);
-    return saved.length ? saved : [makeEntry("tara", voiceUiCopy(draft.locale).greeting, null)];
+    return saved.length ? saved : [makeEntry("tara", taraGreetingText(draft.locale), null)];
   });
   const [busy, setBusy] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
   const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
   const [endedElapsed, setEndedElapsed] = useState<number | null>(null);
   const [now, setNow] = useState(0);
-  const [micBlocked, setMicBlocked] = useState(false);
   const [micNotice, setMicNotice] = useState<string | null>(null);
   const [typingOpen, setTypingOpen] = useState(false);
   /** Transcript length when the seller tapped "Keep talking" (card hides until the next turn). */
   const [dismissedAt, setDismissedAt] = useState<number | null>(null);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUrlRef = useRef<string | null>(null);
-  const discardRecordingRef = useRef(false);
-
-  const callOn = callStartedAt !== null;
+  // Latest transcript/facts for async turns started by the call loop (avoids stale closures).
+  const entriesRef = useRef(entries);
+  const factsRef = useRef(facts);
+  useEffect(() => {
+    entriesRef.current = entries;
+    factsRef.current = facts;
+  }, [entries, facts]);
 
   useEffect(() => {
     if (callStartedAt === null) return;
@@ -101,48 +124,20 @@ export function VoiceScreen({
     return () => window.clearInterval(id);
   }, [callStartedAt]);
 
-  const stopSpeech = useCallback(() => {
-    const el = audioRef.current;
-    if (el) {
-      el.pause();
-      el.src = "";
-    }
-    audioRef.current = null;
-    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
-    audioUrlRef.current = null;
-    setSpeaking(false);
+  const appendEntries = useCallback((added: TranscriptEntry[]) => {
+    const next = [...entriesRef.current, ...added];
+    entriesRef.current = next;
+    setEntries(next);
+    return next;
   }, []);
 
-  useEffect(() => stopSpeech, [stopSpeech]);
-
-  const playSpeech = useCallback(
-    (audioBase64: string, mimeType: string) => {
-      stopSpeech();
-      try {
-        const bin = atob(audioBase64);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
-        const el = new Audio(url);
-        audioRef.current = el;
-        audioUrlRef.current = url;
-        el.onended = stopSpeech;
-        el.onerror = stopSpeech;
-        setSpeaking(true);
-        el.play().catch(stopSpeech);
-      } catch {
-        stopSpeech(); // playback is optional; the written reply stays on screen
-      }
-    },
-    [stopSpeech],
-  );
-
+  /** One server turn (audio take or typed text). Resolves with what the call loop needs next. */
   const runTurn = useCallback(
-    async (payload: { text?: string; audio?: Blob }) => {
+    async (payload: { text?: string; audio?: Blob }): Promise<TaraTurnOutcome> => {
       const fd = new FormData();
       fd.set("locale", draft.locale);
-      fd.set("factsJson", JSON.stringify(facts));
-      fd.set("historyJson", JSON.stringify(entriesToHistory(entries)));
+      fd.set("factsJson", JSON.stringify(factsRef.current));
+      fd.set("historyJson", JSON.stringify(entriesToHistory(entriesRef.current)));
       if (payload.text) fd.set("text", payload.text);
       if (payload.audio && payload.audio.size > 0) {
         const mime = payload.audio.type || "audio/webm";
@@ -151,28 +146,28 @@ export function VoiceScreen({
       setBusy(true);
       try {
         const result = await startVoiceTurnAction(null, fd);
-        if (!result) return;
+        if (!result) return { outcome: "error", speech: null };
         if (!result.ok) {
-          const msg = result.error.fieldErrors?._form?.[0] ?? result.error.message;
-          setEntries((prev) => [...prev, makeEntry("system", msg)]);
-          return;
+          appendEntries([makeEntry("system", result.error.fieldErrors?._form?.[0] ?? result.error.message)]);
+          return { outcome: "error", speech: null };
         }
         const data = result.data;
-        const added = turnToEntries(data, Date.now(), t.didntCatch);
-        const nextEntries = [...entries, ...added];
-        setEntries(nextEntries);
-        if (data.heard === false) return;
+        const nextEntries = appendEntries(turnToEntries(data, Date.now(), t.didntCatch));
+        if (data.heard === false) return { outcome: "empty", speech: null };
         const nextFacts = normalizeFacts(data.facts);
+        factsRef.current = nextFacts;
         setFacts(nextFacts);
         onFacts(nextFacts, data.done, entriesToHistory(nextEntries));
-        if (voiceEnabled && data.audioBase64 && data.audioMimeType) playSpeech(data.audioBase64, data.audioMimeType);
+        const speech = data.audioBase64 && data.audioMimeType ? { audioBase64: data.audioBase64, mimeType: data.audioMimeType } : null;
+        return { outcome: "heard", speech };
       } catch {
-        setEntries((prev) => [...prev, makeEntry("system", t.didntCatch)]);
+        appendEntries([makeEntry("system", t.didntCatch)]);
+        return { outcome: "error", speech: null };
       } finally {
         setBusy(false);
       }
     },
-    [draft.locale, entries, facts, onFacts, playSpeech, t.didntCatch, voiceEnabled],
+    [appendEntries, draft.locale, onFacts, t.didntCatch],
   );
 
   const openTyping = useCallback(() => {
@@ -180,67 +175,59 @@ export function VoiceScreen({
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }, []);
 
-  const { recording, startRecording, stopRecording } = useVoiceRecorder({
-    onRecordingComplete: (blob) => {
-      if (discardRecordingRef.current) {
-        discardRecordingRef.current = false;
-        return;
-      }
-      void runTurn({ audio: blob });
-    },
-    onError: (kind) => {
-      if (kind === "unknown") {
-        setMicNotice(t.micUnsupported);
-      } else {
-        setMicBlocked(true);
-        setMicNotice(kind === "denied" ? t.micBlocked : t.micUnsupported);
-      }
+  /** Spoken opener: welcome on a fresh transcript, a short "welcome back" when answers exist. */
+  const greeting = useCallback(async () => {
+    const hasAnswers = entriesRef.current.some((e) => e.role === "seller");
+    const kind: TaraGreetingKind = hasAnswers ? "resume" : "welcome";
+    const text = taraGreetingText(draft.locale, kind);
+    const last = [...entriesRef.current].reverse().find((e) => e.role !== "system");
+    if (last?.text !== text) appendEntries([makeEntry("tara", text)]);
+    return fetchGreetingSpeech(draft.locale, kind);
+  }, [appendEntries, draft.locale]);
+
+  const call = useTaraCall({
+    speak: voiceEnabled,
+    onTake: (audio) => runTurn({ audio }),
+    greeting,
+    onMicFailed: (reason) => {
+      setMicNotice(reason === "denied" ? t.micBlocked : t.micUnsupported);
+      setCallStartedAt(null);
+      setEndedElapsed(null);
       openTyping();
     },
   });
+  const { view } = call;
 
-  const state: CallState = recording ? "listening" : busy ? "thinking" : speaking ? "speaking" : "ready";
   const elapsedMs = callStartedAt !== null ? Math.max(0, (now || callStartedAt) - callStartedAt) : endedElapsed;
 
-  function pressMic() {
-    if (micBlocked || busy) return;
-    if (recording) {
-      stopRecording();
-      return;
-    }
-    if (speaking) stopSpeech();
-    if (callStartedAt === null) {
-      const start = Date.now();
-      setCallStartedAt(start);
-      setNow(start);
-      setEndedElapsed(null);
-    }
-    discardRecordingRef.current = false;
-    void startRecording();
+  function startCall() {
+    const start = Date.now();
+    setCallStartedAt(start);
+    setNow(start);
+    setEndedElapsed(null);
+    setMicNotice(null);
+    void call.start(); // inside the tap: unlocks audio + asks for the mic
   }
 
   function endCall() {
-    if (recording) {
-      discardRecordingRef.current = true;
-      stopRecording();
-    }
-    stopSpeech();
+    call.end();
     if (callStartedAt !== null) setEndedElapsed(Math.max(0, Date.now() - callStartedAt));
     setCallStartedAt(null);
   }
 
   function sendText(text: string) {
-    if (callStartedAt === null) {
-      const start = Date.now();
-      setCallStartedAt(start);
-      setNow(start);
-      setEndedElapsed(null);
+    if (call.active) {
+      void call.sendTyped(() => runTurn({ text }));
+      return;
     }
-    void runTurn({ text });
+    void runTurn({ text }).then((o) => {
+      if (voiceEnabled && o.speech) playDetached(o.speech);
+    });
   }
 
   function clearTranscript() {
-    const fresh = [makeEntry("tara", t.greeting)];
+    const fresh = [makeEntry("tara", taraGreetingText(draft.locale))];
+    entriesRef.current = fresh;
     setEntries(fresh);
     setDismissedAt(null);
     onFacts(facts, confirmationReady(facts), []);
@@ -287,22 +274,25 @@ export function VoiceScreen({
   }
 
   const showConfirm = confirmationReady(facts) && (dismissedAt === null || entries.length > dismissedAt);
+  const notice = micNotice ?? (view.suggestTyping ? t.typeSuggestion : null);
 
   return (
     <section className="mx-auto w-full max-w-6xl pb-24 lg:pb-0">
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
         <CallPanel
           t={t}
-          state={state}
-          callOn={callOn}
+          view={view}
+          active={call.active}
           elapsedMs={elapsedMs}
-          micBlocked={micBlocked}
-          micNotice={micNotice}
+          micNotice={notice}
           busy={busy}
           inputRef={inputRef}
-          typingOpen={typingOpen}
+          typingOpen={typingOpen || view.suggestTyping}
+          meterRef={call.meterRef}
           onTypingOpen={openTyping}
-          onMic={pressMic}
+          onStart={startCall}
+          onTap={call.tap}
+          onMute={call.toggleMute}
           onEndCall={endCall}
           onSendText={sendText}
         />
@@ -335,25 +325,19 @@ export function VoiceScreen({
         </button>
       </div>
 
-      {/* Mobile: sticky mic bar once the call is on, so the seller can answer while reading the transcript. */}
-      {callOn ? (
+      {/* Mobile: sticky call bar while the call runs, so the seller can read the transcript and still control it. */}
+      {call.active ? (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-mk-line bg-mk-bg/95 px-4 py-3 backdrop-blur lg:hidden">
           <div className="mx-auto flex max-w-md items-center gap-3">
-            <MicButton state={state} micBlocked={micBlocked} onPress={pressMic} t={t} size="sm" />
+            <CallOrb view={view} active meterRef={call.meterRef} onStart={startCall} onTap={call.tap} t={t} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-mk-text" aria-hidden>
-                {callStateLabel(state, t)}
+                {callStateLabel(view, t)}
               </p>
               {elapsedMs !== null ? <p className="font-mk-mono text-xs tabular-nums text-mk-dim">{formatCallClock(elapsedMs)}</p> : null}
             </div>
-            <button
-              type="button"
-              onClick={endCall}
-              aria-label={t.endCall}
-              className={cn("grid size-11 place-items-center rounded-full bg-red-600 text-white hover:bg-red-500")}
-            >
-              <PhoneOff className="size-5" aria-hidden />
-            </button>
+            <MuteButton muted={view.muted} onToggle={call.toggleMute} t={t} />
+            <EndCallButton onEnd={endCall} t={t} compact />
           </div>
         </div>
       ) : null}

@@ -11,6 +11,7 @@ import { ServicesStep } from "./services-step";
 import { InformativeShell, type OnboardingLogo } from "./shell";
 import { ThemeStep, type ThemeCard } from "./theme-step";
 import { useInformativeDraft } from "./use-draft";
+import { infoCopy } from "@/features/start/i18n/info-copy";
 
 /** The language picked at /start/lang, saved in the store journey's draft (read-only here). */
 function storeJourneyLocale(): ReturnType<typeof parseInfoLocale> {
@@ -69,8 +70,8 @@ export function InformativeJourney({
 
   if (!hydrated || blocked) {
     return (
-      <InformativeShell logo={logo} step={step === "finish" ? null : step}>
-        <p className="text-mk-muted" aria-live="polite">Loading…</p>
+      <InformativeShell logo={logo} step={step === "finish" ? null : step} locale={draftLocale}>
+        <p className="text-mk-muted" aria-live="polite">{infoCopy(draftLocale).loading}</p>
       </InformativeShell>
     );
   }
@@ -81,7 +82,7 @@ export function InformativeJourney({
   switch (step) {
     case "basic-info":
       return (
-        <InformativeShell logo={logo} step={step}>
+        <InformativeShell logo={logo} step={step} locale={draftLocale}>
           <BasicInfoStep
             draft={draft}
             rootDomain={rootDomain}
@@ -97,9 +98,10 @@ export function InformativeJourney({
       );
     case "theme":
       return (
-        <InformativeShell logo={logo} step={step} wide>
+        <InformativeShell logo={logo} step={step} wide locale={draftLocale}>
           <ThemeStep
             themes={themes}
+            locale={draftLocale}
             category={category}
             businessName={name}
             logoDataUrl={draft.logoDataUrl}
@@ -112,7 +114,7 @@ export function InformativeJourney({
       );
     case "services":
       return (
-        <InformativeShell logo={logo} step={step}>
+        <InformativeShell logo={logo} step={step} locale={draftLocale}>
           <ServicesStep
             draft={draft}
             onBack={() => go("theme")}
@@ -129,13 +131,13 @@ export function InformativeJourney({
       );
     case "account":
       return (
-        <InformativeShell logo={logo} step={step}>
-          <AccountStep signedIn={signedIn} googleAvailable={googleAvailable} businessName={name} onBack={() => go("services")} onFinish={() => go("finish")} />
+        <InformativeShell logo={logo} step={step} locale={draftLocale}>
+          <AccountStep locale={draftLocale} signedIn={signedIn} googleAvailable={googleAvailable} businessName={name} onBack={() => go("services")} onFinish={() => go("finish")} />
         </InformativeShell>
       );
     case "finish":
       return (
-        <InformativeShell logo={logo} step={null}>
+        <InformativeShell logo={logo} step={null} locale={draftLocale}>
           <FinishStep draft={draft} onEdit={(s) => go(s)} />
         </InformativeShell>
       );

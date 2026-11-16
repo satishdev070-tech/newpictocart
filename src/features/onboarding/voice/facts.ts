@@ -64,6 +64,8 @@ const CATEGORY_ALIASES: Record<string, IndustrySlug> = {
   jewelry: "jewellery",
   jewels: "jewellery",
   ornaments: "jewellery",
+  bangles: "jewellery",
+  earrings: "jewellery",
   furniture: "furniture",
   home: "furniture",
   decor: "home-decor",
@@ -132,6 +134,28 @@ const CATEGORY_ALIASES: Record<string, IndustrySlug> = {
   informative: "general",
 };
 
+/** Singular candidates for a spoken word: "sarees" → "saree", "toys" → "toy". */
+function singularForms(word: string): string[] {
+  const out: string[] = [];
+  if (word.length > 4 && word.endsWith("ies")) out.push(`${word.slice(0, -3)}y`);
+  if (word.length > 4 && word.endsWith("es")) out.push(word.slice(0, -2));
+  if (word.length > 3 && word.endsWith("s") && !word.endsWith("ss")) out.push(word.slice(0, -1));
+  return out;
+}
+
+/** Alias lookup that also accepts the plural / singular form ("gift" ↔ "gifts", "shoe" → "shoes"). */
+function aliasFor(word: string): IndustrySlug | null {
+  if (!word) return null;
+  const direct = CATEGORY_ALIASES[word];
+  if (direct) return direct;
+  for (const form of [...singularForms(word), `${word}s`]) {
+    const hit = CATEGORY_ALIASES[form];
+    if (hit) return hit;
+    if (isIndustry(form)) return form;
+  }
+  return null;
+}
+
 /** Map free-text / model output to a known industry slug. */
 export function mapCategoryToIndustry(raw: string | null | undefined): IndustrySlug | null {
   return mapCategoryInput(raw).category;
@@ -141,7 +165,7 @@ export function mapCategoryToIndustry(raw: string | null | undefined): IndustryS
 function isIndustryOnlyPhrase(cleaned: string, industry: IndustrySlug): boolean {
   const dashed = cleaned.replace(/\s+/g, "-");
   if (cleaned === industry || dashed === industry) return true;
-  if (CATEGORY_ALIASES[cleaned] === industry || CATEGORY_ALIASES[dashed] === industry) return true;
+  if (aliasFor(cleaned) === industry || aliasFor(dashed) === industry) return true;
   const ind = INDUSTRIES.find((i) => i.slug === industry);
   if (!ind) return false;
   const name = ind.name.toLowerCase();
@@ -204,8 +228,7 @@ export function mapCategoryInput(raw: string | null | undefined): CategoryMappin
   let category: IndustrySlug | null = null;
   if (isIndustry(cleaned)) category = cleaned;
   else if (isIndustry(dashed)) category = dashed;
-  else if (CATEGORY_ALIASES[cleaned]) category = CATEGORY_ALIASES[cleaned]!;
-  else if (CATEGORY_ALIASES[dashed]) category = CATEGORY_ALIASES[dashed]!;
+  else category = aliasFor(cleaned) ?? aliasFor(dashed);
 
   if (category) {
     return { category, subcategory: suggestSubcategory(category, cleaned) };
@@ -256,7 +279,7 @@ export function mapCategoryInput(raw: string | null | undefined): CategoryMappin
     }
   }
   for (const token of tokens) {
-    const aliased = CATEGORY_ALIASES[token];
+    const aliased = aliasFor(token);
     if (aliased) {
       return { category: aliased, subcategory: suggestSubcategory(aliased, cleaned) };
     }
@@ -454,46 +477,155 @@ export function resolveFactLists(
 }
 
 const LEAD_PHRASES =
-  /^(?:(?:hi|hello|namaste)[,!.\s]+)?(?:i|we)\s+(?:sell|make|deal\s+in|run\s+a\s+shop\s+for|have\s+a\s+(?:shop|store)\s+(?:for|of)|create|offer)\s+|^(?:my|our)\s+(?:shop|store|business)\s+(?:sells|is\s+about|is\s+for)\s+/i;
+  /^(?:(?:hi|hello|namaste|namaskar)[,!.\s]+)?(?:i|we)\s+(?:(?:mainly|mostly|also|just|only)\s+)?(?:sell|make|deal\s+in|run\s+a\s+shop\s+for|have\s+a\s+(?:shop|store)\s+(?:for|of)|create|offer)\s+|^(?:my|our)\s+(?:shop|store|business)\s+(?:sells|is\s+about|is\s+for)\s+/i;
 const CITY_TAIL = /\s+(?:in|from|at|based\s+in)\s+([a-z][a-z .'-]{1,40}?)\s*[.!]?$/i;
 
+/** Letters or combining marks (Indic vowel signs) — used instead of `\b`, which is ASCII-only. */
+const L = "[\\p{L}\\p{M}]";
+
 /**
- * Local, model-free extraction from one seller sentence, e.g.
- * "I sell fashion jewellery and bridal sets in Noida" → jewellery, [imitation, bridal], Noida.
- * Used as a fallback when Tara's JSON can't be parsed, and in tests.
+ * Spoken variants → words the category mapper knows. Covers spelling drift from STT
+ * ("jewelry", "javels"), and common Hindi / Hinglish shop words. Modest on purpose: the
+ * model does the real understanding; this only backs it up.
+ */
+const SPOKEN_SYNONYMS: readonly [RegExp, string][] = [
+  [/(?:jewel(?:le)?ry|jewelery|jwell?ery|jewellry|javell?(?:ery|ry|s)?|jewel)/giu, "jewellery"],
+  [/(?:gehn[ae]|gahn[ae]|zevar|zewar|jevar|jewar|zeware?|गहन[ेा]|ज़?ेवर|जेवर)/giu, "jewellery"],
+  [/(?:kapd[ea]|kapr[ea]|kapdon|कपड़[ेा]|कपडे)/giu, "clothing"],
+  [/(?:saa?rees?|saris?|kurtis?|lehenga?s?|salwar(?:\s+suits?)?|साड़ी|साडी|कुर्ती|लहंगा)/giu, "ethnic wear"],
+  [/(?:mithai(?:yan|yaan)?|मिठाई|मिठाइयाँ)/giu, "mithai"],
+  [/(?:namkeen|नमकीन)/giu, "namkeen"],
+  [/(?:joot[ea]|jutt?is?|chappals?|जूत[ेा]|चप्पल)/giu, "footwear"],
+  [/(?:khilon[ea]|खिलौन[ेा])/giu, "toys"],
+  [/(?:kitab(?:en|ein|e)?|किताब(?:ें)?)/giu, "books"],
+  [/(?:masal[ea]s?|मसाल[ेा])/giu, "spices"],
+  [/(?:dawai(?:yan|yaan)?|दवाई|दवा)/giu, "health"],
+  [/(?:it+a?r|attar|इत्र)/giu, "perfume"],
+  [/(?:chai|चाय)/giu, "tea"],
+  [/(?:bartan|बर्तन)/giu, "kitchen"],
+  [/(?:shring(?:a|aa)r|singaar|शृंगार|श्रृंगार)/giu, "makeup"],
+  [/(?:khaana|khana|खाना)/giu, "food"],
+];
+
+/** Filler words dropped from a spoken segment before mapping ("main kapde bechti hoon" → "kapde"). */
+const FILLER_WORDS = new Set([
+  "i", "we", "my", "our", "the", "a", "an", "some", "all", "lots", "of", "many", "kinds", "types", "type",
+  "items", "products", "stuff", "things", "etc", "sell", "selling", "also", "mainly", "mostly", "only", "just",
+  "main", "mai", "mein", "hum", "ham", "mera", "meri", "mere", "hamara", "hamari", "humara", "humari", "apna", "apni",
+  "bechta", "bechti", "bechte", "bechna", "hoon", "hun", "hu", "hai", "hain", "ka", "ki", "ke", "kaam", "sab", "sare",
+  "saare", "bhi", "tarah", "wale", "wali",
+  "मैं", "हम", "मेरा", "मेरी", "हमारा", "हमारी", "बेचता", "बेचती", "बेचते", "हूँ", "हूं", "है", "हैं", "का", "की", "के", "सब", "भी",
+]);
+
+function dropFillers(segment: string): string {
+  return segment
+    .split(/\s+/)
+    .filter((w) => w && !FILLER_WORDS.has(w))
+    .join(" ");
+}
+
+/** Apply `SPOKEN_SYNONYMS` on whole words (Unicode-aware). */
+export function canonicalizeSpokenText(text: string): string {
+  let out = text.toLowerCase();
+  for (const [pattern, replacement] of SPOKEN_SYNONYMS) {
+    out = out.replace(new RegExp(`(?<!${L})(?:${pattern.source})(?!${L})`, "giu"), replacement);
+  }
+  return out;
+}
+
+const NAME_END = String.raw`(?=\s*(?:[.!?।,]|\s(?:and|aur|और|we|i|where)\s|$))`;
+const NAME_PATTERNS: readonly RegExp[] = [
+  new RegExp(String.raw`(?:store|shop|business|brand|boutique|company|dukaa?n)(?:'s)?\s+(?:name\s+)?(?:is\s+)?(?:called|named)\s+(.+?)${NAME_END}`, "iu"),
+  new RegExp(String.raw`(?:store|shop|business|brand|boutique|company|dukaa?n)(?:'s)?\s+name\s+is\s+(.+?)${NAME_END}`, "iu"),
+  new RegExp(String.raw`(?:^|\s)(?:it's|it\s+is|we're|we\s+are|i'm|i\s+am)\s+called\s+(.+?)${NAME_END}`, "iu"),
+  new RegExp(String.raw`^(?:the\s+)?name\s+is\s+(.+?)${NAME_END}`, "iu"),
+  /(?:store|shop|dukaa?n|business|brand)\s+ka\s+naa?m\s+(.+?)\s+hai(?![\p{L}\p{M}])/iu,
+  /(?:स्टोर|दुकान|बिज़नेस|ब्रांड)\s+का\s+नाम\s+(.+?)\s+है/u,
+];
+
+/** Store name as the seller said it ("My store is called Kia Javels" → "Kia Javels"). */
+function extractName(text: string): { name: string | null; rest: string } {
+  for (const pattern of NAME_PATTERNS) {
+    const m = text.match(pattern);
+    const raw = m?.[1];
+    if (!raw || m.index === undefined) continue;
+    const name = raw
+      .trim()
+      .replace(/^["'“‘]+|["'”’]+$/g, "")
+      .replace(/\s+/g, " ");
+    const words = name.split(" ").length;
+    if (name.length < 2 || name.length > 60 || words > 6) continue;
+    const rest = `${text.slice(0, m.index)} ${text.slice(m.index + m[0].length)}`.trim();
+    return { name, rest };
+  }
+  return { name: null, rest: text };
+}
+
+/**
+ * Local, model-free extraction from what the seller said, e.g.
+ * "My store is called Kia Javels. I sell fashion jewelry and bridal sets in Noida"
+ * → name "Kia Javels" (kept as said), jewellery, [imitation, bridal], Noida.
+ * Understands common Hinglish shop words ("kapde aur gehne" → fashion + jewellery).
+ * Runs after every Tara turn to fill gaps the model left, and as the fallback when Tara's
+ * JSON can't be parsed.
  */
 export function extractFactsFromText(text: string): Partial<VoiceFacts> {
-  let rest = text.trim().replace(/[.!?]+$/, "");
-  if (!rest) return {};
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+  const { name, rest } = extractName(trimmed);
   let city: string | null = null;
-  const cityMatch = rest.match(CITY_TAIL);
-  if (cityMatch?.[1]) {
-    city = cityMatch[1]
-      .trim()
-      .split(/\s+/)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(" ");
-    rest = rest.slice(0, cityMatch.index).trim();
-  }
-  rest = rest.replace(LEAD_PHRASES, "");
-  const segments = rest
-    .split(/\s*(?:,|&|\+|\band\b|\baur\b|\bplus\b|\balso\b)\s*/i)
-    .map((s) => s.trim())
-    .filter(Boolean);
   const categories: IndustrySlug[] = [];
   const subcategories: string[] = [];
-  for (const seg of segments) {
-    const m = mapCategoryInput(seg);
-    if (m.category) categories.push(m.category);
-    if (m.subcategory) subcategories.push(m.subcategory);
+
+  const sentences = rest
+    .split(/[.!?।]+/u)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const sentence of sentences) {
+    let part = sentence;
+    const cityMatch = part.match(CITY_TAIL);
+    if (cityMatch?.[1]) {
+      city ??= cityMatch[1]
+        .trim()
+        .split(/\s+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" ");
+      part = part.slice(0, cityMatch.index).trim();
+    }
+    part = canonicalizeSpokenText(part.replace(LEAD_PHRASES, ""));
+    const segments = part
+      .split(/\s*(?:,|&|\+|\band\b|\baur\b|\bplus\b|\balso\b|\bor\b|\s+और\s+)\s*/iu)
+      .map((s) => dropFillers(s.trim()))
+      .filter(Boolean);
+    for (const seg of segments) {
+      const m = mapCategoryInput(seg);
+      if (m.category) categories.push(m.category);
+      if (m.subcategory) subcategories.push(m.subcategory);
+    }
   }
+
   const out: Partial<VoiceFacts> = {};
   const cats = dedupe(categories, MAX_FACT_CATEGORIES);
   const subs = dedupe(subcategories, MAX_FACT_SUBCATEGORIES);
+  if (name) out.name = name;
   if (cats.length) out.categories = cats;
   if (subs.length) out.subcategories = subs;
   if (city) out.city = city;
   return out;
+}
+
+/**
+ * Fill only what is still missing after Tara's (model) facts, from the local extractor.
+ * Never overrides a value the model or the seller already set, so corrections stick.
+ */
+export function fillFactGaps(facts: VoiceFactsInput, local: Partial<VoiceFacts>): NormalizedVoiceFacts {
+  const n = normalizeFacts(facts);
+  const patch: Partial<VoiceFacts> = {};
+  if (!n.name?.trim() && local.name) patch.name = local.name;
+  if (!n.city?.trim() && local.city) patch.city = local.city;
+  if (!n.categories.length && local.categories?.length) patch.categories = local.categories;
+  if (!n.subcategories.length && local.subcategories?.length) patch.subcategories = local.subcategories;
+  return Object.keys(patch).length ? mergeFacts(n, patch) : n;
 }
 
 /**

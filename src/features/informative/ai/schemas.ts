@@ -40,6 +40,8 @@ export const proposalSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("services"), services: z.array(aiServiceSchema).min(1).max(6) }),
   z.object({ kind: z.literal("faqs"), faqs: z.array(aiFaqSchema).min(1).max(8) }),
   z.object({ kind: z.literal("seo"), title: text(70), description: text(160) }),
+  /** Better copy for an EXISTING service, matched by name on the server (prices untouched). */
+  z.object({ kind: z.literal("service_update"), serviceName: text(120).pipe(z.string().min(1)), shortDescription: text(300).optional(), description: longText(2000).optional() }),
 ]);
 export type Proposal = z.output<typeof proposalSchema>;
 export type ProposalKind = Proposal["kind"];
@@ -76,6 +78,7 @@ export type ProposalWrites = {
   services?: ServiceWrite[];
   faqs?: { question: string; answer: string }[];
   seo?: { title: string | null; description: string | null };
+  serviceUpdate?: { serviceName: string; shortDescription?: string; description?: string };
 };
 
 /** Prices need an amount for FIXED / STARTING_FROM; without one the service becomes "on request". */
@@ -102,6 +105,14 @@ export function proposalWrites(p: Proposal): ProposalWrites {
       return { faqs: p.faqs.map((f) => ({ question: f.question, answer: f.answer })) };
     case "seo":
       return { seo: { title: p.title || null, description: p.description || null } };
+    case "service_update":
+      return {
+        serviceUpdate: {
+          serviceName: p.serviceName,
+          ...(p.shortDescription ? { shortDescription: p.shortDescription } : {}),
+          ...(p.description ? { description: p.description } : {}),
+        },
+      };
   }
 }
 
@@ -116,5 +127,7 @@ export function proposalTitle(p: Proposal): string {
       return `Add ${p.faqs.length} FAQ${p.faqs.length === 1 ? "" : "s"}`;
     case "seo":
       return "Search engine title and description";
+    case "service_update":
+      return `Better description for "${p.serviceName}"`;
   }
 }

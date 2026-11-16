@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { toMinor } from "@/lib/money";
-import { PRICE_TYPES, PRICE_TYPE_LABELS, priceTypeNeedsAmount, type PriceType } from "../../pricing";
+import { PRICE_TYPES, priceTypeNeedsAmount, type PriceType } from "../../pricing";
 import { MAX_DRAFT_SERVICES, type InformativeDraft } from "../draft";
 import { OnbEyebrow, OnbHeading, OnbSub } from "@/components/onboarding-ui";
 import { ui } from "./shell";
+import { infoCopy } from "@/features/start/i18n/info-copy";
 
 type Row = { name: string; shortDescription: string; priceType: PriceType; price: string; durationMinutes: number | null };
 const EMPTY: Row = { name: "", shortDescription: "", priceType: "FIXED", price: "", durationMinutes: null };
@@ -20,6 +21,8 @@ export function ServicesStep({ draft, onSave, onSkip, onBack }: { draft: Informa
       ? draft.services.map((s) => ({ name: s.name, shortDescription: s.shortDescription, priceType: s.priceType, price: s.pricePaise == null ? "" : String(s.pricePaise / 100), durationMinutes: s.durationMinutes ?? null }))
       : [{ ...EMPTY }],
   );
+  const c = infoCopy(draft.locale);
+  const tx = c.services;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const update = (i: number, patch: Partial<Row>) => setRows((r) => r.map((row, j) => (j === i ? { ...row, ...patch } : row)));
 
@@ -29,13 +32,13 @@ export function ServicesStep({ draft, onSave, onSkip, onBack }: { draft: Informa
     const out: InformativeDraft["services"] = [];
     rows.forEach((r, i) => {
       if (!r.name.trim() && !r.shortDescription.trim() && !r.price.trim()) return; // blank row: ignore
-      if (!r.name.trim()) errs[`${i}.name`] = "Add a name";
+      if (!r.name.trim()) errs[`${i}.name`] = tx.nameRequired;
       let pricePaise: number | null = null;
       const clean = r.price.replace(/[,₹\s]/g, "");
       if (clean) {
-        if (!/^\d{1,9}(\.\d{1,2})?$/.test(clean)) errs[`${i}.price`] = "Enter an amount like 499";
+        if (!/^\d{1,9}(\.\d{1,2})?$/.test(clean)) errs[`${i}.price`] = tx.amountInvalid;
         else pricePaise = toMinor(clean);
-      } else if (priceTypeNeedsAmount(r.priceType)) errs[`${i}.price`] = "Enter a price";
+      } else if (priceTypeNeedsAmount(r.priceType)) errs[`${i}.price`] = tx.priceRequired;
       out.push({ name: r.name.trim().slice(0, 120), shortDescription: r.shortDescription.trim().slice(0, 300), priceType: r.priceType, pricePaise, durationMinutes: r.durationMinutes });
     });
     setErrors(errs);
@@ -47,56 +50,56 @@ export function ServicesStep({ draft, onSave, onSkip, onBack }: { draft: Informa
   return (
     <form onSubmit={save} noValidate className="flex flex-col gap-6" aria-labelledby="services-title">
       <div className="flex flex-col gap-3">
-        <OnbEyebrow>Services</OnbEyebrow>
+        <OnbEyebrow>{tx.eyebrow}</OnbEyebrow>
         <div id="services-title">
-          <OnbHeading>Add your services</OnbHeading>
+          <OnbHeading>{tx.title}</OnbHeading>
         </div>
         <OnbSub>
-          {draft.seededFrom ? "We've suggested services for your business. Edit the names and prices, remove any you don't offer, or add your own." : `Add up to ${MAX_DRAFT_SERVICES} now.`} You can add more, with photos and details, from your dashboard.
+          {draft.seededFrom ? tx.subSeeded : tx.subAddUpTo(MAX_DRAFT_SERVICES)} {tx.subMore}
         </OnbSub>
       </div>
       {rows.map((r, i) => (
         <fieldset key={i} className={`${ui.card} grid gap-4 sm:grid-cols-2`}>
-          <legend className="sr-only">Service {i + 1}</legend>
+          <legend className="sr-only">{tx.legend(i + 1)}</legend>
           <label className={`${ui.label} sm:col-span-2`}>
-            Service name
+            {tx.name}
             <input className={ui.input} value={r.name} onChange={(e) => update(i, { name: e.target.value })} maxLength={120} aria-invalid={errors[`${i}.name`] ? true : undefined} aria-describedby={errors[`${i}.name`] ? `e-${i}-name` : undefined} />
             {errors[`${i}.name`] ? <span id={`e-${i}-name`} aria-hidden className={`${ui.error} block`}>{errors[`${i}.name`]}</span> : null}
           </label>
           <label className={`${ui.label} sm:col-span-2`}>
-            Short description
+            {tx.description}
             <input className={ui.input} value={r.shortDescription} onChange={(e) => update(i, { shortDescription: e.target.value })} maxLength={300} />
           </label>
           <label className={ui.label}>
-            Price type
+            {tx.priceType}
             <select className={ui.input} value={r.priceType} onChange={(e) => update(i, { priceType: e.target.value as PriceType })}>
               {PRICE_TYPES.map((p) => (
-                <option key={p} value={p}>{PRICE_TYPE_LABELS[p]}</option>
+                <option key={p} value={p}>{c.priceTypes[p]}</option>
               ))}
             </select>
           </label>
           <label className={ui.label}>
-            Price (₹)
+            {tx.price}
             <input className={ui.input} value={r.price} onChange={(e) => update(i, { price: e.target.value })} inputMode="decimal" disabled={!priceTypeNeedsAmount(r.priceType)} aria-invalid={errors[`${i}.price`] ? true : undefined} aria-describedby={errors[`${i}.price`] ? `e-${i}-price` : undefined} />
             {errors[`${i}.price`] ? <span id={`e-${i}-price`} aria-hidden className={`${ui.error} block`}>{errors[`${i}.price`]}</span> : null}
           </label>
           {rows.length > 1 ? (
             <button type="button" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))} className={`${ui.ghostBtn} justify-self-start sm:col-span-2`}>
-              Remove this service
+              {tx.remove}
             </button>
           ) : null}
         </fieldset>
       ))}
       {rows.length < MAX_DRAFT_SERVICES ? (
         <button type="button" onClick={() => setRows((rs) => [...rs, { ...EMPTY }])} className={`${ui.secondaryBtn} self-start`}>
-          + Add another service
+          + {tx.add}
         </button>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button type="button" onClick={onBack} className={ui.ghostBtn}>← Back</button>
+        <button type="button" onClick={onBack} className={ui.ghostBtn}>← {c.back}</button>
         <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
-          <button type="button" onClick={onSkip} className={ui.ghostBtn}>Skip, I&apos;ll add later</button>
-          <button type="submit" className={ui.primaryBtn}>Continue</button>
+          <button type="button" onClick={onSkip} className={ui.ghostBtn}>{tx.skip}</button>
+          <button type="submit" className={ui.primaryBtn}>{c.continue}</button>
         </div>
       </div>
     </form>

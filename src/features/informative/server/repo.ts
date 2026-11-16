@@ -39,6 +39,7 @@ import type {
   TeamMemberInput,
   TestimonialInput,
 } from "../schemas";
+import { mergeSiteOptions, parseCustomizeOptions, type CustomizeOptions } from "../schemas";
 
 /**
  * Informative Website data services (M2). Every function takes the member context resolved by
@@ -121,6 +122,38 @@ export async function updateAppearance(ctx: RepoCtx, input: AppearanceInput): Pr
       hero_image_path: input.heroImagePath ?? null,
     },
     "info.updateAppearance",
+  );
+}
+
+/** Customizer keys of info_sites.options (InfoSite doesn't model them). */
+export async function getCustomizeOptions(ctx: RepoCtx): Promise<CustomizeOptions> {
+  need(ctx, "store.read");
+  const { data, error } = await (await db()).from("info_sites").select("options").eq("tenant_id", ctx.tenantId).is("deleted_at", null).maybeSingle();
+  if (error) throw mapDbError(error, { op: "info.getCustomizeOptions" });
+  return parseCustomizeOptions(data?.options);
+}
+
+/**
+ * Customizer save (theme.edit): the presentation columns (as updateAppearance) plus the Customizer's
+ * option keys merged into info_sites.options; every other option key is kept.
+ */
+export async function updateCustomizer(ctx: RepoCtx, input: AppearanceInput, options: CustomizeOptions): Promise<InfoSite> {
+  need(ctx, "theme.edit");
+  const { data: current, error } = await (await db()).from("info_sites").select("options").eq("tenant_id", ctx.tenantId).is("deleted_at", null).maybeSingle();
+  if (error) throw mapDbError(error, { op: "info.updateCustomizer.read" });
+  return updateSite(
+    ctx,
+    {
+      theme_id: input.themeId,
+      primary_color: input.primaryColor ?? null,
+      secondary_color: input.secondaryColor ?? null,
+      font_pair: input.fontPair ?? null,
+      logo_path: input.logoPath ?? null,
+      favicon_path: input.faviconPath ?? null,
+      hero_image_path: input.heroImagePath ?? null,
+      options: mergeSiteOptions(current?.options, { ctaLabel: options.ctaLabel }) as Json,
+    },
+    "info.updateCustomizer",
   );
 }
 

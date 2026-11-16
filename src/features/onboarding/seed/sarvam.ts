@@ -21,6 +21,8 @@ export async function chatTurn(input: {
   temperature?: number;
   model?: string;
   languageCode?: string;
+  /** Output budget; the seed plan is ~2.5k tokens and is cut off without an explicit limit. */
+  maxTokens?: number;
 }): Promise<ChatTurnResult> {
   try {
     const languageCode = input.languageCode ? normalizeSarvamLocale(input.languageCode) ?? undefined : undefined;
@@ -30,6 +32,7 @@ export async function chatTurn(input: {
       temperature: input.temperature ?? 0.4,
       model: input.model,
       languageCode,
+      maxTokens: input.maxTokens,
     });
   } catch (err) {
     if (err instanceof AppError) throw err;

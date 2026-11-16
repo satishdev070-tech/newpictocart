@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { buttonClass } from "@/components/ui/button";
 import { Card, PageHeader } from "@/components/ui/layout";
 import { AppearanceForm } from "@/features/informative/panel/site-forms";
 import { requireInformativeTenant } from "@/features/informative/server/context";
@@ -16,7 +18,15 @@ export default async function InformativeAppearancePage() {
   if (!site) redirect("/informative/dashboard");
   return (
     <>
-      <PageHeader title="Appearance" description="Switch design any time: your services, pages and photos stay as they are." />
+      <PageHeader
+        title="Appearance"
+        description="Switch design any time: your services, pages and photos stay as they are."
+        actions={
+          <Link href="/informative/customize" className={buttonClass({ variant: "accent" })}>
+            Open live customizer
+          </Link>
+        }
+      />
       <Card>
         <AppearanceForm
           site={site}

@@ -92,7 +92,43 @@ export async function applyProposal(ctx: InformativeContext, proposal: Proposal)
     for (const f of w.faqs) await createFaq(ctx, { ...f, isVisible: true });
     return { changed: `${w.faqs.length} FAQs` };
   }
+  if (w.serviceUpdate) {
+    const u = w.serviceUpdate;
+    if (!u.shortDescription && !u.description) throw new AppError("VALIDATION", { fieldErrors: { _form: ["Nothing to apply."] } });
+    const current = findServiceByName(await listServices(ctx), u.serviceName);
+    if (!current) throw new AppError("NOT_FOUND", { fieldErrors: { _form: [`"${u.serviceName}" isn't one of your services any more.`] } });
+    await updateService(ctx, current.id, serviceInputKeeping(current, { shortDescription: u.shortDescription, description: u.description }));
+    return { changed: `service ${current.name}` };
+  }
   return { changed: "nothing" };
+}
+
+/** A service of THIS site by name (case/space-insensitive); ids never come from the model. */
+export function findServiceByName<T extends { name: string; isActive?: boolean }>(services: T[], name: string): T | null {
+  const n = name.replace(/\s+/g, " ").trim().toLowerCase();
+  if (!n) return null;
+  return services.find((s) => s.name.replace(/\s+/g, " ").trim().toLowerCase() === n) ?? null;
+}
+
+type ExistingService = Awaited<ReturnType<typeof listServices>>[number];
+
+/** Full ServiceInput for an existing service with only the copy changed (prices, photo, flags kept). */
+function serviceInputKeeping(current: ExistingService, copy: { shortDescription?: string; description?: string }): ServiceInput {
+  return {
+    name: current.name,
+    slug: current.slug,
+    shortDescription: copy.shortDescription || current.shortDescription || undefined,
+    description: copy.description || current.description || undefined,
+    imagePath: current.imagePath ?? undefined,
+    priceType: current.priceType,
+    pricePaise: current.pricePaise ?? undefined,
+    durationMinutes: current.durationMinutes ?? undefined,
+    category: current.category ?? undefined,
+    isFeatured: current.isFeatured,
+    isActive: current.isActive,
+    seoTitle: current.seo.title ?? undefined,
+    seoDescription: current.seo.description ?? undefined,
+  } as ServiceInput;
 }
 
 /**

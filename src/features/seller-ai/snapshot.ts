@@ -1,10 +1,14 @@
 /**
  * Compact, model-friendly facts about ONE store (pure, unit tested). Built from data the server
  * already read with the seller's own session; the model never sees ids it could echo back as
- * links, and money stays in integer paise.
+ * links; money is pre-formatted in rupees (₹).
  */
 import type { DashboardHome } from "@/features/analytics/home";
+import { formatMoney } from "@/lib/money";
 import { STORE_SNAPSHOT_MAX_CHARS } from "./schemas";
+
+/** Rupees for the model (it mis-scaled raw paise, e.g. 92400 paise → "₹92,400"). */
+const rs = (minor: number | null | undefined): string => (minor == null ? "not set" : formatMoney(minor));
 
 export { STORE_SNAPSHOT_MAX_CHARS };
 
@@ -27,6 +31,8 @@ export type StoreSnapshotInput = {
   categories?: string[];
   /** Current plan / trial brief when the seller may see billing. */
   plan?: StoreSnapshotPlan | null;
+  /** Store category (industry slug, e.g. "fashion"), when known. */
+  industry?: string | null;
 };
 
 const line = (label: string, value: string | number | null | undefined) => (value === null || value === undefined || value === "" ? null : `${label}: ${value}`);
@@ -48,7 +54,7 @@ export function coachMetrics(home: StoreSnapshotInput["home"]) {
 }
 
 export function topProductLines(home: StoreSnapshotInput["home"], max = 5): string[] {
-  return (home.sales?.topProducts ?? []).slice(0, max).map((p) => `${p.title} — ${p.units} sold, ${p.revenueMinor} paise`);
+  return (home.sales?.topProducts ?? []).slice(0, max).map((p) => `${p.title} — ${p.units} sold, ${rs(p.revenueMinor)}`);
 }
 
 export function lowStockLines(home: StoreSnapshotInput["home"], max = 5): string[] {
@@ -77,11 +83,12 @@ export function buildStoreSnapshot(s: StoreSnapshotInput): string {
   const out: (string | null)[] = [
     line("Store", s.storeName),
     line("Status", s.storeStatus),
+    line("Store category", s.industry ? s.industry.replace(/[-_]+/g, " ") : null),
     line("Storefront", s.storeUrl),
     planLine(s.plan),
     line("AI credits left", s.creditBalance),
     k
-      ? `Last 30 days: revenue ${k.revenueMinor} paise (${k.revenueChange === null ? "no prior data" : `${k.revenueChange}% vs previous 30 days`}), ${k.orders} orders (${k.ordersChange === null ? "no prior data" : `${k.ordersChange}%`}), average order ${k.aovMinor} paise`
+      ? `Last 30 days: revenue ${rs(k.revenueMinor)} (${k.revenueChange === null ? "no prior data" : `${k.revenueChange}% vs previous 30 days`}), ${k.orders} orders (${k.ordersChange === null ? "no prior data" : `${k.ordersChange}%`}), average order ${rs(k.aovMinor)}`
       : "Sales: not visible to this team member",
     `Products: ${home.counts.allProducts} total, ${home.counts.activeProducts} live`,
     line("Customers", home.counts.customers),
@@ -99,7 +106,7 @@ export function buildStoreSnapshot(s: StoreSnapshotInput): string {
     out.push(
       `Recent orders:\n- ${home.recentOrders
         .slice(0, 12)
-        .map((o) => `#${o.number} ${o.placedAt.slice(0, 10)} ${o.totalMinor} paise, payment ${o.paymentStatus}, fulfilment ${o.fulfillmentStatus}`)
+        .map((o) => `#${o.number} ${o.placedAt.slice(0, 10)} ${rs(o.totalMinor)}, payment ${o.paymentStatus}, fulfilment ${o.fulfillmentStatus}`)
         .join("\n- ")}`,
     );
   }
@@ -109,7 +116,7 @@ export function buildStoreSnapshot(s: StoreSnapshotInput): string {
   if (s.products.length) {
     out.push(
       `Catalogue (latest ${s.products.length}):\n- ${s.products
-        .map((p) => `${p.title} [${p.status}]${p.categoryName ? ` in ${p.categoryName}` : ""}, price ${p.minPrice ?? "not set"} paise, stock ${p.stockTotal ?? "not tracked"}`)
+        .map((p) => `${p.title} [${p.status}]${p.categoryName ? ` in ${p.categoryName}` : ""}, price ${rs(p.minPrice)}, stock ${p.stockTotal ?? "not tracked"}`)
         .join("\n- ")}`,
     );
   }

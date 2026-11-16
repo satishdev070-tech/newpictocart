@@ -1,4 +1,6 @@
 import type { StartIntentId } from "./intents";
+import { START_TRANSLATIONS } from "./i18n/start/index";
+import { localize, type ParamNames, type Translation } from "./i18n/templates";
 
 export type StartCopy = {
   back: string;
@@ -786,8 +788,38 @@ const HI: StartCopy = {
   },
 };
 
+/** English source dictionary (the translate script reads it). */
+export const START_EN: StartCopy = EN;
+
+export type StartCopyTranslation = Translation<StartCopy>;
+
+/** Placeholder names of the function-valued entries (the translate script and `localize` use them). */
+export const START_COPY_PARAMS: ParamNames = {
+  "lang.continue": ["name"],
+  "quiz.step": ["n", "total"],
+  "quiz.customSubNoMatch": ["q"],
+  "quiz.categoryHint": ["n", "max"],
+  "quiz.subcategoryHint": ["n", "max"],
+  "products.count": ["n"],
+  "account.codeSentTo": ["email"],
+  "account.resendIn": ["seconds"],
+  "done.subNamed": ["name"],
+};
+
+const cache = new Map<string, StartCopy>();
+
+/**
+ * UI copy for a Sarvam locale. English and Hindi are hand-written; the other START_UI_LOCALES come
+ * from static generated dictionaries (./i18n/start/<locale>.ts) with English per missing key.
+ */
 export function startCopy(locale: string): StartCopy {
-  return locale === "hi-IN" ? HI : EN;
+  if (locale === "hi-IN") return HI;
+  const hit = cache.get(locale);
+  if (hit) return hit;
+  const tr = (START_TRANSLATIONS as Record<string, StartCopyTranslation | undefined>)[locale];
+  const copy = tr ? localize(EN, tr, START_COPY_PARAMS) : EN;
+  cache.set(locale, copy);
+  return copy;
 }
 
 export function uiLocaleFromSarvam(locale: string): "en" | "hi" {

@@ -128,6 +128,8 @@ type LiveBundle = {
   team: { name: string; role: string | null; bio: string | null; photoPath: string | null }[];
   testimonials: { authorName: string; rating: number; text: string; authorPhotoPath: string | null }[];
   faqs: { question: string; answer: string }[];
+  /** Customizer options from info_sites.options (button label). */
+  customize?: { ctaLabel: string | null };
 };
 
 /**
@@ -183,7 +185,7 @@ export function buildSiteView(
     // Stats and highlights have no editor in v1: the section is hidden unless the seller adds content.
     stats: [],
     highlights: [],
-    ctaLabel: d.ctaLabel,
+    ctaLabel: b.customize?.ctaLabel || d.ctaLabel,
     nav,
     credits: [],
     preview: opts.preview ?? false,

@@ -234,7 +234,7 @@ export function storeAgentPrompt(args: {
       '{"answer":string,"links":[{"key":string,"label":string}],"proposal":null|{"type":"faq","groupName":string,"items":[{"question":string,"answer":string}]}}',
       "Rules:",
       "- Answer from <store_data> only. If the data doesn't contain the answer, say so plainly and tell the seller where in the dashboard to look. Never invent orders, numbers or customers.",
-      "- Money in <store_data> is in paise; show it to the seller in rupees (₹1,299 = 129900 paise).",
+      "- Money in <store_data> is already in rupees (₹); quote it exactly as written.",
       "- Bias toward growth: when useful, suggest clear next actions (fulfil pending orders, restock bestsellers, share top sellers on WhatsApp/Instagram, finish setup, use discounts, improve listings).",
       "- Prefer specific advice that names real products, stock levels, order counts or plan/trial facts from <store_data>.",
       "- Give short step-by-step guidance when asked how to do something in the dashboard.",
