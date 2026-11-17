@@ -70,7 +70,9 @@ test("full Informative journey: onboard → panel → publish → public site �
 
   await test.step("Step 4: create the website → Informative dashboard", async () => {
     await page.getByRole("button", { name: "Create my website" }).click();
-    await expect(page).toHaveURL(/\/informative\/dashboard\?welcome=1/, { timeout: 90_000 });
+    // Creation runs in small resumable phases, then shows the "ready" panel.
+    await page.getByRole("link", { name: "Go to my dashboard" }).or(page.getByRole("button", { name: "Go to my dashboard" })).click({ timeout: 120_000 });
+    await expect(page).toHaveURL(/\/informative\/dashboard\?welcome=1/, { timeout: 30_000 });
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     await expect(page.getByText("Draft · only you can see it")).toBeVisible();
     // The sidebar shows only informative items.

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { findTheme } from "@/features/marketing-site/themes";
 import { ThemeDevicePreview } from "@/features/marketing-site/components/theme-card";
 import { Check } from "lucide-react";
-import { OnbCard, OnbEyebrow, OnbHeading } from "@/components/onboarding-ui";
+import { OnbCard, OnbEyebrow, OnbHeading, onbButton } from "@/components/onboarding-ui";
 import { cn } from "@/lib/cn";
 import { buildingProgressPct, buildingStepIndex } from "../building-progress";
 import { startCopy } from "../copy";
@@ -16,16 +16,24 @@ export function BuildingScreen({
   onComplete,
   /** When true (signed-in finalize in flight), never claim 100% / call onComplete until the parent navigates away. */
   waitForFinalize = false,
+  /** Real progress from the phased finalize (replaces the timer while the store is being made). */
+  progress,
+  /** A finalize phase failed after its retries: show why and resume from that phase. */
+  failure,
 }: {
   draft: StartDraft;
   rootDomain: string;
   onComplete: () => void;
   waitForFinalize?: boolean;
+  progress?: { stepIndex: number; pct: number };
+  failure?: { message: string; onRetry: () => void };
 }) {
   void _rootDomain;
   const c = startCopy(draft.locale);
-  const [step, setStep] = useState(0);
-  const [pct, setPct] = useState(0);
+  const [timerStep, setStep] = useState(0);
+  const [timerPct, setPct] = useState(0);
+  const step = progress ? progress.stepIndex : timerStep;
+  const pct = progress ? progress.pct : timerPct;
   const doneRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
   const stepCount = c.building.steps.length;
@@ -41,7 +49,9 @@ export function BuildingScreen({
     onCompleteRef.current = onComplete;
   }, [onComplete]);
 
+  const timed = !progress;
   useEffect(() => {
+    if (!timed) return;
     doneRef.current = false;
     let start = 0;
     let finish: number | undefined;
@@ -65,7 +75,7 @@ export function BuildingScreen({
       window.clearInterval(tick);
       if (finish !== undefined) window.clearTimeout(finish);
     };
-  }, [draft.locale, stepCount, waitForFinalize]);
+  }, [draft.locale, stepCount, waitForFinalize, timed]);
 
   return (
     <section className="grid gap-8 pt-4 sm:pt-8 lg:grid-cols-2 lg:items-center" aria-live="polite">
@@ -119,7 +129,17 @@ export function BuildingScreen({
             </div>
             <span className="min-w-[4ch] text-right font-mk-mono text-sm text-mk-muted">{pct}%</span>
           </div>
-          {waitForFinalize ? <p className="text-sm text-mk-muted">{c.building.finishing}</p> : null}
+          {failure ? (
+            <div role="alert" className="space-y-3 rounded-[var(--r-md)] border border-mk-line-strong bg-mk-elev-1 p-4">
+              <p className="text-sm font-semibold text-mk-text">{c.building.failedTitle}</p>
+              <p className="text-sm text-mk-muted">{failure.message || c.building.failedBody}</p>
+              <button type="button" onClick={failure.onRetry} className={onbButton.primary}>
+                {c.building.tryAgain}
+              </button>
+            </div>
+          ) : waitForFinalize ? (
+            <p className="text-sm text-mk-muted">{c.building.finishing}</p>
+          ) : null}
         </div>
       </div>
 

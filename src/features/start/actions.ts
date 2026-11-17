@@ -26,8 +26,24 @@ import { toMinor } from "@/lib/money";
 import { minorToDb } from "@/features/settings/fields";
 import { assertEmailVerifiedForOnboarding } from "@/features/onboarding/email-gate";
 import { listOwnedStores, ownerContext } from "@/features/onboarding/server";
-import { seedReadyStore } from "@/features/onboarding/seed/pipeline";
-import { backfillSeedImages } from "@/features/onboarding/seed/persist";
+import {
+  isStoreSeeded,
+  markStoreSeeded,
+  requireSeedPlan,
+  seedCategoriesPhase,
+  seedContentPhase,
+  seedImagesPhase,
+  seedNavigationPhase,
+  seedPlanPhase,
+  seedProductsPhase,
+  seedThemeMergePhase,
+  seedThemePhase,
+  type SeedPlanInput,
+} from "@/features/onboarding/seed/phases";
+import type { ReadyStorePlan } from "@/features/onboarding/seed/schemas";
+import type { SessionUser } from "@/lib/auth/session";
+import { listMemberships, membershipPermissions, type TenantContext } from "@/lib/tenant/membership";
+import { CATALOG_STEPS, type CatalogStep } from "./finalize-phases";
 import { pickBestMarketplaceTheme, listRankedMarketplaceThemes } from "@/features/onboarding/seed/theme-pick";
 import { parseVoiceFactsJson, suggestSlugFromName } from "@/features/onboarding/voice/facts";
 import { parseTaraHistory, runTaraTurn } from "@/features/onboarding/voice/turn";
@@ -109,10 +125,6 @@ export async function startSuggestAction(
     }
   });
 }
-
-const finalizeSchema = z.object({
-  draftJson: z.string().max(100_000),
-});
 
 async function markDraft(tenantId: string): Promise<void> {
   const supabase = await createSupabaseServerClient();
@@ -302,113 +314,311 @@ export async function listStartThemeOptionsAction(input: {
   });
 }
 
+// ---------------------------------------------------------------------------------------------
+// Phased finalize. Workers Free allows 10 ms CPU per request, so creating + seeding the store in
+// one action was killed part-way (Error 1102). The client calls these in order (see
+// finalize-phases.ts); each one is small and safe to re-run. The store is always one the signed-in
+// user OWNS: the request may only name it by slug, and it is looked up in the user's memberships.
+// ---------------------------------------------------------------------------------------------
+
+type StartFacts = {
+  draft: StartDraft;
+  storeName: string;
+  industry: IndustrySlug;
+  siteMode: "ecommerce" | "informative";
+};
+
+async function startUser(): Promise<SessionUser> {
+  let user: SessionUser;
+  try {
+    // Uncached retry: post-OTP cookie can miss on the first read of this action.
+    user = await requireUserWithRetry("/start");
+  } catch (err) {
+    if (err instanceof EnvValidationError) {
+      logger.error("start.finalize_env_invalid", { issues: err.issues.slice(0, 8) });
+      throw new AppError("INTERNAL", {
+        fieldErrors: { _form: ["Server configuration error — contact support."] },
+        context: { reason: "env_invalid" },
+      });
+    }
+    throw err;
+  }
+  await assertEmailVerifiedForOnboarding();
+  return user;
+}
+
+function startFacts(draftJson: string): StartFacts {
+  let draft: StartDraft | null = null;
+  try {
+    draft = parseStartDraft(JSON.parse(draftJson));
+  } catch {
+    draft = null;
+  }
+  if (!draft) {
+    throw new AppError("VALIDATION", { fieldErrors: { _form: ["Your saved journey looks invalid. Start again from /start."] } });
+  }
+  const storeName = draftStoreName(draft);
+  if (storeName.length < 2) {
+    throw new AppError("VALIDATION", { fieldErrors: { _form: ["Add a business name before finishing."] } });
+  }
+  const industry = draftCategory(draft) ?? ("general" as IndustrySlug);
+  if (!isIndustry(industry)) {
+    throw new AppError("VALIDATION", { fieldErrors: { _form: ["Choose a business category."] } });
+  }
+  // New flows: Informational Website is gated; always persist ecommerce when the flag is off.
+  const siteMode = informativeSitesEnabled() ? (draftSiteMode(draft) ?? DEFAULT_SITE_MODE) : DEFAULT_SITE_MODE;
+  return { draft, storeName, industry, siteMode };
+}
+
+/** Owner context for the user's own store `slug` (from memberships, never trusted from the request). */
+async function ownedStoreContext(user: SessionUser, slug: string): Promise<TenantContext> {
+  const memberships = await listMemberships(user.id);
+  const m = memberships.find((x) => x.tenantSlug === slug && x.role === "owner");
+  if (!m) throw new AppError("FORBIDDEN", { fieldErrors: { _form: ["You don't have permission to finish this store."] } });
+  return {
+    user,
+    tenantId: m.tenantId,
+    tenantName: m.tenantName,
+    tenantSlug: m.tenantSlug,
+    tenantStatus: m.tenantStatus,
+    role: m.role,
+    customRoleName: null,
+    permissions: membershipPermissions(m),
+    memberships,
+  };
+}
+
+function planInput(ctx: TenantContext, facts: StartFacts): SeedPlanInput {
+  return {
+    storeName: ctx.tenantName || facts.storeName,
+    industry: facts.industry,
+    subcategory: draftSeedSubcategory(facts.draft),
+    niche: draftProductsServices(facts.draft) || null,
+    brief: buildSeedBrief(facts.draft),
+    locale: facts.draft.locale,
+  };
+}
+
+export type StartStoreResult = FinalizeStartResult & { seeded: boolean };
+
+/** Phase "store": create the store (or resume the one this user already owns), category, mode, prefs. */
+async function createStorePhase(user: SessionUser, facts: StartFacts): Promise<StartStoreResult & { tenantId: string }> {
+  const slugWanted = resolveSlug(facts.storeName);
+  let tenantId: string;
+  let slug: string;
+  let name = facts.storeName;
+  const owned = await listOwnedStores(user.id);
+  if (owned.length > 0) {
+    const match = owned.find((s) => s.slug === slugWanted) ?? owned[0]!;
+    tenantId = match.tenantId;
+    slug = match.slug;
+    name = match.name;
+  } else {
+    const created = await createOrResumeStore(user.id, facts.storeName, slugWanted);
+    tenantId = created.tenantId;
+    slug = created.slug;
+    await markDraft(tenantId);
+  }
+  const ctx = await ownerContext(user, tenantId);
+  if (!ctx) throw new AppError("FORBIDDEN", { fieldErrors: { _form: ["You don't have permission to finish this store."] } });
+  const seeded = await shouldSkipSeed(tenantId);
+  if (!seeded) {
+    await setCategory(tenantId, facts.industry);
+    await setSiteMode(tenantId, facts.siteMode);
+  }
+  await applyOptionalPrefs(tenantId, facts.draft);
+  return { tenantId, slug, name, seeded };
+}
+
+const storeInputSchema = z.object({ draftJson: z.string().max(100_000) });
+const phaseInputSchema = z.object({
+  draftJson: z.string().max(100_000),
+  slug: z.string().trim().min(1).max(63),
+});
+const catalogInputSchema = phaseInputSchema.extend({ step: z.enum(CATALOG_STEPS) });
+const imagesInputSchema = phaseInputSchema.extend({
+  skip: z.array(z.string().max(80)).max(60).optional().default([]),
+});
+
+/** (a) Create or resume the seller's store. Returns its address so later phases can name it. */
+export async function startCreateStoreAction(input: { draftJson: string }): Promise<ActionResult<StartStoreResult>> {
+  return runAction("start.createStore", async () => {
+    const { draftJson } = parseInput(storeInputSchema, input);
+    const user = await startUser();
+    await rateLimit("start-finalize", user.id, 20, 3600);
+    const facts = startFacts(draftJson);
+    try {
+      const { slug, name, seeded } = await createStorePhase(user, facts);
+      return { slug, name, seeded };
+    } catch (err) {
+      finishError(err);
+    }
+  });
+}
+
+async function runCatalogStep(ctx: TenantContext, facts: StartFacts, step: CatalogStep): Promise<void> {
+  // A store seeded earlier keeps the catalogue the seller has since edited.
+  if (await isStoreSeeded(ctx.tenantId)) return;
+  if (step === "theme") {
+    const themeKey = facts.draft.theme && isThemeKey(facts.draft.theme) ? facts.draft.theme : undefined;
+    await seedThemePhase(ctx, facts.industry, themeKey);
+    return;
+  }
+  const input = planInput(ctx, facts);
+  if (step === "plan") {
+    await seedPlanPhase(ctx, input);
+    return;
+  }
+  const plan = await requireSeedPlan(ctx, input);
+  if (step === "categories") await seedCategoriesPhase(ctx, plan);
+  else if (step === "products") await seedProductsPhase(ctx, plan, facts.industry, input.storeName);
+  else await seedNavigationPhase(ctx, plan, input.storeName);
+}
+
+/** (b) One catalogue step: theme | plan (AI, cached) | categories+collections | products | menu+SEO. */
+export async function startSeedCatalogAction(input: { draftJson: string; slug: string; step: CatalogStep }): Promise<ActionResult<{ step: CatalogStep }>> {
+  return runAction("start.seedCatalog", async () => {
+    const v = parseInput(catalogInputSchema, input);
+    const user = await startUser();
+    await rateLimit("start-seed", user.id, 120, 3600);
+    const facts = startFacts(v.draftJson);
+    try {
+      const ctx = await ownedStoreContext(user, v.slug);
+      await runCatalogStep(ctx, facts, v.step);
+    } catch (err) {
+      finishError(err);
+    }
+    return { step: v.step };
+  });
+}
+
+async function contentPlan(ctx: TenantContext, facts: StartFacts): Promise<ReadyStorePlan | null> {
+  if (await isStoreSeeded(ctx.tenantId)) return null;
+  return requireSeedPlan(ctx, planInput(ctx, facts));
+}
+
+/** (c) About / Contact pages and blog posts. */
+export async function startSeedContentAction(input: { draftJson: string; slug: string }): Promise<ActionResult<{ done: true }>> {
+  return runAction("start.seedContent", async () => {
+    const v = parseInput(phaseInputSchema, input);
+    const user = await startUser();
+    await rateLimit("start-seed", user.id, 120, 3600);
+    const facts = startFacts(v.draftJson);
+    try {
+      const ctx = await ownedStoreContext(user, v.slug);
+      await seedContentPhase(ctx, await contentPlan(ctx, facts), ctx.tenantName || facts.storeName);
+    } catch (err) {
+      finishError(err);
+    }
+    return { done: true as const };
+  });
+}
+
+/** (d) One small batch of sample photos (≤4). The client loops until `remaining` is 0. */
+export async function startSeedImagesAction(input: {
+  draftJson: string;
+  slug: string;
+  skip?: string[];
+}): Promise<ActionResult<{ remaining: number; failed: string[] }>> {
+  return runAction("start.seedImages", async () => {
+    const v = parseInput(imagesInputSchema, input);
+    const user = await startUser();
+    await rateLimit("start-seed-images", user.id, 120, 3600);
+    const facts = startFacts(v.draftJson);
+    try {
+      const ctx = await ownedStoreContext(user, v.slug);
+      return await seedImagesPhase(ctx, facts.industry, v.skip);
+    } catch (err) {
+      finishError(err);
+    }
+  });
+}
+
+/** (d, end) Homepage copy + photos into the theme draft, then publish the theme. */
+export async function startPublishThemeAction(input: { draftJson: string; slug: string }): Promise<ActionResult<{ done: true }>> {
+  return runAction("start.publishTheme", async () => {
+    const v = parseInput(phaseInputSchema, input);
+    const user = await startUser();
+    await rateLimit("start-seed", user.id, 120, 3600);
+    const facts = startFacts(v.draftJson);
+    try {
+      const ctx = await ownedStoreContext(user, v.slug);
+      await seedThemeMergePhase(ctx, await contentPlan(ctx, facts), facts.industry);
+    } catch (err) {
+      finishError(err);
+    }
+    return { done: true as const };
+  });
+}
+
+async function finishPhase(ctx: TenantContext, facts: StartFacts): Promise<void> {
+  await markStoreSeeded(ctx, { source: "start_phased", industry: facts.industry });
+  await setActiveTenant(ctx.tenantId);
+  const supabase = await createSupabaseServerClient();
+  const meta: Record<string, unknown> = {};
+  if (isSarvamLocaleCode(facts.draft.locale)) meta.onboarding_locale = facts.draft.locale;
+  if (facts.draft.intent && isStartIntentId(facts.draft.intent)) meta.onboarding_intent = facts.draft.intent;
+  if (Object.keys(meta).length) {
+    const { error } = await supabase.auth.updateUser({ data: meta });
+    if (error) logger.warn("start.metadata_failed", { code: error.code });
+  }
+}
+
+/** (e) Mark the store seeded, make it the active store, save onboarding metadata. */
+export async function startFinishAction(input: { draftJson: string; slug: string }): Promise<ActionResult<FinalizeStartResult>> {
+  return runAction("start.finish", async () => {
+    const v = parseInput(phaseInputSchema, input);
+    const user = await startUser();
+    await rateLimit("start-seed", user.id, 120, 3600);
+    const facts = startFacts(v.draftJson);
+    let ctx: TenantContext;
+    try {
+      ctx = await ownedStoreContext(user, v.slug);
+    } catch (err) {
+      finishError(err);
+    }
+    await finishPhase(ctx, facts);
+    return { slug: ctx.tenantSlug, name: ctx.tenantName || facts.storeName };
+  });
+}
+
+/**
+ * Legacy one-request finalize (kept for compatibility). Runs the same phases in sequence, so it
+ * still needs more than 10 ms CPU on Workers Free — the /start client uses the phased actions.
+ */
 export async function finalizeStartDraftAction(
   _prev: ActionResult<FinalizeStartResult> | null,
   fd: FormData,
 ): Promise<ActionResult<FinalizeStartResult>> {
   return runAction("start.finalize", async () => {
-    let user;
-    try {
-      // Uncached retry: post-OTP cookie can miss on the first read of this action.
-      user = await requireUserWithRetry("/start");
-    } catch (err) {
-      if (err instanceof EnvValidationError) {
-        logger.error("start.finalize_env_invalid", { issues: err.issues.slice(0, 8) });
-        throw new AppError("INTERNAL", {
-          fieldErrors: { _form: ["Server configuration error — contact support."] },
-          context: { reason: "env_invalid" },
-        });
-      }
-      throw err;
-    }
-    await assertEmailVerifiedForOnboarding();
+    const user = await startUser();
     await rateLimit("start-finalize", user.id, 10, 3600);
-    const { draftJson } = parseInput(finalizeSchema, formToObject(fd));
-    let draft: StartDraft | null = null;
+    const { draftJson } = parseInput(storeInputSchema, formToObject(fd));
+    const facts = startFacts(draftJson);
+    let ctx: TenantContext;
+    let result: FinalizeStartResult;
     try {
-      draft = parseStartDraft(JSON.parse(draftJson));
-    } catch {
-      draft = null;
-    }
-    if (!draft) {
-      throw new AppError("VALIDATION", { fieldErrors: { _form: ["Your saved journey looks invalid. Start again from /start."] } });
-    }
-
-    const storeName = draftStoreName(draft);
-    if (storeName.length < 2) {
-      throw new AppError("VALIDATION", { fieldErrors: { _form: ["Add a business name before finishing."] } });
-    }
-    const industry = draftCategory(draft) ?? ("general" as IndustrySlug);
-    if (!isIndustry(industry)) {
-      throw new AppError("VALIDATION", { fieldErrors: { _form: ["Choose a business category."] } });
-    }
-    // New flows: Informational Website is gated; always persist ecommerce when the flag is off.
-    const siteMode = informativeSitesEnabled()
-      ? (draftSiteMode(draft) ?? DEFAULT_SITE_MODE)
-      : DEFAULT_SITE_MODE;
-    const slugWanted = resolveSlug(storeName);
-
-    let tenantId: string;
-    let slug: string;
-    let name = storeName;
-    try {
-      const owned = await listOwnedStores(user.id);
-      if (owned.length > 0) {
-        const match = owned.find((s) => s.slug === slugWanted) ?? owned[0]!;
-        tenantId = match.tenantId;
-        slug = match.slug;
-        name = match.name;
-      } else {
-        const created = await createOrResumeStore(user.id, storeName, slugWanted);
-        tenantId = created.tenantId;
-        slug = created.slug;
-        await markDraft(tenantId);
-        await setCategory(tenantId, industry);
-        await setSiteMode(tenantId, siteMode);
+      const store = await createStorePhase(user, facts);
+      result = { slug: store.slug, name: store.name };
+      const owner = await ownerContext(user, store.tenantId);
+      if (!owner) throw new AppError("FORBIDDEN", { fieldErrors: { _form: ["You don't have permission to finish this store."] } });
+      ctx = owner;
+      if (!store.seeded) {
+        for (const step of CATALOG_STEPS) await runCatalogStep(ctx, facts, step);
       }
-
-      const ctx = await ownerContext(user, tenantId);
-      if (!ctx) throw new AppError("FORBIDDEN", { fieldErrors: { _form: ["You don't have permission to finish this store."] } });
-
-      if (owned.length === 0 || !(await shouldSkipSeed(tenantId))) {
-        await setCategory(tenantId, industry);
-        await setSiteMode(tenantId, siteMode);
+      const plan = await contentPlan(ctx, facts);
+      await seedContentPhase(ctx, plan, ctx.tenantName || facts.storeName);
+      const skip: string[] = [];
+      for (let i = 0; i < 20; i++) {
+        const batch = await seedImagesPhase(ctx, facts.industry, skip);
+        skip.push(...batch.failed);
+        if (batch.remaining === 0) break;
       }
-
-      await applyOptionalPrefs(tenantId, draft);
-
-      const skipSeed = await shouldSkipSeed(tenantId);
-      if (!skipSeed) {
-        const themeKey = draft.theme && isThemeKey(draft.theme) ? draft.theme : undefined;
-        await seedReadyStore(ctx, {
-          tenantId,
-          storeName: name,
-          industry,
-          subcategory: draftSeedSubcategory(draft),
-          niche: draftProductsServices(draft) || null,
-          brief: buildSeedBrief(draft),
-          locale: draft.locale,
-          applyTheme: true,
-          themeKey,
-        });
-      } else {
-        await backfillSeedImages(ctx, industry);
-      }
+      await seedThemeMergePhase(ctx, plan, facts.industry);
     } catch (err) {
       finishError(err);
     }
-
-    await setActiveTenant(tenantId);
-
-    const supabase = await createSupabaseServerClient();
-    const meta: Record<string, unknown> = {};
-    if (isSarvamLocaleCode(draft.locale)) meta.onboarding_locale = draft.locale;
-    if (draft.intent && isStartIntentId(draft.intent)) meta.onboarding_intent = draft.intent;
-    if (Object.keys(meta).length) {
-      const { error } = await supabase.auth.updateUser({ data: meta });
-      if (error) logger.warn("start.metadata_failed", { code: error.code });
-    }
-
-    return { slug, name };
+    await finishPhase(ctx, facts);
+    return result;
   });
 }

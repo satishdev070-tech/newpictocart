@@ -4,6 +4,7 @@ import { isValidStoreSlug } from "@/lib/tenant/host";
 import { isSarvamLocaleCode, toSarvamLocaleCode, type SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { INFO_CATEGORY_IDS } from "../categories";
 import { PRICE_TYPES } from "../pricing";
+import { EMPTY_FINISH_PROGRESS, finishProgressSchema } from "./phases";
 
 /**
  * Informative onboarding draft (pure; client + server). Kept in its OWN localStorage key so the
@@ -95,10 +96,12 @@ export const informativeDraftSchema = z.object({
   seededFrom: z.string().max(40).nullable().default(null),
   /** Onboarding language (from /start/lang via ?lang=); the AI writes the site in it. */
   locale: infoLocaleSchema.default(DEFAULT_INFO_LOCALE),
+  /** Progress of the phased finish step (phases.ts): lets "Try again" resume without re-creating the site. */
+  finish: finishProgressSchema.catch({ ...EMPTY_FINISH_PROGRESS }).default({ ...EMPTY_FINISH_PROGRESS }),
 });
 export type InformativeDraft = z.infer<typeof informativeDraftSchema>;
 
-export const EMPTY_DRAFT: InformativeDraft = { v: 1, basic: {}, logoDataUrl: null, themeId: null, services: [], servicesSkipped: false, seededFrom: null, locale: DEFAULT_INFO_LOCALE };
+export const EMPTY_DRAFT: InformativeDraft = { v: 1, basic: {}, logoDataUrl: null, themeId: null, services: [], servicesSkipped: false, seededFrom: null, locale: DEFAULT_INFO_LOCALE, finish: EMPTY_FINISH_PROGRESS };
 
 /**
  * After Step 1: fill the starter services from the chosen service type, unless the person already

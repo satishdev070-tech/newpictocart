@@ -7,9 +7,8 @@ import { parseInput } from "@/lib/validation/common";
 import { AppError } from "@/lib/errors";
 import { audit } from "@/lib/audit";
 import { revalidateStorefront } from "@/lib/cache/storefront";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireInformativeTenant, type InformativeContext } from "../server/context";
-import { applyProposal, askAssistant, buildSiteWithAi } from "./server";
+import { applyProposal, askAssistant, buildSiteWithAi, siteIsNew } from "./server";
 import { applyProposalInputSchema, assistantChatInputSchema, type AssistantReply } from "./schemas";
 
 /**
@@ -54,14 +53,6 @@ const buildInputSchema = z.object({
   /** Onboarding language (Sarvam code); anything unknown is treated as English. */
   locale: z.string().trim().max(16).optional(),
 });
-
-/** Free right after onboarding (the site is under an hour old); otherwise it costs credits. */
-const FREE_WINDOW_MS = 60 * 60 * 1000;
-
-async function siteIsNew(tenantId: string): Promise<boolean> {
-  const { data } = await (await createSupabaseServerClient()).from("tenants").select("created_at").eq("id", tenantId).maybeSingle();
-  return !!data && Date.now() - new Date(data.created_at).getTime() < FREE_WINDOW_MS;
-}
 
 export async function buildInformativeSiteWithAiAction(input: unknown): Promise<ActionResult<{ built: boolean; reason?: string }>> {
   return runAction("informative.ai.build", async () => {

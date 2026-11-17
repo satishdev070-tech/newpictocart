@@ -51,7 +51,11 @@ export async function StartPageContent({
 
   // Signed-in no-store users land on /start; keep them here for the five-screen flow
   // (resume=1 or no draft cookie yet). Do not redirect to /start or legacy /onboarding.
-  if (user && !draftCookie && !resume) {
+  // The Done step (Publish my store / Go to my dashboard) must render right after a store is
+  // created: the draft cookie is cleared on success, and redirecting here skipped the Done screen.
+  // Without a finished store in this browser, StartJourney itself routes the owner to the panel.
+  const onDone = initialStep === "done";
+  if (user && !draftCookie && !resume && !onDone) {
     const landing = await landingPathFor(user.id);
     const stayOnStart =
       landing === "/start" ||
