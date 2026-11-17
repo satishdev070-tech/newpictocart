@@ -14,6 +14,8 @@ export type CallState = CallUiState;
 export function callStateLabel(view: TaraCallView, t: VoiceUiCopy): string {
   if (view.phase === "connecting") return t.stateConnecting;
   const state = callUiState(view);
+  // No way to hear this call (server STT down, no browser recognition): Tara talks, seller types.
+  if (state === "listening" && view.listener === "none") return t.typeInstead;
   if (state === "listening") return view.muted ? t.stateMuted : t.stateListening;
   if (state === "thinking") return t.stateThinking;
   if (state === "speaking") return t.stateSpeaking;
@@ -23,7 +25,10 @@ export function callStateLabel(view: TaraCallView, t: VoiceUiCopy): string {
 function callHint(view: TaraCallView, t: VoiceUiCopy): string {
   if (view.paused) return t.hintPaused;
   if (view.phase === "speaking") return t.hintSpeaking;
-  if (view.phase === "listening") return view.muted ? t.hintMuted : t.hintListening;
+  if (view.phase === "listening") {
+    if (view.listener === "none") return ""; // the notice below explains it
+    return view.muted ? t.hintMuted : t.hintListening;
+  }
   if (view.phase === "thinking" || view.phase === "connecting") return t.hintThinking;
   return "";
 }
@@ -53,7 +58,7 @@ export function CallOrb({
   size?: "lg" | "sm";
 }) {
   const state = callUiState(view);
-  const listening = state === "listening" && !view.muted;
+  const listening = state === "listening" && !view.muted && view.listener !== "none";
   const dim = size === "lg" ? "size-28 sm:size-32" : "size-14";
   const icon = size === "lg" ? "size-10" : "size-6";
   const label = !active ? t.startConversation : state === "speaking" ? t.orbInterrupt : t.orbSendNow;

@@ -24,11 +24,34 @@ import {
 import { fileExtension } from "@/features/onboarding/voice/use-voice-recorder";
 import { taraGreetingAction } from "@/features/onboarding/voice/actions";
 import { taraGreetingText, type TaraGreetingKind } from "@/features/onboarding/voice/greetings";
-import { playDetached, useTaraCall, type TaraSpeech, type TaraTurnOutcome } from "@/features/onboarding/voice/use-tara-call";
+import {
+  playDetached,
+  sayDetached,
+  useTaraCall,
+  type TaraLine,
+  type TaraSpeech,
+  type TaraTurnOutcome,
+} from "@/features/onboarding/voice/use-tara-call";
 import { CallOrb, CallPanel, EndCallButton, MuteButton, callStateLabel } from "../components/voice/call-panel";
 import { ConfirmCard } from "../components/voice/confirm-card";
 import { TranscriptPanel } from "../components/voice/transcript-panel";
-import { voiceUiCopy } from "../components/voice/voice-copy";
+import { voiceUiCopy, type VoiceUiCopy } from "../components/voice/voice-copy";
+
+/** Copy for browser speech; optional until every locale ships the keys (English fallback). */
+type SpeechCopy = { heardLive: string; sttUnavailable: string; notHeard: string };
+function speechCopy(t: VoiceUiCopy): SpeechCopy {
+  const x = t as VoiceUiCopy & Partial<SpeechCopy>;
+  return {
+    heardLive: x.heardLive ?? "Hearing…",
+    sttUnavailable: x.sttUnavailable ?? "Voice recognition isn't available right now — please type your answer.",
+    notHeard: x.notHeard ?? "I didn't catch that — please say it again.",
+  };
+}
+
+/** Server says its speech-to-text provider is down (quota/auth/outage): don't retry audio. */
+function isSttUnavailable(error: { code: string; fieldErrors?: Record<string, string[]> }): boolean {
+  return error.code === "VALIDATION" && Boolean(error.fieldErrors?.reason?.includes("stt_unavailable"));
+}
 
 export type VoiceScreenProps = {
   draft: StartDraft;
@@ -95,6 +118,7 @@ export function VoiceScreen({
   onConfirm,
 }: VoiceScreenProps) {
   const t = voiceUiCopy(draft.locale);
+  const sc = speechCopy(t);
   const [facts, setFacts] = useState<VoiceFacts>(() => initialFacts(draft));
   const [entries, setEntries] = useState<TranscriptEntry[]>(() => {
     const saved = entriesFromTurns(draft.voice.turns ?? []);
@@ -148,6 +172,8 @@ export function VoiceScreen({
         const result = await startVoiceTurnAction(null, fd);
         if (!result) return { outcome: "error", speech: null };
         if (!result.ok) {
+          // Provider down: the call panel shows one notice and opens typing (no transcript spam).
+          if (payload.audio && isSttUnavailable(result.error)) return { outcome: "stt_unavailable", speech: null };
           appendEntries([makeEntry("system", result.error.fieldErrors?._form?.[0] ?? result.error.message)]);
           return { outcome: "error", speech: null };
         }
@@ -159,7 +185,7 @@ export function VoiceScreen({
         setFacts(nextFacts);
         onFacts(nextFacts, data.done, entriesToHistory(nextEntries));
         const speech = data.audioBase64 && data.audioMimeType ? { audioBase64: data.audioBase64, mimeType: data.audioMimeType } : null;
-        return { outcome: "heard", speech };
+        return { outcome: "heard", speech, text: data.reply };
       } catch {
         appendEntries([makeEntry("system", t.didntCatch)]);
         return { outcome: "error", speech: null };
@@ -176,18 +202,25 @@ export function VoiceScreen({
   }, []);
 
   /** Spoken opener: welcome on a fresh transcript, a short "welcome back" when answers exist. */
-  const greeting = useCallback(async () => {
+  const greeting = useCallback(async (): Promise<TaraLine> => {
     const hasAnswers = entriesRef.current.some((e) => e.role === "seller");
     const kind: TaraGreetingKind = hasAnswers ? "resume" : "welcome";
     const text = taraGreetingText(draft.locale, kind);
     const last = [...entriesRef.current].reverse().find((e) => e.role !== "system");
     if (last?.text !== text) appendEntries([makeEntry("tara", text)]);
-    return fetchGreetingSpeech(draft.locale, kind);
+    // No server audio (TTS down) → the call speaks `text` with the browser voice.
+    return { text, speech: await fetchGreetingSpeech(draft.locale, kind) };
   }, [appendEntries, draft.locale]);
 
   const call = useTaraCall({
     speak: voiceEnabled,
-    onTake: (audio) => runTurn({ audio }),
+    locale: draft.locale,
+    onTake: async (audio) => {
+      const o = await runTurn({ audio });
+      if (o.outcome === "stt_unavailable") openTyping();
+      return o;
+    },
+    onHeard: (text) => runTurn({ text }),
     greeting,
     onMicFailed: (reason) => {
       setMicNotice(reason === "denied" ? t.micBlocked : t.micUnsupported);
@@ -221,7 +254,9 @@ export function VoiceScreen({
       return;
     }
     void runTurn({ text }).then((o) => {
-      if (voiceEnabled && o.speech) playDetached(o.speech);
+      if (!voiceEnabled) return;
+      if (o.speech) playDetached(o.speech);
+      else if (o.text) sayDetached(o.text, draft.locale);
     });
   }
 
@@ -274,7 +309,8 @@ export function VoiceScreen({
   }
 
   const showConfirm = confirmationReady(facts) && (dismissedAt === null || entries.length > dismissedAt);
-  const notice = micNotice ?? (view.suggestTyping ? t.typeSuggestion : null);
+  const sttNotice = view.sttDown && view.listener === "none" ? sc.sttUnavailable : null;
+  const notice = micNotice ?? sttNotice ?? (call.active && view.notHeard ? sc.notHeard : null) ?? (view.suggestTyping ? t.typeSuggestion : null);
 
   return (
     <section className="mx-auto w-full max-w-6xl pb-24 lg:pb-0">
@@ -299,12 +335,15 @@ export function VoiceScreen({
         <TranscriptPanel
           t={t}
           entries={entries}
+          liveCaption={call.active ? call.caption : ""}
+          liveLabel={sc.heardLive}
           thinking={busy}
           onClear={clearTranscript}
           footer={
             showConfirm ? (
               <ConfirmCard
                 t={t}
+                locale={draft.locale}
                 facts={facts}
                 onChange={editFacts}
                 onConfirm={confirm}

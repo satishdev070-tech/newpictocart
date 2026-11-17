@@ -63,4 +63,8 @@ export const VOICE_GU_IN: VoiceUiCopyTranslation = {
   orbSendNow: "મેં જે કહ્યું તે હમણાં મોકલો",
   typeSuggestion: "મને તમારો અવાજ બરાબર સંભળાતો નથી. તમે બોલતા રહો, અથવા નીચે જવાબ લખો.",
   restart: "ફરી શરૂ કરો",
+  heardLive: "સાંભળું છું…",
+  sttUnavailable: "અત્યારે અવાજ ઓળખ ઉપલબ્ધ નથી — કૃપા કરીને તમારો જવાબ ટાઇપ કરો.",
+  notHeard: "મને બરાબર સમજાયું નહીં — કૃપા કરીને ફરી બોલો.",
+  speakNow: "હવે બોલો",
 };

@@ -64,4 +64,8 @@ export const VOICE_BN_IN: VoiceUiCopyTranslation = {
   orbSendNow: "যা বললাম এখনই পাঠান",
   typeSuggestion: "আপনার কথা ঠিক শুনতে পাচ্ছি না। কথা চালিয়ে যান, বা নিচে উত্তর লিখে দিন।",
   restart: "আবার শুরু করুন",
+  heardLive: "শুনছি…",
+  sttUnavailable: "এই মুহূর্তে ভয়েস শনাক্তকরণ উপলব্ধ নেই — অনুগ্রহ করে আপনার উত্তর লিখুন।",
+  notHeard: "ঠিক বুঝতে পারিনি — অনুগ্রহ করে আবার বলুন।",
+  speakNow: "এবার বলুন",
 };

@@ -21,6 +21,69 @@ function safeErrorMessage(err: unknown): string {
   return err.message.replace(/(?:sk_|sk-|key[_-]?|api[_-]?key[=:\s]+)[A-Za-z0-9+/=_-]{8,}/gi, "[redacted]");
 }
 
+export type SarvamErrorClass = "quota" | "auth" | "rate_limited" | "unavailable" | "bad_audio" | "unknown";
+
+/**
+ * Stable marker sent to the browser in `error.fieldErrors.reason` (AppError.context never
+ * leaves the server). `["stt_unavailable", <SarvamErrorClass>]` = speech-to-text is down for a
+ * provider reason (no credits, bad key, rate limit, outage): the client should switch to typing
+ * / browser speech instead of asking the seller to repeat themselves.
+ */
+export const STT_UNAVAILABLE_REASON = "stt_unavailable";
+
+function readStatus(err: Record<string, unknown>): number | undefined {
+  for (const key of ["statusCode", "status"]) {
+    const v = err[key];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+  }
+  return undefined;
+}
+
+function bodyText(body: unknown): string {
+  if (body == null) return "";
+  if (typeof body === "string") return body;
+  try {
+    return JSON.stringify(body);
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Pure classification of a Sarvam SDK / fetch failure. Duck-typed so it works on
+ * `SarvamAIError` (statusCode + body), `SarvamAITimeoutError`, and raw network errors.
+ */
+export function classifySarvamError(err: unknown): SarvamErrorClass {
+  if (!err || typeof err !== "object") return "unknown";
+  const e = err as Record<string, unknown>;
+  const status = readStatus(e);
+  const message = typeof e.message === "string" ? e.message : "";
+  const name = typeof e.name === "string" ? e.name : "";
+  const text = `${bodyText(e.body)} ${message}`.toLowerCase();
+  const causeCode = e.cause && typeof e.cause === "object" ? (e.cause as { code?: unknown }).code : undefined;
+  const code = typeof e.code === "string" ? e.code : typeof causeCode === "string" ? causeCode : "";
+
+  if (status === 402 || /insufficient_quota|no credits|out of credits|quota/.test(text)) return "quota";
+  if (status === 401 || status === 403) return "auth";
+  if (status === 429) return "rate_limited";
+  if (status !== undefined && status >= 500) return "unavailable";
+  if (status === 400 || status === 413 || status === 415 || status === 422) {
+    return /audio|format|codec|empty|duration|file|wav|webm|mp3|mp4|ogg|silence|too (?:long|short)|corrupt/.test(text) ? "bad_audio" : "unknown";
+  }
+  if (status !== undefined) return "unknown";
+  if (/timeout/i.test(name) || /timed? ?out|abort/.test(text) || name === "AbortError") return "unavailable";
+  if (/^(?:ECONN|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|EPIPE|UND_ERR)/.test(code)) return "unavailable";
+  if (/fetch failed|network|socket|econnreset|econnrefused|enotfound|eai_again/.test(text)) return "unavailable";
+  return "unknown";
+}
+
+const STT_UNAVAILABLE_MESSAGE: Record<Exclude<SarvamErrorClass, "bad_audio" | "unknown">, string> = {
+  quota: "Voice recognition isn't available right now — please type your answer.",
+  auth: "Voice recognition isn't available right now — please type your answer.",
+  rate_limited: "Voice recognition is busy right now — please type your answer or try again in a minute.",
+  unavailable: "Voice recognition isn't available right now — please type your answer.",
+};
+
 export type SarvamChatRole = "system" | "user" | "assistant";
 export type SarvamChatMessage = { role: SarvamChatRole; content: string };
 
@@ -102,8 +165,18 @@ export async function transcribeAudio(args: {
     });
     return { transcript: res.transcript?.trim() ?? "", detectedLanguage: res.language_code ?? null };
   } catch (err) {
-    logger.warn("sarvam.stt_failed", { language: args.languageCode, error: safeErrorMessage(err) });
-    throw new AppError("VALIDATION", { fieldErrors: { _form: ["Couldn't hear that clearly. Try again or type your answer."] } });
+    const errorClass = classifySarvamError(err);
+    logger.warn("sarvam.stt_failed", { language: args.languageCode, class: errorClass, error: safeErrorMessage(err) });
+    if (errorClass === "bad_audio" || errorClass === "unknown") {
+      throw new AppError("VALIDATION", {
+        fieldErrors: { _form: ["Couldn't hear that clearly. Try again or type your answer."] },
+        context: { reason: "stt_bad_audio", class: errorClass },
+      });
+    }
+    throw new AppError("VALIDATION", {
+      fieldErrors: { _form: [STT_UNAVAILABLE_MESSAGE[errorClass]], reason: [STT_UNAVAILABLE_REASON, errorClass] },
+      context: { reason: STT_UNAVAILABLE_REASON, class: errorClass },
+    });
   }
 }
 
@@ -139,25 +212,30 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
     return { content: text, model: res.model ?? model };
   } catch (err) {
     if (err instanceof AppError) throw err;
-    logger.warn("sarvam.chat_failed", { language: sellerLocale, error: safeErrorMessage(err) });
+    const errorClass = classifySarvamError(err);
+    logger.warn("sarvam.chat_failed", { language: sellerLocale, class: errorClass, error: safeErrorMessage(err) });
     throw new AppError("VALIDATION", {
       fieldErrors: { _form: ["Tara couldn't reply just now. Please try again or type your answer."] },
-      context: { reason: "sarvam_chat_failed" },
+      context: { reason: "sarvam_chat_failed", class: errorClass },
     });
   }
 }
 
-/** Bulbul TTS → base64 audio, or null when the locale has no TTS. */
+/**
+ * Bulbul TTS → base64 audio, or null when the locale has no TTS or the provider fails
+ * (no credits, outage, …). Never throws: the browser speaks the text with speechSynthesis.
+ */
 export async function synthesizeSpeech(args: {
   text: string;
   languageCode: SarvamLocaleCode;
 }): Promise<{ audioBase64: string; mimeType: string } | null> {
   const ttsLang = ttsLocaleFor(args.languageCode);
   if (!ttsLang) return null;
-  const client = requireClient();
+  if (!isSarvamConfigured()) return null;
   const text = args.text.slice(0, 2400);
   if (!text.trim()) return null;
   try {
+    const client = requireClient();
     const res = await client.textToSpeech.convert({
       text,
       language_code: ttsLang as SarvamAI.TextToSpeechLanguage,
@@ -169,7 +247,7 @@ export async function synthesizeSpeech(args: {
     if (!audio) return null;
     return { audioBase64: audio, mimeType: "audio/mpeg" };
   } catch (err) {
-    logger.warn("sarvam.tts_failed", { language: args.languageCode, error: safeErrorMessage(err) });
+    logger.warn("sarvam.tts_failed", { language: args.languageCode, class: classifySarvamError(err), error: safeErrorMessage(err) });
     return null;
   }
 }
@@ -198,6 +276,7 @@ export async function translateText(input: TranslateTextInput): Promise<Translat
     return { translatedText: (res.translated_text ?? text).trim() };
   } catch (err) {
     logger.warn("sarvam.translate_failed", {
+      class: classifySarvamError(err),
       source,
       target,
       model,

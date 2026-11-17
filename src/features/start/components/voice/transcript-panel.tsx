@@ -59,6 +59,24 @@ function Bubble({ entry, t }: { entry: TranscriptEntry; t: VoiceUiCopy }) {
   );
 }
 
+/** The seller's words while they are still speaking (browser recognition), dimmer than sent lines. */
+function LiveCaption({ text, label }: { text: string; label: string }) {
+  return (
+    <div className="flex flex-row-reverse items-end gap-2" aria-live="off">
+      <Avatar role="seller" />
+      <div className="flex max-w-[82%] flex-col items-end gap-1">
+        <p className="inline-flex items-center gap-1.5 font-mk-mono text-[10px] uppercase tracking-[0.12em] text-mk-dim">
+          <span aria-hidden className="size-1.5 rounded-full bg-mk-accent motion-safe:animate-pulse" />
+          {label}
+        </p>
+        <p className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md border border-dashed border-mk-accent/50 bg-mk-accent/15 px-3.5 py-2.5 text-[15px] italic leading-relaxed text-mk-text/80">
+          {text}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function TypingIndicator({ label }: { label: string }) {
   return (
     <div className="flex items-end gap-2" role="status" aria-label={label}>
@@ -80,12 +98,18 @@ function TypingIndicator({ label }: { label: string }) {
 export function TranscriptPanel({
   t,
   entries,
+  liveCaption = "",
+  liveLabel,
   thinking,
   onClear,
   footer,
 }: {
   t: VoiceUiCopy;
   entries: TranscriptEntry[];
+  /** What the seller is saying right now (empty = nothing to show). */
+  liveCaption?: string;
+  /** Label above the live caption (e.g. "Hearing…"). */
+  liveLabel?: string;
   thinking: boolean;
   onClear: () => void;
   /** Confirmation card, rendered after the last message. */
@@ -99,7 +123,7 @@ export function TranscriptPanel({
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [entries.length, thinking, hasFooter]);
+  }, [entries.length, thinking, hasFooter, liveCaption]);
 
   return (
     <div className="flex min-h-[420px] flex-col rounded-[var(--r-lg)] border border-mk-line bg-mk-elev-1 shadow-[var(--brand-shadow-card)] lg:h-[min(72dvh,680px)]">
@@ -121,6 +145,7 @@ export function TranscriptPanel({
         {entries.map((e) => (
           <Bubble key={e.id} entry={e} t={t} />
         ))}
+        {liveCaption ? <LiveCaption text={liveCaption} label={liveLabel ?? t.you} /> : null}
         {thinking ? <TypingIndicator label={t.stateThinking} /> : null}
         {footer}
       </div>

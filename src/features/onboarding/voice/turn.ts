@@ -110,6 +110,9 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
     if (audio.size > 3_000_000) {
       throw new AppError("VALIDATION", { fieldErrors: { audio: ["Keep each recording under 30 seconds."] } });
     }
+    // A provider failure (no credits, bad key, outage) rethrows as AppError with
+    // context.reason "stt_unavailable" + fieldErrors.reason ["stt_unavailable", class]:
+    // the client opens typing / browser speech. Text turns below keep working regardless.
     const stt = await transcribeAudio({ audio, languageCode: input.locale, filename: audio.name || "turn.webm" });
     transcript = stt.transcript;
     if (!transcript) {
@@ -219,7 +222,12 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
     done = factsComplete(nextFacts);
   }
 
-  const speech = await synthesizeSpeech({ text: reply, languageCode: input.locale });
+  // TTS is best-effort: a provider outage / no credits must never fail the turn (the browser
+  // speaks `reply` with speechSynthesis when audio is null).
+  const speech = await synthesizeSpeech({ text: reply, languageCode: input.locale }).catch((err: unknown) => {
+    logger.warn("onboarding.voice_tts_failed", { locale: input.locale, reason: err instanceof AppError ? String(err.context?.reason ?? err.code) : "throw" });
+    return null;
+  });
 
   return {
     transcript,
