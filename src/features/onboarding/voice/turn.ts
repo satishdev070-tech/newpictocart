@@ -1,6 +1,7 @@
 import "server-only";
 import { logger } from "@/lib/observability/logger";
-import { cityAlreadyAsked, nextOfflineStep, offlineReply } from "./offline-replies";
+import { cityAlreadyAsked, nextOfflineStep, offlineQuestion, timesAsked } from "./offline-replies";
+import { fillExpectedSlot } from "./slot-fill";
 import { chatTurn, synthesizeSpeech, transcribeAudio, isSarvamConfigured } from "@/lib/sarvam/client";
 import type { SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { AppError } from "@/lib/errors";
@@ -149,13 +150,20 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
     // AI chat unavailable (outage, no credits, timeout): keep the seller moving with the local
     // extractor and a scripted next question, same steps as the quiz. No TTS (same provider).
     logger.warn("onboarding.voice_offline_turn", { locale: input.locale, reason: err instanceof AppError ? String(err.context?.reason ?? err.code) : "throw" });
-    const offlineFacts = mergeFacts(facts, extractFactsFromText(transcript));
-    const step = nextOfflineStep(offlineFacts, cityAlreadyAsked(input.history));
+    // Slot filling: the answer fills the slot Tara just asked for (bare "विनोद जनरल स्टोर" = name).
+    // The question being answered is Tara's LAST line, so "already asked" only counts earlier ones.
+    const history = input.history ?? [];
+    const lastTara = history.map((h) => h.role).lastIndexOf("tara");
+    const cityAsked = cityAlreadyAsked(history);
+    const expecting = nextOfflineStep(facts, cityAlreadyAsked(lastTara >= 0 ? history.slice(0, lastTara) : history));
+    const offlineFacts = mergeFacts(facts, fillExpectedSlot(expecting, transcript, facts));
+    // City counts as asked once Tara asked it and the seller answered (even "skip").
+    const step = nextOfflineStep(offlineFacts, cityAsked || expecting === "city");
     return {
       transcript,
       userText: transcript,
       heard: true,
-      reply: offlineReply(input.locale, step),
+      reply: offlineQuestion(input.locale, step, step === expecting ? timesAsked(input.history, step) : 0),
       facts: offlineFacts,
       done: factsComplete(offlineFacts),
       audioBase64: null,
