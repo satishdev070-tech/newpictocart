@@ -9,6 +9,16 @@ import { styleCapital } from "./style-capital/theme.config";
 import { pureGold } from "./pure-gold/theme.config";
 import { radiantAlpha } from "./radiant-alpha/theme.config";
 import { smoothWave } from "./smooth-wave/theme.config";
+import { clearwaterCare } from "./clearwater-care/theme.config";
+import { ivorySmile } from "./ivory-smile/theme.config";
+import { velvetBloom } from "./velvet-bloom/theme.config";
+import { ironPulse } from "./iron-pulse/theme.config";
+import { regalLedger } from "./regal-ledger/theme.config";
+import { sunnyScholar } from "./sunny-scholar/theme.config";
+import { linenLoft } from "./linen-loft/theme.config";
+import { shutterNoir } from "./shutter-noir/theme.config";
+import { saffronTable } from "./saffron-table/theme.config";
+import { podiumInk } from "./podium-ink/theme.config";
 import type { InfoCategory } from "../categories";
 import type { ThemeConfig } from "./types";
 
@@ -17,7 +27,13 @@ import type { ThemeConfig } from "./types";
  * marketplace (features/theme/marketplace): store themes are neither reused nor edited.
  * Import only from informative routes (never from the proxy, root layout, marketing or root sitemap).
  */
-export const INFORMATIVE_THEMES: readonly ThemeConfig[] = [nexusCore, auraOne, zenithPrime, prismDeck, ascentPeak, vibeShift, neonSlate, styleCapital, pureGold, radiantAlpha, smoothWave];
+export const INFORMATIVE_THEMES: readonly ThemeConfig[] = [
+  // The plan's original 11.
+  nexusCore, auraOne, zenithPrime, prismDeck, ascentPeak, vibeShift, neonSlate, styleCapital, pureGold, radiantAlpha, smoothWave,
+  // 10 business-specific themes (docs/informative/EDITOR_PLAN.md "Themes"). Appended so the original
+  // themes keep their recommendation rank on ties (recommendedThemeIds breaks ties by this order).
+  clearwaterCare, ivorySmile, velvetBloom, ironPulse, regalLedger, sunnyScholar, linenLoft, shutterNoir, saffronTable, podiumInk,
+];
 
 export const DEFAULT_THEME_ID = "nexus-core";
 /** Plan: "If no match, recommend Nexus Core and Smooth Wave." */

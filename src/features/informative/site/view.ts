@@ -1,4 +1,6 @@
 import { curatedStockSet, sizedStockUrl, type StockImage } from "@/lib/unsplash-stock";
+import { infoPhotoSet, type InfoPhoto } from "../images/catalog";
+import { THEME_DEMO_SERVICE_TYPE } from "../demo";
 import type { InfoCategory } from "../categories";
 import { demoContent } from "../demo";
 import { formatDuration, formatServicePrice } from "../pricing";
@@ -42,7 +44,10 @@ export type SiteView = {
   overrides: ThemeOverrides;
 };
 
-const img = (s: StockImage | undefined, w: number, h: number): ImageView | null => (s ? { url: sizedStockUrl(s.url, w), alt: s.alt, width: w, height: h } : null);
+type Photo = Pick<StockImage, "url" | "alt" | "photographer">;
+const asStock = (p: InfoPhoto): Photo => ({ url: p.url, alt: p.alt, photographer: p.photographer });
+
+const img = (s: Photo | undefined, w: number, h: number): ImageView | null => (s ? { url: sizedStockUrl(s.url, w), alt: s.alt, width: w, height: h } : null);
 
 /** Demo site for a theme (onboarding preview, theme switcher). The user's name/logo replace the demo ones. */
 export function buildDemoView(
@@ -54,14 +59,19 @@ export function buildDemoView(
   const d = demoContent(category);
   const stock = curatedStockSet(d.photoCategory);
   const pool = [...stock.tiles, ...stock.story, ...stock.products];
-  const hero = [stock.hero[0], stock.hero[1], stock.hero[2], stock.hero[3]].flatMap((s) => img(s, 1600, 1000) ?? []);
-  const gallery = pool.slice(0, 6).flatMap((s, i) => {
+  // Business photos for the theme's own trade (dental, gym, salon…) from the verified informative
+  // set; generic stock only fills gaps. Team portraits stay from the stock "people" pool.
+  const trade: Photo[] = infoPhotoSet(category, category === theme.demoCategory ? THEME_DEMO_SERVICE_TYPE[theme.id] : null).map(asStock);
+  const heroSrc: (Photo | undefined)[] = trade.length >= 2 ? [trade[0], trade[1]] : [stock.hero[0], stock.hero[1], stock.hero[2], stock.hero[3]];
+  const gallerySrc: Photo[] = trade.length >= 7 ? trade.slice(1, 7) : pool.slice(0, 6);
+  const hero = heroSrc.flatMap((s) => img(s, 1600, 1000) ?? []);
+  const gallery = gallerySrc.flatMap((s, i) => {
     const v = img(s, 800, i % 3 === 1 ? 1000 : 600);
     return v ? [{ ...v, caption: null }] : [];
   });
   const team = pool.slice(6, 6 + d.team.length);
   // Credit exactly the photographers whose photos are shown (Unsplash licence).
-  const used = [stock.hero[0], stock.hero[1], stock.hero[2], stock.hero[3], ...pool.slice(0, 6 + d.team.length)];
+  const used = [...heroSrc, ...gallerySrc, ...team];
   const credits = [...new Map(used.flatMap((s) => (s?.photographer ? [[s.photographer.name, s.photographer] as const] : []))).values()];
   return {
     businessName: opts.businessName?.trim() || d.businessName,

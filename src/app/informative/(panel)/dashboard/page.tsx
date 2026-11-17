@@ -48,6 +48,11 @@ export default async function InformativeDashboardPage({ searchParams }: PagePro
         }
         actions={
           <>
+            {ctx.permissions.has("content.write") ? (
+              <Link href="/informative/editor?page=home" className={buttonClass({ variant: "accent" })}>
+                Open website editor
+              </Link>
+            ) : null}
             <a href="/informative/site-preview" target="_blank" rel="noopener noreferrer" className={buttonClass({ variant: "secondary" })}>
               Preview
             </a>

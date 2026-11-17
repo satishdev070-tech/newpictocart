@@ -6,6 +6,7 @@ import type { ThemeConfig } from "../themes/types";
 import type { SiteView } from "./view";
 import { btnPrimary, btnSecondary, card, container, focusRing, heading, Img, Section, SectionHeading, Stars, telHref, whatsappHref } from "./ui";
 import { EnquiryFormIsland } from "./enquiry-form";
+import { alignOf, bool, boldSegments, imageUrl, int, items, link, oneOf, s as itemStr, str, wrapperStyle } from "./section-props";
 
 /**
  * The shared section library (docs/informative/PLAN.md §5). Each section takes typed data from the
@@ -20,6 +21,18 @@ const text = (props: Record<string, unknown>, key: string, fallback: string | nu
 };
 const hid = (s: PageSection) => `s-${s.id}`;
 
+/** SectionHeading props with the editor's eyebrow / subheading / alignment overrides. */
+function head(section: PageSection, eyebrow: string | null, title: string, align: "left" | "center" = "left", intro: string | null = null) {
+  const p = section.props;
+  return {
+    id: hid(section),
+    eyebrow: str(p, "eyebrow", 60) ?? eyebrow,
+    title: str(p, "heading", 160) ?? title,
+    intro: str(p, "subheading", 400) ?? intro,
+    align: alignOf(p, align),
+  };
+}
+
 // ---- Hero --------------------------------------------------------------------------------------
 
 function HeroText({ theme, view, section, light }: P & { light?: boolean }) {
@@ -28,16 +41,23 @@ function HeroText({ theme, view, section, light }: P & { light?: boolean }) {
   const glow: CSSProperties | undefined = theme.layout.motif === "neon-glow" ? { textShadow: "0 0 24px var(--if-primary), 0 0 2px var(--if-primary)" } : undefined;
   const contact = view.nav.find((n) => n.label === "Contact")?.href ?? "/contact";
   const servicesHref = view.nav.find((n) => n.label === "Services")?.href ?? "/services";
+  const body = str(section.props, "text", 600);
+  const eyebrow = str(section.props, "eyebrow", 60);
+  const primary = link(section.props, "primaryCta") ?? { label: view.ctaLabel, href: contact };
+  const secondary = link(section.props, "secondaryCta") ?? (section.props.secondaryCta === null ? null : { label: "View services", href: servicesHref });
+  const center = alignOf(section.props) === "center";
   return (
-    <div className="max-w-2xl">
+    <div className={cn("max-w-2xl", center && "mx-auto text-center")}>
+      {eyebrow ? <p className={cn("mb-3 text-sm font-semibold tracking-wide uppercase", light ? "text-white/85" : "text-(--if-link)")}>{eyebrow}</p> : null}
       {theme.layout.motif === "gold-rules" ? <span aria-hidden className="mb-6 block h-px w-20 bg-(--if-primary)" /> : null}
       <h1 style={glow} className={cn(heading, "text-4xl leading-tight font-bold sm:text-5xl lg:text-6xl", light && "text-white", theme.layout.motif === "signature" && "italic")}>
         {title}
       </h1>
       {sub ? <p className={cn("mt-4 text-lg sm:text-xl", light ? "text-white/90" : "text-(--if-muted)")}>{sub}</p> : null}
-      <div className="mt-8 flex flex-wrap gap-3">
-        <a href={contact} className={btnPrimary}>{view.ctaLabel}</a>
-        <a href={servicesHref} className={cn(btnSecondary, light ? "text-white" : "text-(--if-text)")}>View services</a>
+      {body ? <p className={cn("mt-4 whitespace-pre-line", light ? "text-white/85" : "text-(--if-muted)")}>{body}</p> : null}
+      <div className={cn("mt-8 flex flex-wrap gap-3", center && "justify-center")}>
+        <a href={primary.href} className={btnPrimary}>{primary.label}</a>
+        {secondary ? <a href={secondary.href} className={cn(btnSecondary, light ? "text-white" : "text-(--if-text)")}>{secondary.label}</a> : null}
       </div>
     </div>
   );
@@ -51,10 +71,13 @@ function Mountain() {
   );
 }
 
+const HERO_LAYOUTS = ["split", "fullBleedImage", "typographic", "carousel"] as const;
+
 function Hero(p: P) {
-  const { theme, view } = p;
-  const img = view.hero[0];
-  switch (theme.layout.hero) {
+  const { theme, view, section } = p;
+  const custom = imageUrl(section.props, "image");
+  const img = custom ? { url: custom, alt: str(section.props, "heading", 200) ?? view.businessName, width: 1600, height: 1067 } : view.hero[0];
+  switch (oneOf(section.props, "layout", HERO_LAYOUTS) ?? theme.layout.hero) {
     case "fullBleedImage":
       return (
         <section aria-label="Introduction" className="relative isolate flex min-h-[78vh] items-end overflow-hidden px-4 pt-28 pb-16 sm:px-6">
@@ -117,15 +140,17 @@ function Hero(p: P) {
 function About({ theme, view, section }: P) {
   const body = text(section.props, "text", view.about);
   if (!body) return null;
-  const img = view.gallery[0];
+  const custom = imageUrl(section.props, "image");
+  const img = custom ? { url: custom, alt: "", width: 1200, height: 900 } : view.gallery[0];
+  const imageLeft = oneOf(section.props, "imagePosition", ["left", "right"] as const) === "left";
   return (
     <Section labelledBy={hid(section)} tone="surface">
       <div className="grid items-center gap-10 md:grid-cols-2">
-        <div>
-          <SectionHeading id={hid(section)} eyebrow="About us" title={text(section.props, "heading", `About ${view.businessName}`)!} motif={theme.layout.motif} />
+        <div className={cn(imageLeft && "md:order-2")}>
+          <SectionHeading {...head(section, "About us", `About ${view.businessName}`)} motif={theme.layout.motif} />
           <p className="text-lg leading-relaxed whitespace-pre-line text-(--if-muted)">{body}</p>
         </div>
-        {img ? <Img src={img.url} alt={img.alt} width={img.width} height={img.height} className="aspect-[4/3] w-full rounded-(--if-radius) object-cover" /> : null}
+        {img ? <Img src={img.url} alt={img.alt} width={img.width} height={img.height} className={cn("aspect-[4/3] w-full rounded-(--if-radius) object-cover", imageLeft && "md:order-1")} /> : null}
       </div>
     </Section>
   );
@@ -133,14 +158,17 @@ function About({ theme, view, section }: P) {
 
 function ServicesGrid({ theme, view, section }: P) {
   const style = theme.layout.servicesStyle;
-  const items = view.services.slice(0, 9);
-  if (!items.length) return null;
+  const list = view.services.slice(0, int(section.props, "limit", 1, 24) ?? 9);
+  if (!list.length) return null;
+  const showPrices = bool(section.props, "showPrices") ?? true;
+  const more = str(section.props, "ctaLabel", 60);
+  const servicesHref = view.nav.find((n) => n.label === "Services")?.href ?? "/services";
   const cardCls = style === "glass" ? "rounded-(--if-radius) border border-white/10 bg-white/5 backdrop-blur" : style === "deck" ? cn(card, "motion-safe:transition-transform hover:-rotate-1 hover:-translate-y-1") : card;
   return (
     <Section labelledBy={hid(section)}>
-      <SectionHeading id={hid(section)} eyebrow="What we do" title={text(section.props, "heading", "Services")!} motif={theme.layout.motif} />
+      <SectionHeading {...head(section, "What we do", "Services")} motif={theme.layout.motif} />
       <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((s) => (
+        {list.map((s) => (
           <li key={s.id} className={cn(cardCls, "flex flex-col overflow-hidden")}>
             {style === "grid" && s.imageUrl ? <Img src={s.imageUrl} alt="" width={720} height={480} className="aspect-[3/2] w-full object-cover" /> : null}
             <div className="flex flex-1 flex-col gap-2 p-5">
@@ -149,26 +177,35 @@ function ServicesGrid({ theme, view, section }: P) {
                 <a href={s.href} className={cn("hover:underline", focusRing)}>{s.name}</a>
               </h3>
               {s.shortDescription ? <p className="text-(--if-muted)">{s.shortDescription}</p> : null}
-              <p className="mt-auto flex flex-wrap gap-x-3 pt-2 text-sm font-semibold">
-                {s.priceText ? <span className="text-(--if-link)">{s.priceText}</span> : null}
-                {s.durationText ? <span className="text-(--if-muted)">{s.durationText}</span> : null}
-              </p>
+              {showPrices ? (
+                <p className="mt-auto flex flex-wrap gap-x-3 pt-2 text-sm font-semibold">
+                  {s.priceText ? <span className="text-(--if-link)">{s.priceText}</span> : null}
+                  {s.durationText ? <span className="text-(--if-muted)">{s.durationText}</span> : null}
+                </p>
+              ) : null}
             </div>
           </li>
         ))}
       </ul>
+      {more ? (
+        <p className="mt-8">
+          <a href={servicesHref} className={btnSecondary}>{more}</a>
+        </p>
+      ) : null}
     </Section>
   );
 }
 
 function ServicesList({ theme, view, section }: P) {
-  if (!view.services.length) return null;
+  const list = view.services.slice(0, int(section.props, "limit", 1, 24) ?? 24);
+  if (!list.length) return null;
+  const showPrices = bool(section.props, "showPrices") ?? true;
   const menu = theme.layout.servicesStyle === "menu";
   return (
     <Section labelledBy={hid(section)} tone={menu ? "bg" : "surface"}>
-      <SectionHeading id={hid(section)} eyebrow={menu ? "Menu" : "What we do"} title={text(section.props, "heading", menu ? "Service menu" : "Services")!} align={menu ? "center" : "left"} motif={theme.layout.motif} />
+      <SectionHeading {...head(section, menu ? "Menu" : "What we do", menu ? "Service menu" : "Services", menu ? "center" : "left")} motif={theme.layout.motif} />
       <ul className={cn("divide-y divide-(--if-border)", menu && "mx-auto max-w-3xl")}>
-        {view.services.map((s) => (
+        {list.map((s) => (
           <li key={s.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-5">
             <div className="min-w-0 flex-1">
               <h3 className={cn(heading, "text-lg font-semibold")}>
@@ -177,11 +214,13 @@ function ServicesList({ theme, view, section }: P) {
               </h3>
               {s.shortDescription ? <p className="text-(--if-muted)">{s.shortDescription}</p> : null}
             </div>
-            {menu ? <span aria-hidden className="hidden flex-1 border-b border-dotted border-(--if-border) sm:block" /> : null}
-            <p className="text-right text-sm font-semibold">
-              {s.priceText ? <span className="block text-(--if-link)">{s.priceText}</span> : null}
-              {s.durationText ? <span className="block text-(--if-muted)">{s.durationText}</span> : null}
-            </p>
+            {menu && showPrices ? <span aria-hidden className="hidden flex-1 border-b border-dotted border-(--if-border) sm:block" /> : null}
+            {showPrices ? (
+              <p className="text-right text-sm font-semibold">
+                {s.priceText ? <span className="block text-(--if-link)">{s.priceText}</span> : null}
+                {s.durationText ? <span className="block text-(--if-muted)">{s.durationText}</span> : null}
+              </p>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -190,14 +229,16 @@ function ServicesList({ theme, view, section }: P) {
 }
 
 function Highlights({ theme, view, section }: P) {
-  if (!view.highlights.length) return null;
+  const custom = items(section.props, "items", 8, (o) => (itemStr(o, "title", 120) ? { icon: itemStr(o, "icon", 8), title: itemStr(o, "title", 120), text: itemStr(o, "text", 400) } : null));
+  const list = custom.length ? custom : view.highlights.map((h) => ({ icon: "", ...h }));
+  if (!list.length) return null;
   return (
     <Section labelledBy={hid(section)} tone="surface">
-      <SectionHeading id={hid(section)} eyebrow="Why choose us" title={text(section.props, "heading", "Why people choose us")!} motif={theme.layout.motif} />
+      <SectionHeading {...head(section, "Why choose us", "Why people choose us")} motif={theme.layout.motif} />
       <ul className="grid gap-6 md:grid-cols-3">
-        {view.highlights.map((h) => (
-          <li key={h.title} className={cn(card, "p-6")}>
-            <span aria-hidden className="mb-4 block h-1 w-10 rounded-full bg-(--if-accent)" />
+        {list.map((h, i) => (
+          <li key={`${h.title}-${i}`} className={cn(card, "p-6")}>
+            {h.icon ? <span aria-hidden className="mb-3 block text-3xl">{h.icon}</span> : <span aria-hidden className="mb-4 block h-1 w-10 rounded-full bg-(--if-accent)" />}
             <h3 className={cn(heading, "text-lg font-semibold")}>{h.title}</h3>
             <p className="mt-2 text-(--if-muted)">{h.text}</p>
           </li>
@@ -208,13 +249,15 @@ function Highlights({ theme, view, section }: P) {
 }
 
 function Stats({ theme, view, section }: P) {
-  if (!view.stats.length) return null;
+  const custom = items(section.props, "items", 6, (o) => (itemStr(o, "value", 20) && itemStr(o, "label", 60) ? { value: itemStr(o, "value", 20), label: itemStr(o, "label", 60) } : null));
+  const list = custom.length ? custom : view.stats;
+  if (!list.length) return null;
   const strip = theme.layout.motif === "stats-strip" || theme.layout.motif === "gradient";
   return (
     <section aria-labelledby={hid(section)} className={cn("px-4 py-10 sm:px-6", strip ? "bg-(--if-primary) text-(--if-on-primary)" : "bg-(--if-bg)")}>
       <h2 id={hid(section)} className="sr-only">At a glance</h2>
       <dl className={cn(container, "grid grid-cols-1 gap-6 text-center sm:grid-cols-3")}>
-        {view.stats.map((s) => (
+        {list.map((s) => (
           <div key={s.label}>
             <dt className={cn("text-sm font-medium", strip ? "opacity-90" : "text-(--if-muted)")}>{s.label}</dt>
             <dd className={cn(heading, "order-first text-4xl font-bold")}>{s.value}</dd>
@@ -226,12 +269,13 @@ function Stats({ theme, view, section }: P) {
 }
 
 function Team({ theme, view, section }: P) {
-  if (!view.team.length) return null;
+  const team = view.team.slice(0, int(section.props, "limit", 1, 24) ?? 24);
+  if (!team.length) return null;
   return (
     <Section labelledBy={hid(section)}>
-      <SectionHeading id={hid(section)} eyebrow="Our people" title={text(section.props, "heading", "Meet the team")!} motif={theme.layout.motif} />
+      <SectionHeading {...head(section, "Our people", "Meet the team")} motif={theme.layout.motif} />
       <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {view.team.map((m) => (
+        {team.map((m) => (
           <li key={m.name} className={cn(card, "overflow-hidden")}>
             {m.photoUrl ? <Img src={m.photoUrl} alt={`${m.name}${m.role ? `, ${m.role}` : ""}`} width={480} height={480} className="aspect-square w-full object-cover" /> : null}
             <div className="p-5">
@@ -246,12 +290,13 @@ function Team({ theme, view, section }: P) {
   );
 }
 
-function Gallery({ theme, view, section }: P) {
+function Gallery({ theme, view: base, section }: P) {
+  const view = { ...base, gallery: base.gallery.slice(0, int(section.props, "limit", 1, 30) ?? 30) };
   if (!view.gallery.length) return null;
-  const variant = theme.layout.gallery;
+  const variant = oneOf(section.props, "layout", ["grid", "masonry"] as const) ?? theme.layout.gallery;
   return (
     <Section labelledBy={hid(section)} tone="surface">
-      <SectionHeading id={hid(section)} eyebrow="Gallery" title={text(section.props, "heading", variant === "beforeAfter" ? "Before & after" : "Our work")!} motif={theme.layout.motif} />
+      <SectionHeading {...head(section, "Gallery", variant === "beforeAfter" ? "Before & after" : "Our work")} motif={theme.layout.motif} />
       {variant === "masonry" ? (
         <ul className="columns-1 gap-4 sm:columns-2 lg:columns-3 [&>li]:mb-4 [&>li]:break-inside-avoid">
           {view.gallery.map((g) => (
@@ -286,9 +331,10 @@ function Gallery({ theme, view, section }: P) {
   );
 }
 
-function Testimonials({ theme, view, section }: P) {
+function Testimonials({ theme, view: base, section }: P) {
+  const view = { ...base, testimonials: base.testimonials.slice(0, int(section.props, "limit", 1, 12) ?? 12) };
   if (!view.testimonials.length) return null;
-  const variant = theme.layout.testimonials;
+  const variant = oneOf(section.props, "layout", ["cards", "carousel", "quote"] as const) ?? theme.layout.testimonials;
   const title = text(section.props, "heading", "What our clients say")!;
   if (variant === "quote") {
     const [first, ...rest] = view.testimonials;
@@ -316,7 +362,7 @@ function Testimonials({ theme, view, section }: P) {
   const carousel = variant === "carousel";
   return (
     <Section labelledBy={hid(section)} tone="surface">
-      <SectionHeading id={hid(section)} eyebrow="Testimonials" title={title} motif={theme.layout.motif} />
+      <SectionHeading {...head(section, "Testimonials", title)} motif={theme.layout.motif} />
       <ul className={carousel ? "-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 motion-safe:scroll-smooth" : "grid gap-6 md:grid-cols-3"} aria-label={carousel ? "Testimonials, scroll sideways for more" : undefined}>
         {view.testimonials.map((t) => (
           <li key={t.authorName} className={cn(card, "flex flex-col gap-3 p-6", carousel && "w-[85%] shrink-0 snap-start sm:w-[45%] lg:w-[32%]")}>
@@ -330,12 +376,46 @@ function Testimonials({ theme, view, section }: P) {
   );
 }
 
+type Plan = { name: string; price: string; features: string[]; highlighted: boolean; cta: { label: string; href: string } | null };
+
 function Pricing({ theme, view, section }: P) {
+  const plans: Plan[] = items(section.props, "items", 6, (o) => {
+    const name = itemStr(o, "name", 80);
+    const price = itemStr(o, "price", 40);
+    if (!name || !price) return null;
+    const features = Array.isArray(o.features) ? o.features.filter((f): f is string => typeof f === "string" && !!f.trim()).slice(0, 8).map((f) => f.trim().slice(0, 120)) : [];
+    const cta = link({ c: { label: o.ctaLabel, href: o.ctaHref } }, "c");
+    return { name, price, features, highlighted: o.highlighted === true, cta };
+  });
+  if (plans.length) {
+    const contact = view.nav.find((n) => n.label === "Contact")?.href ?? "/contact";
+    return (
+      <Section labelledBy={hid(section)}>
+        <SectionHeading {...head(section, "Pricing", "Simple, clear pricing", "center")} motif={theme.layout.motif} />
+        <ul className={cn("grid gap-6", plans.length >= 3 ? "md:grid-cols-3" : "md:grid-cols-2")}>
+          {plans.map((pl, i) => (
+            <li key={`${pl.name}-${i}`} className={cn(card, "flex flex-col p-6", pl.highlighted && "ring-2 ring-(--if-primary)")}>
+              <h3 className={cn(heading, "text-lg font-semibold")}>{pl.name}</h3>
+              <p className={cn(heading, "my-4 text-3xl font-bold text-(--if-link)")}>{pl.price}</p>
+              {pl.features.length ? (
+                <ul className="mb-6 space-y-2 text-(--if-muted)">
+                  {pl.features.map((f) => (
+                    <li key={f} className="flex gap-2"><span aria-hidden className="text-(--if-link)">✓</span>{f}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <a href={pl.cta?.href ?? contact} className={cn(pl.highlighted ? btnPrimary : btnSecondary, "mt-auto justify-center")}>{pl.cta?.label ?? view.ctaLabel}</a>
+            </li>
+          ))}
+        </ul>
+      </Section>
+    );
+  }
   const priced = view.services.filter((s) => s.priceText && s.priceText !== "Price on request").slice(0, 3);
   if (!priced.length) return null;
   return (
     <Section labelledBy={hid(section)}>
-      <SectionHeading id={hid(section)} eyebrow="Pricing" title={text(section.props, "heading", "Simple, clear pricing")!} align="center" motif={theme.layout.motif} />
+      <SectionHeading {...head(section, "Pricing", "Simple, clear pricing", "center")} motif={theme.layout.motif} />
       <ul className="grid gap-6 md:grid-cols-3">
         {priced.map((s, i) => (
           <li key={s.id} className={cn(card, "flex flex-col p-6 text-center", i === 1 && "ring-2 ring-(--if-primary)")}>
@@ -351,12 +431,13 @@ function Pricing({ theme, view, section }: P) {
 }
 
 function Faq({ theme, view, section }: P) {
-  if (!view.faqs.length) return null;
+  const faqs = view.faqs.slice(0, int(section.props, "limit", 1, 30) ?? 30);
+  if (!faqs.length) return null;
   return (
     <Section labelledBy={hid(section)} tone="surface">
-      <SectionHeading id={hid(section)} eyebrow="FAQ" title={text(section.props, "heading", "Frequently asked questions")!} motif={theme.layout.motif} />
-      <div className="max-w-3xl divide-y divide-(--if-border) border-y border-(--if-border)">
-        {view.faqs.map((f) => (
+      <SectionHeading {...head(section, "FAQ", "Frequently asked questions")} motif={theme.layout.motif} />
+      <div className={cn("max-w-3xl divide-y divide-(--if-border) border-y border-(--if-border)", alignOf(section.props) === "center" && "mx-auto")}>
+        {faqs.map((f) => (
           <details key={f.question} className="group py-4">
             <summary className={cn("flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 font-semibold [&::-webkit-details-marker]:hidden", focusRing)}>
               {f.question}
@@ -372,16 +453,34 @@ function Faq({ theme, view, section }: P) {
 
 function Cta({ view, section }: P) {
   const contact = view.nav.find((n) => n.label === "Contact")?.href ?? "/contact";
+  const primary = link(section.props, "primaryCta") ?? { label: view.ctaLabel, href: contact };
+  const secondary = link(section.props, "secondaryCta");
+  const img = imageUrl(section.props, "image");
+  const eyebrow = str(section.props, "eyebrow", 60);
   return (
-    <section aria-labelledby={hid(section)} className="bg-(--if-primary) px-4 py-16 text-(--if-on-primary) sm:px-6">
-      <div className={cn(container, "flex flex-col items-start justify-between gap-6 md:flex-row md:items-center")}>
+    <section aria-labelledby={hid(section)} className="relative isolate overflow-hidden bg-(--if-primary) px-4 py-16 text-(--if-on-primary) sm:px-6">
+      {img ? (
+        <>
+          <Img src={img} alt="" width={1600} height={900} className="absolute inset-0 -z-10 h-full w-full object-cover" />
+          <div aria-hidden className="absolute inset-0 -z-10 bg-black/60" />
+        </>
+      ) : null}
+      <div className={cn(container, "flex flex-col items-start justify-between gap-6 md:flex-row md:items-center", img && "text-white")}>
         <div>
+          {eyebrow ? <p className="mb-2 text-sm font-semibold tracking-wide uppercase opacity-90">{eyebrow}</p> : null}
           <h2 id={hid(section)} className={cn(heading, "text-3xl font-semibold")}>{text(section.props, "heading", "Ready when you are")}</h2>
           <p className="mt-2 opacity-90">{text(section.props, "text", "Tell us what you need and we'll get back to you within a day.")}</p>
         </div>
-        <a href={contact} className={cn("inline-flex min-h-11 items-center rounded-(--if-radius) bg-(--if-on-primary) px-6 py-3 font-semibold text-(--if-primary)", focusRing)}>
-          {view.ctaLabel}
-        </a>
+        <div className="flex flex-wrap gap-3">
+          <a href={primary.href} className={cn("inline-flex min-h-11 items-center rounded-(--if-radius) bg-(--if-on-primary) px-6 py-3 font-semibold text-(--if-primary)", focusRing)}>
+            {primary.label}
+          </a>
+          {secondary ? (
+            <a href={secondary.href} className={cn("inline-flex min-h-11 items-center rounded-(--if-radius) border border-current px-6 py-3 font-semibold", focusRing)}>
+              {secondary.label}
+            </a>
+          ) : null}
+        </div>
       </div>
     </section>
   );
@@ -390,10 +489,13 @@ function Cta({ view, section }: P) {
 function Contact({ theme, view, section }: P) {
   const wa = whatsappHref(view.contact.whatsapp ?? view.contact.phone, view.businessName);
   const tel = telHref(view.contact.phone);
-  const mapHref = view.contact.mapUrl ?? (view.contact.address || view.contact.city ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(view.contact.address ?? view.contact.city ?? "")}` : null);
+  const showMap = bool(section.props, "showMap") ?? true;
+  const showHours = bool(section.props, "showHours") ?? false;
+  const mapHref = !showMap ? null : view.contact.mapUrl ?? (view.contact.address || view.contact.city ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(view.contact.address ?? view.contact.city ?? "")}` : null);
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   return (
     <Section labelledBy={hid(section)}>
-      <SectionHeading id={hid(section)} eyebrow="Contact" title={text(section.props, "heading", "Get in touch")!} motif={theme.layout.motif} />
+      <SectionHeading {...head(section, "Contact", "Get in touch")} motif={theme.layout.motif} />
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {tel ? (
           <li className={cn(card, "p-5")}>
@@ -421,6 +523,16 @@ function Contact({ theme, view, section }: P) {
           </li>
         ) : null}
       </ul>
+      {showHours && view.hours.length ? (
+        <dl className={cn(card, "mt-6 grid max-w-md grid-cols-[auto_1fr] gap-x-6 gap-y-1 p-5 text-sm")}>
+          {view.hours.map((h) => (
+            <div key={h.day} className="contents">
+              <dt className="font-semibold">{DAYS[h.day] ?? h.day}</dt>
+              <dd className="text-(--if-muted)">{h.closed ? "Closed" : `${h.open} – ${h.close}`}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
     </Section>
   );
 }
@@ -435,7 +547,7 @@ function EnquiryForm({ view, section }: P) {
     const serviceId = typeof section.props.serviceId === "string" ? section.props.serviceId : undefined;
     return (
       <Section id="enquiry" labelledBy={hid(section)} tone="surface">
-        <SectionHeading id={hid(section)} eyebrow="Enquiry" title={text(section.props, "heading", "Send us an enquiry")!} intro="We usually reply within a day." />
+        <SectionHeading {...head(section, "Enquiry", "Send us an enquiry", "left", str(section.props, "text", 400) ?? "We usually reply within a day.")} />
         <EnquiryFormIsland
           id={hid(section)}
           services={view.services.map((s) => ({ id: s.id, name: s.name }))}
@@ -452,7 +564,7 @@ function EnquiryForm({ view, section }: P) {
   const field = "mt-1 block min-h-11 w-full rounded-(--if-radius) border border-(--if-border) bg-(--if-bg) px-3 py-2 text-(--if-text)";
   return (
     <Section labelledBy={hid(section)} tone="surface">
-      <SectionHeading id={hid(section)} eyebrow="Enquiry" title={text(section.props, "heading", "Send us an enquiry")!} intro="We usually reply within a day." />
+      <SectionHeading {...head(section, "Enquiry", "Send us an enquiry", "left", str(section.props, "text", 400) ?? "We usually reply within a day.")} />
       <form className="max-w-2xl" aria-describedby={view.preview ? `${hid(section)}-note` : undefined}>
         <fieldset disabled={view.preview} className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium">Name<span aria-hidden> *</span><input name="name" required autoComplete="name" className={field} /></label>
@@ -493,9 +605,13 @@ function RichText({ section }: P) {
   const title = text(section.props, "heading", null);
   return (
     <Section labelledBy={title ? hid(section) : undefined}>
-      <div className="max-w-3xl">
+      <div className={cn("max-w-3xl", alignOf(section.props) === "center" && "mx-auto text-center")}>
         {title ? <h2 id={hid(section)} className={cn(heading, "mb-4 text-3xl font-semibold")}>{title}</h2> : null}
-        <p className="text-lg leading-relaxed whitespace-pre-line text-(--if-muted)">{body}</p>
+        {body.split(/\n\s*\n/).map((para, i) => (
+          <p key={i} className="mb-4 text-lg leading-relaxed whitespace-pre-line text-(--if-muted)">
+            {boldSegments(para).map((seg, j) => (seg.bold ? <strong key={j} className="text-(--if-text)">{seg.text}</strong> : <span key={j}>{seg.text}</span>))}
+          </p>
+        ))}
       </div>
     </Section>
   );
@@ -532,8 +648,15 @@ export function SectionList({ theme, view, sections }: { theme: ThemeConfig; vie
     <>
       {visible.map((s, i) => {
         const C = REGISTRY[s.type];
+        const w = wrapperStyle(s.props);
         return (
-          <div key={s.id} data-section={s.type}>
+          <div key={s.id} data-section={s.type} data-section-id={s.id} style={w.style} className={cn(w.bgImage && "relative isolate", w.className)}>
+            {w.bgImage ? (
+              <>
+                <Img src={w.bgImage} alt="" width={1600} height={900} className="absolute inset-0 -z-10 h-full w-full object-cover" />
+                <div aria-hidden className="absolute inset-0 -z-10 bg-black/55" />
+              </>
+            ) : null}
             {theme.layout.motif === "wave" && i > 0 ? WAVE : null}
             <C theme={theme} view={view} section={s} isFirst={i === 0} />
           </div>

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { buttonClass } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/layout";
 import { demoContent } from "@/features/informative/demo";
 import { defaultPageSections } from "@/features/informative/defaults";
@@ -24,7 +26,17 @@ export default async function InformativeCustomizePage() {
   const hero = heroText(homeSections);
   return (
     <>
-      <PageHeader title="Customize website" description="Change how your website looks and see it update on the right. Save when you're happy." />
+      <PageHeader
+        title="Customize website"
+        description="Change how your website looks and see it update on the right. Save when you're happy."
+        actions={
+          ctx.permissions.has("content.write") ? (
+            <Link href="/informative/editor?page=home" className={buttonClass({ variant: "secondary" })}>
+              Open website editor
+            </Link>
+          ) : undefined
+        }
+      />
       <Customizer
         initial={{
           themeId: themeOrDefault(site.themeId).id,
