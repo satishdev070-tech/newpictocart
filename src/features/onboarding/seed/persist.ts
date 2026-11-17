@@ -43,7 +43,7 @@ async function onConflictReuse(
   }
 }
 
-async function ensureCategories(tenantId: string, plan: ReadyStorePlan): Promise<{ ids: Record<string, string>; skipped: number }> {
+export async function ensureCategories(tenantId: string, plan: ReadyStorePlan): Promise<{ ids: Record<string, string>; skipped: number }> {
   const supabase = await createSupabaseServerClient();
   const { data: existing, error } = await supabase.from("categories").select("id, slug").eq("tenant_id", tenantId);
   if (error) throw mapDbError(error);
@@ -82,7 +82,7 @@ async function ensureCategories(tenantId: string, plan: ReadyStorePlan): Promise
   return { ids, skipped };
 }
 
-async function ensureCollections(tenantId: string, plan: ReadyStorePlan): Promise<{ ids: Record<string, string>; skipped: number }> {
+export async function ensureCollections(tenantId: string, plan: ReadyStorePlan): Promise<{ ids: Record<string, string>; skipped: number }> {
   const supabase = await createSupabaseServerClient();
   const { data: existing, error } = await supabase.from("collections").select("id, slug").eq("tenant_id", tenantId);
   if (error) throw mapDbError(error);
@@ -127,7 +127,7 @@ async function ensureCollections(tenantId: string, plan: ReadyStorePlan): Promis
   return { ids, skipped };
 }
 
-async function ensureProducts(
+export async function ensureProducts(
   tenantId: string,
   industry: IndustrySlug,
   plan: ReadyStorePlan,
@@ -197,7 +197,7 @@ async function findProductIdBySlug(tenantId: string, slug: string): Promise<stri
   return data?.id ?? null;
 }
 
-async function ensureMenu(tenantId: string, plan: ReadyStorePlan, catIds: Record<string, string>): Promise<{ menuId: string | null; skipped: boolean }> {
+export async function ensureMenu(tenantId: string, plan: ReadyStorePlan, catIds: Record<string, string>): Promise<{ menuId: string | null; skipped: boolean }> {
   const supabase = await createSupabaseServerClient();
   const { data: existing, error } = await supabase.from("menus").select("id, handle").eq("tenant_id", tenantId).eq("handle", "main").maybeSingle();
   if (error) throw mapDbError(error);
@@ -262,7 +262,7 @@ async function ensureMenu(tenantId: string, plan: ReadyStorePlan, catIds: Record
   return { menuId: menu.id, skipped: false };
 }
 
-async function ensureBlogs(tenantId: string, userId: string, plan: ReadyStorePlan): Promise<{ ids: string[]; skipped: number }> {
+export async function ensureBlogs(tenantId: string, userId: string, plan: ReadyStorePlan): Promise<{ ids: string[]; skipped: number }> {
   const supabase = await createSupabaseServerClient();
   const { data: existing, error } = await supabase.from("blog_posts").select("id, slug").eq("tenant_id", tenantId);
   if (error) throw mapDbError(error);
@@ -383,7 +383,7 @@ export async function ensureInfoPages(tenantId: string, storeName: string, story
 }
 
 /** Backfill path: the plan is gone, so About uses the saved store name and description. */
-async function ensureInfoPagesFromStore(tenantId: string): Promise<void> {
+export async function ensureInfoPagesFromStore(tenantId: string): Promise<void> {
   try {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.from("stores").select("name, description").eq("tenant_id", tenantId).maybeSingle();
@@ -398,7 +398,7 @@ async function ensureInfoPagesFromStore(tenantId: string): Promise<void> {
   }
 }
 
-async function updateStoreSeo(tenantId: string, plan: ReadyStorePlan, storeName: string): Promise<void> {
+export async function updateStoreSeo(tenantId: string, plan: ReadyStorePlan, storeName: string): Promise<void> {
   const supabase = await createSupabaseServerClient();
   const { data: current, error } = await supabase.from("stores").select("seo, tagline, description").eq("tenant_id", tenantId).maybeSingle();
   if (error) throw mapDbError(error);
@@ -561,7 +561,7 @@ async function paintSeedTheme(ctx: TenantContext, paths: SeedImagePaths): Promis
 }
 
 /** Publish the seeded draft so the public storefront matches the catalogue. A failure leaves the draft in place. */
-async function publishSeededTheme(tenantId: string): Promise<void> {
+export async function publishSeededTheme(tenantId: string): Promise<void> {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("publish_theme", { p_tenant: tenantId, p_label: "Ready store" });
   if (error) {
@@ -569,6 +569,25 @@ async function publishSeededTheme(tenantId: string): Promise<void> {
     return;
   }
   revalidateStorefront(tenantId);
+}
+
+/**
+ * Phased finalize, last seed step: writes the plan's homepage copy and the imported photos into the
+ * theme draft, then publishes it. Safe to re-run (same plan → same draft). With no plan (store
+ * seeded earlier, or plan cache missing) it only fills empty photo slots, never seller-edited copy.
+ */
+export async function mergeSeedTheme(ctx: TenantContext, plan: ReadyStorePlan | null, paths: SeedImagePaths): Promise<void> {
+  if (plan) {
+    const cats = await ensureCategories(ctx.tenantId, plan);
+    const cols = await ensureCollections(ctx.tenantId, plan);
+    const ids: Ids = { categories: cats.ids, collections: cols.ids, products: [] };
+    await mergeThemeContent(ctx, plan, ids, themeSeedImages(plan, ids, paths));
+    await publishSeededTheme(ctx.tenantId);
+    return;
+  }
+  const painted = await paintSeedTheme(ctx, paths);
+  if (painted) await publishSeededTheme(ctx.tenantId);
+  else revalidateStorefront(ctx.tenantId);
 }
 
 /**

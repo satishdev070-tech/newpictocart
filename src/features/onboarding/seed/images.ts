@@ -191,7 +191,7 @@ async function importPhoto(tenantId: string, userId: string, photo: StockImage, 
     const bytes = await fetchPhoto(url);
     const item = await registerImportedImage(tenantId, userId, {
       bytes,
-      filename: `${photo.id}.jpg`,
+      filename: seedPhotoFilename(photo),
       folder: "seed",
       alt: seedPhotoAlt(photo),
       width: null,
@@ -311,4 +311,162 @@ export async function seedCatalogueImages(args: {
     skipped(args.tenantId, "catalogue", err);
     return empty;
   }
+}
+
+/** Photos imported per request in the phased /start finalize (Workers Free: 10 ms CPU per request). */
+export const SEED_IMAGE_BATCH = 4;
+
+/** Media-library filename of an imported curated photo. Also how a retry finds it again. */
+export function seedPhotoFilename(photo: Pick<StockImage, "id">): string {
+  return `${photo.id}.jpg`;
+}
+
+type CatalogueRows = Awaited<ReturnType<typeof readCatalogue>>;
+
+/** Curated photos the catalogue still needs, hero first, de-duplicated. PURE. */
+export function wantedSeedPhotos(rows: CatalogueRows, assignment: SeedPhotoAssignment): StockImage[] {
+  const wanted = new Map<string, StockImage>();
+  const add = (photo: StockImage | null | undefined) => {
+    if (photo) wanted.set(photo.id, photo);
+  };
+  add(assignment.hero);
+  rows.products.forEach((row, i) => row.missing && add(assignment.products[i]));
+  rows.categories.forEach((row, i) => row.missing && add(assignment.categories[i]));
+  rows.collections.forEach((row, i) => row.missing && add(assignment.collections[i]));
+  rows.blogs.forEach((row, i) => row.missing && add(assignment.blogs[i]));
+  return [...wanted.values()];
+}
+
+/**
+ * Next photos to download: not yet in the media library, not given up on (`skip`), at most `size`.
+ * `remainingAfter` counts what is left once this batch is done (assuming it succeeds). PURE.
+ */
+export function pickSeedImageBatch(
+  wanted: readonly string[],
+  imported: ReadonlySet<string>,
+  skip: ReadonlySet<string>,
+  size = SEED_IMAGE_BATCH,
+): { batch: string[]; remainingAfter: number } {
+  const open = wanted.filter((id) => !imported.has(id) && !skip.has(id));
+  const batch = open.slice(0, Math.max(0, size));
+  return { batch, remainingAfter: open.length - batch.length };
+}
+
+async function importedSeedPhotos(tenantId: string, photos: StockImage[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (photos.length === 0) return out;
+  const byName = new Map(photos.map((p) => [seedPhotoFilename(p), p.id]));
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("media_assets")
+    .select("storage_path, filename")
+    .eq("tenant_id", tenantId)
+    .eq("folder", "seed")
+    .in("filename", [...byName.keys()]);
+  if (error) throw mapDbError(error);
+  for (const row of data ?? []) {
+    const id = row.filename ? byName.get(row.filename) : undefined;
+    if (id && !out.has(id)) out.set(id, row.storage_path);
+  }
+  return out;
+}
+
+/** Puts already-imported photos on catalogue rows that still have none. */
+async function attachSeedPhotos(tenantId: string, rows: CatalogueRows, assignment: SeedPhotoAssignment, stored: Map<string, string>): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  for (const [i, row] of rows.categories.entries()) {
+    const photoId = assignment.categories[i]?.id ?? "";
+    const path = row.missing ? stored.get(photoId) : undefined;
+    if (!path) continue;
+    const { error } = await supabase.from("categories").update({ image_path: path }).eq("tenant_id", tenantId).eq("id", row.id).is("image_path", null);
+    if (error) skipped(tenantId, photoId, mapDbError(error));
+  }
+  for (const [i, row] of rows.collections.entries()) {
+    const photoId = assignment.collections[i]?.id ?? "";
+    const path = row.missing ? stored.get(photoId) : undefined;
+    if (!path) continue;
+    const { error } = await supabase.from("collections").update({ image_path: path }).eq("tenant_id", tenantId).eq("id", row.id).is("image_path", null);
+    if (error) skipped(tenantId, photoId, mapDbError(error));
+  }
+  for (const [i, row] of rows.blogs.entries()) {
+    const photoId = assignment.blogs[i]?.id ?? "";
+    const path = row.missing ? stored.get(photoId) : undefined;
+    if (!path) continue;
+    const { error } = await supabase.from("blog_posts").update({ cover_path: path }).eq("tenant_id", tenantId).eq("id", row.id).is("cover_path", null);
+    if (error) skipped(tenantId, photoId, mapDbError(error));
+  }
+  for (const [i, row] of rows.products.entries()) {
+    const photoId = assignment.products[i]?.id ?? "";
+    const path = row.missing ? stored.get(photoId) : undefined;
+    if (!path) continue;
+    try {
+      await attachLibraryImages(tenantId, row.id, [path]);
+    } catch (err) {
+      skipped(tenantId, photoId || row.id, err);
+    }
+  }
+}
+
+/**
+ * One small batch of the seed photo import (phased /start finalize). Downloads at most `batchSize`
+ * curated photos that are not in the media library yet, then attaches every imported photo to the
+ * rows that still have none. Idempotent: a retry reuses photos imported earlier (found by filename).
+ * `failed` photo ids should be passed back in `skip` so a broken download does not loop forever.
+ */
+export async function seedCatalogueImagesBatch(args: {
+  tenantId: string;
+  userId: string;
+  industry: string;
+  skip?: readonly string[];
+  batchSize?: number;
+  fetchPhoto?: FetchSeedPhoto;
+}): Promise<{ remaining: number; failed: string[] }> {
+  const rows = await readCatalogue(args.tenantId);
+  const assignment = assignSeedPhotos(args.industry, {
+    products: rows.products.length,
+    categories: rows.categories.length,
+    collections: rows.collections.length,
+    blogs: rows.blogs.length,
+  });
+  const wanted = wantedSeedPhotos(rows, assignment);
+  if (wanted.length === 0) return { remaining: 0, failed: [] };
+  const stored = await importedSeedPhotos(args.tenantId, wanted);
+  const { batch, remainingAfter } = pickSeedImageBatch(
+    wanted.map((p) => p.id),
+    new Set(stored.keys()),
+    new Set(args.skip ?? []),
+    args.batchSize ?? SEED_IMAGE_BATCH,
+  );
+  const fetchPhoto = args.fetchPhoto ?? fetchSeedPhoto;
+  const byId = new Map(wanted.map((p) => [p.id, p]));
+  const results = await Promise.all(
+    batch.map(async (id) => [id, await importPhoto(args.tenantId, args.userId, byId.get(id)!, fetchPhoto)] as const),
+  );
+  const failed: string[] = [];
+  for (const [id, path] of results) {
+    if (path) stored.set(id, path);
+    else failed.push(id);
+  }
+  await attachSeedPhotos(args.tenantId, rows, assignment, stored);
+  return { remaining: remainingAfter, failed };
+}
+
+/** Homepage photo paths from what the seed import already stored (no downloads). */
+export async function seedImagePathsFromStore(tenantId: string, industry: string): Promise<SeedImagePaths> {
+  const paths = emptySeedImagePaths();
+  try {
+    const supabase = await createSupabaseServerClient();
+    const [cats, cols] = await Promise.all([
+      supabase.from("categories").select("id, image_path").eq("tenant_id", tenantId).not("image_path", "is", null).limit(50),
+      supabase.from("collections").select("id, image_path").eq("tenant_id", tenantId).not("image_path", "is", null).limit(20),
+    ]);
+    for (const row of cats.data ?? []) if (row.image_path) paths.categoryById[row.id] = row.image_path;
+    for (const row of cols.data ?? []) if (row.image_path) paths.collectionById[row.id] = row.image_path;
+    const hero = pickStock(curatedStockSet(toUnsplashCategory(industry)), "hero", 0);
+    if (hero) paths.hero = (await importedSeedPhotos(tenantId, [hero])).get(hero.id) ?? null;
+    paths.attached = Boolean(paths.hero) || Object.keys(paths.categoryById).length > 0 || Object.keys(paths.collectionById).length > 0;
+  } catch (err) {
+    skipped(tenantId, "paths", err);
+  }
+  return paths;
 }

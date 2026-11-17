@@ -11,8 +11,8 @@ const FINISH = "/start/informative/finish";
 
 /**
  * Informative Step 4 — reuses the existing account creation (Google, or the emailed one-time code
- * the store journey uses), returning to the finish step, which completes onboarding in one
- * transaction. Signed-in people skip straight to finishing.
+ * the store journey uses), returning to the finish step, which creates the site in small resumable
+ * phases (onboarding/phases.ts). Signed-in people skip straight to finishing.
  */
 export function AccountStep({ locale = "en-IN", signedIn, googleAvailable, businessName, onBack, onFinish }: { locale?: string; signedIn: boolean; googleAvailable: boolean; businessName: string; onBack: () => void; onFinish: () => void }) {
   const c = infoCopy(locale);

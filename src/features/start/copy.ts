@@ -177,6 +177,10 @@ export type StartCopy = {
     steps: string[];
     finishing: string;
     themeFallback: string;
+    /** Shown when a build phase still fails after automatic retries. */
+    failedTitle: string;
+    failedBody: string;
+    tryAgain: string;
   };
   account: {
     /** Eyebrow above the main headline (e.g. Create Account). */
@@ -240,6 +244,14 @@ export type StartCopy = {
     copied: string;
     whatsapp: string;
     dashboard: string;
+    /** Badge while the new store is still a draft (not yet published). */
+    readyBadge: string;
+    draftNote: string;
+    publish: string;
+    publishing: string;
+    publishFailed: string;
+    preview: string;
+    myDashboard: string;
     tryLook: string;
     journeyTitle: string;
     journeySub: string;
@@ -441,6 +453,9 @@ const EN: StartCopy = {
     ],
     finishing: "Finishing your store…",
     themeFallback: "Your storefront",
+    failedTitle: "We hit a snag while building your store",
+    failedBody: "Your progress is saved. Tap Try again and we'll pick up where we stopped.",
+    tryAgain: "Try again",
   },
   account: {
     eyebrow: "Create Account",
@@ -502,6 +517,13 @@ const EN: StartCopy = {
     copied: "Copied!",
     whatsapp: "Share on WhatsApp",
     dashboard: "Go to dashboard →",
+    readyBadge: "Your store is ready",
+    draftNote: "It's saved as a draft. Publish it when you're happy, so customers can find it.",
+    publish: "Publish my store",
+    publishing: "Publishing…",
+    publishFailed: "We couldn't publish your store. Try again.",
+    preview: "Preview store",
+    myDashboard: "Go to my dashboard",
     tryLook: "Try another look",
     journeyTitle: "From first tap to a live store",
     journeySub: "You walked the full path — language, mode, business, look, and account.",
@@ -708,6 +730,9 @@ const HI: StartCopy = {
     ],
     finishing: "दुकान फ़ाइनल हो रही है…",
     themeFallback: "आपकी दुकान",
+    failedTitle: "दुकान बनाते समय थोड़ी दिक्कत आ गई",
+    failedBody: "आपका काम सेव है। “फिर कोशिश करें” दबाइए, हम वहीं से आगे बढ़ेंगे जहाँ रुके थे।",
+    tryAgain: "फिर कोशिश करें",
   },
   account: {
     eyebrow: "अकाउंट बनाएँ",
@@ -769,6 +794,13 @@ const HI: StartCopy = {
     copied: "कॉपी हो गया!",
     whatsapp: "WhatsApp पर शेयर करें",
     dashboard: "डैशबोर्ड पर जाएं →",
+    readyBadge: "आपकी दुकान तैयार है",
+    draftNote: "अभी यह ड्राफ्ट में सेव है। जब आप संतुष्ट हों तब पब्लिश करें, ताकि ग्राहक इसे देख सकें।",
+    publish: "मेरी दुकान पब्लिश करें",
+    publishing: "पब्लिश हो रही है…",
+    publishFailed: "दुकान पब्लिश नहीं हो पाई। फिर कोशिश करें।",
+    preview: "दुकान देखें",
+    myDashboard: "मेरे डैशबोर्ड पर जाएं",
     tryLook: "दूसरा लुक आज़माएं",
     journeyTitle: "पहले टैप से लाइव दुकान तक",
     journeySub: "आपने पूरी राह चली — भाषा, मोड, बिज़नेस, लुक और अकाउंट।",

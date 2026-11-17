@@ -3,6 +3,7 @@ import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/observability/logger";
 import { runSellerAiGeneration } from "@/features/seller-ai/server";
 import { getSarvamLocale } from "@/lib/sarvam/locales";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatServicePrice } from "../pricing";
 import type { ServiceInput } from "../schemas";
 import type { InformativeContext } from "../server/context";
@@ -204,4 +205,12 @@ export async function buildSiteWithAi(ctx: InformativeContext, opts: { free: boo
   await applySiteBuild(ctx, build, { replaceFaqs: opts.free });
   logger.info("informative.ai_build_done", { tenantId: ctx.tenantId, free: opts.free, services: build.services.length, faqs: build.faqs.length });
   return { built: true };
+}
+
+/** Free right after onboarding (the site is under an hour old); otherwise it costs credits. */
+const FREE_WINDOW_MS = 60 * 60 * 1000;
+
+export async function siteIsNew(tenantId: string): Promise<boolean> {
+  const { data } = await (await createSupabaseServerClient()).from("tenants").select("created_at").eq("id", tenantId).maybeSingle();
+  return !!data && Date.now() - new Date(data.created_at).getTime() < FREE_WINDOW_MS;
 }

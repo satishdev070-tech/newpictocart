@@ -123,8 +123,8 @@ describe("completion action is refused when the flag does not allow it", () => {
     vi.doMock("@/lib/auth/session", () => ({ requireUserWithRetry: async () => ({ id: "u1", email: "a@b.c", displayName: null }) }));
     const rpc = vi.fn();
     vi.doMock("@/lib/supabase/server", () => ({ createSupabaseServerClient: async () => ({ rpc }) }));
-    const { completeInformativeOnboardingAction } = await import("@/features/informative/onboarding/actions");
-    const r = await completeInformativeOnboardingAction({ draft: {} });
+    const { createInformativeSiteAction } = await import("@/features/informative/onboarding/actions");
+    const r = await createInformativeSiteAction({ draft: {} });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.code).toBe("FORBIDDEN");
     expect(rpc).not.toHaveBeenCalled();

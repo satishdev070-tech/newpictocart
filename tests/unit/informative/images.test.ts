@@ -142,11 +142,16 @@ describe("completion payload includes relevant images and the locale", () => {
   });
 });
 
-// ---- Server seeding (mocked Supabase + media) ------------------------------------------------
+// ---- Server seeding, in batches (mocked Supabase + media) -----------------------------------
 
 type Call = { table: string; op: string; payload?: unknown; filters: [string, unknown][] };
 const calls: Call[] = [];
-let galleryCount = 0;
+/** media_assets rows already imported (folder "seed"). */
+let media: { storage_path: string; filename: string }[] = [];
+/** info_gallery_items image paths already present. */
+let galleryPaths: string[] = [];
+let heroSet = false;
+const servicesWithImage = new Set<string>();
 
 function builder(table: string) {
   const call: Call = { table, op: "select", filters: [] };
@@ -159,15 +164,32 @@ function builder(table: string) {
   b.insert = (p: unknown) => {
     Object.assign(call, { op: "insert", payload: p });
     calls.push(call);
+    for (const r of p as { image_path: string }[]) galleryPaths.push(r.image_path);
     return Promise.resolve({ error: null });
   };
   b.select = chain(() => undefined);
   b.eq = chain((k, v) => call.filters.push([String(k), v]));
   b.is = chain((k, v) => call.filters.push([String(k), v]));
+  b.in = chain((k, v) => call.filters.push([String(k), v]));
   b.then = (resolve: (v: unknown) => void) => {
     calls.push(call);
-    if (call.op === "select") return resolve({ count: galleryCount, error: null });
-    return resolve({ data: [{ id: "x" }], error: null });
+    if (call.op === "select" && table === "media_assets") {
+      const names = (call.filters.find(([k]) => k === "filename")?.[1] ?? []) as string[];
+      return resolve({ data: media.filter((m) => names.includes(m.filename)), error: null });
+    }
+    if (call.op === "select" && table === "info_gallery_items") return resolve({ data: galleryPaths.map((image_path) => ({ image_path })), error: null });
+    if (call.op === "update" && table === "info_sites") {
+      const was = heroSet;
+      heroSet = true;
+      return resolve({ data: was ? [] : [{ tenant_id: "t" }], error: null });
+    }
+    if (call.op === "update" && table === "info_services") {
+      const slug = String(call.filters.find(([k]) => k === "slug")?.[1]);
+      const was = servicesWithImage.has(slug);
+      servicesWithImage.add(slug);
+      return resolve({ data: was ? [] : [{ id: slug }], error: null });
+    }
+    return resolve({ data: [], error: null });
   };
   return b;
 }
@@ -175,52 +197,88 @@ function builder(table: string) {
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: async () => ({ from: (t: string) => builder(t) }) }));
 vi.mock("@/features/media/server/media", () => ({
-  registerImportedImage: vi.fn(async (tenantId: string, _u: string, input: { filename: string }) => ({ path: `tenant/${tenantId}/media/${input.filename}` })),
+  registerImportedImage: vi.fn(async (tenantId: string, _u: string, input: { filename: string }) => {
+    const path = `tenant/${tenantId}/media/${input.filename}`;
+    media.push({ storage_path: path, filename: input.filename });
+    return { path };
+  }),
 }));
 vi.mock("@/lib/observability/logger", () => ({ logger: { warn: vi.fn(), info: vi.fn() } }));
 
-describe("seedInformativeImages", () => {
+describe("importInformativeImagesBatch", () => {
   const tenantId = "11111111-1111-4111-8111-111111111111";
   beforeEach(() => {
     calls.length = 0;
-    galleryCount = 0;
+    media = [];
+    galleryPaths = [];
+    heroSet = false;
+    servicesWithImage.clear();
   });
 
-  it("downloads each planned photo once from images.unsplash.com and fills hero, gallery and services", async () => {
-    const { seedInformativeImages } = await import("@/features/informative/images/seed");
+  it("imports ≤ 2 photos per call, counts down `remaining` to 0, and downloads each photo once", async () => {
+    const { importInformativeImagesBatch, planPhotos } = await import("@/features/informative/images/seed");
     const plan = planInfoImages({ category: "gym_fitness", serviceTypeId: "gym", serviceCount: 3 });
+    const total = planPhotos(plan).length;
     const fetched: string[] = [];
-    const r = await seedInformativeImages({
-      tenantId,
-      userId: "u1",
-      plan,
-      serviceSlugs: ["a", "b", "c"],
-      fetchPhoto: async (url) => {
-        fetched.push(url);
-        return new Uint8Array([1]);
-      },
-    });
+    const fetchPhoto = async (url: string) => {
+      fetched.push(url);
+      return new Uint8Array([1]);
+    };
+    const remaining: number[] = [];
+    for (let i = 0; i < 10; i++) {
+      const r = await importInformativeImagesBatch({ tenantId, userId: "u1", plan, serviceSlugs: ["a", "b", "c"], batchSize: 2, fetchPhoto });
+      expect(r.imported.length).toBeLessThanOrEqual(2);
+      remaining.push(r.remaining);
+      if (r.remaining === 0) break;
+    }
+    expect(remaining).toEqual(Array.from({ length: Math.ceil(total / 2) }, (_, i) => Math.max(0, total - 2 * (i + 1))));
     expect(fetched.every((u) => isUnsplashImageUrl(u))).toBe(true);
     expect(new Set(fetched).size).toBe(fetched.length);
+    expect(fetched.length).toBe(total);
     expect(fetched.length).toBeLessThanOrEqual(INFO_PHOTOS_PER_SITE);
-    expect(r).toEqual({ hero: true, gallery: 6, services: 3 });
-    const hero = calls.find((c) => c.table === "info_sites" && c.op === "update")!;
-    expect(hero.filters).toContainEqual(["hero_image_path", null]); // never overwrites
-    const gallery = calls.find((c) => c.table === "info_gallery_items" && c.op === "insert")!;
-    expect((gallery.payload as { tenant_id: string; image_path: string }[]).every((g) => g.tenant_id === tenantId && g.image_path.startsWith(`tenant/${tenantId}/`))).toBe(true);
-    const svc = calls.filter((c) => c.table === "info_services" && c.op === "update");
-    expect(svc.map((c) => c.filters.find(([k]) => k === "slug")?.[1])).toEqual(["a", "b", "c"]);
+    // A call after everything is in imports nothing.
+    const again = await importInformativeImagesBatch({ tenantId, userId: "u1", plan, serviceSlugs: ["a", "b", "c"], fetchPhoto });
+    expect(again).toMatchObject({ imported: [], remaining: 0 });
+    expect(fetched.length).toBe(total);
+    // Every gallery photo once, every service an image; tenant-scoped paths.
+    expect(galleryPaths).toHaveLength(plan.gallery.length);
+    expect(new Set(galleryPaths).size).toBe(galleryPaths.length);
+    expect(galleryPaths.every((g) => g.startsWith(`tenant/${tenantId}/`))).toBe(true);
+    expect([...servicesWithImage].sort()).toEqual(["a", "b", "c"]);
   });
 
-  it("skips the gallery when the site already has one, and survives failed downloads", async () => {
-    const { seedInformativeImages } = await import("@/features/informative/images/seed");
-    galleryCount = 2;
+  it("never overwrites: hero and service updates only where empty, and a seller's own gallery is left alone", async () => {
+    const { importInformativeImagesBatch } = await import("@/features/informative/images/seed");
+    galleryPaths = ["tenant/x/media/sellers-own.jpg"];
     const plan = planInfoImages({ category: "salon_beauty", serviceTypeId: "salon", serviceCount: 1 });
-    const r = await seedInformativeImages({ tenantId, userId: "u1", plan, serviceSlugs: ["s"], fetchPhoto: async () => Promise.reject(new Error("offline")) });
-    expect(r).toEqual({ hero: false, gallery: 0, services: 0 });
-    galleryCount = 2;
-    const r2 = await seedInformativeImages({ tenantId, userId: "u1", plan, serviceSlugs: ["s"], fetchPhoto: async () => new Uint8Array([1]) });
-    expect(r2.gallery).toBe(0);
-    expect(r2.hero).toBe(true);
+    for (let i = 0; i < 10; i++) {
+      const r = await importInformativeImagesBatch({ tenantId, userId: "u1", plan, serviceSlugs: ["s"], fetchPhoto: async () => new Uint8Array([1]) });
+      if (!r.remaining) break;
+    }
+    expect(calls.some((c) => c.table === "info_gallery_items" && c.op === "insert")).toBe(false);
+    expect(galleryPaths).toEqual(["tenant/x/media/sellers-own.jpg"]);
+    const updates = calls.filter((c) => c.op === "update");
+    expect(updates.length).toBeGreaterThan(0);
+    for (const u of updates) {
+      const col = u.table === "info_sites" ? "hero_image_path" : "image_path";
+      expect(u.filters).toContainEqual([col, null]);
+    }
+  });
+
+  it("failed downloads are reported, skipped next time, and never loop forever", async () => {
+    const { importInformativeImagesBatch, planPhotos } = await import("@/features/informative/images/seed");
+    const plan = planInfoImages({ category: "salon_beauty", serviceTypeId: "salon", serviceCount: 1 });
+    const total = planPhotos(plan).length;
+    const skip: string[] = [];
+    let calls = 0;
+    for (; calls < 10; calls++) {
+      const r = await importInformativeImagesBatch({ tenantId, userId: "u1", plan, serviceSlugs: ["s"], skip, fetchPhoto: async () => Promise.reject(new Error("offline")) });
+      expect(r.imported).toEqual([]);
+      skip.push(...r.failed);
+      if (!r.remaining) break;
+    }
+    expect(skip).toHaveLength(total);
+    expect(calls + 1).toBe(Math.ceil(total / 2));
+    expect(media).toEqual([]);
   });
 });

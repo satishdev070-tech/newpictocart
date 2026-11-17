@@ -26,7 +26,7 @@ function storeJourneyLocale(): ReturnType<typeof parseInfoLocale> {
 
 /**
  * Informative onboarding (docs/informative/PLAN.md): basic info → theme (live preview) → starter
- * services (optional) → account → finish (one transaction) → /informative/dashboard. Every step has
+ * services (optional) → account → finish (phased, resumable; phases.ts) → ready panel → /informative/dashboard. Every step has
  * its own URL (/start/informative/<step>); a step that needs earlier data sends the person back to
  * the first incomplete step. Back on the first step returns to the website-type choice.
  */
@@ -138,7 +138,7 @@ export function InformativeJourney({
     case "finish":
       return (
         <InformativeShell logo={logo} step={null} locale={draftLocale}>
-          <FinishStep draft={draft} onEdit={(s) => go(s)} />
+          <FinishStep draft={draft} setProgress={(finish) => setDraft((d) => ({ ...d, finish }))} onEdit={(s) => go(s)} />
         </InformativeShell>
       );
   }

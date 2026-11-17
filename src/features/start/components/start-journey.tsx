@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useToast } from "@/components/ui/toast";
-import { finalizeStartDraftAction } from "../actions";
 import { finalizeOnce, isFinalizeInFlight } from "../finalize-once";
-import type { ActionResult } from "@/lib/actions/result";
-import type { FinalizeStartResult } from "../actions";
+import { clearFinalizeProgress, readFinalizeProgress, runStartFinalize, subscribeFinalizeProgress } from "../finalize-run";
+import { initialFinalizeProgress } from "../finalize-phases";
+import { phaseProgressPct, phaseStepIndex } from "../building-progress";
+import { startCopy } from "../copy";
 import { useStartDraft } from "../draft/use-start-draft";
 import { clearStartDraftCookie, clearStartDraftStorage, setStartDraftCookie } from "../draft/storage";
 import type { StartDraft, StartScreen } from "../draft/schema";
@@ -31,6 +31,9 @@ import { mergeFacts } from "@/features/onboarding/voice/facts";
 import { isStartStepId, startStepPath, type StartStepId } from "../steps";
 import { applyStoreFacts, storeFactsFromDraft, type StoreFacts } from "../draft/apply-facts";
 import { TypeSelector, informativeEntryHref } from "@/features/informative/onboarding/components/type-selector";
+
+const SERVER_FINALIZE_PROGRESS = initialFinalizeProgress();
+const serverFinalizeProgress = () => SERVER_FINALIZE_PROGRESS;
 
 /** Legacy screens remapped into the current graph (do not mount the old UIs). The old manual
  * "business" form is now the quiz (same fields, multi-select). */
@@ -77,10 +80,11 @@ export function StartJourney({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const toast = useToast();
   const { draft, setDraft, patchDraft, hydrated } = useStartDraft({ plan, theme });
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [finalizeState, setFinalizeState] = useState<ActionResult<FinalizeStartResult> | null>(null);
+  /** Set when a finalize phase still failed after its retries; "Try again" resumes that phase. */
+  const [finalizeError, setFinalizeError] = useState<string | null>(null);
+  const finalizeProgress = useSyncExternalStore(subscribeFinalizeProgress, readFinalizeProgress, serverFinalizeProgress);
   const finalizing = useRef(false);
   const routedEmpty = useRef(false);
   const leavingDone = useRef(false);
@@ -112,30 +116,27 @@ export function StartJourney({
   const finalize = useCallback(() => {
     if (!draft || finalizing.current || draft.result) return;
     finalizing.current = true;
-    setFinalizeState(null);
-    const fd = new FormData();
-    fd.set("draftJson", JSON.stringify(draft));
+    setFinalizeError(null);
+    const draftJson = JSON.stringify(draft);
     // Single-flight across remounts (OTP → /start → /start/lang → /start/account): a remounted
-    // journey joins the in-flight call instead of starting a second seed on the same tenant.
-    void finalizeOnce(() => finalizeStartDraftAction(null, fd)).then((res) => {
-      setFinalizeState(res);
-      if (res.ok) {
-        setDraft((d) => ({ ...d, result: { slug: res.data.slug, name: res.data.name }, screen: "done" }));
-        // Mid-journey gates should stop treating this as in-progress; keep LS for Done UI.
-        clearStartDraftCookie();
-      } else {
+    // journey joins the in-flight run instead of starting a second seed on the same tenant.
+    // Phases (store → catalogue → content → photos → theme → finish) each retry 3× with backoff and
+    // save their resume point, so a Worker killed mid-phase (Error 1102) never restarts from scratch.
+    void finalizeOnce(() => runStartFinalize(draftJson))
+      .catch(() => null)
+      .then((res) => {
+        if (res?.ok) {
+          clearFinalizeProgress();
+          setDraft((d) => ({ ...d, result: { slug: res.slug, name: res.name }, screen: "done" }));
+          // Mid-journey gates should stop treating this as in-progress; keep LS for Done UI.
+          clearStartDraftCookie();
+          return;
+        }
         finalizing.current = false;
-        // Prefer action `_form` (finishError / EnvValidationError). Opaque INTERNAL only
-        // falls back to the longer “account connected…” copy.
-        const message =
-          res.error.fieldErrors?._form?.[0] ??
-          (res.error.code === "INTERNAL" || res.error.message === "Something went wrong. Please try again."
-            ? "Your account is connected, but the store could not be finished. Try again."
-            : res.error.message);
-        toast.show({ tone: "error", message });
-      }
-    });
-  }, [draft, setDraft, toast]);
+        const fallback = startCopy(draft.locale).building.failedBody;
+        setFinalizeError(res?.message || fallback);
+      });
+  }, [draft, setDraft]);
 
   const go = useCallback(
     (screen: StartScreen) => {
@@ -254,7 +255,7 @@ export function StartJourney({
     finalize();
   }, [hydrated, draft, signedIn, finalize]);
 
-  const finishMessage = finalizeState && !finalizeState.ok;
+  const finishMessage = finalizeError !== null;
   // A finalize started by a previous mount of this journey is still running → keep the building UI.
   const finalizeInFlight = isFinalizeInFlight();
   const screen = draft.screen;
@@ -453,15 +454,36 @@ export function StartJourney({
 
   if (!finishMessage && (renderScreen === "building" || openingStore)) {
     const waitForFinalize = Boolean(signedIn && draftReadyToFinalize(draft) && !draft.result);
+    const stepCount = startCopy(draft.locale).building.steps.length;
     return shell(
       <BuildingScreen
         draft={draft}
         rootDomain={rootDomain}
         waitForFinalize={waitForFinalize}
+        progress={
+          waitForFinalize
+            ? { stepIndex: phaseStepIndex(finalizeProgress.phase, stepCount), pct: phaseProgressPct(finalizeProgress) }
+            : undefined
+        }
         onComplete={() => {
           // Signed-in finalize is started by the effect above; only advance unsigned journeys here.
           if (!signedIn) go("account");
         }}
+      />,
+      { layout: "center" },
+    );
+  }
+
+  if (finishMessage && signedIn && !draft.result && draftReadyToFinalize(draft)) {
+    const stepCount = startCopy(draft.locale).building.steps.length;
+    return shell(
+      <BuildingScreen
+        draft={draft}
+        rootDomain={rootDomain}
+        waitForFinalize
+        progress={{ stepIndex: phaseStepIndex(finalizeProgress.phase, stepCount), pct: phaseProgressPct(finalizeProgress) }}
+        failure={{ message: finalizeError ?? "", onRetry: () => finalize() }}
+        onComplete={() => {}}
       />,
       { layout: "center" },
     );
@@ -499,8 +521,13 @@ export function StartJourney({
       slug={draft.result?.slug ?? slug}
       storeName={storeName}
       rootDomain={rootDomain}
+      onLeave={() => {
+        leavingDone.current = true;
+        clearFinalizeProgress();
+      }}
       onDashboard={() => {
         leavingDone.current = true;
+        clearFinalizeProgress();
         // Hard nav avoids a soft-nav race with empty-draft redirect after clearing storage.
         // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- intentional full page leave from Done
         window.location.assign("/dashboard");
@@ -512,6 +539,7 @@ export function StartJourney({
 
 export function restartStartJourney(plan?: string | null, theme?: string | null) {
   clearStartDraftStorage();
+  clearFinalizeProgress();
   const d = emptyStartDraft({ plan, theme });
   return d;
 }
