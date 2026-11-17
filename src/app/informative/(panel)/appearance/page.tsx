@@ -22,9 +22,16 @@ export default async function InformativeAppearancePage() {
         title="Appearance"
         description="Switch design any time: your services, pages and photos stay as they are."
         actions={
-          <Link href="/informative/customize" className={buttonClass({ variant: "accent" })}>
-            Open live customizer
-          </Link>
+          <>
+            {ctx.permissions.has("content.write") ? (
+              <Link href="/informative/editor?page=home" className={buttonClass({ variant: "secondary" })}>
+                Open website editor
+              </Link>
+            ) : null}
+            <Link href="/informative/customize" className={buttonClass({ variant: "accent" })}>
+              Open live customizer
+            </Link>
+          </>
         }
       />
       <Card>

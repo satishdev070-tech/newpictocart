@@ -14,7 +14,7 @@ export function fontStack(key: FontKey): string {
   return `var(--if-font-${key}), ${SERIF.has(key) ? 'Georgia, "Times New Roman", serif' : 'system-ui, -apple-system, "Segoe UI", sans-serif'}`;
 }
 
-/** The pairs used by the 11 themes; the Appearance picker offers exactly these. */
+/** The pairs used by the themes (every theme uses one of these); the Appearance picker offers exactly these. */
 export const FONT_PAIRS = [
   { id: "inter-inter", label: "Inter", heading: "inter", body: "inter" },
   { id: "poppins-nunito", label: "Poppins + Nunito", heading: "poppins", body: "nunito" },

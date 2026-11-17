@@ -8,12 +8,17 @@ import { resolveColors, themeCssVars } from "@/features/informative/themes/token
 import { themeConfigSchema } from "@/features/informative/themes/types";
 
 const PLAN_IDS = ["nexus-core", "aura-one", "zenith-prime", "prism-deck", "ascent-peak", "vibe-shift", "neon-slate", "style-capital", "pure-gold", "radiant-alpha", "smooth-wave"];
+/** The 10 business-specific themes added for the editor release (docs/informative/EDITOR_PLAN.md). */
+const NEW_IDS = ["clearwater-care", "ivory-smile", "velvet-bloom", "iron-pulse", "regal-ledger", "sunny-scholar", "linen-loft", "shutter-noir", "saffron-table", "podium-ink"];
+const ALL_IDS = [...PLAN_IDS, ...NEW_IDS];
 
 describe("theme registry", () => {
-  it("has exactly the plan's 11 themes, in order, each in its own folder", () => {
-    expect(INFORMATIVE_THEMES.map((t) => t.id)).toEqual(PLAN_IDS);
+  it("has the plan's 11 themes then the 10 new ones (21), in order, unique, each in its own folder", () => {
+    expect(INFORMATIVE_THEMES.map((t) => t.id)).toEqual(ALL_IDS);
+    expect(new Set(INFORMATIVE_THEMES.map((t) => t.id)).size).toBe(21);
+    expect(new Set(INFORMATIVE_THEMES.map((t) => t.name)).size).toBe(21);
     const folders = readdirSync("src/features/informative/themes", { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
-    expect(folders).toEqual([...PLAN_IDS].sort());
+    expect(folders).toEqual([...ALL_IDS].sort());
   });
 
   it("every config passes the schema", () => {
@@ -44,6 +49,16 @@ describe("theme registry", () => {
     expect(recommendedThemeIds("salon_beauty")[0]).toBe("radiant-alpha");
     expect(recommendedThemeIds("gym_fitness")[0]).toBe("ascent-peak");
     expect(recommendedThemeIds("interior_design")[0]).toBe("vibe-shift");
+    // Specialists: the new business themes are the second pick next to the original first pick.
+    expect(recommendedThemeIds("clinic_healthcare")).toEqual(["zenith-prime", "clearwater-care"]);
+    expect(recommendedThemeIds("salon_beauty")).toEqual(["radiant-alpha", "velvet-bloom"]);
+    expect(recommendedThemeIds("gym_fitness")).toEqual(["ascent-peak", "iron-pulse"]);
+    expect(recommendedThemeIds("consultancy")).toEqual(["nexus-core", "regal-ledger"]);
+    expect(recommendedThemeIds("dance_academy_coaching")).toEqual(["aura-one", "sunny-scholar"]);
+    expect(recommendedThemeIds("interior_design")).toEqual(["vibe-shift", "linen-loft"]);
+    expect(recommendedThemeIds("personal_brand")).toEqual(["style-capital", "podium-ink"]);
+    // Photographers and caterers are Events-family service types.
+    expect(recommendedThemeIds("events_community")).toEqual(["shutter-noir", "saffron-table"]);
   });
 
   it("unknown stored theme ids render the default theme", () => {

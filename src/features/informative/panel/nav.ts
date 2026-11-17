@@ -29,6 +29,7 @@ export const INFORMATIVE_NAV: { id: string; label: string; icon: NavGroup["icon"
     label: "Website",
     icon: "themes",
     items: [
+      { href: "/informative/website-editor", label: "Website editor", permission: "content.write", icon: "pages" },
       { href: "/informative/customize", label: "Customize", permission: "theme.edit", icon: "theme" },
       { href: "/informative/appearance", label: "Appearance", permission: "theme.edit", icon: "themes" },
       { href: "/informative/business", label: "Business info", permission: "settings.write", icon: "stores" },

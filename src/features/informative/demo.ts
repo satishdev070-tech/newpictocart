@@ -367,3 +367,34 @@ export function demoContent(category: InfoCategory): DemoContent {
 export function sampleServices(category: InfoCategory): DemoService[] {
   return demoContent(category).services.slice(0, 3);
 }
+
+/**
+ * The service type whose curated photos (images/photos.ts) best show each theme's demo, so the
+ * dental theme previews a dental clinic and the restaurant theme previews food rather than the
+ * category mix. Data only (no image imports here): callers resolve photos with
+ * `infoPhotoSet(theme.demoCategory, THEME_DEMO_SERVICE_TYPE[theme.id])` from images/catalog.ts.
+ * Every type belongs to its theme's demoCategory (unit tested).
+ */
+export const THEME_DEMO_SERVICE_TYPE: Readonly<Record<string, string>> = {
+  "nexus-core": "chartered_accountant",
+  "aura-one": "dance_academy",
+  "zenith-prime": "clinic",
+  "prism-deck": "event_planner",
+  "ascent-peak": "gym",
+  "vibe-shift": "interior_designer",
+  "neon-slate": "freelancer",
+  "style-capital": "life_coach",
+  "pure-gold": "salon",
+  "radiant-alpha": "bridal_makeup",
+  "smooth-wave": "physiotherapist",
+  "clearwater-care": "clinic",
+  "ivory-smile": "dentist",
+  "velvet-bloom": "spa",
+  "iron-pulse": "gym",
+  "regal-ledger": "lawyer",
+  "sunny-scholar": "coaching_centre",
+  "linen-loft": "interior_designer",
+  "shutter-noir": "photographer",
+  "saffron-table": "caterer",
+  "podium-ink": "life_coach",
+};

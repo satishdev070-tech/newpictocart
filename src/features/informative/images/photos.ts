@@ -17,9 +17,9 @@ export const INFO_PHOTO_ROWS: Record<string, readonly InfoPhotoRow[]> = {
     ["1540497077202-7c8a3999166f", "Jonathan Borba", "jonathanborba", "People training in a gym"],
     ["1571019614242-c5c5dee9f50b", "Alora Griffiths", "aloragriffiths", "Trainer coaching a client"],
     ["1534438327276-14e5300c3a48", "Victor Freitas", "victorfreitas", "Dumbbells on a rack in a gym"],
-    ["1599058945522-28d584b6f14f", "Anastase Maragos", "visuals", "Row of treadmills in a gym"],
+    ["1721394749382-223a18ce8bb9", "Alex Tyson", "alextyson195", "A row of treadmills in a bright gym with windows"],
     ["1518611012118-696072aa579a", "Bruce Mars", "brucemars", "Group fitness class stretching"],
-    ["1517963879433-6ad2b756fd75", "Victor Freitas", "victorfreitas", "Kettlebells lined up on a gym floor"],
+    ["1771586791190-97ed536c54af", "Rahul Singh", "rahul_singhsss", "Modern gym with treadmills and weight machines"],
   ],
   dentist: [
     ["1629909613654-28e377c37b09", "Benyamin Bohlouli", "benyamin_bohlouli", "Modern dental office with chair and equipment"],
@@ -365,6 +365,16 @@ export const INFO_PHOTO_ROWS: Record<string, readonly InfoPhotoRow[]> = {
     ["1579389083078-4e7018379f7e", "Priscilla Du Preez 🇨🇦", "priscilladupreez", "A man sitting in front of a laptop computer"],
     ["1546795729-f3a5d42087f5", "Etienne Boulanger", "etienneblg", "Person seated at the table using laptop"],
     ["1544006659-f0b21884ce1d", "Štefan Štefančík", "cikstefan", "Person wearing long-sleeve top working on laptop"],
+  ],
+  life_coach: [
+    ["1719396727736-ced998cc8758", "Jametlene Reskp", "reskp", "A speaker on stage in front of an audience"],
+    ["1587825140708-dfaf72ae4b04", "Alexandre Pellaes", "apellaes", "Speaker on stage addressing a large audience"],
+    ["1773828755374-0ee802d9f44b", "Marwen Larafa", "marwen_larafa", "Speaker presenting to a large audience in an auditorium"],
+    ["1758273241078-8eec353836be", "Vitaly Gariev", "silverkblack", "Two women talking in a coaching session"],
+    ["1573497620053-ea5300f94f21", "Christina @ wocintechchat.com", "wocintechchat", "Two women talking across a table"],
+    ["1551836022-4c4c79ecde51", "Amy Hirschi", "amyhirschi", "A mentor and a client talking over a tablet"],
+    ["1714976694756-28bf07af3758", "Vitaly Gariev", "silverkblack", "A coach taking notes during a one-to-one session"],
+    ["1551836022-d5d88e9218df", "Amy Hirschi", "amyhirschi", "Two women working together at a desk"],
   ],
   astrologer: [
     ["1729335511904-9b8690184935", "The New York Public Library", "nypl", "Zodiac wheel with astrological symbols and figures"],
