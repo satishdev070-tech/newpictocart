@@ -13,7 +13,7 @@ import {
   undoVoiceAssistantActionAction,
   voiceAssistantTurnAction,
 } from "../actions";
-import { cancelSpeech, listen, speak, speechInputSupported, unlockSpeech, type ListenHandle } from "./speech";
+import { cancelSpeech, listen, speak, speechInputSupported, unlockSpeech, type ListenHandle } from "@/lib/speech/browser-speech";
 import { ASSISTANT_SUGGESTIONS, nextStatus, type AssistantStatus, statusLabel } from "./status";
 
 type Msg = { id: string; role: "user" | "assistant"; content: string };

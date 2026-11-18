@@ -7,6 +7,8 @@
  * unit-tested. The thin DOM accessors at the bottom are safe on the server: they return null there.
  */
 
+import { voiceGenderScore } from "@/lib/speech/voice-gender";
+
 // ---- locale → recognition language ------------------------------------------------------
 
 /** Recognition tags that differ from our Sarvam locale codes. */
@@ -40,7 +42,7 @@ function normTag(tag: string): string {
  * Best `speechSynthesis` voice for a locale, or null if none speaks the language (the caller
  * then stays silent instead of reading Hindi with an English voice). Order of preference:
  * exact tag (hi-IN) → same language, Indian region → same language elsewhere. Within each
- * group, prefer an on-device voice, then the platform default.
+ * group, prefer a female voice, then an on-device voice, then the platform default.
  */
 export function pickVoice<V extends VoiceLike>(voices: readonly V[], locale: string): V | null {
   const want = normTag(recognitionLang(locale));
@@ -49,6 +51,8 @@ export function pickVoice<V extends VoiceLike>(voices: readonly V[], locale: str
     const tag = normTag(v.lang);
     if (primaryLanguage(tag) !== lang) return -1;
     let s = tag === want ? 300 : tag.endsWith("-in") ? 200 : 100;
+    // Tara is a female voice: prefer a female voice within the same group (never across groups).
+    s += voiceGenderScore(v.name) * 40;
     if (v.localService) s += 10;
     if (v.default) s += 5;
     return s;
