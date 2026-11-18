@@ -21,6 +21,8 @@ import { localizeNav } from "@/components/dashboard/nav-i18n";
 import { LanguageSwitcher } from "@/components/dashboard/language-switcher";
 import { TourLauncher } from "@/features/dashboard-ui/tours/tour-launcher";
 import { StoreCopilot } from "@/features/seller-ai/components/copilot/store-copilot";
+import { VoiceLauncher } from "@/features/voice-assistant/components/voice-launcher";
+import { voiceAssistantFlagMode, voiceAssistantVisible } from "@/features/voice-assistant/flag";
 import { SellerTopbarChrome, SellerTopbarChromeFallback, SellerTrialBanner } from "@/features/dashboard-ui/shell-chrome";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
 import { accountAccessFor } from "@/lib/auth/landing";
@@ -49,6 +51,8 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   // accountAccessFor already soft-fails to null (hides Admin switch) instead of blocking forever.
   const [siteMode, access] = await Promise.all([getStoreSiteMode(ctx.tenantId), accountAccessFor(ctx.user.id)]);
   const showAdminSwitch = access ? canSwitchPanels(access) : false;
+  // Voice assistant (FEATURE_VOICE_ASSISTANT): off by default; "internal" = platform staff only.
+  const showVoice = ctx.permissions.has("analytics.read") && voiceAssistantVisible(voiceAssistantFlagMode(), { platformStaff: access?.platformStaff ?? false });
   const groups = localizeNav(
     navForSiteMode(
       DASHBOARD_NAV.map((g) => ({ ...g, items: g.items.filter((i) => ctx.permissions.has(i.permission)) })).filter((g) => g.items.length),
@@ -224,6 +228,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
       {ctx.permissions.has("analytics.read") ? (
         <StoreCopilot panelLanguage={locale} />
       ) : null}
+      {showVoice ? <VoiceLauncher storeName={ctx.tenantName} /> : null}
     </AppShell>
   );
 }

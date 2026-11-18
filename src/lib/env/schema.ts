@@ -134,6 +134,8 @@ export const serverEnvSchema = publicEnvSchema.extend({
    * Read through features/informative/flag.ts; see docs/informative/PLAN.md.
    */
   FEATURE_INFORMATIVE_WEBSITE: z.enum(["off", "internal", "all"]).optional(),
+  /** Seller voice assistant: off (default) | internal (platform staff) | all. features/voice-assistant/flag.ts. */
+  FEATURE_VOICE_ASSISTANT: z.enum(["off", "internal", "all"]).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
