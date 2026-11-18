@@ -69,7 +69,7 @@ The brief mentions an accompanying `schema.sql`; it isn't in the repo, so the sc
 
 ## 7. Env, migration, limits, risks
 
-- **Env**: `FEATURE_VOICE_ASSISTANT=off|internal|all` (server, default off). No new secrets: provider keys stay in Admin → Social apps; nothing `NEXT_PUBLIC_`.
+- **Env**: `FEATURE_VOICE_ASSISTANT=off|internal|all` (server, default off). Deploys read it from the GitHub secrets `STAGING_FEATURE_VOICE_ASSISTANT` (staging) and `FEATURE_VOICE_ASSISTANT` (production). No new secrets: provider keys stay in Admin → Social apps; nothing `NEXT_PUBLIC_`.
 - **Migration**: applied by the normal deploy pipeline (`supabase db push`); additive only.
 - **Free-tier limits**: Groq free tier rate limits (requests/min, tokens/day) — 10 turns/min/user and 120/day/store caps; Gemini free tier as fallback. Browser STT/TTS are free. Each turn costs 1 `store_agent` credit (Super Admin configurable). Workers Free 10 ms CPU: the turn is I/O-bound (DB + LLM fetch), but cold isolates can still hit Error 1102 — Workers Paid recommended.
 - **Risks**: Chrome's SpeechRecognition sends audio to Google (disclosed); Firefox has no SpeechRecognition (text only until the Whisper adapter); Hindi TTS voice availability varies by device; LLM latency on free tiers (2–10 s typical, longer when a provider times out).
