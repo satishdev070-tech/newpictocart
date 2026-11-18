@@ -55,7 +55,7 @@ export const VOICE_BN_IN: VoiceUiCopyTranslation = {
   stateMuted: "মিউট",
   mute: "মাইক মিউট করুন",
   unmute: "মাইক চালু করুন",
-  hintListening: "শুধু বলুন। আপনি থামলে Tara উত্তর দেবে।",
+  hintListening: "শুধু বলুন। থামলে নিজের কথা দেখে নিয়ে Tara-কে পাঠান।",
   hintSpeaking: "থামাতে গোলটায় ট্যাপ করুন",
   hintThinking: "এক মুহূর্ত…",
   hintMuted: "Tara আপনার কথা শুনতে পাচ্ছে না। উত্তর দিতে মাইক চালু করুন।",
@@ -68,4 +68,9 @@ export const VOICE_BN_IN: VoiceUiCopyTranslation = {
   sttUnavailable: "এই মুহূর্তে ভয়েস শনাক্তকরণ উপলব্ধ নেই — অনুগ্রহ করে আপনার উত্তর লিখুন।",
   notHeard: "ঠিক বুঝতে পারিনি — অনুগ্রহ করে আবার বলুন।",
   speakNow: "এবার বলুন",
+  stateReviewing: "আমি যা শুনেছি, দেখে নিন",
+  hintReviewing: "কোনো শব্দ ভুল হলে ঠিক করুন, তারপর Enter বা পাঠান টিপুন।",
+  reviewLabel: "আমি এটা শুনেছি (বদলাতে পারেন)",
+  reviewSend: "Tara-কে পাঠান",
+  reviewRetake: "আবার বলুন",
 };

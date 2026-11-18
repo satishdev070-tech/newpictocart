@@ -138,7 +138,7 @@ export const SELLER_AI_KIND_LABELS: Record<SellerAiCreditKind, string> = {
   generate_blog: "Blog AI Write",
   contact_reply: "Contact reply draft",
   business_coach: "Business coach",
-  store_agent: "Pica2 AI Assistant",
+  store_agent: "Tara AI Assistant",
   store_setup: "Build your store from a prompt",
   generate_reviews: "Generate AI product reviews",
   generate_faq: "Apply AI store FAQs",

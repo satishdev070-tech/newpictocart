@@ -56,6 +56,11 @@ export type VoiceUiCopy = {
   mute: string;
   unmute: string;
   hintListening: string;
+  stateReviewing: string;
+  hintReviewing: string;
+  reviewLabel: string;
+  reviewSend: string;
+  reviewRetake: string;
   hintSpeaking: string;
   hintThinking: string;
   hintMuted: string;
@@ -90,7 +95,7 @@ const en: VoiceUiCopy = {
   tipsTitle: "Tips",
   tips: [
     "Allow microphone access when your browser asks.",
-    "Speak naturally, in your language — pause when you're done and Tara replies.",
+    "Speak naturally, in your language. When you pause, fix any word and press Enter to send it to Tara.",
     "Tap the orb to interrupt Tara. No mic? Type your answers.",
   ],
   typeInstead: "Type instead",
@@ -121,12 +126,17 @@ const en: VoiceUiCopy = {
   noVoice: "Voice isn't available on this platform yet.",
   useQuiz: "Answer a quick quiz instead",
   startConversation: "Start conversation",
-  micExplainer: "Your browser will ask to use the microphone. Then just talk — Tara listens after she speaks, no buttons needed.",
+  micExplainer: "Your browser will ask to use the microphone. Then just talk: Tara listens after she speaks, and you check your words before they go to her.",
   stateConnecting: "Connecting…",
   stateMuted: "Muted",
   mute: "Mute microphone",
   unmute: "Unmute microphone",
-  hintListening: "Just talk. Tara replies when you pause.",
+  hintListening: "Just talk. When you pause, check your words and send them to Tara.",
+  stateReviewing: "Check what I heard",
+  hintReviewing: "Fix any word if needed, then press Enter or Send.",
+  reviewLabel: "What I heard (you can edit it)",
+  reviewSend: "Send to Tara",
+  reviewRetake: "Say it again",
   hintSpeaking: "Tap the orb to interrupt",
   hintThinking: "One moment…",
   hintMuted: "Tara can't hear you. Unmute to answer.",
@@ -158,7 +168,7 @@ const hi: VoiceUiCopy = {
   tipsTitle: "सुझाव",
   tips: [
     "ब्राउज़र पूछे तो माइक्रोफ़ोन की अनुमति दें।",
-    "अपनी भाषा में आराम से बोलें — बात पूरी होने पर रुकें, तारा जवाब देगी।",
+    "अपनी भाषा में आराम से बोलें। रुकने पर कोई शब्द ठीक करें और Enter दबाकर तारा को भेजें।",
     "तारा को रोकने के लिए गोले पर टैप करें। माइक नहीं है? जवाब टाइप करें।",
   ],
   typeInstead: "टाइप करें",
@@ -189,12 +199,17 @@ const hi: VoiceUiCopy = {
   noVoice: "इस प्लेटफ़ॉर्म पर अभी आवाज़ उपलब्ध नहीं है।",
   useQuiz: "छोटे क्विज़ से जवाब दें",
   startConversation: "बातचीत शुरू करें",
-  micExplainer: "ब्राउज़र माइक्रोफ़ोन की अनुमति माँगेगा। फिर बस बोलिए — तारा अपनी बात के बाद खुद सुनेगी, कोई बटन नहीं दबाना।",
+  micExplainer: "ब्राउज़र माइक्रोफ़ोन की अनुमति माँगेगा। फिर बस बोलिए: तारा अपनी बात के बाद सुनेगी, और भेजने से पहले आप अपने शब्द देख सकते हैं।",
   stateConnecting: "जुड़ रहे हैं…",
   stateMuted: "म्यूट",
   mute: "माइक म्यूट करें",
   unmute: "माइक चालू करें",
-  hintListening: "बस बोलिए। आप रुकेंगे तो तारा जवाब देगी।",
+  hintListening: "बस बोलिए। रुकने पर अपने शब्द देखें और तारा को भेजें।",
+  stateReviewing: "मैंने जो सुना, देख लीजिए",
+  hintReviewing: "कोई शब्द गलत हो तो ठीक करें, फिर Enter या भेजें दबाएँ।",
+  reviewLabel: "मैंने यह सुना (आप बदल सकते हैं)",
+  reviewSend: "तारा को भेजें",
+  reviewRetake: "फिर से बोलें",
   hintSpeaking: "बीच में बोलने के लिए गोले पर टैप करें",
   hintThinking: "एक पल…",
   hintMuted: "तारा आपको सुन नहीं पा रही। जवाब देने के लिए माइक चालू करें।",

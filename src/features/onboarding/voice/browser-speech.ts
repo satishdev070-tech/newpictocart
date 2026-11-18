@@ -47,26 +47,26 @@ function normTag(tag: string): string {
 export function pickVoice<V extends VoiceLike>(voices: readonly V[], locale: string): V | null {
   const want = normTag(recognitionLang(locale));
   const lang = primaryLanguage(want);
-  const score = (v: V): number => {
+  const score = (v: V): number | null => {
     const tag = normTag(v.lang);
-    if (primaryLanguage(tag) !== lang) return -1;
+    if (primaryLanguage(tag) !== lang) return null;
     let s = tag === want ? 300 : tag.endsWith("-in") ? 200 : 100;
-    // Tara is a female voice: prefer a female voice within the same group (never across groups).
-    s += voiceGenderScore(v.name) * 40;
+    // Tara is a woman: a female voice wins over a male one of a closer region.
+    s += voiceGenderScore(v.name) * 150; // female outranks region (never language)
     if (v.localService) s += 10;
     if (v.default) s += 5;
     return s;
   };
   let best: V | null = null;
-  let bestScore = -1;
+  let bestScore = -Infinity; // male-only devices score below 0 and must still get a voice
   for (const v of voices) {
     const s = score(v);
-    if (s > bestScore) {
+    if (s !== null && s > bestScore) {
       best = v;
       bestScore = s;
     }
   }
-  return bestScore >= 0 ? best : null;
+  return best;
 }
 
 /** Safety timeout for an utterance whose `onend` never fires (some engines drop it). */

@@ -21,14 +21,20 @@ describe("female voice preference", () => {
     const voices = [v("Rishi", "en-IN"), v("Veena", "en-IN"), v("Samantha", "en-US"), v("Microsoft Madhur", "hi-IN"), v("Lekha", "hi-IN")];
     expect(pickVoice(voices, "en-IN")?.name).toBe("Veena");
     expect(pickVoice(voices, "hi-IN")?.name).toBe("Lekha");
-    // Exact locale beats a female voice of another region.
-    expect(pickVoice([v("Rishi", "en-IN"), v("Samantha", "en-US")], "en-IN")?.name).toBe("Rishi");
+    // Female everywhere: a female voice of another region beats an Indian male voice…
+    expect(pickVoice([v("Rishi", "en-IN"), v("Samantha", "en-US")], "en-IN")?.name).toBe("Samantha");
+    // …but the Indian female voice beats every other female voice.
+    expect(pickVoice([v("Samantha", "en-US"), v("Veena", "en-IN"), v("Karen", "en-AU")], "en-IN")?.name).toBe("Veena");
+    // With only male voices, the Indian one.
+    expect(pickVoice([v("Daniel", "en-GB"), v("Rishi", "en-IN")], "en-IN")?.name).toBe("Rishi");
     expect(pickVoice([v("Samantha", "en-US")], "ta-IN")).toBeNull();
   });
 
   it("Tara's picker prefers a female voice too", () => {
     expect(pickTaraVoice([v("Microsoft Madhur", "hi-IN"), v("Microsoft Swara", "hi-IN")], "hi-IN")?.name).toBe("Microsoft Swara");
     expect(pickTaraVoice([v("Rishi", "en-IN"), v("Veena", "en-IN")], "en-IN")?.name).toBe("Veena");
+    expect(pickTaraVoice([v("Rishi", "en-IN"), v("Samantha", "en-US")], "en-IN")?.name).toBe("Samantha");
+    expect(pickTaraVoice([v("Samantha", "en-US")], "hi-IN")).toBeNull();
   });
 });
 

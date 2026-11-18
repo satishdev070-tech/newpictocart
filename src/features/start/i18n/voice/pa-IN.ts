@@ -54,7 +54,7 @@ export const VOICE_PA_IN: VoiceUiCopyTranslation = {
   stateMuted: "ਮਿਊਟ ਹੈ",
   mute: "ਮਾਈਕ ਮਿਊਟ ਕਰੋ",
   unmute: "ਮਾਈਕ ਅਨਮਿਊਟ ਕਰੋ",
-  hintListening: "ਬੱਸ ਬੋਲੋ। ਤੁਸੀਂ ਰੁਕੋਗੇ ਤਾਂ ਤਾਰਾ ਜਵਾਬ ਦੇਵੇਗੀ।",
+  hintListening: "ਬੱਸ ਬੋਲੋ। ਰੁਕਣ 'ਤੇ ਆਪਣੇ ਸ਼ਬਦ ਵੇਖ ਕੇ ਤਾਰਾ ਨੂੰ ਭੇਜੋ।",
   hintSpeaking: "ਵਿਚਾਲੇ ਰੋਕਣ ਲਈ ਗੋਲੇ 'ਤੇ ਟੈਪ ਕਰੋ",
   hintThinking: "ਇੱਕ ਮਿੰਟ…",
   hintMuted: "ਤਾਰਾ ਤੁਹਾਨੂੰ ਸੁਣ ਨਹੀਂ ਸਕਦੀ। ਜਵਾਬ ਦੇਣ ਲਈ ਅਨਮਿਊਟ ਕਰੋ।",
@@ -67,4 +67,9 @@ export const VOICE_PA_IN: VoiceUiCopyTranslation = {
   sttUnavailable: "ਇਸ ਵੇਲੇ ਆਵਾਜ਼ ਪਛਾਣ ਉਪਲਬਧ ਨਹੀਂ ਹੈ — ਕਿਰਪਾ ਕਰਕੇ ਆਪਣਾ ਜਵਾਬ ਟਾਈਪ ਕਰੋ।",
   notHeard: "ਮੈਨੂੰ ਠੀਕ ਸਮਝ ਨਹੀਂ ਆਇਆ — ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਬੋਲੋ।",
   speakNow: "ਹੁਣ ਬੋਲੋ",
+  stateReviewing: "ਮੈਂ ਜੋ ਸੁਣਿਆ, ਵੇਖ ਲਓ",
+  hintReviewing: "ਕੋਈ ਸ਼ਬਦ ਗ਼ਲਤ ਹੋਵੇ ਤਾਂ ਠੀਕ ਕਰੋ, ਫਿਰ Enter ਜਾਂ ਭੇਜੋ ਦਬਾਓ।",
+  reviewLabel: "ਮੈਂ ਇਹ ਸੁਣਿਆ (ਤੁਸੀਂ ਬਦਲ ਸਕਦੇ ਹੋ)",
+  reviewSend: "ਤਾਰਾ ਨੂੰ ਭੇਜੋ",
+  reviewRetake: "ਫਿਰ ਬੋਲੋ",
 };

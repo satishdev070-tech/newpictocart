@@ -37,7 +37,7 @@ export async function askStoreCopilotAction(input: unknown): Promise<ActionResul
       input: { question: v.messages[v.messages.length - 1]!.content.slice(0, 500), turns: v.messages.length, language: v.language, intent: v.intent ?? null, copilot: true },
       prompt: storeCopilotPrompt({ storeName: ctx.tenantName, language: v.language, snapshot, messages: v.messages, intent: v.intent ?? null }),
       schema: storeCopilotReplySchema,
-      limit: { key: "seller-agent", perDay: ASK_DAILY_LIMIT, message: `You've asked Pictocart AI ${ASK_DAILY_LIMIT} questions today. Try again tomorrow.` },
+      limit: { key: "seller-agent", perDay: ASK_DAILY_LIMIT, message: `You've asked Tara ${ASK_DAILY_LIMIT} questions today. Try again tomorrow.` },
     });
     // Only offer changes this member may apply.
     const allowed = r.data.proposals.filter((p) => (p.type === "faq" ? can(ctx, "content.write") : can(ctx, "catalog.write")));

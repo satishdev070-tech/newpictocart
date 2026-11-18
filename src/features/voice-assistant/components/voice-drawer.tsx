@@ -53,7 +53,8 @@ export function VoiceDrawer({ open, storeName, autoListen, onClose }: { open: bo
   const [prefs] = useState(readPrefs);
   const [locale, setLocale] = useState<AssistantLocale>(() => (prefs.locale && (ASSISTANT_LOCALES as readonly string[]).includes(prefs.locale) ? prefs.locale : "en-IN"));
   const [muted, setMuted] = useState(!!prefs.muted);
-  const [review, setReview] = useState(!!prefs.review);
+  // Review before sending is the default: the merchant checks/edits the words, Enter sends.
+  const [review, setReview] = useState(prefs.review !== false);
   const [privacyOk, setPrivacyOk] = useState(!!prefs.privacyOk);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -217,13 +218,13 @@ export function VoiceDrawer({ open, storeName, autoListen, onClose }: { open: bo
   const listening = status === "listening";
 
   return (
-    <div role="dialog" aria-modal="false" aria-label="Pictocart voice assistant" className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-2xl border border-border bg-surface text-foreground shadow-2xl sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[min(400px,calc(100vw-3rem))] sm:rounded-2xl">
+    <div role="dialog" aria-modal="false" aria-label="Tara, Pictocart voice assistant" className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-2xl border border-border bg-surface text-foreground shadow-2xl sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[min(400px,calc(100vw-3rem))] sm:rounded-2xl">
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
         <span className={`grid size-8 shrink-0 place-items-center rounded-full ${listening ? "bg-error text-white" : "bg-foreground text-surface"}`}>
           <Mic aria-hidden className="size-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-small font-semibold">Voice assistant</p>
+          <p className="truncate text-small font-semibold">Tara</p>
           <p className="truncate text-caption text-muted" aria-live="polite">
             {statusLabel(status)} · {storeName}
           </p>
@@ -270,7 +271,7 @@ export function VoiceDrawer({ open, storeName, autoListen, onClose }: { open: bo
             setStatus("idle");
             onClose();
           }}
-          aria-label="Close voice assistant" className="grid size-8 place-items-center rounded-lg hover:bg-surface-secondary">
+          aria-label="Close Tara" className="grid size-8 place-items-center rounded-lg hover:bg-surface-secondary">
           <X aria-hidden className="size-4" />
         </button>
       </div>
@@ -424,7 +425,7 @@ export function VoiceDrawer({ open, storeName, autoListen, onClose }: { open: bo
             writePrefs({ review: e.target.checked });
           }}
         />
-        Let me edit what I said before sending
+        Check and edit my words before sending (Enter sends)
       </label>
     </div>
   );

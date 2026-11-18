@@ -18,7 +18,7 @@ import { informativeCopilotReplySchema, informativeProposalViews } from "./copil
  * spends `informative_assistant` credits via runSellerAiGeneration (refund on failure).
  */
 
-const LIMIT = { key: "informative-assistant", perDay: 40, message: "You've reached today's limit for Pictocart AI. Try again tomorrow." };
+const LIMIT = { key: "informative-assistant", perDay: 40, message: "You've reached today's limit for Tara. Try again tomorrow." };
 const ASK_FALLBACK = 1;
 
 export async function informativeAskCredits(): Promise<number> {

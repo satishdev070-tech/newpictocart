@@ -1,5 +1,5 @@
 /**
- * Drawer UI text for "Ask Pictocart AI" (pure). English and Hindi; other panel languages use
+ * Drawer UI text for "Ask Tara" (pure). English and Hindi; other panel languages use
  * English UI while replies follow the chosen reply language.
  */
 import type { CopilotIntent } from "./quick-actions";
@@ -49,8 +49,8 @@ export type CopilotCopy = {
 };
 
 const en: CopilotCopy = {
-  open: "Ask Pictocart AI",
-  title: "Pictocart AI",
+  open: "Ask Tara",
+  title: "Tara · Pictocart AI",
   subtitleStore: "Your store copilot. Nothing changes until you press Apply.",
   subtitleInformative: "Your website copilot. Nothing changes until you press Apply.",
   close: "Close",
@@ -58,8 +58,8 @@ const en: CopilotCopy = {
   placeholder: "Ask anything about your business…",
   send: "Send",
   thinking: "Thinking",
-  welcomeStore: "Hi! I know your products, orders and stock. Ask a question or pick a task below.",
-  welcomeInformative: "Hi! I know your services, pages and enquiries. Ask a question or pick a task below.",
+  welcomeStore: "Hi, I'm Tara! I know your products, orders and stock. Ask a question or pick a task below.",
+  welcomeInformative: "Hi, I'm Tara! I know your services, pages and enquiries. Ask a question or pick a task below.",
   costAsk: "Each question uses {credits} AI credits",
   costUnknown: "Each question uses AI credits",
   balance: "{balance} left",
@@ -94,7 +94,8 @@ const en: CopilotCopy = {
 
 const hi: CopilotCopy = {
   ...en,
-  open: "Pictocart AI से पूछें",
+  open: "तारा से पूछें",
+  title: "तारा · Pictocart AI",
   subtitleStore: "आपका स्टोर सहायक। Apply दबाने तक कुछ नहीं बदलेगा।",
   subtitleInformative: "आपकी वेबसाइट सहायक। Apply दबाने तक कुछ नहीं बदलेगा।",
   close: "बंद करें",
@@ -102,8 +103,8 @@ const hi: CopilotCopy = {
   placeholder: "अपने बिज़नेस के बारे में कुछ भी पूछें…",
   send: "भेजें",
   thinking: "सोच रहा है",
-  welcomeStore: "नमस्ते! मुझे आपके प्रोडक्ट, ऑर्डर और स्टॉक की जानकारी है। सवाल पूछें या नीचे से कोई काम चुनें।",
-  welcomeInformative: "नमस्ते! मुझे आपकी सेवाओं, पेजों और पूछताछ की जानकारी है। सवाल पूछें या नीचे से कोई काम चुनें।",
+  welcomeStore: "नमस्ते, मैं तारा हूँ! मुझे आपके प्रोडक्ट, ऑर्डर और स्टॉक की जानकारी है। सवाल पूछें या नीचे से कोई काम चुनें।",
+  welcomeInformative: "नमस्ते, मैं तारा हूँ! मुझे आपकी सेवाओं, पेजों और पूछताछ की जानकारी है। सवाल पूछें या नीचे से कोई काम चुनें।",
   costAsk: "हर सवाल में {credits} AI क्रेडिट लगते हैं",
   costUnknown: "हर सवाल में AI क्रेडिट लगते हैं",
   balance: "{balance} बाकी",
