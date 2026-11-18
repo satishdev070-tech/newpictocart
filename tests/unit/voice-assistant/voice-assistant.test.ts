@@ -4,7 +4,7 @@ import { assistantModelReplySchema, assistantTurnSchema } from "@/features/voice
 import { voiceAssistantPrompt } from "@/features/voice-assistant/prompt";
 import { parseVoiceAssistantFlag, voiceAssistantVisible } from "@/features/voice-assistant/flag";
 import { nextStatus } from "@/features/voice-assistant/components/status";
-import { pickVoice } from "@/features/voice-assistant/components/speech";
+import { pickVoice } from "@/lib/speech/browser-speech";
 import { actionView, themePatchArgs } from "@/features/voice-assistant/server/sessions";
 
 describe("languages", () => {

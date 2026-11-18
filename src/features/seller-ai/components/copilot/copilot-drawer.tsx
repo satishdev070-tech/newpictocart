@@ -10,7 +10,8 @@ import { copilotCopy, fill, type CopilotCopy } from "@/features/seller-ai/copilo
 import { historyFor } from "@/features/seller-ai/copilot/history";
 import type { CopilotAdapter, CopilotCosts, CopilotLink, CopilotProposalView } from "@/features/seller-ai/copilot/types";
 import { MarkdownLite } from "./markdown-lite";
-import { useVoiceInput } from "./use-voice-input";
+import { useCopilotMic } from "./use-copilot-mic";
+import { cancelSpeech, speak as speakInBrowser } from "@/lib/speech/browser-speech";
 
 type ProposalState = { view: CopilotProposalView; status: "open" | "applied" | "discarded" };
 type Message = {
@@ -137,13 +138,24 @@ export function CopilotDrawer({
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, pending]);
 
-  useEffect(() => () => audioRef.current?.pause(), []);
+  useEffect(
+    () => () => {
+      audioRef.current?.pause();
+      cancelSpeech();
+    },
+    [],
+  );
 
   const playReply = useCallback(
     async (text: string) => {
-      const r = await adapter.speak({ text: text.slice(0, 2400), language });
-      if (!r.ok || !r.data) return;
       audioRef.current?.pause();
+      cancelSpeech();
+      const r = await adapter.speak({ text: text.slice(0, 2400), language });
+      if (!r.ok || !r.data) {
+        // Sarvam unavailable (no credits / outage / limit): the browser's own female voice.
+        void speakInBrowser(text.replace(/\*\*|`|^#+\s*/gm, "").replace(/^\s*[-*]\s+/gm, "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1"), `${language}-IN`);
+        return;
+      }
       const audio = new Audio(`data:${r.data.mimeType};base64,${r.data.audioBase64}`);
       audioRef.current = audio;
       void audio.play().catch(() => undefined);
@@ -240,8 +252,19 @@ export function CopilotDrawer({
     },
     [adapter, copy.errorGeneric, language, show],
   );
-  const onVoiceError = useCallback((reason: "unsupported" | "denied") => show({ tone: "warning", message: reason === "unsupported" ? copy.micUnsupported : copy.micDenied }), [copy, show]);
-  const voice = useVoiceInput(onAudio, onVoiceError);
+  const onVoiceError = useCallback(
+    (reason: "unsupported" | "denied" | "network" | "no-speech") => {
+      if (reason === "no-speech") return; // nothing heard: just let them try again
+      show({ tone: "warning", message: reason === "unsupported" ? copy.micUnsupported : reason === "denied" ? copy.micDenied : copy.errorGeneric });
+    },
+    [copy, show],
+  );
+  const onSpokenText = useCallback((t: string) => {
+    setDraft((d) => (d.trim() ? `${d.trim()} ${t}` : t));
+    inputRef.current?.focus();
+  }, []);
+  // Browser speech recognition first (free, no upload); Sarvam recording only as a fallback.
+  const voice = useCopilotMic({ lang: `${language}-IN`, onText: onSpokenText, onAudio, onError: onVoiceError });
 
   const copyAnswer = (i: number, text: string) => {
     void navigator.clipboard?.writeText(text).then(() => {

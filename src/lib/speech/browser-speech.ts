@@ -1,5 +1,7 @@
 "use client";
 
+import { voiceGenderScore } from "./voice-gender";
+
 /**
  * Browser speech for the voice assistant. Speech-to-text uses the browser's SpeechRecognition
  * (Chrome/Edge/Safari; Chrome sends the audio to Google's speech service — the privacy notice
@@ -107,12 +109,26 @@ export function listen(
 
 // ---- Text-to-speech ----------------------------------------------------------------------------
 
-/** Best installed voice for a BCP-47 tag: exact match, then same language, else null. */
+/**
+ * Best installed voice for a BCP-47 tag: exact locale, then same language; within each, a female
+ * voice first (voiceGenderScore), then on-device. Null when nothing speaks the language.
+ */
 export function pickVoice(voices: SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice | null {
-  const want = lang.toLowerCase();
+  const want = lang.toLowerCase().replace("_", "-");
   const base = want.split("-")[0]!;
   const norm = (v: SpeechSynthesisVoice) => v.lang.toLowerCase().replace("_", "-");
-  return voices.find((v) => norm(v) === want) ?? voices.find((v) => norm(v).split("-")[0] === base) ?? null;
+  let best: SpeechSynthesisVoice | null = null;
+  let bestScore = -1;
+  for (const v of voices) {
+    const tag = norm(v);
+    if (tag.split("-")[0] !== base) continue;
+    const score = (tag === want ? 200 : 100) + voiceGenderScore(v.name) * 40 + (v.localService ? 2 : 0);
+    if (score > bestScore) {
+      best = v;
+      bestScore = score;
+    }
+  }
+  return best;
 }
 
 export function voicesFor(lang: string): Promise<SpeechSynthesisVoice | null> {
