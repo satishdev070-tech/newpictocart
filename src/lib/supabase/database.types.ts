@@ -558,6 +558,176 @@ export type Database = {
           },
         ]
       }
+      assistant_actions: {
+        Row: {
+          after_value: Json | null
+          applied_at: string | null
+          args: Json
+          before_value: Json | null
+          created_at: string
+          error: string | null
+          id: string
+          session_id: string
+          status: string
+          tenant_id: string
+          tool: string
+          undone_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          after_value?: Json | null
+          applied_at?: string | null
+          args?: Json
+          before_value?: Json | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          session_id: string
+          status?: string
+          tenant_id: string
+          tool: string
+          undone_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          after_value?: Json | null
+          applied_at?: string | null
+          args?: Json
+          before_value?: Json | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          session_id?: string
+          status?: string
+          tenant_id?: string
+          tool?: string
+          undone_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_actions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assistant_actions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistant_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          input_mode: string | null
+          locale: string
+          model: string | null
+          provider: string | null
+          role: string
+          session_id: string
+          tenant_id: string
+          tokens: number | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          input_mode?: string | null
+          locale: string
+          model?: string | null
+          provider?: string | null
+          role: string
+          session_id: string
+          tenant_id: string
+          tokens?: number | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          input_mode?: string | null
+          locale?: string
+          model?: string | null
+          provider?: string | null
+          role?: string
+          session_id?: string
+          tenant_id?: string
+          tokens?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assistant_messages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistant_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          last_active_at: string
+          locale: string
+          surface: string
+          tenant_id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_active_at?: string
+          locale?: string
+          surface?: string
+          tenant_id: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_active_at?: string
+          locale?: string
+          surface?: string
+          tenant_id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
