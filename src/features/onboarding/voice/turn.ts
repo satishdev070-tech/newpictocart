@@ -19,6 +19,7 @@ import {
   type VoiceFacts,
 } from "./facts";
 import { thinkAsTara } from "./brain";
+import { extractJsonObject } from "./json";
 import { taraTurnResultSchema } from "./schemas";
 import type { IndustrySlug } from "@/features/stores/industries";
 
@@ -37,31 +38,6 @@ export type TaraTurnOutput = {
   ttsAvailable: boolean;
 };
 
-function extractJsonObject(text: string): unknown {
-  const trimmed = text.trim();
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenced?.[1]) {
-      try {
-        return JSON.parse(fenced[1].trim());
-      } catch {
-        /* fall through */
-      }
-    }
-    const start = trimmed.indexOf("{");
-    const end = trimmed.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(trimmed.slice(start, end + 1));
-      } catch {
-        /* fall through */
-      }
-    }
-  }
-  return null;
-}
 
 export type TaraHistoryTurn = { role: "seller" | "tara"; text: string };
 

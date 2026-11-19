@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { canOpenStep, parseInfoLocale, STORE_DRAFT_KEY, resumeStep, withSeededServices, type InfoStep } from "../draft";
 import { findServiceType, seedFor } from "../../service-types";
@@ -12,6 +12,8 @@ import { InformativeShell, type OnboardingLogo } from "./shell";
 import { ThemeStep, type ThemeCard } from "./theme-step";
 import { useInformativeDraft } from "./use-draft";
 import { infoCopy } from "@/features/start/i18n/info-copy";
+import { TaraInfoPanel } from "../tara/tara-panel";
+import { toBasicPatch, toDraftServices, type InfoVoiceFacts } from "../tara/facts";
 
 /** The language picked at /start/lang, saved in the store journey's draft (read-only here). */
 function storeJourneyLocale(): ReturnType<typeof parseInfoLocale> {
@@ -51,6 +53,21 @@ export function InformativeJourney({
   const router = useRouter();
   const { draft, setDraft, hydrated } = useInformativeDraft();
   const go = (s: InfoStep) => router.push(`/start/informative/${s}`);
+  // Tara (voice / typing) fills Step 1 live and the starter services; the form stays the confirmation.
+  const [taraPatch, setTaraPatch] = useState<{ seq: number; patch: Record<string, string> } | null>(null);
+  const onTaraFacts = useCallback(
+    (facts: InfoVoiceFacts) => {
+      const patch = toBasicPatch(facts);
+      setTaraPatch((p) => ({ seq: (p?.seq ?? 0) + 1, patch }));
+      const services = toDraftServices(facts);
+      setDraft((d) => ({
+        ...d,
+        basic: { ...d.basic, ...patch },
+        ...(services.length && (d.seededFrom !== null || !d.services.length) ? { services, servicesSkipped: false, seededFrom: null } : {}),
+      }));
+    },
+    [setDraft],
+  );
 
   // Language: ?lang= wins; otherwise the store journey's choice (same /start/lang screen). A direct
   // visit with neither keeps the draft's language (English by default).
@@ -87,6 +104,8 @@ export function InformativeJourney({
             draft={draft}
             rootDomain={rootDomain}
             onBack={() => router.push("/start/build")}
+            tara={<TaraInfoPanel locale={draftLocale} onFacts={onTaraFacts} />}
+            incoming={taraPatch}
             onSave={(basic, logoDataUrl) => {
               const type = findServiceType(basic.serviceTypeId);
               const seed = type ? seedFor(type, { name: basic.businessName, city: basic.city }).services : null;

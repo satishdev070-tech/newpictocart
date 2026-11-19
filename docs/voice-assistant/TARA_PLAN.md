@@ -29,7 +29,7 @@ We don't fine-tune a model; that needs paid infrastructure and a large consented
 Next step for quality: an **eval set** of real (consented, anonymised) onboarding transcripts, scored for turns-to-complete and repeated questions, run on every prompt change.
 
 ## Phase 2 (next PRs)
-- **Voice onboarding for Informative Websites** (business name, category / service type, phone, city, address, services): the same call UI and brain, with an informative fact schema.
+- ~~Voice onboarding for Informative Websites~~ — done (2026-11-19): "Talk with Tara" on the informative Step 1, filling the form + starter services.
 - Hinglish UI copy for the call screen (it falls back to English for untranslated locales today).
 - An eval harness (`tests/eval/tara/*.json` scenarios → model run → score) gated in CI on a schedule.
 - Optional Sarvam TTS for the dashboard assistant when credits return (same female `ritu` voice), with the browser voice as fallback.
