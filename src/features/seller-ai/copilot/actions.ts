@@ -12,6 +12,9 @@ import { storeCopilotPrompt } from "./prompts";
 import { matchProductByTitle, storeProposalViews } from "./proposals";
 import { speakInputSchema, storeApplySchema, storeCopilotAskSchema, storeCopilotReplySchema } from "./schemas";
 import { applyProductCopy, loadProductCopy, loadStoreCopilotContext, storeCopilotCosts } from "./server";
+import { applyStoreAction, loadActionFacts } from "./execute";
+import { actionProductTitles, resolveStoreActions, type ActionModel } from "./actions-plan";
+import type { StoreModelProposal } from "./schemas";
 import { parseVoiceUpload, speakForCopilot, transcribeForCopilot } from "./voice";
 import type { CopilotCosts, CopilotReply } from "./types";
 
@@ -22,6 +25,16 @@ import type { CopilotCosts, CopilotReply } from "./types";
  */
 
 const ASK_DAILY_LIMIT = 60;
+
+/** Permission a member needs before Tara may even offer a step of this type. */
+const PROPOSAL_PERMISSION: Record<StoreModelProposal["type"], Parameters<typeof can>[1]> = {
+  faq: "content.write",
+  product_copy: "catalog.write",
+  stock: "inventory.write",
+  price: "catalog.write",
+  product_status: "catalog.write",
+  blog_post: "content.write",
+};
 
 export async function askStoreCopilotAction(input: unknown): Promise<ActionResult<CopilotReply>> {
   return runAction("sellerAi.copilot.ask", async () => {
@@ -39,30 +52,37 @@ export async function askStoreCopilotAction(input: unknown): Promise<ActionResul
       schema: storeCopilotReplySchema,
       limit: { key: "seller-agent", perDay: ASK_DAILY_LIMIT, message: `You've asked Tara ${ASK_DAILY_LIMIT} questions today. Try again tomorrow.` },
     });
-    // Only offer changes this member may apply.
-    const allowed = r.data.proposals.filter((p) => (p.type === "faq" ? can(ctx, "content.write") : can(ctx, "catalog.write")));
-    const ids = allowed.flatMap((p) => (p.type === "product_copy" ? [matchProductByTitle(p.productTitle, products)?.id].filter((x): x is string => !!x) : []));
-    const current = await loadProductCopy(ctx.tenantId, ids);
+    // Only offer changes this member may apply; say so when Tara planned something they can't do.
+    const allowed = r.data.proposals.filter((p) => can(ctx, PROPOSAL_PERMISSION[p.type]) && (p.type !== "product_status" || p.status !== "publish" || can(ctx, "catalog.publish")));
+    const notAllowed = r.data.proposals.length - allowed.length;
+    const copyLike = allowed.filter((p) => p.type === "faq" || p.type === "product_copy");
+    const actions = allowed.filter((p): p is Extract<StoreModelProposal, ActionModel> => p.type !== "faq" && p.type !== "product_copy");
+    const ids = copyLike.flatMap((p) => (p.type === "product_copy" ? [matchProductByTitle(p.productTitle, products)?.id].filter((x): x is string => !!x) : []));
+    const [current, facts] = await Promise.all([loadProductCopy(ctx.tenantId, ids), loadActionFacts(ctx.tenantId, actionProductTitles(actions))]);
+    const resolved = resolveStoreActions(actions, facts, { action: costs.action, blog: costs.blog });
+    const notes = [...resolved.questions, ...(notAllowed ? ["Some of these changes need a permission your role doesn't have. Ask the store owner."] : [])];
     return {
-      answer: r.data.answer,
+      answer: notes.length ? `${r.data.answer}\n\n${notes.map((q) => `- ${q}`).join("\n")}` : r.data.answer,
       links: r.data.links,
-      proposals: storeProposalViews(allowed, { products, current, faqApplyCredits: costs.faqApply }),
+      proposals: [...storeProposalViews(copyLike, { products, current, faqApplyCredits: costs.faqApply }), ...resolved.views],
     };
   });
 }
 
-export async function applyStoreCopilotProposalAction(payload: unknown): Promise<ActionResult<{ message: string }>> {
+export async function applyStoreCopilotProposalAction(payload: unknown): Promise<ActionResult<{ message: string; href?: string }>> {
   const parsed = storeApplySchema.safeParse(payload);
   if (parsed.success && parsed.data.type === "faq") {
     // Existing confirm-Apply path: content.write, debits generate_faq, inserts, audits.
     const r = await applyFaqsProposalAction({ groupName: parsed.data.groupName, items: parsed.data.items });
     return r.ok ? { ok: true, data: { message: `Added ${r.data.inserted} FAQ${r.data.inserted === 1 ? "" : "s"} to your store.` } } : r;
   }
-  const result = await runAction("sellerAi.copilot.applyProductCopy", async () => {
+  const result = await runAction("sellerAi.copilot.apply", async () => {
     const v = parseInput(storeApplySchema, payload);
     const ctx = await requireTenant();
-    if (v.type !== "product_copy") throw new AppError("VALIDATION", { fieldErrors: { _form: ["Nothing to apply"] } });
-    return applyProductCopy(ctx, v);
+    if (v.type === "faq") throw new AppError("VALIDATION", { fieldErrors: { _form: ["Nothing to apply"] } });
+    // Each executor re-checks its permission, re-reads the row in this store and charges credits.
+    if (v.type === "product_copy") return applyProductCopy(ctx, v);
+    return applyStoreAction(ctx, v);
   });
   if (result.ok) refresh();
   return result;

@@ -14,6 +14,7 @@ import {
 } from "./call-machine";
 import {
   END_OF_TURN_MS,
+  LONG_PAUSE_MS,
   captionHasText,
   captionReducer,
   captionText,
@@ -60,6 +61,11 @@ export type UseTaraCallOptions = {
    * they press Send / Enter (default true). False = hands-free (sent as soon as they stop).
    */
   reviewBeforeSend?: boolean;
+  /**
+   * When the seller's turn ends. `manual` (default): Tara keeps listening through pauses until the
+   * seller taps Done (a 30 s silence is the safety net). `pause`: hands-free, ends after a short pause.
+   */
+  endTurn?: "manual" | "pause";
   /** Tara's spoken opener (fetched right after the mic opens). */
   greeting: () => Promise<TaraLine>;
   onMicFailed?: (reason: MicFailure) => void;
@@ -325,7 +331,7 @@ export function useTaraCall(options: UseTaraCallOptions) {
     endTimerRef.current = window.setTimeout(() => {
       endTimerRef.current = null;
       finishSpokenTurn();
-    }, END_OF_TURN_MS);
+    }, optsRef.current.endTurn === "pause" ? END_OF_TURN_MS : LONG_PAUSE_MS);
   }, [clearEndTimer, finishSpokenTurn]);
 
   /** Re-open the mic (after it was released for recognition) for the recorder fallback. */

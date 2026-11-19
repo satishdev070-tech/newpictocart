@@ -26,7 +26,7 @@ export function nextStatus(s: AssistantStatus, e: AssistantEvent): AssistantStat
 
 const LABELS: Record<AssistantStatus, string> = {
   idle: "Ready",
-  listening: "Listening…",
+  listening: "Listening… tap Stop when you finish",
   transcribing: "Got it…",
   thinking: "Thinking…",
   speaking: "Speaking…",

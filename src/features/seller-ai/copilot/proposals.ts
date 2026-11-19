@@ -42,6 +42,7 @@ export function storeProposalViews(
       });
       return;
     }
+    if (p.type !== "product_copy") return; // actions (stock, price, status, blog): actions-plan.ts
     const product = matchProductByTitle(p.productTitle, ctx.products);
     if (!product) return;
     const before = ctx.current.get(product.id) ?? { description: null, shortDescription: null, seoTitle: null, seoDescription: null };

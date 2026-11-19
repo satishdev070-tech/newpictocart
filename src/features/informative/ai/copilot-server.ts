@@ -22,14 +22,20 @@ const LIMIT = { key: "informative-assistant", perDay: 40, message: "You've reach
 const ASK_FALLBACK = 1;
 
 export async function informativeAskCredits(): Promise<number> {
+  return (await informativeCosts()).ask;
+}
+
+/** Question/plan (informative_assistant) and each executed action step (tara_action). */
+async function informativeCosts(): Promise<{ ask: number; action: number }> {
   const catalog = await getAiCreditCatalog().catch(() => null);
-  return catalog?.costs.find((c) => c.kind === "informative_assistant")?.credits ?? ASK_FALLBACK;
+  const cost = (kind: string, fallback: number) => catalog?.costs.find((c) => c.kind === kind)?.credits ?? fallback;
+  return { ask: cost("informative_assistant", ASK_FALLBACK), action: cost("tara_action", 1) };
 }
 
 const soft = <T>(p: Promise<T>, fallback: T) => p.catch(() => fallback);
 
 export async function askInformativeCopilot(ctx: InformativeContext, input: InformativeCopilotAsk): Promise<CopilotReply> {
-  const [site, services, faqs, pages, gallery, testimonials, team, enquiries, balance] = await Promise.all([
+  const [site, services, faqs, pages, gallery, testimonials, team, enquiries, balance, costs] = await Promise.all([
     getSite(ctx),
     listServices(ctx),
     soft(listFaqs(ctx), []),
@@ -39,6 +45,7 @@ export async function askInformativeCopilot(ctx: InformativeContext, input: Info
     soft(listTeam(ctx), []),
     ctx.permissions.has("customers.read") ? soft(countEnquiriesByStatus(ctx), null) : Promise.resolve(null),
     soft(getAiCreditBalance(ctx.tenantId), null),
+    informativeCosts(),
   ]);
   if (!site) throw new AppError("NOT_FOUND", { context: { op: "informative.copilot.site" } });
   const snapshot = buildInformativeSnapshot({
@@ -81,7 +88,7 @@ export async function askInformativeCopilot(ctx: InformativeContext, input: Info
       tagline: site.tagline,
       about: site.about,
       seo: { title: site.seo.title, description: site.seo.description },
-      services: services.map((s) => ({ name: s.name, shortDescription: s.shortDescription, description: s.description })),
-    }),
+      services: services.map((s) => ({ name: s.name, shortDescription: s.shortDescription, description: s.description, priceType: s.priceType, pricePaise: s.pricePaise, isActive: s.isActive })),
+    }, { action: costs.action }),
   };
 }

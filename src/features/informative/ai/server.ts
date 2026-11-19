@@ -2,6 +2,7 @@ import "server-only";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/observability/logger";
 import { runSellerAiGeneration } from "@/features/seller-ai/server";
+import { debitAiCredit, refundAiCredit } from "@/features/ai-credits/server";
 import { getSarvamLocale } from "@/lib/sarvam/locales";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatServicePrice } from "../pricing";
@@ -99,6 +100,23 @@ export async function applyProposal(ctx: InformativeContext, proposal: Proposal)
     const current = findServiceByName(await listServices(ctx), u.serviceName);
     if (!current) throw new AppError("NOT_FOUND", { fieldErrors: { _form: [`"${u.serviceName}" isn't one of your services any more.`] } });
     await updateService(ctx, current.id, serviceInputKeeping(current, { shortDescription: u.shortDescription, description: u.description }));
+    return { changed: `service ${current.name}` };
+  }
+  if (w.servicePrice || w.serviceVisibility) {
+    const name = (w.servicePrice ?? w.serviceVisibility)!.serviceName;
+    const current = findServiceByName(await listServices(ctx), name);
+    if (!current) throw new AppError("NOT_FOUND", { fieldErrors: { _form: [`"${name}" isn't one of your services any more.`] } });
+    // A Tara action: credits follow the work (debit first, refund if the write fails).
+    const charge = await debitAiCredit(ctx.tenantId, "tara_action");
+    try {
+      const input = serviceInputKeeping(current, {});
+      if (w.servicePrice) Object.assign(input, { priceType: w.servicePrice.priceType, pricePaise: w.servicePrice.pricePaise ?? undefined });
+      if (w.serviceVisibility) Object.assign(input, { isActive: w.serviceVisibility.visible });
+      await updateService(ctx, current.id, input);
+    } catch (err) {
+      await refundAiCredit(charge, err instanceof Error ? err.message : "service update failed");
+      throw err;
+    }
     return { changed: `service ${current.name}` };
   }
   return { changed: "nothing" };

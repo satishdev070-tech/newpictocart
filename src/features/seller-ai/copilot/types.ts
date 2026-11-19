@@ -27,6 +27,9 @@ export type CopilotReply = { answer: string; links: CopilotLink[]; proposals: Co
 
 export type CopilotCosts = { ask: number | null; balance: number | null };
 
+/** Result of one executed plan step (`href` opens what changed). */
+export type CopilotApplied = { message: string; href?: string };
+
 export type CopilotChatMessage = { role: "user" | "assistant"; content: string };
 
 export type CopilotAskInput = { messages: CopilotChatMessage[]; language: CopilotLanguage; intent?: CopilotIntent | null };
@@ -35,7 +38,7 @@ export type CopilotAskInput = { messages: CopilotChatMessage[]; language: Copilo
 export type CopilotAdapter = {
   siteType: CopilotSiteType;
   ask: (input: CopilotAskInput) => Promise<ActionResult<CopilotReply>>;
-  apply: (payload: unknown) => Promise<ActionResult<{ message: string }>>;
+  apply: (payload: unknown) => Promise<ActionResult<{ message: string; href?: string }>>;
   costs: () => Promise<ActionResult<CopilotCosts>>;
   transcribe: (fd: FormData) => Promise<ActionResult<{ transcript: string }>>;
   speak: (input: { text: string; language: CopilotLanguage }) => Promise<ActionResult<{ audioBase64: string; mimeType: string } | null>>;

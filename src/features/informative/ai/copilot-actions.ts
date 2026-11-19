@@ -25,9 +25,11 @@ export async function askInformativeCopilotAction(input: unknown): Promise<Actio
   });
 }
 
-export async function applyInformativeCopilotProposalAction(payload: unknown): Promise<ActionResult<{ message: string }>> {
+export async function applyInformativeCopilotProposalAction(payload: unknown): Promise<ActionResult<{ message: string; href?: string }>> {
   const r = await applyInformativeProposalAction(payload);
-  return r.ok ? { ok: true, data: { message: "Added to your website." } } : r;
+  if (!r.ok) return r;
+  const service = r.data.changed.startsWith("service ") ? r.data.changed.slice("service ".length) : null;
+  return { ok: true, data: service ? { message: `Updated "${service}" on your website.`, href: "/informative/services" } : { message: "Added to your website." } };
 }
 
 export async function informativeCopilotCostsAction(): Promise<ActionResult<CopilotCosts>> {

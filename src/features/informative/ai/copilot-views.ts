@@ -6,7 +6,7 @@
 import { z } from "zod";
 import { informativeLinksSchema } from "@/features/seller-ai/copilot/schemas";
 import type { CopilotProposalView } from "@/features/seller-ai/copilot/types";
-import { formatServicePrice } from "../pricing";
+import { formatServicePrice, type PriceType } from "../pricing";
 import { proposalSchema, proposalTitle, proposalWrites, type Proposal } from "./schemas";
 
 const longText = (max: number) => z.string().transform((s) => s.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, max));
@@ -31,12 +31,15 @@ export type InformativeCurrent = {
   tagline: string | null;
   about: string | null;
   seo: { title: string | null; description: string | null };
-  services: { name: string; shortDescription: string | null; description: string | null }[];
+  services: { name: string; shortDescription: string | null; description: string | null; priceType?: PriceType; pricePaise?: number | null; isActive?: boolean }[];
 };
+
+/** Credits per executed action step (tara_action); copy proposals were paid for by the question. */
+export type InformativeViewCosts = { action: number };
 
 const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 
-export function informativeProposalViews(proposals: Proposal[], current: InformativeCurrent): CopilotProposalView[] {
+export function informativeProposalViews(proposals: Proposal[], current: InformativeCurrent, costs: InformativeViewCosts = { action: 1 }): CopilotProposalView[] {
   const out: CopilotProposalView[] = [];
   proposals.forEach((p, i) => {
     const w = proposalWrites(p);
@@ -59,9 +62,21 @@ export function informativeProposalViews(proposals: Proposal[], current: Informa
       if (!svc) return;
       if (w.serviceUpdate.shortDescription) fields.push({ label: "Short description", before: svc.shortDescription, after: w.serviceUpdate.shortDescription });
       if (w.serviceUpdate.description) fields.push({ label: "Description", before: svc.description, after: w.serviceUpdate.description });
+    } else if (w.servicePrice) {
+      const svc = current.services.find((s) => norm(s.name) === norm(w.servicePrice!.serviceName));
+      if (!svc) return;
+      const before = svc.priceType ? (formatServicePrice(svc.priceType, svc.pricePaise) ?? "Hidden") : null;
+      const after = formatServicePrice(w.servicePrice.priceType, w.servicePrice.pricePaise) ?? "Hidden";
+      if (before === after) return;
+      fields.push({ label: "Price", before, after });
+    } else if (w.serviceVisibility) {
+      const svc = current.services.find((s) => norm(s.name) === norm(w.serviceVisibility!.serviceName));
+      if (!svc || svc.isActive === w.serviceVisibility.visible) return;
+      fields.push({ label: "On your website", before: svc.isActive === false ? "Hidden" : "Shown", after: w.serviceVisibility.visible ? "Shown" : "Hidden" });
     }
     if (!fields.length) return;
-    out.push({ id: `${p.kind}-${i}`, title: proposalTitle(p), fields, applyCredits: 0, payload: { proposal: p } });
+    const action = p.kind === "service_price" || p.kind === "service_visibility";
+    out.push({ id: `${p.kind}-${i}`, title: proposalTitle(p), fields, applyCredits: action ? costs.action : 0, payload: { proposal: p } });
   });
   return out;
 }

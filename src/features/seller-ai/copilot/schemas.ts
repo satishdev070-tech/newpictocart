@@ -6,6 +6,7 @@ import { z } from "zod";
 import { AGENT_LINKS, type AgentLinkKey, faqProposalItemSchema } from "../schemas";
 import { COPILOT_LANGUAGES } from "./languages";
 import { INFORMATIVE_INTENTS, STORE_INTENTS } from "./quick-actions";
+import { blogApplySchema, blogModelSchema, priceApplySchema, priceModelSchema, statusApplySchema, statusModelSchema, stockApplySchema, stockModelSchema } from "./actions-plan";
 
 export const COPILOT_MAX_MESSAGES = 16;
 
@@ -47,7 +48,7 @@ const faqModelSchema = z.object({
   groupName: z.string().trim().min(1).max(60).catch("General").default("General"),
   items: z.array(faqProposalItemSchema).min(1).max(8),
 });
-export const storeModelProposalSchema = z.discriminatedUnion("type", [faqModelSchema, productCopyModelSchema]);
+export const storeModelProposalSchema = z.discriminatedUnion("type", [faqModelSchema, productCopyModelSchema, stockModelSchema, priceModelSchema, statusModelSchema, blogModelSchema]);
 export type StoreModelProposal = z.infer<typeof storeModelProposalSchema>;
 
 function linkList<K extends string>(table: Record<K, string>) {
@@ -68,10 +69,13 @@ function linkList<K extends string>(table: Record<K, string>) {
     });
 }
 
+/** Most steps one reply may plan (each is previewed and confirmed). */
+export const MAX_PLAN_STEPS = 6;
+
 const keepValid = <S extends z.ZodType>(schema: S) =>
   z
     .array(z.unknown())
-    .max(4)
+    .max(MAX_PLAN_STEPS)
     .catch([])
     .default([])
     .transform((items) =>
@@ -125,6 +129,10 @@ export const productCopyApplySchema = z
 export const storeApplySchema = z.union([
   z.object({ type: z.literal("faq"), groupName: z.string().trim().min(1).max(60).default("General"), items: z.array(faqProposalItemSchema).min(1).max(8) }),
   productCopyApplySchema,
+  stockApplySchema,
+  priceApplySchema,
+  statusApplySchema,
+  blogApplySchema,
 ]);
 export type StoreApplyPayload = z.infer<typeof storeApplySchema>;
 

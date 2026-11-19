@@ -42,7 +42,20 @@ export const proposalSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("seo"), title: text(70), description: text(160) }),
   /** Better copy for an EXISTING service, matched by name on the server (prices untouched). */
   z.object({ kind: z.literal("service_update"), serviceName: text(120).pipe(z.string().min(1)), shortDescription: text(300).optional(), description: longText(2000).optional() }),
+  /** Tara action: change an EXISTING service's price (matched by name on the server; tara_action credits). */
+  z.object({
+    kind: z.literal("service_price"),
+    serviceName: text(120).pipe(z.string().min(1)),
+    priceType: z.enum(PRICE_TYPES),
+    priceRupees: z.preprocess((v) => (typeof v === "string" ? Number(v.replace(/[^\d.]/g, "")) : v), z.number().positive().max(10_000_000).nullable()).catch(null).default(null),
+  }),
+  /** Tara action: show or hide an EXISTING service on the website (tara_action credits). */
+  z.object({ kind: z.literal("service_visibility"), serviceName: text(120).pipe(z.string().min(1)), visible: z.boolean() }),
 ]);
+
+/** Proposal kinds that are actions (charged per executed step), not AI-written copy. */
+export const ACTION_PROPOSAL_KINDS = ["service_price", "service_visibility"] as const;
+export const isActionProposal = (p: { kind: string }): boolean => (ACTION_PROPOSAL_KINDS as readonly string[]).includes(p.kind);
 export type Proposal = z.output<typeof proposalSchema>;
 export type ProposalKind = Proposal["kind"];
 
@@ -79,6 +92,8 @@ export type ProposalWrites = {
   faqs?: { question: string; answer: string }[];
   seo?: { title: string | null; description: string | null };
   serviceUpdate?: { serviceName: string; shortDescription?: string; description?: string };
+  servicePrice?: { serviceName: string; priceType: PriceType; pricePaise: number | null };
+  serviceVisibility?: { serviceName: string; visible: boolean };
 };
 
 /** Prices need an amount for FIXED / STARTING_FROM; without one the service becomes "on request". */
@@ -105,6 +120,13 @@ export function proposalWrites(p: Proposal): ProposalWrites {
       return { faqs: p.faqs.map((f) => ({ question: f.question, answer: f.answer })) };
     case "seo":
       return { seo: { title: p.title || null, description: p.description || null } };
+    case "service_price": {
+      const pricePaise = p.priceRupees == null ? null : Math.round(p.priceRupees * 100);
+      const needsAmount = p.priceType === "FIXED" || p.priceType === "STARTING_FROM";
+      return { servicePrice: { serviceName: p.serviceName, priceType: needsAmount && pricePaise == null ? "ON_REQUEST" : p.priceType, pricePaise: needsAmount ? pricePaise : null } };
+    }
+    case "service_visibility":
+      return { serviceVisibility: { serviceName: p.serviceName, visible: p.visible } };
     case "service_update":
       return {
         serviceUpdate: {
@@ -129,5 +151,9 @@ export function proposalTitle(p: Proposal): string {
       return "Search engine title and description";
     case "service_update":
       return `Better description for "${p.serviceName}"`;
+    case "service_price":
+      return `Change the price of "${p.serviceName}"`;
+    case "service_visibility":
+      return `${p.visible ? "Show" : "Hide"} "${p.serviceName}" on your website`;
   }
 }
