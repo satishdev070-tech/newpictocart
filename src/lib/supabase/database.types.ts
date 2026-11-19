@@ -5929,6 +5929,45 @@ export type Database = {
           },
         ]
       }
+      social_automation: {
+        Row: {
+          delay_minutes: number
+          launch_enabled: boolean
+          mode: string
+          platforms: string[]
+          product_enabled: boolean
+          product_enabled_at: string | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          use_ai: boolean
+        }
+        Insert: {
+          delay_minutes?: number
+          launch_enabled?: boolean
+          mode?: string
+          platforms?: string[]
+          product_enabled?: boolean
+          product_enabled_at?: string | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          use_ai?: boolean
+        }
+        Update: {
+          delay_minutes?: number
+          launch_enabled?: boolean
+          mode?: string
+          platforms?: string[]
+          product_enabled?: boolean
+          product_enabled_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          use_ai?: boolean
+        }
+        Relationships: []
+      }
       social_posts: {
         Row: {
           campaign_id: string | null
@@ -5951,6 +5990,10 @@ export type Database = {
           tenant_id: string
           title: string | null
           updated_at: string
+          ai_note: string | null
+          ai_state: string | null
+          source: string
+          variants: Json
         }
         Insert: {
           campaign_id?: string | null
@@ -5973,6 +6016,10 @@ export type Database = {
           tenant_id: string
           title?: string | null
           updated_at?: string
+          ai_note?: string | null
+          ai_state?: string | null
+          source?: string
+          variants?: Json
         }
         Update: {
           campaign_id?: string | null
@@ -5995,6 +6042,10 @@ export type Database = {
           tenant_id?: string
           title?: string | null
           updated_at?: string
+          ai_note?: string | null
+          ai_state?: string | null
+          source?: string
+          variants?: Json
         }
         Relationships: [
           {
@@ -7600,6 +7651,11 @@ export type Database = {
         Args: { p_reason: string; p_status: string; p_tenant: string }
         Returns: undefined
       }
+      social_ai_credit_debit: {
+        Args: { p_post: string; p_tenant: string }
+        Returns: { balance: number; ledger_id: string }[]
+      }
+      social_ai_credit_refund: { Args: { p_ledger: string; p_note?: string | null }; Returns: number }
       start_support_session: {
         Args: { p_minutes?: number; p_reason: string; p_tenant: string }
         Returns: string

@@ -15,6 +15,7 @@ import { orderForImages } from "@/features/theme/builder/server/generate";
 import type { SellerAiCreditKind } from "./schemas";
 // INFORMATIVE: branch point — see docs/informative/PLAN.md (M9 AI reuses this generation path)
 import type { InformativeAiCreditKind } from "@/features/informative/ai/kinds";
+import type { SocialAiCreditKind } from "@/features/social/ai";
 import type { AiProvider } from "@/features/neural-pulse/schemas";
 import { invokeSellerAi, type SellerAiFunction } from "./invoke";
 import { friendlySellerAiFailure } from "./errors";
@@ -36,7 +37,7 @@ export async function runSellerAiGeneration<S extends z.ZodType>(args: {
   tenantId: string;
   userId: string;
   feature: string;
-  creditKind: SellerAiCreditKind | InformativeAiCreditKind;
+  creditKind: SellerAiCreditKind | InformativeAiCreditKind | SocialAiCreditKind;
   input: Record<string, unknown>;
   prompt: Prompt;
   /** Content schema only (no provider/model/tokens) — those are attached after generateJson. */

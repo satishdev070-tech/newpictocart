@@ -1,5 +1,7 @@
 # Social media hub
 
+> 2026-11-19: the **marketing desk** (own-token connect, LinkedIn, AI posts per network, launch / new-product automation, WhatsApp share) is described in `docs/social/SOCIAL_PLAN.md`. LinkedIn moved from planned channels to auto-publish.
+
 Route: **Marketing → Social** (`/dashboard/marketing/social`). `marketing.read` to view,
 `marketing.write` to connect and post. Feature flag `social_media`.
 
