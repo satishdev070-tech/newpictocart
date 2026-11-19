@@ -32,7 +32,11 @@ export const VAD = {
   initialNoise: 0.004,
 } as const;
 
-export type CallPhase = "idle" | "connecting" | "thinking" | "speaking" | "listening" | "ended";
+/**
+ * `reviewing`: the browser heard a full turn and the seller can edit the words before Tara gets
+ * them (Enter / Send), or say it again. Mic and recognition are off while reviewing.
+ */
+export type CallPhase = "idle" | "connecting" | "thinking" | "speaking" | "listening" | "reviewing" | "ended";
 
 export type MicFailure = "denied" | "unsupported";
 
@@ -94,6 +98,12 @@ export type CallEvent =
   | { type: "TEXT_SENT" }
   /** Browser recognition: the seller finished a turn (text is sent by the hook). */
   | { type: "SPEECH_DONE" }
+  /** Browser recognition finished a turn and the seller reviews it before sending. */
+  | { type: "REVIEW" }
+  /** Seller confirmed the (edited) words: Tara thinks. */
+  | { type: "REVIEW_SEND" }
+  /** Seller wants to say it again: back to listening. */
+  | { type: "RETAKE" }
   /** Browser recognition: a session ended without hearing anything. */
   | { type: "NO_SPEECH" }
   /** Browser recognition: words started arriving (clears the not-heard notice). */
@@ -226,11 +236,18 @@ export function callReducer(s: CallMachine, e: CallEvent): CallMachine {
       if (!s.paused) return s;
       return s.phase === "listening" ? listen({ ...s, paused: false }) : { ...s, paused: false };
     case "TEXT_SENT":
-      if (s.phase === "listening" || s.phase === "speaking") return endTake(s, "text");
+      if (s.phase === "listening" || s.phase === "speaking" || s.phase === "reviewing") return endTake(s, "text");
       return s;
     case "SPEECH_DONE":
       if (s.phase !== "listening" || s.listener !== "browser") return s;
       return { ...endTake(s, "speech"), noSpeechStreak: 0, notHeard: false };
+    case "REVIEW":
+      if (s.phase !== "listening" || s.listener !== "browser") return s;
+      return { ...s, phase: "reviewing", endReason: "speech", noSpeechStreak: 0, notHeard: false };
+    case "REVIEW_SEND":
+      return s.phase === "reviewing" ? endTake(s, "speech") : s;
+    case "RETAKE":
+      return s.phase === "reviewing" ? listen(s) : s;
     case "NO_SPEECH": {
       if (s.phase !== "listening" || s.listener !== "browser") return s;
       const noSpeechStreak = s.noSpeechStreak + 1;

@@ -110,19 +110,21 @@ export function listen(
 // ---- Text-to-speech ----------------------------------------------------------------------------
 
 /**
- * Best installed voice for a BCP-47 tag: exact locale, then same language; within each, a female
- * voice first (voiceGenderScore), then on-device. Null when nothing speaks the language.
+ * Best installed voice for a BCP-47 tag: an Indian (exact-locale) female voice, then any female
+ * voice of the language, then the exact locale, then on-device. Null when nothing speaks the language.
  */
 export function pickVoice(voices: SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice | null {
   const want = lang.toLowerCase().replace("_", "-");
   const base = want.split("-")[0]!;
   const norm = (v: SpeechSynthesisVoice) => v.lang.toLowerCase().replace("_", "-");
   let best: SpeechSynthesisVoice | null = null;
-  let bestScore = -1;
+  let bestScore = -Infinity; // male-only devices score below 0 and must still get a voice
   for (const v of voices) {
     const tag = norm(v);
     if (tag.split("-")[0] !== base) continue;
-    const score = (tag === want ? 200 : 100) + voiceGenderScore(v.name) * 40 + (v.localService ? 2 : 0);
+    // Tara is a woman: gender outranks region (an en-US female beats an en-IN male), and the
+    // Indian female voice (exact locale) beats both. Language itself is never traded away.
+    const score = (tag === want ? 100 : 0) + voiceGenderScore(v.name) * 150 + (v.localService ? 2 : 0);
     if (score > bestScore) {
       best = v;
       bestScore = score;

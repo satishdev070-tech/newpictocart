@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type FormEvent, type RefObject } from "react";
-import { Keyboard, Mic, MicOff, PhoneOff, Send, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
+import { Keyboard, Mic, MicOff, PhoneOff, RotateCcw, Send, Sparkles } from "lucide-react";
 import { onbButton, onbField } from "@/components/onboarding-ui";
 import { cn } from "@/lib/cn";
 import { formatCallClock } from "@/features/onboarding/voice/transcript";
@@ -13,6 +13,7 @@ export type CallState = CallUiState;
 
 export function callStateLabel(view: TaraCallView, t: VoiceUiCopy): string {
   if (view.phase === "connecting") return t.stateConnecting;
+  if (view.phase === "reviewing") return t.stateReviewing;
   const state = callUiState(view);
   // No way to hear this call (server STT down, no browser recognition): Tara talks, seller types.
   if (state === "listening" && view.listener === "none") return t.typeInstead;
@@ -25,6 +26,7 @@ export function callStateLabel(view: TaraCallView, t: VoiceUiCopy): string {
 function callHint(view: TaraCallView, t: VoiceUiCopy): string {
   if (view.paused) return t.hintPaused;
   if (view.phase === "speaking") return t.hintSpeaking;
+  if (view.phase === "reviewing") return t.hintReviewing;
   if (view.phase === "listening") {
     if (view.listener === "none") return ""; // the notice below explains it
     return view.muted ? t.hintMuted : t.hintListening;
@@ -164,9 +166,16 @@ export function CallPanel({
   onMute,
   onEndCall,
   onSendText,
+  review,
+  onConfirmReview,
+  onRetake,
 }: {
   t: VoiceUiCopy;
   view: TaraCallView;
+  /** Words heard in this turn, waiting for the seller's OK (null when not reviewing). */
+  review?: string | null;
+  onConfirmReview?: (text: string) => void;
+  onRetake?: () => void;
   /** Call running (mic open or opening). */
   active: boolean;
   /** Elapsed call time; null before the first start. */
@@ -243,6 +252,8 @@ export function CallPanel({
         ) : null}
       </div>
 
+      {review != null && onConfirmReview && onRetake ? <ReviewBox key={review} initial={review} t={t} busy={busy} onSend={onConfirmReview} onRetake={onRetake} /> : null}
+
       {micNotice ? (
         <p role="alert" className="rounded-[var(--r-sm)] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
           {micNotice}
@@ -287,5 +298,61 @@ export function CallPanel({
         </ul>
       </div>
     </div>
+  );
+}
+
+/**
+ * What Tara heard, editable before it is sent: Enter (or Send) gives it to Tara, "Say it again"
+ * re-opens the mic. Focused on appear so the seller can fix a word straight away.
+ */
+function ReviewBox({ initial, t, busy, onSend, onRetake }: { initial: string; t: VoiceUiCopy; busy: boolean; onSend: (text: string) => void; onRetake: () => void }) {
+  const [text, setText] = useState(initial);
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, []);
+  const send = () => {
+    if (!busy && text.trim()) onSend(text.trim());
+  };
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        send();
+      }}
+      className="flex flex-col gap-2 rounded-[var(--r-md)] border border-mk-accent/40 bg-mk-elev-2 p-3"
+    >
+      <label htmlFor="tara-review" className="font-mk-mono text-[11px] uppercase tracking-[0.14em] text-mk-accent">
+        {t.reviewLabel}
+      </label>
+      <textarea
+        id="tara-review"
+        ref={ref}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            send();
+          }
+        }}
+        rows={2}
+        maxLength={1000}
+        className={cn(onbField, "min-h-16 resize-none")}
+      />
+      <div className="flex flex-wrap gap-2">
+        <button type="submit" disabled={busy || !text.trim()} className={cn(onbButton.primary, "min-h-11 px-4")}>
+          <Send className="size-4" aria-hidden />
+          {t.reviewSend}
+        </button>
+        <button type="button" onClick={onRetake} className={cn(onbButton.secondary, "min-h-11 px-4")}>
+          <RotateCcw className="size-4" aria-hidden />
+          {t.reviewRetake}
+        </button>
+      </div>
+    </form>
   );
 }

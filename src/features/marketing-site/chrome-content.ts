@@ -251,7 +251,7 @@ export const DEFAULT_MEGA_MENU: MegaMenu = {
         item("bar-chart", "Analytics Dashboard", "Orders, revenue, visitors, funnels"),
         item("alarm-clock", "Abandoned Cart Recovery", "Auto-nudge visitors who left items behind"),
         item("calendar", "Weekly Digest", "A summary email every Monday morning"),
-        item("bot", "Pica2 AI Assistant", "In-dashboard helper for any question"),
+        item("bot", "Tara AI Assistant", "In-dashboard helper for any question"),
       ],
     },
   ],

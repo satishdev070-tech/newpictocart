@@ -2,7 +2,7 @@ import "server-only";
 import { logger } from "@/lib/observability/logger";
 import { cityAlreadyAsked, nextOfflineStep, offlineQuestion, timesAsked } from "./offline-replies";
 import { fillExpectedSlot } from "./slot-fill";
-import { chatTurn, synthesizeSpeech, transcribeAudio, isSarvamConfigured } from "@/lib/sarvam/client";
+import { synthesizeSpeech, transcribeAudio, isSarvamConfigured } from "@/lib/sarvam/client";
 import type { SarvamLocaleCode } from "@/lib/sarvam/locales";
 import { AppError } from "@/lib/errors";
 import {
@@ -18,7 +18,7 @@ import {
   suggestSubcategory,
   type VoiceFacts,
 } from "./facts";
-import { taraSystemPrompt, taraUserPrompt } from "./prompt";
+import { thinkAsTara } from "./brain";
 import { taraTurnResultSchema } from "./schemas";
 import type { IndustrySlug } from "@/features/stores/industries";
 
@@ -135,20 +135,12 @@ export async function runTaraTurn(input: RunTaraTurnInput): Promise<TaraTurnOutp
     throw new AppError("VALIDATION", { fieldErrors: { _form: ["Say something or type a short answer."] } });
   }
 
-  let turn: Awaited<ReturnType<typeof chatTurn>>;
+  let turn: { content: string; via: string };
   try {
-    turn = await chatTurn({
-      messages: [
-        { role: "system", content: taraSystemPrompt(input.locale) },
-        { role: "user", content: taraUserPrompt({ transcript, facts, locale: input.locale, history: input.history }) },
-      ],
-      responseFormat: "json",
-      temperature: 0.35,
-      languageCode: input.locale,
-    });
+    turn = await thinkAsTara({ locale: input.locale, transcript, facts, history: input.history });
   } catch (err) {
-    // AI chat unavailable (outage, no credits, timeout): keep the seller moving with the local
-    // extractor and a scripted next question, same steps as the quiz. No TTS (same provider).
+    // Every AI brain unavailable (Sarvam and the platform LLMs): keep the seller moving with the
+    // local extractor and a scripted next question, same steps as the quiz.
     logger.warn("onboarding.voice_offline_turn", { locale: input.locale, reason: err instanceof AppError ? String(err.context?.reason ?? err.code) : "throw" });
     // Slot filling: the answer fills the slot Tara just asked for (bare "विनोद जनरल स्टोर" = name).
     // The question being answered is Tara's LAST line, so "already asked" only counts earlier ones.

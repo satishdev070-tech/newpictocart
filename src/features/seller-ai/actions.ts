@@ -367,7 +367,7 @@ export async function askStoreAgentAction(input: AgentChatInput): Promise<Action
       input: { question: v.messages[v.messages.length - 1]!.content.slice(0, 500), turns: v.messages.length, language },
       prompt,
       schema: agentReplyContentSchema,
-      limit: { key: "seller-agent", perDay: AGENT_DAILY_LIMIT, message: `You've asked Pica2 AI Assistant ${AGENT_DAILY_LIMIT} questions today. Try again tomorrow.` },
+      limit: { key: "seller-agent", perDay: AGENT_DAILY_LIMIT, message: `You've asked Tara ${AGENT_DAILY_LIMIT} questions today. Try again tomorrow.` },
       // In-process generateJson is primary; merchant-assistant Edge is an optional fallback.
       edgeFallback: {
         name: "merchant-assistant",

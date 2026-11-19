@@ -353,11 +353,11 @@ export const DEFAULT_FEATURE_PAGES: FeaturePagesDocument = {
       slug: "pica2-ai-assistant",
       group: "grow",
       order: 5,
-      title: "Pica2 AI Assistant",
+      title: "Tara AI Assistant",
       eyebrow: "Grow · Copilot",
       summary: "An in-dashboard helper for product copy, FAQs and day-to-day seller questions.",
       bullets: ["Ask in plain language", "Helps with catalogue and content tasks", "Lives where you already work", "Speeds repetitive writing"],
-      body: "Pica2 sits inside the seller experience so you do not context-switch to a separate chatbot. Use it to draft answers, refine listings and unblock “how do I…” moments faster.",
+      body: "Tara sits inside the seller experience so you do not context-switch to a separate chatbot. Use it to draft answers, refine listings and unblock “how do I…” moments faster.",
     }),
   ],
 };

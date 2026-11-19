@@ -55,7 +55,7 @@ export const VOICE_TE_IN: VoiceUiCopyTranslation = {
   stateMuted: "మ్యూట్‌లో ఉంది",
   mute: "మైక్ మ్యూట్ చేయండి",
   unmute: "మైక్ అన్‌మ్యూట్ చేయండి",
-  hintListening: "మాట్లాడండి చాలు. మీరు ఆగినప్పుడు Tara జవాబిస్తుంది.",
+  hintListening: "మాట్లాడండి చాలు. ఆగిన తర్వాత మీ మాటలు చూసుకుని తారాకు పంపండి.",
   hintSpeaking: "ఆపడానికి ఆర్బ్ నొక్కండి",
   hintThinking: "ఒక్క క్షణం…",
   hintMuted: "Tara కి మీ మాట వినపడదు. జవాబివ్వడానికి అన్‌మ్యూట్ చేయండి.",
@@ -68,4 +68,9 @@ export const VOICE_TE_IN: VoiceUiCopyTranslation = {
   sttUnavailable: "ప్రస్తుతం వాయిస్ గుర్తింపు అందుబాటులో లేదు — దయచేసి మీ సమాధానం టైప్ చేయండి.",
   notHeard: "సరిగా వినిపించలేదు — దయచేసి మళ్ళీ చెప్పండి.",
   speakNow: "ఇప్పుడు మాట్లాడండి",
+  stateReviewing: "నేను విన్నది చూసుకోండి",
+  hintReviewing: "ఏదైనా పదం తప్పుంటే సరిచేసి, Enter లేదా పంపు నొక్కండి.",
+  reviewLabel: "నేను విన్నది (మీరు మార్చవచ్చు)",
+  reviewSend: "తారాకు పంపండి",
+  reviewRetake: "మళ్ళీ చెప్పండి",
 };

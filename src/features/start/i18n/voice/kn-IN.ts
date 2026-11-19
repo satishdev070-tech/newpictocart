@@ -54,7 +54,7 @@ export const VOICE_KN_IN: VoiceUiCopyTranslation = {
   stateMuted: "ಮ್ಯೂಟ್",
   mute: "ಮೈಕ್ ಮ್ಯೂಟ್ ಮಾಡಿ",
   unmute: "ಮೈಕ್ ಆನ್ ಮಾಡಿ",
-  hintListening: "ಸುಮ್ಮನೆ ಮಾತಾಡಿ. ನೀವು ನಿಲ್ಲಿಸಿದಾಗ ತಾರಾ ಉತ್ತರಿಸುತ್ತಾಳೆ.",
+  hintListening: "ಮಾತನಾಡಿ ಸಾಕು. ನಿಲ್ಲಿಸಿದಾಗ ನಿಮ್ಮ ಮಾತುಗಳನ್ನು ಪರಿಶೀಲಿಸಿ ತಾರಾಗೆ ಕಳುಹಿಸಿ.",
   hintSpeaking: "ಮಧ್ಯೆ ಮಾತಾಡಲು ಗೋಳದ ಮೇಲೆ ಟ್ಯಾಪ್ ಮಾಡಿ",
   hintThinking: "ಒಂದು ಕ್ಷಣ…",
   hintMuted: "ತಾರಾಗೆ ನಿಮ್ಮ ಮಾತು ಕೇಳಿಸುತ್ತಿಲ್ಲ. ಉತ್ತರಿಸಲು ಮೈಕ್ ಆನ್ ಮಾಡಿ.",
@@ -67,4 +67,9 @@ export const VOICE_KN_IN: VoiceUiCopyTranslation = {
   sttUnavailable: "ಈಗ ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆ ಲಭ್ಯವಿಲ್ಲ — ದಯವಿಟ್ಟು ನಿಮ್ಮ ಉತ್ತರವನ್ನು ಟೈಪ್ ಮಾಡಿ.",
   notHeard: "ಸರಿಯಾಗಿ ಕೇಳಿಸಲಿಲ್ಲ — ದಯವಿಟ್ಟು ಮತ್ತೊಮ್ಮೆ ಹೇಳಿ.",
   speakNow: "ಈಗ ಮಾತನಾಡಿ",
+  stateReviewing: "ನಾನು ಕೇಳಿದ್ದನ್ನು ಪರಿಶೀಲಿಸಿ",
+  hintReviewing: "ಯಾವುದಾದರೂ ಪದ ತಪ್ಪಿದ್ದರೆ ಸರಿಪಡಿಸಿ, ನಂತರ Enter ಅಥವಾ ಕಳುಹಿಸಿ ಒತ್ತಿ.",
+  reviewLabel: "ನಾನು ಕೇಳಿದ್ದು (ನೀವು ಬದಲಿಸಬಹುದು)",
+  reviewSend: "ತಾರಾಗೆ ಕಳುಹಿಸಿ",
+  reviewRetake: "ಮತ್ತೆ ಹೇಳಿ",
 };

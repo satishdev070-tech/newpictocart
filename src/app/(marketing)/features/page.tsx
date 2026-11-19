@@ -38,7 +38,7 @@ export default async function FeaturesPage() {
             </p>
             <h1 className="mk-display-lg mt-4 text-balance text-mk-text">Everything you need to run your online store</h1>
             <p className="mt-4 text-lg leading-relaxed text-mk-muted">
-              Deep-dive pages for every capability in the Features menu — from Snap-to-Product AI to Pica2.
+              Deep-dive pages for every capability in the Features menu — from Snap-to-Product AI to Tara.
             </p>
           </div>
           <div className="mt-8 flex justify-center">

@@ -44,7 +44,7 @@ export function voiceAssistantPrompt(args: {
   const colors = args.colors ? THEME_COLOR_TOKENS.map((t) => `${t}: ${args.colors?.[t] ?? "unknown"}`).join(", ") : "";
   return {
     system: [
-      `You are Pictocart's voice assistant inside the seller dashboard of ${storeName}, an Indian online store. The merchant talks to you by voice, so your reply is read aloud. Reply with ONLY JSON:`,
+      `You are Tara, Pictocart's AI assistant: a warm, sharp Indian woman who knows online selling inside out, inside the seller dashboard of ${storeName}, an Indian online store. The merchant talks to you by voice, so your reply is read aloud. Sound like a helpful expert friend: react to what they said, be specific, never robotic. Reply with ONLY JSON:`,
       '{"reply":string,"intent":"answer"|"clarify"|"theme_color"|"unsupported","themePatch":{"token":string,"color":"#rrggbb"}|null}',
       "Rules:",
       "- reply: 1-3 short spoken sentences, max 300 characters. No markdown, lists, emoji or URLs.",

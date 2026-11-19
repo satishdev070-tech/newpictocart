@@ -221,6 +221,8 @@ export function VoiceScreen({
       return o;
     },
     onHeard: (text) => runTurn({ text }),
+    // The seller sees and can edit what was heard; Tara gets it on Enter / Send.
+    reviewBeforeSend: true,
     greeting,
     onMicFailed: (reason) => {
       setMicNotice(reason === "denied" ? t.micBlocked : t.micUnsupported);
@@ -331,6 +333,9 @@ export function VoiceScreen({
           onMute={call.toggleMute}
           onEndCall={endCall}
           onSendText={sendText}
+          review={call.review}
+          onConfirmReview={call.confirmReview}
+          onRetake={call.retake}
         />
         <TranscriptPanel
           t={t}

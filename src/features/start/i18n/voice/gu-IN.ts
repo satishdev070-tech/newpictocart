@@ -54,7 +54,7 @@ export const VOICE_GU_IN: VoiceUiCopyTranslation = {
   stateMuted: "મ્યૂટ",
   mute: "માઇક મ્યૂટ કરો",
   unmute: "માઇક ચાલુ કરો",
-  hintListening: "બસ બોલો. તમે અટકશો એટલે તારા જવાબ આપશે.",
+  hintListening: "બસ બોલો. અટકો ત્યારે તમારા શબ્દો તપાસીને તારાને મોકલો.",
   hintSpeaking: "વચ્ચે બોલવા ગોળા પર ટૅપ કરો",
   hintThinking: "એક પળ…",
   hintMuted: "તારા તમને સાંભળી શકતી નથી. જવાબ આપવા માઇક ચાલુ કરો.",
@@ -67,4 +67,9 @@ export const VOICE_GU_IN: VoiceUiCopyTranslation = {
   sttUnavailable: "અત્યારે અવાજ ઓળખ ઉપલબ્ધ નથી — કૃપા કરીને તમારો જવાબ ટાઇપ કરો.",
   notHeard: "મને બરાબર સમજાયું નહીં — કૃપા કરીને ફરી બોલો.",
   speakNow: "હવે બોલો",
+  stateReviewing: "મેં જે સાંભળ્યું તે તપાસો",
+  hintReviewing: "કોઈ શબ્દ ખોટો હોય તો સુધારો, પછી Enter અથવા મોકલો દબાવો.",
+  reviewLabel: "મેં આ સાંભળ્યું (તમે બદલી શકો છો)",
+  reviewSend: "તારાને મોકલો",
+  reviewRetake: "ફરી બોલો",
 };

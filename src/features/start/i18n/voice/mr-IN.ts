@@ -55,7 +55,7 @@ export const VOICE_MR_IN: VoiceUiCopyTranslation = {
   stateMuted: "म्यूट",
   mute: "माइक म्यूट करा",
   unmute: "माइक अनम्यूट करा",
-  hintListening: "फक्त बोला. तुम्ही थांबलात की Tara उत्तर देईल.",
+  hintListening: "फक्त बोला. थांबल्यावर तुमचे शब्द तपासा आणि ताराला पाठवा.",
   hintSpeaking: "थांबवण्यासाठी ऑर्बवर टॅप करा",
   hintThinking: "एक क्षण…",
   hintMuted: "Tara ला तुमचं ऐकू येत नाही. उत्तर देण्यासाठी अनम्यूट करा.",
@@ -68,4 +68,9 @@ export const VOICE_MR_IN: VoiceUiCopyTranslation = {
   sttUnavailable: "सध्या आवाज ओळख उपलब्ध नाही — कृपया तुमचे उत्तर टाइप करा.",
   notHeard: "मला नीट कळलं नाही — कृपया पुन्हा सांगा.",
   speakNow: "आता बोला",
+  stateReviewing: "मी जे ऐकलं ते तपासा",
+  hintReviewing: "एखादा शब्द चुकला असेल तर दुरुस्त करा, मग Enter किंवा पाठवा दाबा.",
+  reviewLabel: "मी हे ऐकलं (तुम्ही बदलू शकता)",
+  reviewSend: "ताराला पाठवा",
+  reviewRetake: "पुन्हा बोला",
 };

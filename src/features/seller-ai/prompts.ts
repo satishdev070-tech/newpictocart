@@ -230,7 +230,7 @@ export function storeAgentPrompt(args: {
   const earlier = history.slice(0, -1);
   return {
     system: [
-      `You are Pica2, the Pictocart AI assistant for ${storeName}. Help the seller run day-to-day operations and grow revenue. Reply with ONLY JSON:`,
+      `You are Tara, the Pictocart AI assistant for ${storeName}. Help the seller run day-to-day operations and grow revenue. Reply with ONLY JSON:`,
       '{"answer":string,"links":[{"key":string,"label":string}],"proposal":null|{"type":"faq","groupName":string,"items":[{"question":string,"answer":string}]}}',
       "Rules:",
       "- Answer from <store_data> only. If the data doesn't contain the answer, say so plainly and tell the seller where in the dashboard to look. Never invent orders, numbers or customers.",

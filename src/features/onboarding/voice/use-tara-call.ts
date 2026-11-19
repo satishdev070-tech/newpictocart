@@ -55,6 +55,11 @@ export type UseTaraCallOptions = {
   onTake: (audio: Blob) => Promise<TaraTurnOutcome>;
   /** Browser recognition: the seller's words → server turn (typed-text path). */
   onHeard: (text: string) => Promise<TaraTurnOutcome>;
+  /**
+   * Show what was heard in an editable box when the seller stops talking; Tara gets it only after
+   * they press Send / Enter (default true). False = hands-free (sent as soon as they stop).
+   */
+  reviewBeforeSend?: boolean;
   /** Tara's spoken opener (fetched right after the mic opens). */
   greeting: () => Promise<TaraLine>;
   onMicFailed?: (reason: MicFailure) => void;
@@ -183,6 +188,8 @@ export function useTaraCall(options: UseTaraCallOptions) {
   const recognitionRef = useRef<{ rec: BrowserRecognition; takeId: number } | null>(null);
   const captionRef = useRef<CaptionState>(emptyCaption);
   const [caption, setCaption] = useState("");
+  /** Words waiting for the seller's OK (phase "reviewing"). */
+  const [review, setReview] = useState<string | null>(null);
   const endTimerRef = useRef<number | null>(null);
   /** Sessions that ended almost immediately in a row (engine refusing to run). */
   const rapidEndsRef = useRef(0);
@@ -302,6 +309,13 @@ export function useTaraCall(options: UseTaraCallOptions) {
     const m = machineRef.current;
     if (!text || m.phase !== "listening" || m.listener !== "browser") return;
     stopRecognition();
+    if (optsRef.current.reviewBeforeSend !== false) {
+      dispatchRef.current({ type: "REVIEW" });
+      captionRef.current = emptyCaption;
+      setCaption("");
+      setReview(text);
+      return;
+    }
     dispatchRef.current({ type: "SPEECH_DONE" });
     void handleHeardRef.current(text);
   }, [clearEndTimer, stopRecognition]);
@@ -711,6 +725,27 @@ export function useTaraCall(options: UseTaraCallOptions) {
   }, [dispatch, finishSpokenTurn]);
   const toggleMute = useCallback(() => dispatch({ type: "MUTE_TOGGLE" }), [dispatch]);
 
+  /** Reviewing: send the (edited) words to Tara. */
+  const confirmReview = useCallback(
+    (text: string) => {
+      const words = text.trim();
+      if (machineRef.current.phase !== "reviewing") return;
+      setReview(null);
+      if (!words) {
+        dispatch({ type: "RETAKE" });
+        return;
+      }
+      dispatch({ type: "REVIEW_SEND" });
+      void handleHeardRef.current(words);
+    },
+    [dispatch],
+  );
+  /** Reviewing: discard and listen again. */
+  const retake = useCallback(() => {
+    setReview(null);
+    dispatch({ type: "RETAKE" });
+  }, [dispatch]);
+
   /** Typed message during the call: drops the current take, runs the turn, then speaks/listens. */
   const sendTyped = useCallback(
     async (run: () => Promise<TaraTurnOutcome>) => {
@@ -750,7 +785,7 @@ export function useTaraCall(options: UseTaraCallOptions) {
 
   useEffect(() => teardown, [teardown]);
 
-  return { view, active: callActive(view), caption, start, end, tap, toggleMute, sendTyped, meterRef };
+  return { view, active: callActive(view), caption, review: view.phase === "reviewing" ? review : null, confirmReview, retake, start, end, tap, toggleMute, sendTyped, meterRef };
 }
 
 /** Chunks per recorder (kept outside React state; recorders are short-lived). */
