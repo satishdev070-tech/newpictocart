@@ -49,11 +49,17 @@ export function BasicInfoStep({
   rootDomain,
   onSave,
   onBack,
+  tara,
+  incoming,
 }: {
   draft: InformativeDraft;
   rootDomain: string;
   onSave: (basic: Fields, logoDataUrl: string | null) => void;
   onBack: () => void;
+  /** "Fill this with Tara" panel, shown between the heading and the form (it has its own forms). */
+  tara?: React.ReactNode;
+  /** Fields Tara just learned; applied over the form (bumping `seq` re-applies). */
+  incoming?: { seq: number; patch: Partial<Record<Exclude<keyof Fields, "whatsappSameAsPhone">, string>> } | null;
 }) {
   const b = draft.basic;
   const c = infoCopy(draft.locale);
@@ -80,6 +86,16 @@ export function BasicInfoStep({
   const checkSeq = useRef(0);
 
   const set = <K extends keyof Fields>(k: K, v: Fields[K]) => setF((prev) => ({ ...prev, [k]: v }));
+
+  // Tara's facts fill the form live (adjusting state during render when a new patch arrives);
+  // the owner's own edits to other fields stay.
+  const [appliedSeq, setAppliedSeq] = useState(0);
+  if (incoming && incoming.seq !== appliedSeq) {
+    setAppliedSeq(incoming.seq);
+    setF((prev) => ({ ...prev, ...incoming.patch }));
+    if (incoming.patch.businessName && !str(b.slug)) setSlugTouched(false);
+    setErrors({});
+  }
   const custom = f.serviceTypeId === "custom";
   const picked = findServiceType(f.serviceTypeId);
 
@@ -161,7 +177,7 @@ export function BasicInfoStep({
   };
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-6" aria-labelledby="basic-title">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
         <OnbEyebrow>{tb.eyebrow}</OnbEyebrow>
         <div id="basic-title">
@@ -169,6 +185,8 @@ export function BasicInfoStep({
         </div>
         <OnbSub>{tb.sub}</OnbSub>
       </div>
+      {tara}
+    <form onSubmit={submit} noValidate className="flex flex-col gap-6" aria-labelledby="basic-title">
       <div className={`${ui.card} grid gap-5 sm:grid-cols-2`}>
         <label className={`${ui.label} sm:col-span-2`}>
           {tb.businessName} *
@@ -285,5 +303,6 @@ export function BasicInfoStep({
         <button type="submit" className={ui.primaryBtn} disabled={slugState === "checking"}>{c.continue}</button>
       </div>
     </form>
+    </div>
   );
 }

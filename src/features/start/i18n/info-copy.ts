@@ -14,6 +14,11 @@ export const INFO_EN = {
   back: "Back",
   continue: "Continue",
   basic: {
+    taraTitle: "Tara: fill this form by talking",
+    taraBody: "Tell Tara about your business in your own words. She fills the form below; you check it and continue.",
+    taraCta: "Talk with Tara",
+    taraSpeaks: "Tara speaks her replies",
+    taraFilled: "Tara filled the form. Please check it and press Continue.",
     eyebrow: "Your business",
     title: "Tell us about your business",
     sub: "This shows on your website. You can change it any time.",
