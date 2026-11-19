@@ -130,6 +130,23 @@ function requireClient(): SarvamAIClient {
   return new SarvamAIClient({ apiSubscriptionKey: key });
 }
 
+/**
+ * Circuit breaker (per isolate): after a quota ("No credits available", 402) or auth failure,
+ * Sarvam is skipped for PAUSE_MS so every Tara turn doesn't wait on two calls that will fail
+ * before its fallbacks (platform AI, browser voice) answer. Exported for tests.
+ */
+const PAUSE_MS = 10 * 60 * 1000;
+let pausedUntil = 0;
+export function sarvamPaused(now = Date.now()): boolean {
+  return now < pausedUntil;
+}
+export function notePossiblePause(errorClass: SarvamErrorClass, now = Date.now()) {
+  if (errorClass === "quota" || errorClass === "auth") pausedUntil = now + PAUSE_MS;
+}
+export function resetSarvamPauseForTests() {
+  pausedUntil = 0;
+}
+
 export function isSarvamConfigured(): boolean {
   return Boolean(serverEnv().SARVAM_API_KEY);
 }
@@ -146,6 +163,12 @@ export async function transcribeAudio(args: {
   languageCode: SarvamLocaleCode;
   filename?: string;
 }): Promise<{ transcript: string; detectedLanguage: string | null }> {
+  if (sarvamPaused()) {
+    throw new AppError("VALIDATION", {
+      fieldErrors: { _form: [STT_UNAVAILABLE_MESSAGE.quota], reason: [STT_UNAVAILABLE_REASON, "quota"] },
+      context: { reason: STT_UNAVAILABLE_REASON, class: "quota" },
+    });
+  }
   const client = requireClient();
   const locale = getSarvamLocale(args.languageCode);
   if (!locale?.stt) throw new AppError("VALIDATION", { fieldErrors: { language: ["That language isn't supported for speech."] } });
@@ -166,6 +189,7 @@ export async function transcribeAudio(args: {
     return { transcript: res.transcript?.trim() ?? "", detectedLanguage: res.language_code ?? null };
   } catch (err) {
     const errorClass = classifySarvamError(err);
+    notePossiblePause(errorClass);
     logger.warn("sarvam.stt_failed", { language: args.languageCode, class: errorClass, error: safeErrorMessage(err) });
     if (errorClass === "bad_audio" || errorClass === "unknown") {
       throw new AppError("VALIDATION", {
@@ -182,6 +206,12 @@ export async function transcribeAudio(args: {
 
 /** One chat turn with Sarvam-105B Conversations (seed + Tara share this). */
 export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
+  if (sarvamPaused()) {
+    throw new AppError("VALIDATION", {
+      fieldErrors: { _form: ["Tara couldn't reply just now. Please try again or type your answer."] },
+      context: { reason: "sarvam_chat_failed", class: "quota" },
+    });
+  }
   const client = requireClient();
   const model = (input.model ?? "sarvam-105b-conversations") as SarvamAI.SarvamModelIds;
   const sellerLocale = input.languageCode && isSarvamLocaleCode(input.languageCode) ? input.languageCode : undefined;
@@ -213,6 +243,7 @@ export async function chatTurn(input: ChatTurnInput): Promise<ChatTurnResult> {
   } catch (err) {
     if (err instanceof AppError) throw err;
     const errorClass = classifySarvamError(err);
+    notePossiblePause(errorClass);
     logger.warn("sarvam.chat_failed", { language: sellerLocale, class: errorClass, error: safeErrorMessage(err) });
     throw new AppError("VALIDATION", {
       fieldErrors: { _form: ["Tara couldn't reply just now. Please try again or type your answer."] },
@@ -231,7 +262,7 @@ export async function synthesizeSpeech(args: {
 }): Promise<{ audioBase64: string; mimeType: string } | null> {
   const ttsLang = ttsLocaleFor(args.languageCode);
   if (!ttsLang) return null;
-  if (!isSarvamConfigured()) return null;
+  if (!isSarvamConfigured() || sarvamPaused()) return null;
   const text = args.text.slice(0, 2400);
   if (!text.trim()) return null;
   try {
@@ -247,16 +278,19 @@ export async function synthesizeSpeech(args: {
     if (!audio) return null;
     return { audioBase64: audio, mimeType: "audio/mpeg" };
   } catch (err) {
-    logger.warn("sarvam.tts_failed", { language: args.languageCode, class: classifySarvamError(err), error: safeErrorMessage(err) });
+    const errorClass = classifySarvamError(err);
+    notePossiblePause(errorClass);
+    logger.warn("sarvam.tts_failed", { language: args.languageCode, class: errorClass, error: safeErrorMessage(err) });
     return null;
   }
 }
 
 /** Mayura / Sarvam-Translate short text. Accepts short codes (`hi`) or BCP-47. */
 export async function translateText(input: TranslateTextInput): Promise<TranslateTextResult> {
-  const client = requireClient();
   const text = input.text.slice(0, 1900);
   if (!text.trim()) return { translatedText: "" };
+  if (sarvamPaused()) return { translatedText: text };
+  const client = requireClient();
 
   const target = toLocaleOrThrow(input.targetLanguageCode, "targetLanguageCode");
   const sourceRaw = input.sourceLanguageCode?.trim() || "auto";
@@ -275,6 +309,7 @@ export async function translateText(input: TranslateTextInput): Promise<Translat
     });
     return { translatedText: (res.translated_text ?? text).trim() };
   } catch (err) {
+    notePossiblePause(classifySarvamError(err));
     logger.warn("sarvam.translate_failed", {
       class: classifySarvamError(err),
       source,

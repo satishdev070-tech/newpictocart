@@ -16,7 +16,7 @@ vi.mock("sarvamai", () => ({
 vi.mock("@/lib/env/server", () => ({ serverEnv: () => ({ SARVAM_API_KEY: "test-key-not-real" }) }));
 vi.mock("@/lib/observability/logger", () => ({ logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } }));
 
-import { classifySarvamError, synthesizeSpeech, transcribeAudio, chatTurn } from "@/lib/sarvam/client";
+import { classifySarvamError, resetSarvamPauseForTests, synthesizeSpeech, transcribeAudio, chatTurn } from "@/lib/sarvam/client";
 import { AppError, toPublicError } from "@/lib/errors";
 
 /** Shape of the SDK's SarvamAIError (statusCode + parsed body). */
@@ -59,7 +59,10 @@ async function sttError(err: unknown): Promise<AppError> {
 }
 
 describe("transcribeAudio error mapping", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetSarvamPauseForTests(); // each case starts with Sarvam reachable (circuit breaker closed)
+  });
 
   it.each([
     [sdkError(402, QUOTA_BODY), "quota"],
@@ -91,7 +94,10 @@ describe("transcribeAudio error mapping", () => {
 });
 
 describe("TTS and chat on provider failure", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetSarvamPauseForTests(); // each case starts with Sarvam reachable (circuit breaker closed)
+  });
 
   it("synthesizeSpeech returns null instead of throwing (no credits)", async () => {
     sdk.convert.mockRejectedValueOnce(sdkError(402, QUOTA_BODY));

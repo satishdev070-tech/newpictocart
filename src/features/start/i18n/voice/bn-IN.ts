@@ -69,7 +69,7 @@ export const VOICE_BN_IN: VoiceUiCopyTranslation = {
   notHeard: "ঠিক বুঝতে পারিনি — অনুগ্রহ করে আবার বলুন।",
   speakNow: "এবার বলুন",
   stateReviewing: "আমি যা শুনেছি, দেখে নিন",
-  hintReviewing: "কোনো শব্দ ভুল হলে ঠিক করুন, তারপর Enter বা পাঠান টিপুন।",
+  hintReviewing: "এটি একটু পরেই তারার কাছে যাবে। কোনো শব্দ ঠিক করতে লিখতে শুরু করুন, তারপর Enter চাপুন।",
   reviewLabel: "আমি এটা শুনেছি (বদলাতে পারেন)",
   reviewSend: "Tara-কে পাঠান",
   reviewRetake: "আবার বলুন",

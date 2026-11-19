@@ -54,7 +54,7 @@ function RebuildButton({ copy }: { copy: CopilotCopy }) {
 }
 
 /** "Ask Pictocart AI" for the informative-website panel (mounted in app/informative/(panel)/layout.tsx). */
-export function InformativeCopilot({ canWrite, canRebuild, panelLanguage }: { canWrite: boolean; canRebuild: boolean; panelLanguage?: string | null }) {
+export function InformativeCopilot({ canWrite, canRebuild, panelLanguage, scope }: { canWrite: boolean; canRebuild: boolean; panelLanguage?: string | null; scope: string }) {
   const router = useRouter();
   const withRefresh = useMemo<CopilotAdapter>(
     () => ({
@@ -69,9 +69,9 @@ export function InformativeCopilot({ canWrite, canRebuild, panelLanguage }: { ca
   );
   if (!canWrite) return null;
   return (
-    <CopilotLauncher panelLanguage={panelLanguage}>
+    <CopilotLauncher key={scope} panelLanguage={panelLanguage}>
       {(open, close) => (
-        <CopilotDrawer adapter={withRefresh} open={open} onClose={close} panelLanguage={panelLanguage} footerExtra={canRebuild ? (copy) => <RebuildButton copy={copy} /> : undefined} />
+        <CopilotDrawer adapter={withRefresh} open={open} onClose={close} panelLanguage={panelLanguage} scope={scope} footerExtra={canRebuild ? (copy) => <RebuildButton copy={copy} /> : undefined} />
       )}
     </CopilotLauncher>
   );

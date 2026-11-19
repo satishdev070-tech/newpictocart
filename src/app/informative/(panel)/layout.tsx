@@ -114,7 +114,7 @@ export default async function InformativePanelLayout({ children }: LayoutProps<"
   return (
     <AppShell groups={informativeNavFor(ctx.permissions)} homeHref="/informative/dashboard" brand={brand} brandMark={brandMark} sidebarFooter={sidebarFooter} topbarEnd={topbarEnd} banner={banner} storageKey="paliya-informative-sidebar">
       {children}
-      <InformativeCopilot canWrite={ctx.permissions.has("content.write")} canRebuild={ctx.permissions.has("settings.write")} />
+      <InformativeCopilot canWrite={ctx.permissions.has("content.write")} canRebuild={ctx.permissions.has("settings.write")} scope={`${ctx.tenantId}:${ctx.user.id}`} />
     </AppShell>
   );
 }
