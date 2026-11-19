@@ -9,11 +9,18 @@ import { QUICK_ACTIONS, quickAction, quickActionMessage, type CopilotIntent } fr
 import { copilotCopy, fill, type CopilotCopy } from "@/features/seller-ai/copilot/copy";
 import { historyFor } from "@/features/seller-ai/copilot/history";
 import type { CopilotAdapter, CopilotCosts, CopilotLink, CopilotProposalView } from "@/features/seller-ai/copilot/types";
+import { isPlanConfirmation, planCredits } from "@/features/seller-ai/copilot/actions-plan";
 import { MarkdownLite } from "./markdown-lite";
 import { useCopilotMic } from "./use-copilot-mic";
 import { cancelSpeech, speak as speakInBrowser } from "@/lib/speech/browser-speech";
 
-type ProposalState = { view: CopilotProposalView; status: "open" | "applied" | "discarded" };
+type ProposalState = {
+  view: CopilotProposalView;
+  status: "open" | "running" | "applied" | "failed" | "discarded";
+  /** Server's message for a finished step (what changed, or why it failed). */
+  result?: string;
+  href?: string;
+};
 type Message = {
   role: "user" | "assistant";
   content: string;
@@ -64,6 +71,8 @@ function writeLocal(key: string, value: string) {
   }
 }
 
+const joinSpoken = (base: string, spoken: string) => (base.trim() ? `${base.trim()} ${spoken}`.trim() : spoken);
+
 const errorText = (r: { error: { message?: string; fieldErrors?: Record<string, string[]> } }, fallback: string) => r.error.fieldErrors?._form?.[0] ?? r.error.message ?? fallback;
 
 function FieldDiff({ field, copy }: { field: CopilotProposalView["fields"][number]; copy: CopilotCopy }) {
@@ -80,6 +89,29 @@ function FieldDiff({ field, copy }: { field: CopilotProposalView["fields"][numbe
         {field.before !== null ? <p className="text-[11px] font-semibold uppercase tracking-wide text-success">{copy.proposed}</p> : null}
         <p className="whitespace-pre-line text-caption text-foreground">{field.after}</p>
       </div>
+    </div>
+  );
+}
+
+/** "Tara's plan · N steps" + Do it (total credits) for the open steps; hidden once all ran. */
+function PlanHeader({ count, open, busy, running, onRun, copy }: { count: number; open: ProposalState[]; busy: boolean; running: boolean; onRun: () => void; copy: CopilotCopy }) {
+  if (!open.length && !running) return null;
+  const credits = planCredits(open.map((p) => p.view));
+  return (
+    <div className="space-y-2 rounded-xl border border-accent/30 bg-accent-soft/40 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="flex-1 text-caption font-semibold text-foreground">{fill(copy.planTitle, { count })}</p>
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={busy || !open.length}
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-accent px-3.5 text-caption font-semibold text-white disabled:opacity-60"
+        >
+          {running ? <Loader2 aria-hidden className="size-3.5 animate-spin" /> : <Check aria-hidden className="size-3.5" />}
+          {running ? copy.running : credits > 0 ? fill(copy.doItCost, { credits }) : copy.doIt}
+        </button>
+      </div>
+      {open.length && !running ? <p className="text-[11px] text-muted">{copy.sayYes}</p> : null}
     </div>
   );
 }
@@ -210,6 +242,14 @@ export function CopilotDrawer({
   );
 
   const submit = () => {
+    const planAt = intent ? -1 : openPlanIndex();
+    if (planAt >= 0 && isPlanConfirmation(draft)) {
+      // "yes / haan / kar do": run the plan shown above; no extra AI question (no credits for asking).
+      setMessages((m) => [...m, { role: "user", content: draft.trim() }]);
+      setDraft("");
+      runPlan(planAt);
+      return;
+    }
     if (intent) {
       const msg = quickActionMessage(site, intent, draft);
       if (msg) send(msg, intent);
@@ -239,21 +279,62 @@ export function CopilotDrawer({
     inputRef.current?.focus();
   };
 
-  const setProposalStatus = (mi: number, pid: string, status: ProposalState["status"]) =>
-    setMessages((m) => m.map((msg, i) => (i === mi ? { ...msg, proposals: msg.proposals?.map((p) => (p.view.id === pid ? { ...p, status } : p)) } : msg)));
+  const setProposal = (mi: number, pid: string, patch: Partial<ProposalState>) =>
+    setMessages((m) => m.map((msg, i) => (i === mi ? { ...msg, proposals: msg.proposals?.map((p) => (p.view.id === pid ? { ...p, ...patch } : p)) } : msg)));
+  const setProposalStatus = (mi: number, pid: string, status: ProposalState["status"]) => setProposal(mi, pid, { status });
+
+  /** Runs one step on the server (it re-checks permission and charges the step's credits). */
+  const runStep = async (mi: number, p: ProposalState): Promise<{ ok: boolean; text: string }> => {
+    setProposal(mi, p.view.id, { status: "running" });
+    const r = await adapter.apply(p.view.payload);
+    if (!r.ok) {
+      const text = errorText(r, copy.errorGeneric);
+      setProposal(mi, p.view.id, { status: "failed", result: text });
+      return { ok: false, text: `${p.view.title}: ${text}` };
+    }
+    setProposal(mi, p.view.id, { status: "applied", result: r.data.message, href: r.data.href });
+    return { ok: true, text: r.data.message };
+  };
 
   const apply = (mi: number, p: ProposalState) => {
     if (busyProposal || p.status !== "open") return;
-    const key = `${mi}:${p.view.id}`;
-    setBusyProposal(key);
+    setBusyProposal(`${mi}:${p.view.id}`);
     void (async () => {
-      const r = await adapter.apply(p.view.payload);
+      const r = await runStep(mi, p);
       setBusyProposal(null);
-      if (!r.ok) return show({ tone: "error", message: errorText(r, copy.errorGeneric) });
-      setProposalStatus(mi, p.view.id, "applied");
-      show({ tone: "success", message: r.data.message });
-      if (p.view.applyCredits) loadCosts();
+      show({ tone: r.ok ? "success" : "error", message: r.text });
+      loadCosts();
     })();
+  };
+
+  /** "Do it" (or a spoken/typed "yes"): every open step of that reply, in order, then a spoken summary. */
+  const runPlan = (mi: number) => {
+    const steps = (messages[mi]?.proposals ?? []).filter((p) => p.status === "open");
+    if (busyProposal || pending || !steps.length) return;
+    setBusyProposal(`${mi}:plan`);
+    void (async () => {
+      const done: string[] = [];
+      const failed: string[] = [];
+      for (const p of steps) {
+        const r = await runStep(mi, p);
+        (r.ok ? done : failed).push(r.text);
+      }
+      setBusyProposal(null);
+      loadCosts();
+      const summary = [failed.length ? "" : copy.planDone, ...done, ...(failed.length ? [copy.planPartly, ...failed] : [])].filter(Boolean).join("\n");
+      setMessages((m) => [...m, { role: "assistant", content: summary, error: failed.length > 0 && !done.length }]);
+      if (speak) void playReply(summary);
+    })();
+  };
+
+  /** Index of the latest reply whose plan still has open steps (a "yes" runs it). */
+  const openPlanIndex = (): number => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]!;
+      if (m.role === "user") return -1; // the seller already moved on
+      if (m.proposals?.some((p) => p.status === "open")) return i;
+    }
+    return -1;
   };
 
   const onAudio = useCallback(
@@ -278,12 +359,20 @@ export function CopilotDrawer({
     },
     [copy, show],
   );
+  // What was typed before the mic started; live words are shown after it and replaced as they change.
+  const spokenBase = useRef("");
+  const onSpokenInterim = useCallback((t: string) => setDraft(joinSpoken(spokenBase.current, t)), []);
   const onSpokenText = useCallback((t: string) => {
-    setDraft((d) => (d.trim() ? `${d.trim()} ${t}` : t));
+    setDraft(joinSpoken(spokenBase.current, t));
     inputRef.current?.focus();
   }, []);
-  // Browser speech recognition first (free, no upload); Sarvam recording only as a fallback.
-  const voice = useCopilotMic({ lang: `${language}-IN`, onText: onSpokenText, onAudio, onError: onVoiceError });
+  // Browser speech recognition first (free, no upload, listens until Stop); Sarvam recording only as a fallback.
+  const voice = useCopilotMic({ lang: `${language}-IN`, onText: onSpokenText, onInterim: onSpokenInterim, onAudio, onError: onVoiceError });
+  const toggleMic = () => {
+    if (voice.recording) return voice.stop();
+    spokenBase.current = draft;
+    void voice.start();
+  };
 
   const copyAnswer = (i: number, text: string) => {
     void navigator.clipboard?.writeText(text).then(() => {
@@ -425,35 +514,60 @@ export function CopilotDrawer({
                   ))}
                 </div>
               ) : null}
-              {m.proposals?.map((p) => {
+              {m.proposals?.length ? <PlanHeader count={m.proposals.length} open={m.proposals.filter((p) => p.status === "open")} busy={busyProposal !== null || pending} running={busyProposal === `${mi}:plan`} onRun={() => runPlan(mi)} copy={copy} /> : null}
+              {m.proposals?.map((p, pi) => {
                 const key = `${mi}:${p.view.id}`;
                 return (
                   <section key={p.view.id} className="space-y-3 rounded-xl border border-border bg-surface p-3" aria-label={p.view.title}>
-                    <p className="text-caption font-semibold uppercase tracking-wide text-subtle">{p.view.title}</p>
-                    {p.status === "open" ? (
+                    <p className="flex gap-2 text-caption font-semibold text-foreground">
+                      <span aria-hidden className="grid size-5 shrink-0 place-items-center rounded-full bg-accent-soft text-[11px] text-accent">
+                        {pi + 1}
+                      </span>
+                      {p.view.title}
+                    </p>
+                    {p.status === "open" || p.status === "running" ? (
                       <>
                         <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
                           {p.view.fields.map((f, fi) => (
                             <FieldDiff key={fi} field={f} copy={copy} />
                           ))}
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => apply(mi, p)}
-                            disabled={busyProposal !== null}
-                            className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-accent px-3 text-caption font-semibold text-white disabled:opacity-60"
-                          >
-                            {busyProposal === key ? <Loader2 aria-hidden className="size-3.5 animate-spin" /> : <Check aria-hidden className="size-3.5" />}
-                            {busyProposal === key ? copy.applying : p.view.applyCredits > 0 ? fill(copy.applyCost, { credits: p.view.applyCredits }) : copy.applyFree}
-                          </button>
-                          <button type="button" onClick={() => setProposalStatus(mi, p.view.id, "discarded")} disabled={busyProposal === key} className="min-h-9 rounded-lg px-3 text-caption hover:bg-surface-secondary disabled:opacity-60">
-                            {copy.discard}
-                          </button>
-                        </div>
+                        {p.status === "running" ? (
+                          <p className="inline-flex items-center gap-1.5 text-caption font-medium text-accent" role="status">
+                            <Loader2 aria-hidden className="size-3.5 animate-spin" /> {copy.running}
+                          </p>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => apply(mi, p)}
+                              disabled={busyProposal !== null}
+                              className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-accent px-3 text-caption font-semibold text-accent disabled:opacity-60"
+                            >
+                              {busyProposal === key ? <Loader2 aria-hidden className="size-3.5 animate-spin" /> : <Check aria-hidden className="size-3.5" />}
+                              {busyProposal === key ? copy.applying : p.view.applyCredits > 0 ? fill(copy.applyCost, { credits: p.view.applyCredits }) : copy.applyFree}
+                            </button>
+                            <button type="button" onClick={() => setProposalStatus(mi, p.view.id, "discarded")} disabled={busyProposal !== null} className="min-h-9 rounded-lg px-3 text-caption hover:bg-surface-secondary disabled:opacity-60">
+                              {copy.discard}
+                            </button>
+                          </div>
+                        )}
                       </>
                     ) : (
-                      <p className={`text-caption font-medium ${p.status === "applied" ? "text-success" : "text-muted"}`}>{p.status === "applied" ? copy.applied : copy.discarded}</p>
+                      <div className={`space-y-1 text-caption ${p.status === "applied" ? "text-success" : p.status === "failed" ? "text-error" : "text-muted"}`}>
+                        <p className="font-medium">{p.status === "applied" ? `✓ ${copy.applied}` : p.status === "failed" ? copy.failed : copy.discarded}</p>
+                        {p.result ? <p className="whitespace-pre-line text-foreground">{p.result}</p> : null}
+                        {p.href ? (
+                          <Link href={p.href} className="inline-flex items-center gap-1 font-medium text-accent hover:underline">
+                            {copy.openResult} <ArrowRight aria-hidden className="size-3" />
+                          </Link>
+                        ) : null}
+                        {p.status === "failed" ? (
+                          <button type="button" onClick={() => setProposalStatus(mi, p.view.id, "open")} className="inline-flex min-h-8 items-center gap-1 rounded-md border border-error/30 px-2 font-medium hover:bg-error/10">
+                            <RotateCcw aria-hidden className="size-3.5" /> {copy.retry}
+                          </button>
+                        ) : null}
+                      </div>
                     )}
                   </section>
                 );
@@ -510,7 +624,7 @@ export function CopilotDrawer({
           {voice.supported ? (
             <button
               type="button"
-              onClick={() => (voice.recording ? voice.stop() : void voice.start())}
+              onClick={toggleMic}
               disabled={transcribing || pending}
               aria-pressed={voice.recording}
               className={`grid size-10 shrink-0 place-items-center rounded-lg border disabled:opacity-50 ${voice.recording ? "animate-pulse border-error bg-error/10 text-error" : "border-border hover:bg-surface-secondary"}`}
@@ -524,6 +638,11 @@ export function CopilotDrawer({
             <Send aria-hidden className="size-4" />
           </button>
         </div>
+        {voice.recording ? (
+          <p className="mt-1.5 flex items-center gap-1.5 text-caption font-medium text-error" role="status">
+            <span aria-hidden className="size-2 animate-pulse rounded-full bg-error" /> {copy.micListening}
+          </p>
+        ) : null}
         <p className="mt-1.5 text-[11px] text-subtle">
           {costLine}
           {costs?.balance != null ? ` · ${fill(copy.balance, { balance: costs.balance })}` : ""}

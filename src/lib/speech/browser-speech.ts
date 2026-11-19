@@ -1,6 +1,7 @@
 "use client";
 
 import { voiceGenderScore } from "./voice-gender";
+import { captionReducer, captionText, emptyCaption, piecesFromResults, type CaptionState } from "./caption";
 
 /**
  * Browser speech for the voice assistant. Speech-to-text uses the browser's SpeechRecognition
@@ -9,7 +10,7 @@ import { voiceGenderScore } from "./voice-gender";
  * with an installed voice for the locale, and falls back to text only.
  */
 
-type RecognitionResultList = ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>;
+type RecognitionResultList = ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean; 0: { transcript: string } }>;
 type Recognition = {
   lang: string;
   interimResults: boolean;
@@ -103,6 +104,118 @@ export function listen(
       } catch {
         /* already stopped */
       }
+    },
+  };
+}
+
+/** Dictation hard cap (a forgotten mic must not run forever). */
+export const DICTATE_MAX_MS = 180_000;
+/** Dictation ends by itself after this long with no new words. */
+export const DICTATE_IDLE_MS = 60_000;
+
+const isAndroid = () => typeof navigator !== "undefined" && /android/i.test(navigator.userAgent);
+
+/**
+ * Continuous dictation: keeps listening through pauses until `stop()` (like a voice-typing
+ * button), so a thinking pause never cuts the merchant off. Browsers end a recognition session
+ * after silence or ~60 s; we restart it and keep everything heard so far (caption reducer).
+ * Android Chrome repeats text in continuous mode, so there each session is one utterance and the
+ * loop does the joining. Ends with `onFinal(text)` on stop, the 3-minute cap, or 60 s without new
+ * words; `onError` only when nothing was heard and the mic/service failed.
+ */
+export function dictate(lang: string, cb: { onInterim: (text: string) => void; onFinal: (text: string) => void; onError: (reason: ListenError) => void }): ListenHandle | null {
+  const Ctor = recognitionCtor();
+  if (!Ctor) {
+    cb.onError("unsupported");
+    return null;
+  }
+  const continuous = !isAndroid();
+  const startedAt = Date.now();
+  let lastWords = startedAt;
+  let caption: CaptionState = emptyCaption;
+  let current: Recognition | null = null;
+  let restart: ReturnType<typeof setTimeout> | null = null;
+  let stopped = false;
+  let settled = false;
+  let rapidEnds = 0;
+
+  const settle = (fn: () => void) => {
+    if (settled) return;
+    settled = true;
+    if (restart) clearTimeout(restart);
+    fn();
+  };
+  const finish = () => settle(() => cb.onFinal(captionText(caption)));
+  const fail = (reason: ListenError) => (captionText(caption) ? finish() : settle(() => cb.onError(reason)));
+
+  const session = () => {
+    restart = null;
+    if (settled) return;
+    if (stopped) return finish();
+    const rec = new Ctor();
+    rec.lang = lang;
+    rec.interimResults = true;
+    rec.continuous = continuous;
+    rec.maxAlternatives = 1;
+    const began = Date.now();
+    let error: string | null = null;
+    rec.onresult = (e) => {
+      if (current !== rec) return;
+      const next = captionReducer(caption, { type: "results", pieces: piecesFromResults(e.results) });
+      if (next !== caption) {
+        caption = next;
+        lastWords = Date.now();
+        rapidEnds = 0;
+        cb.onInterim(captionText(caption));
+      }
+    };
+    rec.onerror = (e) => {
+      error = e.error;
+    };
+    rec.onend = () => {
+      if (current !== rec) return;
+      current = null;
+      caption = captionReducer(caption, { type: "session-end" });
+      if (settled) return;
+      if (stopped) return finish();
+      if (error === "not-allowed" || error === "service-not-allowed") return fail("not-allowed");
+      if (error && error !== "no-speech" && error !== "aborted") return fail(error === "network" ? "network" : "other");
+      const now = Date.now();
+      if (now - startedAt >= DICTATE_MAX_MS || now - lastWords >= DICTATE_IDLE_MS) return finish();
+      // An engine that ends instantly again and again would spin: give up after a few tries.
+      rapidEnds = now - began < 400 ? rapidEnds + 1 : 0;
+      if (rapidEnds >= 5) return fail("other");
+      restart = setTimeout(session, rapidEnds ? 250 : 0);
+    };
+    current = rec;
+    try {
+      rec.start();
+    } catch {
+      current = null;
+      fail("other");
+    }
+  };
+  session();
+  if (settled && !captionText(caption)) return null;
+  return {
+    stop: () => {
+      stopped = true;
+      if (!current) return finish();
+      try {
+        current.stop();
+      } catch {
+        finish();
+      }
+    },
+    abort: () => {
+      settled = true;
+      if (restart) clearTimeout(restart);
+      try {
+        current?.abort();
+      } catch {
+        /* already stopped */
+      }
+      current = null;
     },
   };
 }

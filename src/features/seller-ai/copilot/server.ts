@@ -25,13 +25,25 @@ import type { StoreApplyPayload } from "./schemas";
 const FAQ_APPLY_FALLBACK = 5;
 const ASK_FALLBACK = 1;
 
-export type CopilotCostCtx = { ask: number; faqApply: number };
+const ACTION_FALLBACK = 1;
+const BLOG_FALLBACK = 5;
 
-/** Credits per question (store_agent) and per FAQ apply (generate_faq), from Super Admin config. */
+export type CopilotCostCtx = { ask: number; faqApply: number; action: number; blog: number };
+
+/**
+ * Credits follow the work (Super Admin → AI economy): a question/plan (store_agent), each executed
+ * data step such as stock, price or status (tara_action), a blog post (generate_blog) and FAQs
+ * (generate_faq). Unknown kinds cost 1 in the debit RPC, matching ACTION_FALLBACK.
+ */
 export async function storeCopilotCosts(): Promise<CopilotCostCtx> {
   const catalog = await getAiCreditCatalog().catch(() => null);
   const cost = (kind: string, fallback: number) => catalog?.costs.find((c) => c.kind === kind)?.credits ?? fallback;
-  return { ask: cost("store_agent", ASK_FALLBACK), faqApply: cost("generate_faq", FAQ_APPLY_FALLBACK) };
+  return {
+    ask: cost("store_agent", ASK_FALLBACK),
+    faqApply: cost("generate_faq", FAQ_APPLY_FALLBACK),
+    action: cost("tara_action", ACTION_FALLBACK),
+    blog: cost("generate_blog", BLOG_FALLBACK),
+  };
 }
 
 async function storeIndustry(tenantId: string): Promise<string | null> {

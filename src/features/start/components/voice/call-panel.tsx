@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
-import { Keyboard, Mic, MicOff, PhoneOff, RotateCcw, Send, Sparkles } from "lucide-react";
+import { Check, Keyboard, Mic, MicOff, PhoneOff, RotateCcw, Send, Sparkles } from "lucide-react";
 import { onbButton, onbField } from "@/components/onboarding-ui";
 import { cn } from "@/lib/cn";
 import { formatCallClock } from "@/features/onboarding/voice/transcript";
@@ -243,6 +243,12 @@ export function CallPanel({
           <p className="font-mk-mono text-sm tabular-nums text-mk-muted" aria-label="Call time">
             {active ? formatCallClock(elapsedMs) : `${t.callEnded} · ${formatCallClock(elapsedMs)}`}
           </p>
+        ) : null}
+        {active && view.phase === "listening" && view.listener === "browser" && !view.muted ? (
+          <button type="button" onClick={onTap} className={cn(onbButton.primary, "min-h-11 px-6")}>
+            <Check className="size-4" aria-hidden />
+            {t.doneSpeaking}
+          </button>
         ) : null}
         {active ? (
           <div className="flex items-center gap-3">

@@ -13,7 +13,7 @@ import {
   undoVoiceAssistantActionAction,
   voiceAssistantTurnAction,
 } from "../actions";
-import { cancelSpeech, listen, speak, speechInputSupported, unlockSpeech, type ListenHandle } from "@/lib/speech/browser-speech";
+import { cancelSpeech, dictate, speak, speechInputSupported, unlockSpeech, type ListenHandle } from "@/lib/speech/browser-speech";
 import { ASSISTANT_SUGGESTIONS, nextStatus, type AssistantStatus, statusLabel } from "./status";
 
 type Msg = { id: string; role: "user" | "assistant"; content: string };
@@ -156,9 +156,9 @@ export function VoiceDrawer({ open, storeName, autoListen, onClose }: { open: bo
     setError(null);
     setDraft("");
     go("listen");
-    listenRef.current = listen(speechTagFor(locale), {
+    // Keeps listening through pauses until the seller taps Stop.
+    listenRef.current = dictate(speechTagFor(locale), {
       onInterim: (t) => setDraft(t),
-      onSpeechEnd: () => go("transcribe"),
       onFinal: (t) => {
         listenRef.current = null;
         if (!t) {

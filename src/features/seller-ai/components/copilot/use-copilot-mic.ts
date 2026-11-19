@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { listen, speechInputSupported, type ListenHandle } from "@/lib/speech/browser-speech";
+import { dictate, speechInputSupported, type ListenHandle } from "@/lib/speech/browser-speech";
 import { useVoiceInput } from "./use-voice-input";
 
 /**
- * Copilot push-to-talk. The browser's own speech recognition is primary (free, no upload, works
- * when Sarvam is out of credits); browsers without it (Firefox) fall back to recording and the
- * Sarvam transcribe action. `onText` gets the final transcript either way.
+ * Copilot mic. The browser's own speech recognition is primary (free, no upload, works when Sarvam
+ * is out of credits) and keeps listening through pauses until the seller taps Stop (`dictate`);
+ * `onInterim` streams the words live. Browsers without it (Firefox) fall back to recording and
+ * the Sarvam transcribe action. `onText` gets the final transcript either way.
  */
 export function useCopilotMic(opts: {
   lang: string;
@@ -32,7 +33,7 @@ export function useCopilotMic(opts: {
 
   const startBrowser = useCallback(() => {
     setListening(true);
-    handle.current = listen(lang, {
+    handle.current = dictate(lang, {
       onInterim: (t) => onInterim?.(t),
       onFinal: (t) => {
         handle.current = null;

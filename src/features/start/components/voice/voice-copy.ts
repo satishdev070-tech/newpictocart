@@ -56,6 +56,8 @@ export type VoiceUiCopy = {
   mute: string;
   unmute: string;
   hintListening: string;
+  /** Button that ends the seller's turn (Tara listens until it is tapped). */
+  doneSpeaking: string;
   stateReviewing: string;
   hintReviewing: string;
   reviewLabel: string;
@@ -131,7 +133,8 @@ const en: VoiceUiCopy = {
   stateMuted: "Muted",
   mute: "Mute microphone",
   unmute: "Unmute microphone",
-  hintListening: "Just talk. When you pause, check your words and send them to Tara.",
+  hintListening: "Take your time and say everything. Tara keeps listening through pauses. Tap Done when you finish.",
+  doneSpeaking: "Done",
   stateReviewing: "Check what I heard",
   hintReviewing: "It goes to Tara in a moment. To fix a word, just start typing, then press Enter.",
   reviewLabel: "What I heard (you can edit it)",
@@ -204,7 +207,8 @@ const hi: VoiceUiCopy = {
   stateMuted: "म्यूट",
   mute: "माइक म्यूट करें",
   unmute: "माइक चालू करें",
-  hintListening: "बस बोलिए। रुकने पर अपने शब्द देखें और तारा को भेजें।",
+  hintListening: "आराम से पूरी बात बोलिए। रुकने पर भी तारा सुनती रहेगी। बात पूरी हो जाए तो Done दबाएँ।",
+  doneSpeaking: "हो गया",
   stateReviewing: "मैंने जो सुना, देख लीजिए",
   hintReviewing: "यह अभी तारा को चला जाएगा। कोई शब्द ठीक करना हो तो टाइप करना शुरू करें, फिर Enter दबाएँ।",
   reviewLabel: "मैंने यह सुना (आप बदल सकते हैं)",
