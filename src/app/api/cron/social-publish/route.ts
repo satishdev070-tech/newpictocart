@@ -4,12 +4,14 @@ import { isAuthorizedCronRequest } from "@/features/domains/cron-auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logger } from "@/lib/observability/logger";
 import { claimPost, publishPost } from "@/features/social/server/publish";
+import { processPendingAi } from "@/features/social/server/automation";
 import { SOCIAL_POST_MAX_LATE_HOURS, staleBefore } from "@/lib/cron/stale";
 
 /**
  * Cron (every 5 min): publishes scheduled social posts that are due. Each post is claimed with a
  * conditional status update (scheduled -> publishing) so overlapping runs never double-post.
  * Posts stuck in "publishing" for 30+ minutes (crashed run) are marked failed for the seller to retry.
+ * Also writes AI text for automatic posts still waiting for it (social desk automation).
  */
 export async function GET(request: NextRequest) {
   if (!isAuthorizedCronRequest(request.headers.get("authorization"), serverEnv().CRON_SECRET)) {
@@ -29,6 +31,13 @@ export async function GET(request: NextRequest) {
     .eq("status", "scheduled")
     .lt("scheduled_at", staleBefore(SOCIAL_POST_MAX_LATE_HOURS));
   if (staleError) logger.warn("cron.social_publish_expire_failed", { error: staleError.message });
+  // Automatic posts whose AI text wasn't written right after the trigger (best effort, bounded).
+  let aiWritten = 0;
+  try {
+    aiWritten = await processPendingAi({ limit: 5 });
+  } catch (err) {
+    logger.warn("cron.social_ai_pending_failed", { error: err });
+  }
   const { data: due, error } = await admin.from("social_posts").select("id, tenant_id").eq("status", "scheduled").lte("scheduled_at", new Date().toISOString()).order("scheduled_at").limit(20);
   if (error) {
     logger.error("cron.social_publish_failed", { error: error.message });
@@ -48,5 +57,5 @@ export async function GET(request: NextRequest) {
       await admin.from("social_posts").update({ status: "failed" }).eq("tenant_id", p.tenant_id).eq("id", p.id);
     }
   }
-  return NextResponse.json({ published, failed });
+  return NextResponse.json({ published, failed, aiWritten });
 }

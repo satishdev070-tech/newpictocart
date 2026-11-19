@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { assertPermission, requireTenant } from "@/lib/tenant/membership";
 import { getEntitlements } from "@/features/platform";
 import { createOAuthState, redirectUriFor } from "@/features/social/server/oauth";
+import { linkedinAuthUrl } from "@/features/social/server/linkedin";
 import { metaAuthUrl, networkConfigured, pinterestAuthUrl, youtubeAuthUrl, type SocialNetwork } from "@/features/social/server/providers";
 
-const NETWORKS: SocialNetwork[] = ["meta", "pinterest", "youtube"];
+const NETWORKS: SocialNetwork[] = ["meta", "pinterest", "youtube", "linkedin"];
 const back = (req: Request, q: string) => NextResponse.redirect(new URL(`/dashboard/marketing/social?${q}`, req.url), 303);
 
 /** Starts a seller's OAuth connection (dashboard session; marketing.write). */
@@ -18,7 +19,8 @@ export async function GET(req: Request, { params }: RouteContext<"/api/oauth/[ne
   if (!(await networkConfigured(n))) return back(req, "error=not_configured");
   const state = await createOAuthState(ctx.tenantId, ctx.user.id, n);
   const redirectUri = redirectUriFor(n);
-  const url = n === "meta" ? await metaAuthUrl(redirectUri, state) : n === "pinterest" ? await pinterestAuthUrl(redirectUri, state) : await youtubeAuthUrl(redirectUri, state);
+  const url =
+    n === "meta" ? await metaAuthUrl(redirectUri, state) : n === "pinterest" ? await pinterestAuthUrl(redirectUri, state) : n === "linkedin" ? await linkedinAuthUrl(redirectUri, state) : await youtubeAuthUrl(redirectUri, state);
   if (!url) return back(req, "error=not_configured");
   return NextResponse.redirect(url, 303);
 }

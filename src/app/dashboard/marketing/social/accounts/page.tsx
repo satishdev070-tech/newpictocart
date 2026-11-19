@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Card } from "@/components/ui/layout";
+import { Badge, Card } from "@/components/ui/layout";
 import { loadIntegration } from "@/features/integrations/server/store";
 import { networkConfigured, pinterestBoards } from "@/features/social/server/providers";
 import { SocialAccounts } from "@/features/social/components/social-ui";
 import { ChannelChip } from "@/features/social/components/channels";
 import { CHANNEL_LABELS, MANUAL_CHANNELS } from "@/features/social/compose";
 import { getPlatformContext } from "@/lib/platform/access";
+import { linkedinConfigured } from "@/features/social/server/linkedin";
+import { whatsappSummary } from "@/features/inbox/server/whatsapp";
 import { OAuthBanners, PlanNotice, loadSocialBase } from "../_lib/data";
 
 export const metadata: Metadata = { title: "Social accounts" };
@@ -14,7 +16,6 @@ export const metadata: Metadata = { title: "Social accounts" };
 const MANUAL_NOTE: Record<(typeof MANUAL_CHANNELS)[number], string> = {
   whatsapp: "Status updates and broadcast lists.",
   x: "Posts on your X profile.",
-  linkedin: "Your page or profile feed.",
   threads: "Posts on Threads.",
   youtube: "Shorts and community posts. Connecting above only shows your channel.",
 };
@@ -29,9 +30,10 @@ export default async function SocialAccountsPage({ searchParams }: PageProps<"/d
     const r = it?.secrets.access_token ? await pinterestBoards(it.secrets.access_token) : null;
     boards = r?.ok ? r.data : [];
   }
-  const [meta, pinterest, youtube, platform] = await Promise.all([networkConfigured("meta"), networkConfigured("pinterest"), networkConfigured("youtube"), getPlatformContext()]);
-  const configured = { meta, pinterest, youtube };
-  const missing = (Object.keys(configured) as (keyof typeof configured)[]).filter((n) => !configured[n]);
+  const [meta, pinterest, youtube, linkedin, platform, wa] = await Promise.all([networkConfigured("meta"), networkConfigured("pinterest"), networkConfigured("youtube"), linkedinConfigured(), getPlatformContext(), whatsappSummary(ctx.tenantId)]);
+  const configured = { meta, pinterest, youtube, linkedin };
+  // Meta and LinkedIn can also be connected with the seller's own token, so they aren't "blocked".
+  const missing = (["pinterest", "youtube"] as const).filter((n) => !configured[n]);
   const isPlatformAdmin = Boolean(platform?.permissions.has("platform.settings.manage"));
 
   return (
@@ -46,14 +48,23 @@ export default async function SocialAccountsPage({ searchParams }: PageProps<"/d
           canManage={write}
           configured={configured}
           boards={boards}
-          accounts={summaries.map((s) => ({ provider: s.provider, status: s.status, enabled: s.enabled, account: s.public.account_name ?? null, board: s.public.board_id ?? null, boardName: s.public.board_name ?? null, message: s.statusMessage, connectedAt: s.connectedAt }))}
+          accounts={summaries.map((s) => ({ provider: s.provider, status: s.status, enabled: s.enabled, account: s.public.account_name ?? null, board: s.public.board_id ?? null, boardName: s.public.board_name ?? null, message: s.statusMessage, connectedAt: s.connectedAt, method: s.public.connect_method ?? null }))}
         />
       </div>
       <div>
         <h2 className="mb-1 text-h3">Messaging and local</h2>
         <p className="mb-3 text-small text-muted">Connected from their own pages.</p>
         <ul className="grid gap-3 sm:grid-cols-2">
-          <LinkCard href="/dashboard/marketing/inbox" title="WhatsApp Business" body="Reply to WhatsApp, Messenger and Instagram messages from one inbox. Connect your WhatsApp Business number there." ready={meta} network="Meta" isPlatformAdmin={isPlatformAdmin} />
+          <li className="rounded-md border border-border p-3">
+            <p className="flex flex-wrap items-center gap-2 text-small font-medium">
+              WhatsApp Business
+              <Badge tone={wa.status === "connected" ? "success" : wa.status === "not_connected" ? "neutral" : "warning"}>{wa.status === "connected" ? `Connected${wa.displayPhone ? ` · ${wa.displayPhone}` : ""}` : wa.status === "not_connected" ? "Not connected" : "Needs attention"}</Badge>
+            </p>
+            <p className="text-caption text-muted">Connect your number with your own phone number ID, WhatsApp Business Account ID and permanent token. It powers the inbox and order updates. Posts get a ready-to-share WhatsApp message (apps can&apos;t post to Status or Channels).</p>
+            <Link href="/dashboard/marketing/inbox" className="mt-2 inline-block text-small font-medium text-accent hover:underline">
+              {wa.status === "connected" ? "Manage WhatsApp →" : "Connect WhatsApp →"}
+            </Link>
+          </li>
           <LinkCard href="/dashboard/marketing/google" title="Google Business Profile" body="Post updates to your Google listing and reply to reviews." ready={youtube} network="Google" isPlatformAdmin={isPlatformAdmin} />
         </ul>
       </div>
@@ -74,7 +85,7 @@ export default async function SocialAccountsPage({ searchParams }: PageProps<"/d
   );
 }
 
-const NETWORK_NAMES = { meta: "Meta (Facebook & Instagram)", pinterest: "Pinterest", youtube: "Google (YouTube)" } as const;
+const NETWORK_NAMES = { meta: "Meta (Facebook & Instagram)", pinterest: "Pinterest", youtube: "Google (YouTube)", linkedin: "LinkedIn" } as const;
 const ADMIN_PATH = "/admin/social-apps";
 
 function AdminNote({ network, isPlatformAdmin }: { network: string; isPlatformAdmin: boolean }) {

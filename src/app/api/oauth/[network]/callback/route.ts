@@ -3,9 +3,11 @@ import { assertPermission, requireTenant } from "@/lib/tenant/membership";
 import { logger } from "@/lib/observability/logger";
 import { saveOAuthConnection } from "@/features/integrations/server/store";
 import { consumeOAuthState, redirectUriFor } from "@/features/social/server/oauth";
+import * as linkedin from "@/features/social/server/linkedin";
+import { linkedinAuthorUrn } from "@/features/social/payloads";
 import { metaExchange, pinterestAccount, pinterestBoards, pinterestExchange, youtubeExchange, type SocialNetwork } from "@/features/social/server/providers";
 
-const NETWORKS: SocialNetwork[] = ["meta", "pinterest", "youtube"];
+const NETWORKS: SocialNetwork[] = ["meta", "pinterest", "youtube", "linkedin"];
 const back = (req: Request, q: string) => NextResponse.redirect(new URL(`/dashboard/marketing/social?${q}`, req.url), 303);
 
 /** OAuth callback: verifies state (signed + browser-bound), exchanges the code and stores tokens encrypted. */
@@ -46,6 +48,19 @@ export async function GET(req: Request, { params }: RouteContext<"/api/oauth/[ne
         expiresAt: r.data.expiresAt,
       });
       return back(req, "connected=pinterest");
+    }
+    if (n === "linkedin") {
+      const r = await linkedin.linkedinExchange(code, redirectUri);
+      if (!r.ok) return back(req, r.expired ? "error=expired" : "error=provider");
+      const me = await linkedin.linkedinMember(r.data.accessToken);
+      const author = me.ok ? linkedinAuthorUrn("person", me.data.id) : null;
+      if (!me.ok || !author) return back(req, "error=provider");
+      await saveOAuthConnection(ctx.tenantId, ctx.user.id, "linkedin", {
+        publicConfig: { account_id: author, account_name: me.data.name, author_urn: author, author_kind: "person", connect_method: "oauth" },
+        secrets: { access_token: r.data.accessToken, ...(r.data.refreshToken ? { refresh_token: r.data.refreshToken } : {}) },
+        expiresAt: r.data.expiresAt,
+      });
+      return back(req, "connected=linkedin");
     }
     const r = await youtubeExchange(code, redirectUri);
     if (!r.ok) return back(req, r.expired ? "error=expired" : "error=provider");

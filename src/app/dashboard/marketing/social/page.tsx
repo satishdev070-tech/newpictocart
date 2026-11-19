@@ -154,7 +154,7 @@ export default async function SocialOverviewPage({ searchParams }: PageProps<"/d
                 );
               })}
             </ul>
-            <p className="mt-3 text-caption text-muted">WhatsApp, X, LinkedIn, Threads and YouTube are planned channels: we remind you, you post.</p>
+            <p className="mt-3 text-caption text-muted">WhatsApp, X, Threads and YouTube are planned channels: we remind you, you post (WhatsApp gets a one-tap share).</p>
             {overview.connected === 0 && write ? <Link href={`${BASE}/accounts`} className={buttonClass({ variant: "secondary", size: "sm", className: "mt-3" })}>Connect an account</Link> : null}
           </Card>
         </div>

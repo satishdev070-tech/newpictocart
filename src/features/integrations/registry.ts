@@ -11,7 +11,7 @@ import type { TenantPermission } from "@/lib/permissions/matrix";
  *   GA4 measurement ID, Google Ads ID + conversion label, Meta Pixel ID.
  */
 export type IntegrationKind = "payment" | "shipping" | "tracking" | "social";
-export type ProviderId = "razorpay" | "cashfree" | "payu" | "shiprocket" | "delhivery" | "ga4" | "google_ads" | "meta_pixel" | "facebook" | "instagram" | "pinterest" | "youtube";
+export type ProviderId = "razorpay" | "cashfree" | "payu" | "shiprocket" | "delhivery" | "ga4" | "google_ads" | "meta_pixel" | "facebook" | "instagram" | "pinterest" | "youtube" | "linkedin";
 export type IntegrationStatus = "not_connected" | "connected" | "error" | "expired" | "disabled";
 
 export type CredentialField = {
@@ -106,6 +106,7 @@ export const PROVIDERS: Record<ProviderId, ProviderDef> = {
   instagram: { id: "instagram", kind: "social", label: "Instagram (Business)", description: "Publish image posts to an Instagram professional account linked to your Page.", docsUrl: "https://developers.facebook.com/docs/instagram-platform/content-publishing", feature: "social_media", permission: "marketing.write", environments: false, testable: true, fields: [] },
   pinterest: { id: "pinterest", kind: "social", label: "Pinterest", description: "Create Pins on your boards.", docsUrl: "https://developers.pinterest.com/docs/api/v5/pins-create/", feature: "social_media", permission: "marketing.write", environments: false, testable: true, fields: [] },
   youtube: { id: "youtube", kind: "social", label: "YouTube", description: "Connect your channel (video publishing is not supported yet).", docsUrl: "https://developers.google.com/youtube/v3", feature: "social_media", permission: "marketing.write", environments: false, testable: true, fields: [] },
+  linkedin: { id: "linkedin", kind: "social", label: "LinkedIn", description: "Publish posts to your LinkedIn profile or company page.", docsUrl: "https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api", feature: "social_media", permission: "marketing.write", environments: false, testable: true, fields: [] },
 };
 
 export const PROVIDER_IDS = Object.keys(PROVIDERS) as ProviderId[];

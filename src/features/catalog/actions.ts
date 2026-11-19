@@ -1,5 +1,7 @@
 "use server";
 
+import { after } from "next/server";
+import { afterProductsPublished } from "@/features/social/server/automation";
 import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -79,6 +81,11 @@ export async function saveProductAction(_prev: ActionResult<{ id: string }> | nu
       await attachLibraryImages(ctx.tenantId, id, pendingPaths);
     }
     await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: input.id ? "product.updated" : "product.created", entityType: "product", entityId: id, metadata: { status: input.status } });
+    // Social desk automation (new product post); runs after the response and never fails the save.
+    if (input.status === "active") {
+      const { tenantId, user } = ctx;
+      after(() => afterProductsPublished(tenantId, user.id, [id]));
+    }
     if (!input.id) createdId = id;
     return { id };
   });
@@ -94,6 +101,10 @@ export async function bulkProductsAction(_prev: ActionResult<{ changed: number; 
     if (input.op === "delete") assertPermission(ctx, "catalog.delete");
     if (input.op === "publish") assertPermission(ctx, "catalog.publish");
     const r = await bulkUpdateProducts(ctx.tenantId, input.op, input.ids);
+    if (input.op === "publish" && r.changed.length) {
+      const { tenantId, user } = ctx;
+      after(() => afterProductsPublished(tenantId, user.id, r.changed));
+    }
     await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: `product.bulk_${input.op}`, entityType: "product", metadata: { ids: r.changed, skipped: r.skipped.length } });
     return { changed: r.changed.length, skipped: r.skipped.length };
   });

@@ -12,7 +12,8 @@ import { audit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
 import { loadIntegration, updatePublicConfig } from "@/features/integrations/server/store";
 import { pinterestBoards } from "./server/providers";
-import { ALL_CHANNELS, CONTENT_PILLARS, isAutoPlatform, normalizeHashtags } from "./compose";
+import { ALL_CHANNELS, CONTENT_PILLARS, VARIANT_CHANNELS, VARIANT_LIMITS, isAutoPlatform, normalizeHashtags, parseVariants } from "./compose";
+import type { Json } from "@/lib/supabase/database.types";
 import { parseIstInput } from "./planner";
 import { claimPost, publishPost } from "./server/publish";
 import { marketingCtx } from "./server/context";
@@ -32,6 +33,9 @@ const postSchema = z.object({
   platforms: z.array(z.enum(ALL_CHANNELS)).min(1, "Pick at least one channel").max(8),
   intent: z.enum(["draft", "plan", "schedule", "publish"]),
   scheduledAt: z.string().max(40).optional().default(""),
+  /** "ai" when the text came from Write with AI (new posts only). */
+  source: z.enum(["manual", "ai"]).optional().default("manual"),
+  ...Object.fromEntries(VARIANT_CHANNELS.map((c) => [`variant_${c}`, z.string().max(VARIANT_LIMITS[c], `${c} text can be up to ${VARIANT_LIMITS[c].toLocaleString("en-IN")} characters`).optional().default("")])) as Record<`variant_${(typeof VARIANT_CHANNELS)[number]}`, z.ZodDefault<z.ZodOptional<z.ZodString>>>,
 });
 
 const STATUS_FOR_INTENT = { draft: "draft", plan: "planned", schedule: "scheduled", publish: "draft" } as const;
@@ -48,9 +52,10 @@ export async function savePostAction(_prev: ActionResult<string> | null, fd: For
     if (v.mediaPath && !v.mediaPath.startsWith(`tenant/${ctx.tenantId}/`)) throw new AppError("VALIDATION", { fieldErrors: { mediaPath: ["Choose an image from your media library"] } });
     const auto = v.platforms.filter(isAutoPlatform);
     if ((v.intent === "schedule" || v.intent === "publish") && !auto.length) {
-      throw new AppError("VALIDATION", { fieldErrors: { platforms: ["WhatsApp, X, LinkedIn, Threads and YouTube can't be posted automatically. Use Plan to put this on your calendar, or add Facebook, Instagram or Pinterest."] } });
+      throw new AppError("VALIDATION", { fieldErrors: { platforms: ["WhatsApp, X, Threads and YouTube can't be posted automatically. Use Plan to put this on your calendar, or add Facebook, Instagram, LinkedIn or Pinterest."] } });
     }
-    if ((v.intent === "schedule" || v.intent === "publish") && !v.mediaPath) throw new AppError("VALIDATION", { fieldErrors: { mediaPath: ["Add an image before publishing"] } });
+    // LinkedIn (and Google) can post text only; Facebook, Instagram and Pinterest need an image.
+    if ((v.intent === "schedule" || v.intent === "publish") && !v.mediaPath && auto.some((p) => p === "facebook" || p === "instagram" || p === "pinterest")) throw new AppError("VALIDATION", { fieldErrors: { mediaPath: ["Add an image before publishing"] } });
     let scheduledAt: string | null = null;
     if (v.intent === "schedule") {
       const t = parseIstInput(v.scheduledAt);
@@ -83,14 +88,22 @@ export async function savePostAction(_prev: ActionResult<string> | null, fd: For
       status: STATUS_FOR_INTENT[v.intent],
       scheduled_at: scheduledAt,
     };
+    const variants = parseVariants(Object.fromEntries(VARIANT_CHANNELS.map((c) => [c, v[`variant_${c}`]])));
+    const desk = { variants: variants as Json, ...(!v.id && v.source === "ai" ? { source: "ai" } : {}) };
+    // 42703 = the desk migration isn't applied yet: save without its columns so posting keeps working.
+    const preDesk = (e: { code?: string } | null) => e?.code === "42703";
     let id = v.id;
     if (id) {
-      const { data, error } = await supabase.from("social_posts").update(row).eq("tenant_id", ctx.tenantId).eq("id", id).in("status", ["draft", "planned", "scheduled", "failed", "cancelled"]).select("id");
+      const update = (r: typeof row) => supabase.from("social_posts").update(r).eq("tenant_id", ctx.tenantId).eq("id", id!).in("status", ["draft", "planned", "scheduled", "failed", "cancelled"]).select("id");
+      let { data, error } = await update({ ...row, ...desk });
+      if (preDesk(error)) ({ data, error } = await update(row));
       if (error) throw mapDbError(error);
       if (!data?.length) throw new AppError("CONFLICT", { message: "This post is publishing or already published and can't be edited." });
     } else {
-      const { data, error } = await supabase.from("social_posts").insert({ ...row, tenant_id: ctx.tenantId, created_by: ctx.user.id }).select("id").single();
-      if (error) throw mapDbError(error);
+      const insert = (r: typeof row) => supabase.from("social_posts").insert({ ...r, tenant_id: ctx.tenantId, created_by: ctx.user.id }).select("id").single();
+      let { data, error } = await insert({ ...row, ...desk });
+      if (preDesk(error)) ({ data, error } = await insert(row));
+      if (error || !data) throw mapDbError(error!);
       id = data.id;
     }
     const action = v.intent === "schedule" ? "social.post_scheduled" : v.intent === "plan" ? "social.post_planned" : "social.post_saved";

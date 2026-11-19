@@ -21,7 +21,7 @@ export type SetupGuide = {
   review: string;
 };
 
-export function oauthRedirectUri(origin: string, route: "meta" | "pinterest" | "youtube" | "google-business") {
+export function oauthRedirectUri(origin: string, route: "meta" | "pinterest" | "youtube" | "google-business" | "linkedin") {
   return `${origin.replace(/\/$/, "")}/api/oauth/${route}/callback`;
 }
 
@@ -83,6 +83,30 @@ export function setupGuides(origin: string): SetupGuide[] {
         "Request Standard access before going live. Trial access has limits; see Pinterest's access tiers guide.",
       ],
       review: "Trial access is restricted. Apply for Standard access (Pinterest reviews a demo of the integration) before sellers rely on it.",
+    },
+    {
+      provider: "linkedin",
+      title: "LinkedIn",
+      covers: "Posts on a seller's LinkedIn profile (and company pages once LinkedIn approves the app)",
+      consoleUrl: "https://www.linkedin.com/developers/apps",
+      consoleLabel: "LinkedIn Developers → My apps",
+      idLabel: "Client ID",
+      secretLabel: "Client secret",
+      redirectUris: [oauthRedirectUri(o, "linkedin")],
+      webhooks: [],
+      permissions: [
+        { name: "openid" },
+        { name: "profile" },
+        { name: "w_member_social", note: "post on the member's own profile" },
+      ],
+      steps: [
+        "Open LinkedIn Developers → Create app. Link it to a LinkedIn company page you manage and upload a logo.",
+        "In Products, add \"Sign In with LinkedIn using OpenID Connect\" and \"Share on LinkedIn\" (both self-serve).",
+        "In Auth → OAuth 2.0 settings, add the redirect URL below (it must match exactly).",
+        "Copy the Client ID and Client secret into the form on this page.",
+        "Optional: request the Community Management API to let sellers post as their company page (w_organization_social). Until then sellers can still connect a company page with their own token.",
+      ],
+      review: "Profile posting is self-serve. Company page posting needs LinkedIn's Community Management API approval. Access tokens last 60 days; sellers reconnect when one expires.",
     },
     {
       provider: "google",

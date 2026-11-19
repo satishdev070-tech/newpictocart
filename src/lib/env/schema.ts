@@ -99,6 +99,10 @@ export const serverEnvSchema = publicEnvSchema.extend({
   PINTEREST_APP_SECRET: z.string().min(10).optional(),
   GOOGLE_OAUTH_CLIENT_ID: z.string().min(10).optional(),
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(10).optional(),
+  LINKEDIN_CLIENT_ID: z.string().min(5).optional(),
+  LINKEDIN_CLIENT_SECRET: z.string().min(10).optional(),
+  /** LinkedIn versioned REST API (YYYYMM). Each version is supported for about a year. */
+  LINKEDIN_API_VERSION: z.string().regex(/^\d{6}$/).default("202610"),
   /**
    * Fallbacks only: the super admin normally enters these in Admin → Social apps (stored
    * encrypted in platform_app_credentials, which wins over env).
