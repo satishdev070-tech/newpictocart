@@ -23,11 +23,26 @@ type Message = {
   error?: boolean;
 };
 
-const storageKey = (site: string) => `pc-copilot:${site}`;
+/**
+ * Chat history lives in this tab's sessionStorage, keyed by panel + store + signed-in member, so
+ * switching store, "Log in as store", or another person signing in never shows someone else's chat.
+ * (The server never trusts this history for access: every question re-reads the member's store.)
+ */
+export const storageKey = (site: string, scope: string) => `pc-copilot:${site}:${scope}`;
 
-function readSession(site: string): Message[] {
+/** Removes the old shared keys (`pc-copilot:store`) left by earlier versions. */
+function dropLegacyHistory(site: string) {
   try {
-    const raw = window.sessionStorage.getItem(storageKey(site));
+    window.sessionStorage.removeItem(`pc-copilot:${site}`);
+  } catch {
+    /* storage blocked */
+  }
+}
+
+function readSession(site: string, scope: string): Message[] {
+  try {
+    dropLegacyHistory(site);
+    const raw = window.sessionStorage.getItem(storageKey(site, scope));
     const parsed = raw ? (JSON.parse(raw) as unknown) : [];
     return Array.isArray(parsed) ? (parsed as Message[]).filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string").slice(-40) : [];
   } catch {
@@ -80,7 +95,10 @@ export function CopilotDrawer({
   onClose,
   panelLanguage,
   footerExtra,
+  scope,
 }: {
+  /** `<storeId>:<memberId>`: whose chat this is (history key). */
+  scope: string;
   adapter: CopilotAdapter;
   open: boolean;
   onClose: () => void;
@@ -91,7 +109,7 @@ export function CopilotDrawer({
 }) {
   const site = adapter.siteType;
   const copy = copilotCopy(panelLanguage);
-  const [messages, setMessages] = useState<Message[]>(() => (typeof window === "undefined" ? [] : readSession(site)));
+  const [messages, setMessages] = useState<Message[]>(() => (typeof window === "undefined" ? [] : readSession(site, scope)));
   const [draft, setDraft] = useState("");
   const [intent, setIntent] = useState<CopilotIntent | null>(null);
   const [pending, setPending] = useState(false);
@@ -103,7 +121,8 @@ export function CopilotDrawer({
     const base = panelLanguage?.toLowerCase().split(/[-_]/)[0];
     return isCopilotLanguage(base) ? base : "en";
   });
-  const [speak, setSpeak] = useState(() => typeof window !== "undefined" && readLocal("pc-copilot-speak") === "1");
+  // Tara speaks her replies by default (female voice); muting is remembered.
+  const [speak, setSpeak] = useState(() => typeof window !== "undefined" && readLocal("pc-copilot-speak") !== "0");
   const [transcribing, setTranscribing] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -115,11 +134,11 @@ export function CopilotDrawer({
   // Persist per tab.
   useEffect(() => {
     try {
-      window.sessionStorage.setItem(storageKey(site), JSON.stringify(messages.slice(-40)));
+      window.sessionStorage.setItem(storageKey(site, scope), JSON.stringify(messages.slice(-40)));
     } catch {
       /* quota / private mode */
     }
-  }, [messages, site]);
+  }, [messages, scope, site]);
 
   const loadCosts = useCallback(() => {
     void adapter.costs().then((r) => r.ok && setCosts(r.data));

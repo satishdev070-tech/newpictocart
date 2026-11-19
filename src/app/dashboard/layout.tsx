@@ -226,9 +226,9 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     <AppShell groups={groups} homeHref="/dashboard" brand={brand} brandMark={brandMark} sidebarFooter={sidebarFooter} topbarEnd={topbarEnd} banner={banner} storageKey="paliya-seller-sidebar" lang={locale} text={shellText}>
       {children}
       {ctx.permissions.has("analytics.read") ? (
-        <StoreCopilot panelLanguage={locale} />
+        <StoreCopilot panelLanguage={locale} scope={`${ctx.tenantId}:${ctx.user.id}`} />
       ) : null}
-      {showVoice ? <VoiceLauncher storeName={ctx.tenantName} /> : null}
+      {showVoice ? <VoiceLauncher key={`${ctx.tenantId}:${ctx.user.id}`} storeName={ctx.tenantName} /> : null}
     </AppShell>
   );
 }

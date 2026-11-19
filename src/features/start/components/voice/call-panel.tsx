@@ -301,30 +301,50 @@ export function CallPanel({
   );
 }
 
+/** Seconds before the words go to Tara on their own (cancelled as soon as the seller edits). */
+export const REVIEW_AUTO_SEND_MS = 4000;
+
 /**
  * What Tara heard, editable before it is sent: Enter (or Send) gives it to Tara, "Say it again"
- * re-opens the mic. Focused on appear so the seller can fix a word straight away.
+ * re-opens the mic. If the seller doesn't touch it, it sends itself after REVIEW_AUTO_SEND_MS so a
+ * hands-free conversation never stalls on an unnoticed box. Scrolled into view and focused.
  */
 function ReviewBox({ initial, t, busy, onSend, onRetake }: { initial: string; t: VoiceUiCopy; busy: boolean; onSend: (text: string) => void; onRetake: () => void }) {
   const [text, setText] = useState(initial);
+  const [auto, setAuto] = useState(true);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const textRef = useRef(initial);
+  const sentRef = useRef(false);
+  const send = (value: string) => {
+    if (sentRef.current || busy || !value.trim()) return;
+    sentRef.current = true;
+    onSend(value.trim());
+  };
   useEffect(() => {
     const el = ref.current;
+    formRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     if (!el) return;
-    el.focus();
+    el.focus({ preventScroll: true });
     el.setSelectionRange(el.value.length, el.value.length);
   }, []);
-  const send = () => {
-    if (!busy && text.trim()) onSend(text.trim());
-  };
+  useEffect(() => {
+    if (!auto) return;
+    const id = window.setTimeout(() => send(textRef.current), REVIEW_AUTO_SEND_MS);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one countdown per box
+  }, [auto]);
   return (
     <form
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault();
-        send();
+        send(text);
       }}
-      className="flex flex-col gap-2 rounded-[var(--r-md)] border border-mk-accent/40 bg-mk-elev-2 p-3"
+      className="relative flex flex-col gap-2 overflow-hidden rounded-[var(--r-md)] border border-mk-accent bg-mk-elev-2 p-3 shadow-[0_0_0_4px_rgb(234_88_12/0.18)]"
     >
+      {auto ? <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 origin-left bg-mk-accent motion-safe:animate-[tara-review_4s_linear_forwards]" /> : null}
+      <style>{"@keyframes tara-review{from{transform:scaleX(1)}to{transform:scaleX(0)}}"}</style>
       <label htmlFor="tara-review" className="font-mk-mono text-[11px] uppercase tracking-[0.14em] text-mk-accent">
         {t.reviewLabel}
       </label>
@@ -332,12 +352,16 @@ function ReviewBox({ initial, t, busy, onSend, onRetake }: { initial: string; t:
         id="tara-review"
         ref={ref}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setAuto(false); // they're fixing a word: wait for Enter / Send
+          textRef.current = e.target.value;
+          setText(e.target.value);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            send();
-          }
+            send(text);
+          } else if (e.key !== "Tab") setAuto(false);
         }}
         rows={2}
         maxLength={1000}
@@ -348,7 +372,14 @@ function ReviewBox({ initial, t, busy, onSend, onRetake }: { initial: string; t:
           <Send className="size-4" aria-hidden />
           {t.reviewSend}
         </button>
-        <button type="button" onClick={onRetake} className={cn(onbButton.secondary, "min-h-11 px-4")}>
+        <button
+          type="button"
+          onClick={() => {
+            sentRef.current = true;
+            onRetake();
+          }}
+          className={cn(onbButton.secondary, "min-h-11 px-4")}
+        >
           <RotateCcw className="size-4" aria-hidden />
           {t.reviewRetake}
         </button>

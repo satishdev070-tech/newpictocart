@@ -68,7 +68,7 @@ export const VOICE_PA_IN: VoiceUiCopyTranslation = {
   notHeard: "ਮੈਨੂੰ ਠੀਕ ਸਮਝ ਨਹੀਂ ਆਇਆ — ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਬੋਲੋ।",
   speakNow: "ਹੁਣ ਬੋਲੋ",
   stateReviewing: "ਮੈਂ ਜੋ ਸੁਣਿਆ, ਵੇਖ ਲਓ",
-  hintReviewing: "ਕੋਈ ਸ਼ਬਦ ਗ਼ਲਤ ਹੋਵੇ ਤਾਂ ਠੀਕ ਕਰੋ, ਫਿਰ Enter ਜਾਂ ਭੇਜੋ ਦਬਾਓ।",
+  hintReviewing: "ਇਹ ਥੋੜ੍ਹੀ ਦੇਰ ਵਿੱਚ ਤਾਰਾ ਕੋਲ ਚਲਾ ਜਾਵੇਗਾ। ਕੋਈ ਸ਼ਬਦ ਠੀਕ ਕਰਨਾ ਹੋਵੇ ਤਾਂ ਟਾਈਪ ਕਰਨਾ ਸ਼ੁਰੂ ਕਰੋ, ਫਿਰ Enter ਦਬਾਓ।",
   reviewLabel: "ਮੈਂ ਇਹ ਸੁਣਿਆ (ਤੁਸੀਂ ਬਦਲ ਸਕਦੇ ਹੋ)",
   reviewSend: "ਤਾਰਾ ਨੂੰ ਭੇਜੋ",
   reviewRetake: "ਫਿਰ ਬੋਲੋ",

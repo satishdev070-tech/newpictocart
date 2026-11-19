@@ -68,7 +68,7 @@ export const VOICE_GU_IN: VoiceUiCopyTranslation = {
   notHeard: "મને બરાબર સમજાયું નહીં — કૃપા કરીને ફરી બોલો.",
   speakNow: "હવે બોલો",
   stateReviewing: "મેં જે સાંભળ્યું તે તપાસો",
-  hintReviewing: "કોઈ શબ્દ ખોટો હોય તો સુધારો, પછી Enter અથવા મોકલો દબાવો.",
+  hintReviewing: "આ થોડી વારમાં તારાને જશે. કોઈ શબ્દ સુધારવો હોય તો ટાઇપ કરવાનું શરૂ કરો, પછી Enter દબાવો.",
   reviewLabel: "મેં આ સાંભળ્યું (તમે બદલી શકો છો)",
   reviewSend: "તારાને મોકલો",
   reviewRetake: "ફરી બોલો",

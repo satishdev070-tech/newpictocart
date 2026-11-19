@@ -69,7 +69,7 @@ export const VOICE_TE_IN: VoiceUiCopyTranslation = {
   notHeard: "సరిగా వినిపించలేదు — దయచేసి మళ్ళీ చెప్పండి.",
   speakNow: "ఇప్పుడు మాట్లాడండి",
   stateReviewing: "నేను విన్నది చూసుకోండి",
-  hintReviewing: "ఏదైనా పదం తప్పుంటే సరిచేసి, Enter లేదా పంపు నొక్కండి.",
+  hintReviewing: "ఇది కొద్ది క్షణాల్లో తారాకు వెళ్తుంది. ఏదైనా పదం సరిచేయాలంటే టైప్ చేయడం మొదలుపెట్టి, Enter నొక్కండి.",
   reviewLabel: "నేను విన్నది (మీరు మార్చవచ్చు)",
   reviewSend: "తారాకు పంపండి",
   reviewRetake: "మళ్ళీ చెప్పండి",

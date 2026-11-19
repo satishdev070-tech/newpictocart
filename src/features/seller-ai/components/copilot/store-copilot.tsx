@@ -23,10 +23,11 @@ const adapter: CopilotAdapter = {
 };
 
 /** "Ask Pictocart AI" for the online-store dashboard (mounted in app/dashboard/layout.tsx). */
-export function StoreCopilot({ panelLanguage }: { panelLanguage?: string | null }) {
+export function StoreCopilot({ panelLanguage, scope }: { panelLanguage?: string | null; scope: string }) {
+  // key: a different store or member gets a fresh chat (never someone else's).
   return (
-    <CopilotLauncher panelLanguage={panelLanguage}>
-      {(open, close) => <CopilotDrawer adapter={adapter} open={open} onClose={close} panelLanguage={panelLanguage} />}
+    <CopilotLauncher key={scope} panelLanguage={panelLanguage}>
+      {(open, close) => <CopilotDrawer adapter={adapter} open={open} onClose={close} panelLanguage={panelLanguage} scope={scope} />}
     </CopilotLauncher>
   );
 }

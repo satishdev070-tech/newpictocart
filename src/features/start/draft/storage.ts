@@ -25,10 +25,32 @@ function isBrowser(): boolean {
   return typeof window !== "undefined" && typeof document !== "undefined";
 }
 
+/** When the draft was last saved (ms), kept beside it. */
+const SAVED_AT_KEY = `${START_DRAFT_STORAGE_KEY}.savedAt`;
+/** Tara's chat on a shared device is private: after this long idle, the transcript is dropped. */
+export const TARA_CHAT_IDLE_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Drops `voice.turns` from a stored draft when it was saved longer ago than TARA_CHAT_IDLE_MS
+ * (pure; unit tested). The store details gathered so far stay so the merchant can resume.
+ */
+export function withoutStaleChat(raw: string | null, savedAt: number | null, now = Date.now()): string | null {
+  if (!raw) return raw;
+  if (savedAt !== null && now - savedAt <= TARA_CHAT_IDLE_MS) return raw;
+  try {
+    const d = JSON.parse(raw) as { voice?: { turns?: unknown[] } };
+    if (!d.voice?.turns?.length) return raw;
+    return JSON.stringify({ ...d, voice: { ...d.voice, turns: [] } });
+  } catch {
+    return raw;
+  }
+}
+
 export function readStartDraftRaw(): string | null {
   if (!isBrowser()) return null;
   try {
-    return localStorage.getItem(START_DRAFT_STORAGE_KEY);
+    const savedAt = Number(localStorage.getItem(SAVED_AT_KEY));
+    return withoutStaleChat(localStorage.getItem(START_DRAFT_STORAGE_KEY), Number.isFinite(savedAt) && savedAt > 0 ? savedAt : null);
   } catch {
     return null;
   }
@@ -38,6 +60,7 @@ export function writeStartDraft(draft: StartDraft): void {
   if (!isBrowser()) return;
   try {
     localStorage.setItem(START_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    localStorage.setItem(SAVED_AT_KEY, String(Date.now()));
   } catch {
     /* quota / private mode */
   }
@@ -63,6 +86,7 @@ export function clearStartDraftStorage(): void {
   if (!isBrowser()) return;
   try {
     localStorage.removeItem(START_DRAFT_STORAGE_KEY);
+    localStorage.removeItem(SAVED_AT_KEY);
   } catch {
     /* ignore */
   }

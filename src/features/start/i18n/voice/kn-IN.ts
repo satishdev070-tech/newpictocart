@@ -68,7 +68,7 @@ export const VOICE_KN_IN: VoiceUiCopyTranslation = {
   notHeard: "ಸರಿಯಾಗಿ ಕೇಳಿಸಲಿಲ್ಲ — ದಯವಿಟ್ಟು ಮತ್ತೊಮ್ಮೆ ಹೇಳಿ.",
   speakNow: "ಈಗ ಮಾತನಾಡಿ",
   stateReviewing: "ನಾನು ಕೇಳಿದ್ದನ್ನು ಪರಿಶೀಲಿಸಿ",
-  hintReviewing: "ಯಾವುದಾದರೂ ಪದ ತಪ್ಪಿದ್ದರೆ ಸರಿಪಡಿಸಿ, ನಂತರ Enter ಅಥವಾ ಕಳುಹಿಸಿ ಒತ್ತಿ.",
+  hintReviewing: "ಇದು ಸ್ವಲ್ಪ ಹೊತ್ತಿನಲ್ಲಿ ತಾರಾಗೆ ಹೋಗುತ್ತದೆ. ಯಾವುದಾದರೂ ಪದ ಸರಿಪಡಿಸಲು ಟೈಪ್ ಮಾಡಲು ಶುರುಮಾಡಿ, ನಂತರ Enter ಒತ್ತಿ.",
   reviewLabel: "ನಾನು ಕೇಳಿದ್ದು (ನೀವು ಬದಲಿಸಬಹುದು)",
   reviewSend: "ತಾರಾಗೆ ಕಳುಹಿಸಿ",
   reviewRetake: "ಮತ್ತೆ ಹೇಳಿ",

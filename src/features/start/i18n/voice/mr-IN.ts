@@ -69,7 +69,7 @@ export const VOICE_MR_IN: VoiceUiCopyTranslation = {
   notHeard: "मला नीट कळलं नाही — कृपया पुन्हा सांगा.",
   speakNow: "आता बोला",
   stateReviewing: "मी जे ऐकलं ते तपासा",
-  hintReviewing: "एखादा शब्द चुकला असेल तर दुरुस्त करा, मग Enter किंवा पाठवा दाबा.",
+  hintReviewing: "हे थोड्याच वेळात ताराला जाईल. एखादा शब्द दुरुस्त करायचा असेल तर टाइप करायला सुरुवात करा, मग Enter दाबा.",
   reviewLabel: "मी हे ऐकलं (तुम्ही बदलू शकता)",
   reviewSend: "ताराला पाठवा",
   reviewRetake: "पुन्हा बोला",
