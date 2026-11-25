@@ -27,12 +27,12 @@ import {
   recognitionLang,
   speechRecognitionCtor,
   speechSynthesisApi,
-  utteranceTimeoutMs,
   type BrowserRecognition,
   type CaptionEvent,
   type CaptionState,
 } from "./browser-speech";
 import { recorderMime } from "./use-voice-recorder";
+import { savedVoiceName, speakPieces } from "@/lib/speech/voices";
 
 export type TaraSpeech = { audioBase64: string; mimeType: string };
 
@@ -104,32 +104,10 @@ function audioContextCtor(): AudioCtxCtor | null {
 async function speakWithBrowser(text: string, locale: string, isCurrent: () => boolean, register: (cancel: () => void) => void): Promise<boolean> {
   const synth = speechSynthesisApi();
   if (!synth || !text.trim()) return false;
-  const voice = pickVoice(await loadVoices(), locale);
+  const voice = pickVoice(await loadVoices(), locale, savedVoiceName(recognitionLang(locale)));
   if (!voice || !isCurrent()) return false;
-  return new Promise<boolean>((resolve) => {
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      resolve(true);
-    };
-    const u = new SpeechSynthesisUtterance(text);
-    u.voice = voice;
-    u.lang = voice.lang;
-    u.onend = finish;
-    u.onerror = finish;
-    const timer = window.setTimeout(finish, utteranceTimeoutMs(text));
-    register(() => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      synth.cancel();
-      resolve(false);
-    });
-    synth.cancel(); // drop anything queued (e.g. the silent priming utterance)
-    synth.speak(u);
-  });
+  // Sentence by sentence at the seller's chosen speed (long single utterances stall in Chrome).
+  return speakPieces(synth, text, voice, voice.lang, { register });
 }
 
 /** Speak a reply outside a call (typed turns) with the browser voice. Best effort. */
