@@ -15,7 +15,8 @@ const NVIDIA_ROUTES_MIGRATION = [
 ].join("\n");
 const REVIEWS_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261028004800_generate_reviews.sql", import.meta.url), "utf8");
 const FAQ_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261029005400_generate_faq.sql", import.meta.url), "utf8");
-const COST_SEEDS = `${MIGRATION}\n${SELLER_AI_MIGRATION}\n${NVIDIA_MIGRATION}\n${REVIEWS_MIGRATION}\n${FAQ_MIGRATION}`;
+const SOCIAL_DESK_MIGRATION = readFileSync(new URL("../../../supabase/migrations/20261119008900_social_marketing_desk.sql", import.meta.url), "utf8");
+const COST_SEEDS = `${MIGRATION}\n${SELLER_AI_MIGRATION}\n${NVIDIA_MIGRATION}\n${REVIEWS_MIGRATION}\n${FAQ_MIGRATION}\n${SOCIAL_DESK_MIGRATION}`;
 
 describe("AI feature registry", () => {
   it("lists every Neural Pulse GenerationKind plus the section, seed and voice features", () => {

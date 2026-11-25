@@ -6,9 +6,10 @@ import { logger } from "@/lib/observability/logger";
 import { audit } from "@/lib/audit";
 import type { Json } from "@/lib/supabase/database.types";
 import { activeIntegration, recordStatus, updateOAuthSecrets } from "@/features/integrations/server/store";
-import { composeText, isAutoPlatform, overallStatus, type PlatformResult, type SocialPlatform } from "../compose";
+import { composeText, isAutoPlatform, overallStatus, parseVariants, type PlatformResult, type SocialPlatform } from "../compose";
 import { createPin, pinterestRefresh, publishFacebookPhoto, publishInstagramImage, type Result } from "./providers";
 import { publishGoogleLocalPost } from "@/features/google-business/server/publish";
+import { linkedinRefresh, publishLinkedIn } from "./linkedin";
 
 /**
  * Publishes one post to its selected auto-publish platforms (manual channels are skipped). Called by "Publish now" (after the seller's
@@ -62,6 +63,26 @@ async function pinterestToken(tenantId: string): Promise<{ token: string; board:
   return { token, board: it.public.board_id ?? null };
 }
 
+/** LinkedIn token + author, refreshed when it's about to expire and a refresh token exists. */
+async function linkedinAuth(tenantId: string): Promise<{ token: string; author: string } | { error: string }> {
+  const it = await activeIntegration(tenantId, "linkedin");
+  if (!it?.secrets.access_token || !it.public.author_urn) return { error: "LinkedIn isn't connected." };
+  if (it.expiresAt && Date.parse(it.expiresAt) < Date.now() + 5 * 60_000) {
+    if (!it.secrets.refresh_token) {
+      await recordStatus(tenantId, "linkedin", "expired", "The LinkedIn token expired. Reconnect LinkedIn.");
+      return { error: "The LinkedIn token expired. Reconnect LinkedIn." };
+    }
+    const r = await linkedinRefresh(it.secrets.refresh_token);
+    if (!r.ok) {
+      await recordStatus(tenantId, "linkedin", "expired", r.message);
+      return { error: r.message };
+    }
+    await updateOAuthSecrets(tenantId, "linkedin", { access_token: r.data.accessToken, refresh_token: r.data.refreshToken ?? it.secrets.refresh_token }, r.data.expiresAt);
+    return { token: r.data.accessToken, author: it.public.author_urn };
+  }
+  return { token: it.secrets.access_token, author: it.public.author_urn };
+}
+
 export async function publishPost(tenantId: string, postId: string, actorUserId: string | null): Promise<{ status: "published" | "failed"; results: Partial<Record<SocialPlatform, PlatformResult>> }> {
   const admin = createSupabaseAdminClient();
   const { data: post } = await admin.from("social_posts").select("id, caption, hashtags, media_paths, link_url, platforms, results, product_id").eq("tenant_id", tenantId).eq("id", postId).single();
@@ -72,14 +93,20 @@ export async function publishPost(tenantId: string, postId: string, actorUserId:
   const now = () => new Date().toISOString();
   const image = post.media_paths[0] ?? null;
   const imageUrl = assetUrl(image);
-  const base = { caption: post.caption, hashtags: post.hashtags, link: post.link_url };
+  // Per-network text (desk migration); read separately so publishing works before it's applied.
+  const { data: desk } = await admin.from("social_posts").select("variants").eq("tenant_id", tenantId).eq("id", postId).maybeSingle();
+  const base = { caption: post.caption, hashtags: post.hashtags, link: post.link_url, variants: parseVariants(desk?.variants) };
 
   for (const p of platforms) {
     if (results[p]?.ok) continue; // already published on an earlier attempt: never double-post
     let r: Result<{ id: string; url: string | null }>;
     try {
       if (p === "google") r = await publishGoogleLocalPost(tenantId, { caption: post.caption, link: post.link_url, imageUrl });
-      else if (!imageUrl) r = { ok: false, message: "Add an image: all three networks need one." };
+      else if (p === "linkedin") {
+        const auth = await linkedinAuth(tenantId);
+        r = "error" in auth ? { ok: false, message: auth.error } : await publishLinkedIn(auth.token, auth.author, composeText(base, "linkedin"), imageUrl, post.caption.slice(0, 200));
+        if (!r.ok && r.expired) await recordStatus(tenantId, "linkedin", "expired", r.message);
+      } else if (!imageUrl) r = { ok: false, message: "Add an image: Facebook, Instagram and Pinterest need one." };
       else if (p === "facebook") {
         const it = await activeIntegration(tenantId, "facebook");
         r = it?.secrets.page_token ? await publishFacebookPhoto(it.public.account_id!, it.secrets.page_token, imageUrl, composeText(base, "facebook")) : { ok: false, message: "Facebook isn't connected." };

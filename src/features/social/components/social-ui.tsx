@@ -6,20 +6,23 @@ import { ActionDialog, ActionForm, InlineAction } from "@/features/settings/ui/a
 import { disconnectIntegrationAction } from "@/features/integrations/actions";
 import type { IntegrationStatus } from "@/features/integrations/registry";
 import { cancelPostAction, deletePostAction, retryPostAction, setPinterestBoardAction } from "../actions";
+import { ManualConnectDialog } from "./desk-ui";
 
-type Account = { provider: string; status: IntegrationStatus; enabled: boolean; account: string | null; board: string | null; boardName: string | null; message: string | null; connectedAt: string | null };
+type Account = { provider: string; status: IntegrationStatus; enabled: boolean; account: string | null; board: string | null; boardName: string | null; message: string | null; connectedAt: string | null; method?: string | null };
+type Network = "meta" | "pinterest" | "youtube" | "linkedin";
 const NETWORKS = [
-  { providers: ["facebook", "instagram"], network: "meta", label: "Facebook & Instagram", note: "Connect with Facebook and choose your store's Page. Its linked Instagram professional account is connected too." },
-  { providers: ["pinterest"], network: "pinterest", label: "Pinterest", note: "Create Pins on one of your boards." },
-  { providers: ["youtube"], network: "youtube", label: "YouTube", note: "Shows your channel as connected. Video publishing isn't supported yet." },
+  { providers: ["facebook", "instagram"], network: "meta", label: "Facebook & Instagram", note: "Connect with Facebook and choose your store's Page, or paste a token from your own Meta app. Its linked Instagram professional account is connected too.", manual: true },
+  { providers: ["linkedin"], network: "linkedin", label: "LinkedIn", note: "Post to your LinkedIn profile, or a company page with your own token.", manual: true },
+  { providers: ["pinterest"], network: "pinterest", label: "Pinterest", note: "Create Pins on one of your boards.", manual: false },
+  { providers: ["youtube"], network: "youtube", label: "YouTube", note: "Shows your channel as connected. Video publishing isn't supported yet.", manual: false },
 ] as const;
-const NAME: Record<string, string> = { facebook: "Facebook Page", instagram: "Instagram", pinterest: "Pinterest", youtube: "YouTube" };
+const NAME: Record<string, string> = { facebook: "Facebook Page", instagram: "Instagram", pinterest: "Pinterest", youtube: "YouTube", linkedin: "LinkedIn" };
 const TONE = { connected: "success", error: "error", expired: "warning", not_connected: "neutral", disabled: "neutral" } as const;
 const LABEL = { connected: "Connected", error: "Error", expired: "Expired", not_connected: "Not connected", disabled: "Disabled" } as const;
 
-export function SocialAccounts({ accounts, configured, canManage, boards }: { accounts: Account[]; configured: Record<"meta" | "pinterest" | "youtube", boolean>; canManage: boolean; boards: { id: string; name: string }[] }) {
+export function SocialAccounts({ accounts, configured, canManage, boards }: { accounts: Account[]; configured: Record<Network, boolean>; canManage: boolean; boards: { id: string; name: string }[] }) {
   return (
-    <section className="grid gap-4 lg:grid-cols-3">
+    <section className="grid gap-4 md:grid-cols-2">
       {NETWORKS.map((n) => {
         const rows = accounts.filter((a) => (n.providers as readonly string[]).includes(a.provider));
         const anyConnected = rows.some((r) => r.status !== "not_connected");
@@ -32,7 +35,11 @@ export function SocialAccounts({ accounts, configured, canManage, boards }: { ac
             <ul className="space-y-2 text-small">
               {rows.map((r) => (
                 <li key={r.provider} className="flex flex-wrap items-center justify-between gap-2">
-                  <span>{NAME[r.provider]}{r.account ? <span className="text-muted"> · {r.account}</span> : null}</span>
+                  <span>
+                    {NAME[r.provider]}
+                    {r.account ? <span className="text-muted"> · {r.account}</span> : null}
+                    {r.status !== "not_connected" && r.method === "manual" ? <span className="text-caption text-muted"> (own token)</span> : null}
+                  </span>
                   <Badge tone={TONE[r.status]}>{LABEL[r.status]}</Badge>
                   {r.status !== "connected" && r.status !== "not_connected" && r.message ? <p className="w-full text-caption text-error">{r.message}</p> : null}
                 </li>
@@ -56,12 +63,13 @@ export function SocialAccounts({ accounts, configured, canManage, boards }: { ac
             ) : null}
             <div className="mt-auto flex flex-wrap gap-2">
               {!configured[n.network] ? (
-                <p className="text-caption text-muted">Waiting on your platform admin to add this app (Admin → Social apps).</p>
+                <p className="w-full text-caption text-muted">{n.manual ? "Account sign-in isn't set up by your platform admin yet. You can still connect with your own token." : "Waiting on your platform admin to add this app (Admin → Social apps)."}</p>
               ) : canManage ? (
                 <a href={`/api/oauth/${n.network}/start`} className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-small font-medium text-primary-foreground">
                   {anyConnected ? "Reconnect" : "Connect"}
                 </a>
               ) : null}
+              {canManage && n.manual ? <ManualConnectDialog network={n.network as "meta" | "linkedin"} /> : null}
               {canManage
                 ? rows
                     .filter((r) => r.status !== "not_connected")

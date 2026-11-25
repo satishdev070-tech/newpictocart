@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { afterStoreLaunched } from "@/features/social/server/automation";
 import { runAction, type ActionResult } from "@/lib/actions/result";
 import { requireTenant, assertPermission } from "@/lib/tenant/membership";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -30,6 +32,9 @@ export async function publishStoreAction(): Promise<ActionResult> {
     if (data?.length) {
       revalidateStorefront(ctx.tenantId);
       await audit({ tenantId: ctx.tenantId, actorUserId: ctx.user.id, action: "store.published", entityType: "store", entityId: ctx.tenantId });
+      // Social desk automation ("we're live" post); after the response, never fails the publish.
+      const { tenantId, user } = ctx;
+      after(() => afterStoreLaunched(tenantId, user.id));
     }
     revalidatePath("/dashboard");
   });

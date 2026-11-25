@@ -29,7 +29,7 @@ const CHANNEL_IDS = Object.keys(CHANNEL_LABELS).join(", ");
 const PILLAR_IDS = CONTENT_PILLARS.join(", ");
 const FORMAT_IDS = POST_FORMATS.join(", ");
 
-function languageLine(langs: BrandLanguage[]): string {
+export function languageLine(langs: BrandLanguage[]): string {
   const list = (langs.length ? langs : (["en"] as BrandLanguage[])).map((l) => LANGUAGE_LABELS[l]);
   const hinglish = langs.includes("hinglish") ? ' "Hinglish" means conversational Hindi written in Latin script mixed with English (e.g. "Festive vibes, ab ghar pe!").' : "";
   return `Write in: ${list.join(", ")}. If several languages are listed, mix them naturally or use the first one for the main text.${hinglish}`;

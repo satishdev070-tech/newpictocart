@@ -7,7 +7,7 @@ import { z } from "zod";
  * masked hint.
  */
 
-export const APP_PROVIDERS = ["meta", "pinterest", "google", "nvidia", "gemini", "groq", "anthropic", "resend", "unsplash", "razorpay", "cashfree", "payu"] as const;
+export const APP_PROVIDERS = ["meta", "pinterest", "google", "linkedin", "nvidia", "gemini", "groq", "anthropic", "resend", "unsplash", "razorpay", "cashfree", "payu"] as const;
 export type AppProvider = (typeof APP_PROVIDERS)[number];
 
 export const AI_PROVIDERS = ["nvidia", "gemini", "groq", "anthropic"] as const satisfies readonly AppProvider[];
@@ -18,13 +18,14 @@ export const PAYMENT_APP_PROVIDERS = ["razorpay", "cashfree", "payu"] as const s
 export type PaymentAppProvider = (typeof PAYMENT_APP_PROVIDERS)[number];
 
 /** OAuth + payment gateways need a client id + secret; AI providers only an API key (stored as `secret`). */
-export const needsClientId = (p: AppProvider) => p === "meta" || p === "pinterest" || p === "google" || p === "razorpay" || p === "cashfree" || p === "payu";
+export const needsClientId = (p: AppProvider) => p === "meta" || p === "pinterest" || p === "google" || p === "linkedin" || p === "razorpay" || p === "cashfree" || p === "payu";
 
 /** Non-secret settings kept in `extra` (plain JSON). Anything else is dropped. Razorpay webhook secret is stored encrypted under webhookSecretCiphertext. */
 export const EXTRA_KEYS: Record<AppProvider, readonly string[]> = {
   meta: ["webhookVerifyToken"],
   pinterest: [],
   google: [],
+  linkedin: [],
   nvidia: ["model"],
   gemini: ["model"],
   groq: ["model"],
@@ -46,6 +47,7 @@ const ENV_NAMES: Record<AppProvider, { id?: string; secret: string; extra?: Reco
   meta: { id: "META_APP_ID", secret: "META_APP_SECRET", extra: { webhookVerifyToken: "META_WEBHOOK_VERIFY_TOKEN" } },
   pinterest: { id: "PINTEREST_APP_ID", secret: "PINTEREST_APP_SECRET" },
   google: { id: "GOOGLE_OAUTH_CLIENT_ID", secret: "GOOGLE_OAUTH_CLIENT_SECRET" },
+  linkedin: { id: "LINKEDIN_CLIENT_ID", secret: "LINKEDIN_CLIENT_SECRET" },
   nvidia: { secret: "NVIDIA_API_KEY" },
   gemini: { secret: "GEMINI_API_KEY" },
   groq: { secret: "GROQ_API_KEY" },

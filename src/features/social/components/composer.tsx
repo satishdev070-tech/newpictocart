@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useId, useState } from "react";
+import { useActionState, useEffect, useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Hash, ImagePlus, X } from "lucide-react";
+import { Hash, ImagePlus, Sparkles, X } from "lucide-react";
 import { SelectField, TextAreaField, TextField, inputClassName } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { FormMessage, SubmitButton } from "@/components/ui/form";
@@ -11,7 +11,8 @@ import { MediaPicker } from "@/features/media/components/media-picker";
 import { cn } from "@/lib/cn";
 import { savePostAction } from "../actions";
 import { createPostFromProductAction } from "../planner-actions";
-import { CHANNEL_LABELS, CONTENT_PILLARS, MANUAL_CHANNELS, PILLAR_LABELS, SOCIAL_PLATFORMS, normalizeHashtags, type Channel, type ContentPillar, type SocialPlatform } from "../compose";
+import { generateSocialCopyAction } from "../desk-actions";
+import { CHANNEL_LABELS, CONTENT_PILLARS, MANUAL_CHANNELS, PILLAR_LABELS, SOCIAL_PLATFORMS, VARIANT_CHANNELS, VARIANT_LIMITS, normalizeHashtags, type Channel, type ContentPillar, type PostVariants, type SocialPlatform, type VariantChannel } from "../compose";
 import type { Campaign, HashtagSet } from "../planner-types";
 import { CHANNEL_META, ChannelChip } from "./channels";
 
@@ -29,13 +30,18 @@ export type ComposerValue = {
   notes: string;
   pillar: ContentPillar | "";
   campaignId: string;
+  /** Per-network text (AI or edited); empty = the shared caption. */
+  variants?: PostVariants;
 };
 
-/** Text a network would show: caption, link (Facebook, planned channels), hashtags (not Pinterest). */
-function previewText(c: Channel, caption: string, tags: string[], link: string): string {
-  const parts = [caption.trim()];
-  if (link && c !== "instagram" && c !== "pinterest") parts.push(link);
-  if (tags.length && c !== "pinterest") parts.push(tags.join(" "));
+const isVariant = (c: Channel): c is VariantChannel => (VARIANT_CHANNELS as readonly string[]).includes(c);
+
+/** Text a network would show: its own text or the caption, link (not Instagram/Pinterest), hashtags (not Pinterest/WhatsApp). */
+function previewText(c: Channel, caption: string, tags: string[], link: string, variants: PostVariants = {}): string {
+  const body = ((isVariant(c) ? variants[c] : undefined) || caption).trim();
+  const parts = [body];
+  if (link && c !== "instagram" && c !== "pinterest" && !body.includes(link)) parts.push(link);
+  if (tags.length && c !== "pinterest" && c !== "whatsapp") parts.push((c === "linkedin" ? tags.slice(0, 5) : tags).join(" "));
   return parts.filter(Boolean).join("\n\n");
 }
 
@@ -61,6 +67,9 @@ export function PostComposer({
   const [at, setAt] = useState(value?.scheduledAt ?? "");
   const [channels, setChannels] = useState<Channel[]>(value?.platforms?.length ? value.platforms : connected);
   const [setPick, setSetPick] = useState("");
+  const [variants, setVariants] = useState<PostVariants>(value?.variants ?? {});
+  const [source, setSource] = useState<"manual" | "ai">("manual");
+  const [showVariants, setShowVariants] = useState(Object.keys(value?.variants ?? {}).length > 0);
   const errors = state && !state.ok ? (state.error.fieldErrors ?? {}) : {};
   const tags = normalizeHashtags(hashtags);
   const autoSelected = channels.some((c) => (connected as Channel[]).includes(c));
@@ -74,8 +83,19 @@ export function PostComposer({
   return (
     <div className="space-y-5">
       {!value?.id && products.length ? <StartFromProduct products={products} /> : null}
+      <AiWriter
+        products={products}
+        onResult={(r) => {
+          setCaption(r.caption);
+          setHashtags(r.hashtags.join(" "));
+          setVariants(r.variants);
+          setShowVariants(true);
+          if (r.link && !link) setLink(r.link);
+          setSource("ai");
+        }}
+      />
       <form action={action} className="space-y-5">
-        {value?.id ? <input type="hidden" name="id" value={value.id} /> : null}
+        {value?.id ? <input type="hidden" name="id" value={value.id} /> : <input type="hidden" name="source" value={source} />}
         <input type="hidden" name="mediaPath" value={media.path} />
         <FormMessage state={state} success={state?.ok ? <>{state.data} <Link href="/dashboard/marketing/social/calendar" className="underline">Open calendar</Link></> : null} />
         <div className="grid gap-5 lg:grid-cols-[200px_minmax(0,1fr)] xl:grid-cols-[200px_minmax(0,1fr)_300px]">
@@ -110,7 +130,7 @@ export function PostComposer({
             {channels.length ? (
               <ul aria-label="Length per network" className="-mt-2 flex flex-wrap gap-x-3 gap-y-1 text-caption">
                 {channels.map((c) => {
-                  const n = previewText(c, caption, tags, link).length;
+                  const n = previewText(c, caption, tags, link, variants).length;
                   const over = n > CHANNEL_META[c].limit;
                   return (
                     <li key={c} className={over ? "font-medium text-error" : "text-muted"}>
@@ -121,6 +141,27 @@ export function PostComposer({
                 })}
               </ul>
             ) : null}
+            <div className="rounded-md border border-border">
+              <button type="button" onClick={() => setShowVariants((v) => !v)} aria-expanded={showVariants} className="flex w-full items-center justify-between px-3 py-2 text-left text-small font-medium focus-visible:outline-2 focus-visible:outline-accent">
+                Text per network <span className="text-caption font-normal text-muted">{showVariants ? "Hide" : "Optional: a different text for Facebook, Instagram, LinkedIn or WhatsApp"}</span>
+              </button>
+              <div className={cn("space-y-3 border-t border-border p-3", !showVariants && "hidden")}>
+                <p className="text-caption text-muted">Leave a box empty to use the caption above.</p>
+                {VARIANT_CHANNELS.map((c) => (
+                  <TextAreaField
+                    key={c}
+                    label={CHANNEL_LABELS[c]}
+                    name={`variant_${c}`}
+                    rows={3}
+                    value={variants[c] ?? ""}
+                    onChange={(e) => setVariants((v) => ({ ...v, [c]: e.target.value }))}
+                    maxLength={VARIANT_LIMITS[c]}
+                    errors={errors[`variant_${c}`]}
+                    optional
+                  />
+                ))}
+              </div>
+            </div>
             <div>
               <TextField label="Hashtags" name="hashtags" value={hashtags} onChange={(e) => setHashtags(e.target.value)} placeholder="#handloom #kurta #festive" hint={`${tags.length}/30. Not added to Pinterest.`} errors={errors.hashtags} optional />
               {hashtagSets.length ? (
@@ -193,7 +234,7 @@ export function PostComposer({
             {!channels.length ? <p className="text-caption text-muted">Pick a channel to see a preview.</p> : null}
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               {channels.map((c) => (
-                <PreviewCard key={c} channel={c} text={previewText(c, caption, tags, link)} image={media.url} />
+                <PreviewCard key={c} channel={c} text={previewText(c, caption, tags, link, variants)} image={media.url} />
               ))}
             </div>
           </aside>
@@ -224,6 +265,63 @@ function PreviewCard({ channel, text, image }: { channel: Channel; text: string;
         <img src={image} alt="" className="mx-3 mb-3 aspect-video w-[calc(100%-1.5rem)] rounded-md object-cover" />
       ) : null}
     </div>
+  );
+}
+
+type AiResult = { caption: string; hashtags: string[]; variants: PostVariants; link: string | null };
+
+/** "Write with AI": fills the caption, hashtags and per-network text for the seller to edit. Costs 1 credit. */
+function AiWriter({ products, onResult }: { products: { id: string; title: string }[]; onResult: (r: AiResult) => void }) {
+  const uid = useId();
+  const [subject, setSubject] = useState<"idea" | "product" | "launch">(products.length ? "product" : "idea");
+  const [productId, setProductId] = useState("");
+  const [idea, setIdea] = useState("");
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pending, start] = useTransition();
+  const run = () =>
+    start(async () => {
+      setMessage(null);
+      const r = await generateSocialCopyAction({ subject, productId: subject === "product" ? productId : undefined, idea: subject === "idea" ? idea : undefined });
+      if (r.ok) {
+        onResult(r.data);
+        setMessage({ ok: true, text: "Done. Check and edit the text below before posting." });
+      } else setMessage({ ok: false, text: r.error.fieldErrors?._form?.[0] ?? Object.values(r.error.fieldErrors ?? {})[0]?.[0] ?? r.error.message });
+    });
+  const ready = subject === "launch" || (subject === "product" ? Boolean(productId) : idea.trim().length > 2);
+  return (
+    <section aria-label="Write with AI" className="space-y-2 rounded-lg border border-accent/30 bg-accent-soft/30 p-3">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-0 basis-40">
+          <label htmlFor={`${uid}-s`} className="mb-1.5 block text-label">Write with AI</label>
+          <select id={`${uid}-s`} value={subject} onChange={(e) => setSubject(e.target.value as typeof subject)} className={inputClassName}>
+            <option value="idea">About an idea</option>
+            {products.length ? <option value="product">About a product</option> : null}
+            <option value="launch">Store launch</option>
+          </select>
+        </div>
+        {subject === "product" ? (
+          <div className="min-w-0 flex-1 basis-56">
+            <label htmlFor={`${uid}-p`} className="mb-1.5 block text-label">Product</label>
+            <select id={`${uid}-p`} value={productId} onChange={(e) => setProductId(e.target.value)} className={inputClassName}>
+              <option value="">Choose a product…</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>{p.title}</option>
+              ))}
+            </select>
+          </div>
+        ) : subject === "idea" ? (
+          <div className="min-w-0 flex-1 basis-56">
+            <label htmlFor={`${uid}-i`} className="mb-1.5 block text-label">What is the post about?</label>
+            <input id={`${uid}-i`} value={idea} onChange={(e) => setIdea(e.target.value)} maxLength={800} placeholder="Diwali sale starts Friday, 20% off on sarees" className={inputClassName} />
+          </div>
+        ) : null}
+        <Button variant="secondary" size="sm" onClick={run} pending={pending} disabled={!ready}>
+          <Sparkles aria-hidden /> Write (1 credit)
+        </Button>
+      </div>
+      <p className="text-caption text-muted">AI writes a post for Facebook, Instagram, LinkedIn and WhatsApp in your brand voice, using only your store&apos;s real details.</p>
+      {message ? <p role={message.ok ? "status" : "alert"} className={cn("text-caption", message.ok ? "text-success" : "text-error")}>{message.text}</p> : null}
+    </section>
   );
 }
 

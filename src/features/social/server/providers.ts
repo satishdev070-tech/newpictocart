@@ -2,6 +2,7 @@ import "server-only";
 import { serverEnv } from "@/lib/env/server";
 import { logger } from "@/lib/observability/logger";
 import { getAppCredential, type AppCredential } from "@/features/platform-apps/server";
+import { metaTokenKind } from "../payloads";
 
 /**
  * Social network adapters, written against the official docs:
@@ -15,13 +16,13 @@ import { getAppCredential, type AppCredential } from "@/features/platform-apps/s
  * Errors returned to callers are our own wording; provider payloads are logged without tokens.
  */
 
-export type SocialNetwork = "meta" | "pinterest" | "youtube";
+export type SocialNetwork = "meta" | "pinterest" | "youtube" | "linkedin";
 export type Result<T> = { ok: true; data: T } | { ok: false; message: string; expired?: boolean };
 
 const TIMEOUT = 15_000;
 
 /** The platform OAuth app behind each network (YouTube uses the Google app). */
-const APP_FOR = { meta: "meta", pinterest: "pinterest", youtube: "google" } as const;
+const APP_FOR = { meta: "meta", pinterest: "pinterest", youtube: "google", linkedin: "linkedin" } as const;
 
 /** Platform app credentials (console first, env fallback; see features/platform-apps). */
 export function networkCredential(n: SocialNetwork): Promise<AppCredential | null> {
@@ -84,6 +85,43 @@ export async function metaExchange(code: string, redirectUri: string): Promise<R
   });
   if (!list.length) return { ok: false, message: "No Facebook Page was shared. Reconnect and select the Page for your store." };
   return { ok: true, data: { pages: list, expiresAt } };
+}
+
+/**
+ * Manual connect (the seller's own token). Accepts a Page access token, or a user access token
+ * (then the Page is picked from /me/accounts). With the seller's own App ID + secret, a user token
+ * is first exchanged for a long-lived one, so the Page tokens derived from it don't expire.
+ */
+export async function metaManualPages(input: { token: string; appId?: string; appSecret?: string }): Promise<Result<{ kind: "page" | "user"; pages: MetaPage[]; expiresAt: string | null }>> {
+  const get = (path: string, q: Record<string, string>) => fetch(`${graph()}/${path}?${new URLSearchParams(q)}`, { signal: AbortSignal.timeout(TIMEOUT), cache: "no-store" });
+  const meRes = await get("me", { fields: "id,name,category", access_token: input.token });
+  const me = await json(meRes);
+  if (!meRes.ok || !metaTokenKind(me)) return fail("meta", meRes.status, me, "Facebook didn't accept this access token.");
+  const igOf = async (pageId: string, token: string) => {
+    const r = await get(encodeURIComponent(pageId), { fields: "instagram_business_account{id,username}", access_token: token });
+    const j = (await json(r)) as { instagram_business_account?: { id?: string; username?: string } };
+    return r.ok && j.instagram_business_account?.id ? { id: j.instagram_business_account.id, username: j.instagram_business_account.username ?? null } : null;
+  };
+  if (metaTokenKind(me) === "page") {
+    return { ok: true, data: { kind: "page", pages: [{ id: String(me.id), name: String(me.name ?? "Facebook Page"), accessToken: input.token, instagram: await igOf(String(me.id), input.token) }], expiresAt: null } };
+  }
+  let userToken = input.token;
+  if (input.appId && input.appSecret) {
+    const long = await get("oauth/access_token", { grant_type: "fb_exchange_token", client_id: input.appId, client_secret: input.appSecret, fb_exchange_token: input.token });
+    const lj = await json(long);
+    if (!long.ok || typeof lj.access_token !== "string") return fail("meta", long.status, lj, "Facebook didn't accept your App ID / App secret for this token.");
+    userToken = lj.access_token;
+  }
+  const pagesRes = await get("me/accounts", { fields: "id,name,access_token,instagram_business_account{id,username}", access_token: userToken, limit: "50" });
+  const pj = await json(pagesRes);
+  if (!pagesRes.ok) return fail("meta", pagesRes.status, pj, "We couldn't read the Pages for this token (it needs pages_show_list).");
+  const pages = ((pj.data as unknown[]) ?? []).flatMap((p) => {
+    const r = p as { id?: string; name?: string; access_token?: string; instagram_business_account?: { id?: string; username?: string } };
+    return r.id && r.access_token ? [{ id: r.id, name: r.name ?? "Facebook Page", accessToken: r.access_token, instagram: r.instagram_business_account?.id ? { id: r.instagram_business_account.id, username: r.instagram_business_account.username ?? null } : null }] : [];
+  });
+  if (!pages.length) return { ok: false, message: "This token can't manage any Facebook Page. Use a Page access token, or a user token with pages_show_list and pages_manage_posts." };
+  // Page tokens from a long-lived user token don't expire; from a short-lived one they last about an hour.
+  return { ok: true, data: { kind: "user", pages, expiresAt: input.appId && input.appSecret ? null : new Date(Date.now() + 3600_000).toISOString() } };
 }
 
 export async function metaVerify(pageId: string, pageToken: string): Promise<Result<{ name: string }>> {

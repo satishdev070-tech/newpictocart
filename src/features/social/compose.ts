@@ -1,13 +1,13 @@
 /** Pure helpers for social posts (unit tested). */
 
-/** Networks we publish to automatically (official APIs, OAuth). */
-export const SOCIAL_PLATFORMS = ["facebook", "instagram", "pinterest", "google"] as const;
+/** Networks we publish to automatically (official APIs, OAuth or the seller's own token). */
+export const SOCIAL_PLATFORMS = ["facebook", "instagram", "pinterest", "google", "linkedin"] as const;
 export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
 /**
  * Planned channels: on the calendar, never auto-published (no approved API access). When due, the
  * seller copies the caption and downloads the image, then marks the channel posted.
  */
-export const MANUAL_CHANNELS = ["whatsapp", "x", "linkedin", "threads", "youtube"] as const;
+export const MANUAL_CHANNELS = ["whatsapp", "x", "threads", "youtube"] as const;
 export type ManualChannel = (typeof MANUAL_CHANNELS)[number];
 export const ALL_CHANNELS = [...SOCIAL_PLATFORMS, ...MANUAL_CHANNELS] as const;
 export type Channel = (typeof ALL_CHANNELS)[number];
@@ -33,12 +33,54 @@ export function normalizeHashtags(input: string | string[]): string[] {
   return out.slice(0, 30);
 }
 
-/** Final text for a platform: caption, then link (not for Instagram, where links aren't clickable), then hashtags. */
-export function composeText(p: { caption: string; hashtags: string[]; link: string | null }, platform: SocialPlatform): string {
-  const parts = [p.caption.trim()];
-  if (p.link && platform === "facebook") parts.push(p.link);
-  if (p.hashtags.length && platform !== "pinterest") parts.push(p.hashtags.join(" "));
-  return parts.filter(Boolean).join("\n\n").slice(0, platform === "instagram" ? 2200 : 5000);
+/** Where a post came from (social_posts.source). */
+export const POST_SOURCES = ["manual", "ai", "auto_launch", "auto_product"] as const;
+export type PostSource = (typeof POST_SOURCES)[number];
+export const SOURCE_LABELS: Record<PostSource, string> = { manual: "Manual", ai: "AI", auto_launch: "Auto · store launch", auto_product: "Auto · new product" };
+
+/** Networks that can carry their own text (social_posts.variants), e.g. written by AI per network. */
+export const VARIANT_CHANNELS = ["facebook", "instagram", "linkedin", "whatsapp"] as const;
+export type VariantChannel = (typeof VARIANT_CHANNELS)[number];
+export type PostVariants = Partial<Record<VariantChannel, string>>;
+/** Hard limits per network for the per-network text. */
+export const VARIANT_LIMITS: Record<VariantChannel, number> = { facebook: 5000, instagram: 2200, linkedin: 3000, whatsapp: 1000 };
+
+/** Cleans stored/untrusted variants: known channels, trimmed strings within the limit, empty dropped. */
+export function parseVariants(raw: unknown): PostVariants {
+  const out: PostVariants = {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+  for (const c of VARIANT_CHANNELS) {
+    const v = (raw as Record<string, unknown>)[c];
+    if (typeof v === "string" && v.trim()) out[c] = v.trim().slice(0, VARIANT_LIMITS[c]);
+  }
+  return out;
+}
+
+const LIMIT: Record<SocialPlatform, number> = { facebook: 5000, instagram: 2200, pinterest: 800, google: 1500, linkedin: 3000 };
+
+/**
+ * Final text for a platform: the network's own text (variant) or the shared caption, then the link
+ * (Facebook and LinkedIn; Instagram captions can't hold links, Pinterest/Google carry it separately),
+ * then hashtags (not Pinterest; LinkedIn keeps at most 5).
+ */
+export function composeText(p: { caption: string; hashtags: string[]; link: string | null; variants?: PostVariants }, platform: SocialPlatform): string {
+  const own = platform in (p.variants ?? {}) ? p.variants?.[platform as VariantChannel] : undefined;
+  const parts = [(own ?? p.caption).trim()];
+  if (p.link && (platform === "facebook" || platform === "linkedin") && !parts[0]!.includes(p.link)) parts.push(p.link);
+  const tags = platform === "linkedin" ? p.hashtags.slice(0, 5) : p.hashtags;
+  if (tags.length && platform !== "pinterest") parts.push(tags.join(" "));
+  return parts.filter(Boolean).join("\n\n").slice(0, LIMIT[platform]);
+}
+
+/** Text for an assisted WhatsApp share: its own text (or the caption), then the link. */
+export function whatsappText(p: { caption: string; link: string | null; variants?: PostVariants }): string {
+  const body = (p.variants?.whatsapp ?? p.caption).trim();
+  return [body, p.link && !body.includes(p.link) ? p.link : ""].filter(Boolean).join("\n\n").slice(0, VARIANT_LIMITS.whatsapp + 600);
+}
+
+/** wa.me share link: opens WhatsApp with the text ready to send to a chat, group, Status or Channel. */
+export function whatsappShareUrl(text: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
 /**

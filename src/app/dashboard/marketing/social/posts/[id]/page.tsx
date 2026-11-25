@@ -5,13 +5,15 @@ import { Badge, Card } from "@/components/ui/layout";
 import { assetUrl } from "@/lib/storage/assets";
 import { formatDateTime, isoToIstLocal } from "@/features/analytics/dates";
 import { getPost, listCampaigns, listHashtagSets } from "@/features/social/server/planner";
-import { CHANNEL_LABELS, type PlatformResult, type SocialPlatform } from "@/features/social/compose";
+import { CHANNEL_LABELS, SOURCE_LABELS, whatsappText, type PlatformResult, type PostSource, type SocialPlatform } from "@/features/social/compose";
+import { getPostDeskFields } from "@/features/social/server/automation";
+import { RewriteWithAiButton, WhatsAppShare } from "@/features/social/components/desk-ui";
 import { PostComposer } from "@/features/social/components/composer";
 import { PostActions } from "@/features/social/components/social-ui";
 import { ChannelChip, STATUS_LABEL, STATUS_TONE } from "@/features/social/components/channels";
 import { ManualPostPanel } from "@/features/social/components/manual-panel";
 import { isManualDue, manualChannels } from "@/features/social/planner";
-import { PlanNotice, loadSocialBase } from "../../_lib/data";
+import { PlanNotice, listProductOptions, loadSocialBase } from "../../_lib/data";
 
 export const metadata: Metadata = { title: "Social post" };
 
@@ -23,7 +25,12 @@ export default async function SocialPostPage({ params }: PageProps<"/dashboard/m
   const post = await getPost(ctx.tenantId, id);
   if (!post) notFound();
   const editable = write && EDITABLE.has(post.status);
-  const [campaigns, hashtagSets] = editable ? await Promise.all([listCampaigns(ctx.tenantId), listHashtagSets(ctx.tenantId)]) : [[], []];
+  const [[campaigns, hashtagSets, products], desk] = await Promise.all([
+    editable ? Promise.all([listCampaigns(ctx.tenantId), listHashtagSets(ctx.tenantId), listProductOptions(ctx.tenantId)]) : Promise.resolve([[], [], []] as [Awaited<ReturnType<typeof listCampaigns>>, Awaited<ReturnType<typeof listHashtagSets>>, Awaited<ReturnType<typeof listProductOptions>>]),
+    getPostDeskFields(ctx.tenantId, post.id),
+  ]);
+  const waText = whatsappText({ caption: post.caption, link: post.linkUrl, variants: desk.variants });
+  const showWhatsApp = post.status !== "cancelled" && (post.channels.includes("whatsapp") || Boolean(desk.variants.whatsapp)) && waText.length > 0;
   const img = assetUrl(post.imagePath);
   const results = Object.entries(post.results) as [SocialPlatform, PlatformResult][];
 
@@ -37,7 +44,17 @@ export default async function SocialPostPage({ params }: PageProps<"/dashboard/m
         <Badge tone={STATUS_TONE[post.status]}>{STATUS_LABEL[post.status]}</Badge>
         <span className="text-caption text-muted">{post.at ? formatDateTime(post.at) : "No date"}</span>
         <span className="flex gap-0.5">{post.channels.map((c) => <ChannelChip key={c} channel={c} done={post.manualDone.includes(c)} />)}</span>
+        {desk.source !== "manual" ? <Badge tone="accent">{SOURCE_LABELS[desk.source as PostSource] ?? desk.source}</Badge> : null}
       </div>
+      {desk.aiState === "pending" || desk.aiState === "running" ? <p role="status" className="text-caption text-muted">AI is writing this post. Reload in a minute.</p> : null}
+      {desk.aiNote ? <p className="rounded-md border border-info/25 bg-info/10 px-3 py-2 text-caption">{desk.aiNote}</p> : null}
+      {editable ? <RewriteWithAiButton id={post.id} /> : null}
+      {showWhatsApp ? (
+        <Card title="Share on WhatsApp" description="Apps can't post to WhatsApp Status or Channels. Send this message yourself in one tap.">
+          <p className="mb-3 line-clamp-6 rounded-md bg-surface-secondary p-2 text-caption whitespace-pre-line">{waText}</p>
+          <WhatsAppShare text={waText} />
+        </Card>
+      ) : null}
 
       {manualChannels(post).length && post.status !== "draft" && post.status !== "cancelled" ? (
         <div className={isManualDue(post) ? "" : "opacity-90"}>
@@ -69,6 +86,7 @@ export default async function SocialPostPage({ params }: PageProps<"/dashboard/m
             connected={connected}
             campaigns={campaigns}
             hashtagSets={hashtagSets}
+            products={products}
             value={{
               id: post.id,
               title: post.title ?? "",
@@ -82,6 +100,7 @@ export default async function SocialPostPage({ params }: PageProps<"/dashboard/m
               notes: post.notes ?? "",
               pillar: post.pillar ?? "",
               campaignId: post.campaignId ?? "",
+              variants: desk.variants,
             }}
           />
         </Card>
