@@ -34,6 +34,26 @@ const generationMetaSchema = z.object({
 export const generateProductResultSchema = generateProductContentSchema.merge(generationMetaSchema);
 export type GenerateProductResult = z.infer<typeof generateProductResultSchema>;
 
+/** Category or collection from a photo (and/or a hint): the details a seller would type. */
+export const CATALOG_GROUP_TARGETS = ["category", "collection"] as const;
+export type CatalogGroupTarget = (typeof CATALOG_GROUP_TARGETS)[number];
+export const generateCatalogGroupInputSchema = z.object({
+  target: z.enum(CATALOG_GROUP_TARGETS),
+  hint: z.string().trim().max(500).optional(),
+  locale: z.string().trim().max(40).optional(),
+});
+export const generateCatalogGroupContentSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(2000),
+  seoTitle: z.string().trim().max(120).optional().default(""),
+  seoDescription: z.string().trim().max(320).optional().default(""),
+  /** Collections: tags a rule could match (shown as a suggestion, never auto-applied). */
+  tags: z.array(z.string().trim().min(1).max(40)).max(8).optional().default([]),
+});
+export type GenerateCatalogGroupResult = z.infer<typeof generateCatalogGroupContentSchema> & { creditKind: CatalogGroupCreditKind };
+export const CATALOG_GROUP_CREDIT_KIND = { category: "generate_category", collection: "generate_collection" } as const;
+export type CatalogGroupCreditKind = (typeof CATALOG_GROUP_CREDIT_KIND)[CatalogGroupTarget];
+
 export const generateBlogInputSchema = z.object({
   topic: z.string().trim().min(3, "Enter a topic").max(300),
   locale: z.string().trim().max(40).optional(),
@@ -130,6 +150,8 @@ export const SELLER_AI_CREDIT_KINDS = [
   "store_setup",
   "generate_reviews",
   "generate_faq",
+  "generate_category",
+  "generate_collection",
 ] as const;
 export type SellerAiCreditKind = (typeof SELLER_AI_CREDIT_KINDS)[number];
 
@@ -142,6 +164,8 @@ export const SELLER_AI_KIND_LABELS: Record<SellerAiCreditKind, string> = {
   store_setup: "Build your store from a prompt",
   generate_reviews: "Generate AI product reviews",
   generate_faq: "Apply AI store FAQs",
+  generate_category: "Category from photo",
+  generate_collection: "Collection from photo",
 };
 
 /** Default Q&A count for FAQ proposals (generate → confirm Apply). */

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
-import { ImagePlus, Sparkles, X } from "lucide-react";
+import { useId, useState, useTransition } from "react";
+import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Hint, Label, inputClassName as input } from "@/components/ui/field";
+import { AiPhotoPicker, useAiPhotos } from "@/features/seller-ai/components/ai-photo-picker";
 import { Badge, Card } from "@/components/ui/layout";
 import { generateProductFromImageAction } from "@/features/seller-ai/actions";
 import {
@@ -17,11 +18,9 @@ import { formatMoney } from "@/lib/money";
 const SETUP_SNIPPET = "Admin → Social apps";
 const MAX_IMAGES = 4;
 
-type LocalImage = { key: number; file: File; preview: string };
-
 type AiError = { kind: "setup" | "failed"; text: string };
 
-function classifyAiError(message: string): AiError {
+export function classifyAiError(message: string): AiError {
   const isSetup = message.includes(SETUP_SNIPPET) || /not set up|not.?configured/i.test(message);
   if (isSetup) {
     return {
@@ -57,11 +56,9 @@ export function ProductGenerateAi({
   /** Short status after images were saved to Media / the product. */
   applyStatus?: string | null;
 }) {
-  const fileId = useId();
   const hintId = useId();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const nextKey = useRef(0);
-  const [images, setImages] = useState<LocalImage[]>([]);
+  const photos = useAiPhotos(MAX_IMAGES);
+  const { images, clear: clearImages } = photos;
   const [hint, setHint] = useState("");
   const [error, setError] = useState<AiError | null>(null);
   const [preview, setPreview] = useState<GenerateProductResult | null>(null);
@@ -69,49 +66,9 @@ export function ProductGenerateAi({
   const [pending, start] = useTransition();
   const [applying, startApply] = useTransition();
 
-  useEffect(() => {
-    return () => {
-      for (const img of images) URL.revokeObjectURL(img.preview);
-    };
-    // Only revoke on unmount; per-remove handlers revoke individually.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const hasPhoto = images.length > 0 || imageUrls.length > 0;
   const hintReady = hint.trim().length >= 3;
   const canGenerate = hasPhoto || hintReady;
-  const slotsLeft = MAX_IMAGES - images.length;
-
-  const addFiles = (list: FileList | null) => {
-    if (!list || slotsLeft <= 0) return;
-    const accepted = Array.from(list)
-      .filter((f) => /^image\/(png|jpeg|webp)$/i.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name))
-      .slice(0, slotsLeft)
-      .map((file) => ({
-        key: nextKey.current++,
-        file,
-        preview: URL.createObjectURL(file),
-      }));
-    if (!accepted.length) return;
-    setImages((prev) => [...prev, ...accepted].slice(0, MAX_IMAGES));
-    if (fileRef.current) fileRef.current.value = "";
-  };
-
-  const removeImage = (key: number) => {
-    setImages((prev) => {
-      const gone = prev.find((i) => i.key === key);
-      if (gone) URL.revokeObjectURL(gone.preview);
-      return prev.filter((i) => i.key !== key);
-    });
-  };
-
-  const clearImages = () => {
-    setImages((prev) => {
-      for (const img of prev) URL.revokeObjectURL(img.preview);
-      return [];
-    });
-    if (fileRef.current) fileRef.current.value = "";
-  };
 
   const run = () => {
     if (!canGenerate) return;
@@ -141,6 +98,7 @@ export function ProductGenerateAi({
     const draft = preview;
     startApply(async () => {
       await onApply(draft, files);
+      clearImages();
       setPreview(null);
       setGenStatus("idle");
     });
@@ -160,71 +118,12 @@ export function ProductGenerateAi({
           Generate with AI
         </span>
       }
-      description="Upload up to 4 product photos or add a short hint. Review the draft before applying it to the form."
+      description="Click a picture or upload up to 4 product photos, or add a short hint. Review the draft before applying it to the form."
       actions={<Badge tone="neutral">~8 credits</Badge>}
     >
       <div className="space-y-4">
         <div>
-          <Label htmlFor={fileId}>Product photos</Label>
-          <input
-            id={fileId}
-            ref={fileRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            multiple
-            className="sr-only"
-            tabIndex={-1}
-            onChange={(e) => addFiles(e.target.files)}
-          />
-
-          {images.length ? (
-            <ul className="mb-2 grid grid-cols-4 gap-2 sm:grid-cols-4">
-              {images.map((img) => (
-                <li key={img.key} className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-surface-secondary">
-                  {/* Local object URL preview only; never uploaded until generate. */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img.preview} alt="" className="size-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removeImage(img.key)}
-                    className="absolute top-1 right-1 grid size-6 place-items-center rounded-md bg-surface/90 text-muted shadow-xs ring-1 ring-border hover:text-foreground"
-                    aria-label={`Remove ${img.file.name}`}
-                  >
-                    <X aria-hidden className="size-3.5" />
-                  </button>
-                </li>
-              ))}
-              {slotsLeft > 0 ? (
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    className="grid aspect-square size-full place-items-center rounded-lg border border-dashed border-border bg-surface-secondary text-muted hover:border-border-strong hover:text-foreground"
-                    aria-label="Add more photos"
-                  >
-                    <ImagePlus aria-hidden className="size-5" />
-                  </button>
-                </li>
-              ) : null}
-            </ul>
-          ) : null}
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={slotsLeft <= 0}>
-              <ImagePlus aria-hidden className="size-4" />
-              {images.length ? (slotsLeft ? "Add photos" : "Photo limit reached") : "Choose photos"}
-            </Button>
-            {images.length ? (
-              <>
-                <span className="text-small text-muted">
-                  {images.length} of {MAX_IMAGES} photo{images.length === 1 ? "" : "s"}
-                </span>
-                <Button type="button" variant="ghost" size="sm" onClick={clearImages}>
-                  Clear
-                </Button>
-              </>
-            ) : null}
-          </div>
+          <AiPhotoPicker photos={photos} label="Product photos" />
           {imageUrls.length ? (
             <Hint>
               {imageUrls.length} saved gallery image{imageUrls.length === 1 ? "" : "s"} (https) will also be sent

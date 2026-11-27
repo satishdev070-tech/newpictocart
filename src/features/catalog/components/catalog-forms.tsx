@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState, useOptimistic, useState, useTransition } from "react";
+import { useActionState, useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import {
   adjustStockAction,
   bulkProductsAction,
@@ -25,6 +25,8 @@ import { MediaPicker } from "@/features/media/components/media-picker";
 import { IMAGE_STANDARDS } from "@/features/media/image-standards";
 import { Dropzone, UploadQueue } from "@/features/media/components/media-ui";
 import { useMediaUploads } from "@/features/media/components/use-media-uploads";
+import { CameraCaptureButton } from "@/features/media/components/camera-capture";
+import { CatalogGroupAi } from "@/features/seller-ai/components/catalog-group-ai";
 import { ActionDialog, ActionForm, InlineAction } from "@/features/settings/ui/action-controls";
 import { CheckboxField, SelectField, TextAreaField, TextField, inputClassName as input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -40,24 +42,92 @@ import { slugify } from "@/features/catalog/variants";
 
 type Opt = { id: string; label: string };
 
-/** File upload OR a media-library pick (sent as imagePath; the server verifies it's this store's image). */
-function LibraryImageField({ inputId, folder }: { inputId: string; folder: string }) {
+/** Put a File into a native file input so the surrounding form submits it as `file`. */
+function setInputFile(input: HTMLInputElement | null, file: File): boolean {
+  if (!input || typeof DataTransfer === "undefined") return false;
+  try {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Image for a category or collection: upload, Click picture (camera) OR a media-library pick
+ * (sent as imagePath; the server verifies it's this store's image). `external` lets the AI card
+ * hand over the photo it was given, so one photo fills both the details and the image.
+ */
+function LibraryImageField({ inputId, folder, external }: { inputId: string; folder: string; external?: File | null }) {
   const [picked, setPicked] = useState<{ path: string; url: string } | null>(null);
+  const [local, setLocal] = useState<{ url: string; name: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const showLocal = (file: File | null) =>
+    setLocal((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return file ? { url: URL.createObjectURL(file), name: file.name } : null;
+    });
+  const takeFile = (file: File) => {
+    setPicked(null);
+    if (setInputFile(fileRef.current, file)) showLocal(file);
+  };
+  const lastExternal = useRef<File | null>(null);
+  useEffect(() => {
+    if (external && external !== lastExternal.current) {
+      lastExternal.current = external;
+      takeFile(external);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when a new external file arrives
+  }, [external]);
+  const preview = picked?.url ?? local?.url ?? null;
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        {picked ? (
-          // eslint-disable-next-line @next/next/no-img-element -- small preview of the chosen library image
-          <img src={picked.url} alt="" className="size-10 rounded-md object-cover ring-1 ring-border" />
+        {preview ? (
+          // eslint-disable-next-line @next/next/no-img-element -- small preview of the chosen image
+          <img src={preview} alt="" className="size-14 rounded-lg object-cover ring-1 ring-border" />
         ) : null}
-        <MediaPicker folder={folder} standard={IMAGE_STANDARDS.portrait} triggerLabel={picked ? "Change" : "Choose from library"} onSelect={([m]) => m && setPicked({ path: m.path, url: m.url })} />
-        {picked ? (
-          <button type="button" className="text-small text-muted hover:text-foreground" onClick={() => setPicked(null)}>
+        <CameraCaptureButton onCapture={takeFile} className="min-h-11 sm:min-h-0" />
+        <MediaPicker
+          folder={folder}
+          standard={IMAGE_STANDARDS.portrait}
+          triggerLabel={picked ? "Change" : "Choose from library"}
+          onSelect={([m]) => {
+            if (!m) return;
+            setPicked({ path: m.path, url: m.url });
+            if (fileRef.current) fileRef.current.value = "";
+            showLocal(null);
+          }}
+        />
+        {picked || local ? (
+          <button
+            type="button"
+            className="min-h-11 px-2 text-small text-muted hover:text-foreground sm:min-h-0"
+            onClick={() => {
+              setPicked(null);
+              if (fileRef.current) fileRef.current.value = "";
+              showLocal(null);
+            }}
+          >
             Clear
           </button>
         ) : null}
       </div>
-      {picked ? <input type="hidden" name="imagePath" value={picked.path} /> : <input id={inputId} name="file" type="file" accept="image/*" className="text-small" aria-label="Or upload a new image" />}
+      {picked ? <input type="hidden" name="imagePath" value={picked.path} /> : null}
+      <input
+        ref={fileRef}
+        id={inputId}
+        name="file"
+        type="file"
+        accept="image/*"
+        disabled={Boolean(picked)}
+        className={picked ? "sr-only" : "block w-full text-small file:mr-3 file:min-h-11 file:rounded-md file:border file:border-border file:bg-surface file:px-3 file:text-small file:font-medium sm:file:min-h-9"}
+        aria-label="Or upload a new image"
+        onChange={(e) => showLocal(e.target.files?.[0] ?? null)}
+      />
+      {local ? <p className="truncate text-caption text-muted">{local.name}</p> : null}
     </div>
   );
 }
@@ -174,7 +244,10 @@ export function ProductMediaManager({ productId, media, variants }: { productId:
         ) : null}
       </div>
       <div className="mt-4 space-y-3">
-        <p className="text-sm font-medium">Add images</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium">Add images</p>
+          <CameraCaptureButton onCapture={(file) => uploads.addFiles([file])} className="min-h-11 sm:min-h-0" />
+        </div>
         <Dropzone onFiles={uploads.addFiles} compact multiple />
         <UploadQueue tasks={uploads.tasks} onCancel={uploads.cancel} onRetry={uploads.retry} onDismiss={uploads.dismiss} onClear={uploads.clearFinished} />
       </div>
@@ -286,10 +359,29 @@ export function CategoryForm({ value, parents, sizeCharts = [] }: { value?: Cate
   const [name, setName] = useState(value?.name ?? "");
   const [slug, setSlug] = useState(value?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(Boolean(value?.id || value?.slug));
+  const [description, setDescription] = useState(value?.description ?? "");
+  const [seoTitle, setSeoTitle] = useState(value?.seoTitle ?? "");
+  const [seoDescription, setSeoDescription] = useState(value?.seoDescription ?? "");
+  const [aiPhoto, setAiPhoto] = useState<File | null>(null);
   return (
     <ActionForm action={saveCategoryAction} fields={value?.id ? { id: value.id } : {}} submitLabel={value?.id ? "Save category" : "Add category"} success="Saved." encType="multipart/form-data" resetOnSuccess={!value?.id} stickySubmit>
       {(e) => (
         <div className="grid gap-4 sm:grid-cols-2">
+          {value?.id ? null : (
+            <div className="sm:col-span-2">
+              <CatalogGroupAi
+                target="category"
+                onApply={(draft, photo) => {
+                  setName(draft.name);
+                  if (!slugTouched) setSlug(slugify(draft.name));
+                  if (draft.description) setDescription(draft.description);
+                  if (draft.seoTitle) setSeoTitle(draft.seoTitle);
+                  if (draft.seoDescription) setSeoDescription(draft.seoDescription);
+                  if (photo) setAiPhoto(photo);
+                }}
+              />
+            </div>
+          )}
           <TextField label="Name" name="name" value={name} required errors={e.name} onChange={(event) => { setName(event.target.value); if (!slugTouched) setSlug(slugify(event.target.value)); }} />
           <TextField label="URL handle" name="slug" value={slug} required errors={e.slug} hint="Generated from the name; you can edit it." onChange={(event) => { setSlugTouched(true); setSlug(slugify(event.target.value)); }} />
           <SelectField label="Parent" name="parentId" defaultValue={value?.parentId ?? ""} options={[{ value: "", label: "None (top level)" }, ...parents.filter((p) => p.id !== value?.id).map((p) => ({ value: p.id, label: p.label }))]} errors={e.parentId} />
@@ -309,12 +401,12 @@ export function CategoryForm({ value, parents, sizeCharts = [] }: { value?: Cate
             <label htmlFor={`cat-img-${value?.id ?? "new"}`} className="mb-1.5 block text-sm font-medium">
               Image
             </label>
-            <LibraryImageField folder="categories" inputId={`cat-img-${value?.id ?? "new"}`} />
+            <LibraryImageField folder="categories" inputId={`cat-img-${value?.id ?? "new"}`} external={aiPhoto} />
             {value?.imageUrl ? <CheckboxField label="Remove current image" name="removeImage" value="true" className="mt-2" /> : null}
           </div>
-          <TextAreaField label="Description" name="description" defaultValue={value?.description} className="sm:col-span-2" rows={3} />
-          <TextField label="SEO title" name="seoTitle" defaultValue={value?.seoTitle} optional />
-          <TextField label="SEO description" name="seoDescription" defaultValue={value?.seoDescription} optional />
+          <TextAreaField label="Description" name="description" value={description} onChange={(ev) => setDescription(ev.target.value)} className="sm:col-span-2" rows={3} />
+          <TextField label="SEO title" name="seoTitle" value={seoTitle} onChange={(ev) => setSeoTitle(ev.target.value)} optional />
+          <TextField label="SEO description" name="seoDescription" value={seoDescription} onChange={(ev) => setSeoDescription(ev.target.value)} optional />
         </div>
       )}
     </ActionForm>
@@ -369,6 +461,10 @@ export function CollectionForm({ value, categories, products }: { value: Collect
   const [title, setTitle] = useState(value.title);
   const [slug, setSlug] = useState(value.slug);
   const [slugTouched, setSlugTouched] = useState(Boolean(value.id || value.slug));
+  const [description, setDescription] = useState(value.description);
+  const [seoTitle, setSeoTitle] = useState(value.seoTitle);
+  const [seoDescription, setSeoDescription] = useState(value.seoDescription);
+  const [aiPhoto, setAiPhoto] = useState<File | null>(null);
   const conds = rules.conditions as CollectionCondition[];
   const setCond = (i: number, c: CollectionCondition) => setRules({ ...rules, conditions: conds.map((x, j) => (j === i ? c : x)) as CollectionRules["conditions"] });
   return (
@@ -379,6 +475,21 @@ export function CollectionForm({ value, categories, products }: { value: Collect
           {type === "manual" ? <input type="hidden" name="productIdsPresent" value="1" /> : null}
           <Card title="Details">
             <div className="grid gap-4 sm:grid-cols-2">
+              {value.id ? null : (
+                <div className="sm:col-span-2">
+                  <CatalogGroupAi
+                    target="collection"
+                    onApply={(draft, photo) => {
+                      setTitle(draft.name);
+                      if (!slugTouched) setSlug(slugify(draft.name));
+                      if (draft.description) setDescription(draft.description);
+                      if (draft.seoTitle) setSeoTitle(draft.seoTitle);
+                      if (draft.seoDescription) setSeoDescription(draft.seoDescription);
+                      if (photo) setAiPhoto(photo);
+                    }}
+                  />
+                </div>
+              )}
               <TextField label="Title" name="title" value={title} required errors={e.title} onChange={(event) => { setTitle(event.target.value); if (!slugTouched) setSlug(slugify(event.target.value)); }} />
               <TextField label="URL handle" name="slug" value={slug} required errors={e.slug} hint="Generated from the title; you can edit it." onChange={(event) => { setSlugTouched(true); setSlug(slugify(event.target.value)); }} />
               <SelectField label="Type" name="type" value={type} onChange={(ev) => setType(ev.target.value as "manual" | "automated")} options={[{ value: "manual", label: "Manual — pick products" }, { value: "automated", label: "Automated — by rules" }]} />
@@ -388,12 +499,12 @@ export function CollectionForm({ value, categories, products }: { value: Collect
                 <label htmlFor="col-img" className="mb-1.5 block text-sm font-medium">
                   Image
                 </label>
-                <LibraryImageField folder="collections" inputId="col-img" />
+                <LibraryImageField folder="collections" inputId="col-img" external={aiPhoto} />
                 {value.imageUrl ? <CheckboxField label="Remove current image" name="removeImage" value="true" className="mt-2" /> : null}
               </div>
-              <TextAreaField label="Description" name="description" defaultValue={value.description} rows={3} className="sm:col-span-2" />
-              <TextField label="SEO title" name="seoTitle" defaultValue={value.seoTitle} optional />
-              <TextField label="SEO description" name="seoDescription" defaultValue={value.seoDescription} optional />
+              <TextAreaField label="Description" name="description" value={description} onChange={(ev) => setDescription(ev.target.value)} rows={3} className="sm:col-span-2" />
+              <TextField label="SEO title" name="seoTitle" value={seoTitle} onChange={(ev) => setSeoTitle(ev.target.value)} optional />
+              <TextField label="SEO description" name="seoDescription" value={seoDescription} onChange={(ev) => setSeoDescription(ev.target.value)} optional />
             </div>
           </Card>
           {type === "automated" ? (
