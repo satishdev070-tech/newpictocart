@@ -61,6 +61,27 @@ export type CopilotCopy = {
   rebuilding: string;
   rebuildConfirm: string;
   quick: Partial<Record<CopilotIntent, string>>;
+  /** Hands-free voice call with Tara (same engine as voice onboarding). */
+  callStart: string;
+  callEnd: string;
+  callConnecting: string;
+  callListening: string;
+  callThinking: string;
+  callSpeaking: string;
+  callDone: string;
+  callInterrupt: string;
+  callMute: string;
+  callUnmute: string;
+  callMuted: string;
+  callNotHeard: string;
+  callTypeInstead: string;
+  callMicBlocked: string;
+  callMicUnsupported: string;
+  callReviewLabel: string;
+  callReviewSend: string;
+  callReviewRetake: string;
+  /** Under an off-topic reply. */
+  offTopicNote: string;
 };
 
 const en: CopilotCopy = {
@@ -115,6 +136,25 @@ const en: CopilotCopy = {
   rebuilding: "Rewriting your website…",
   rebuildConfirm: "Rewrite your tagline, About text, service descriptions, FAQs and search engine text with AI? Your prices, photos and contact details stay as they are.",
   quick: {},
+  callStart: "Talk to Tara",
+  callEnd: "End call",
+  callConnecting: "Connecting…",
+  callListening: "Listening. Speak freely; tap Done when you finish.",
+  callThinking: "Tara is thinking…",
+  callSpeaking: "Tara is speaking. Tap to interrupt.",
+  callDone: "Done",
+  callInterrupt: "Interrupt",
+  callMute: "Mute microphone",
+  callUnmute: "Unmute microphone",
+  callMuted: "Microphone muted.",
+  callNotHeard: "I didn't catch that. Say it again, or type below.",
+  callTypeInstead: "Voice isn't coming through well. You can type below; Tara still answers aloud.",
+  callMicBlocked: "Allow microphone access to talk with Tara.",
+  callMicUnsupported: "Voice calls aren't supported in this browser. Type your question instead.",
+  callReviewLabel: "I heard (sending in a moment; edit to fix a word)",
+  callReviewSend: "Send",
+  callReviewRetake: "Say again",
+  offTopicNote: "Outside your business, so Tara didn't answer it. No credits used.",
 };
 
 const hi: CopilotCopy = {
@@ -165,6 +205,25 @@ const hi: CopilotCopy = {
   speakOff: "जवाब बोलकर सुनाएँ: बंद",
   language: "जवाब की भाषा",
   cancelQuick: "रद्द करें",
+  callStart: "तारा से बात करें",
+  callEnd: "कॉल खत्म करें",
+  callConnecting: "जुड़ रहे हैं…",
+  callListening: "सुन रही हूँ। आराम से बोलिए; बात पूरी होने पर “हो गया” दबाएँ।",
+  callThinking: "तारा सोच रही है…",
+  callSpeaking: "तारा बोल रही है। बीच में बोलने के लिए दबाएँ।",
+  callDone: "हो गया",
+  callInterrupt: "रोकें",
+  callMute: "माइक बंद करें",
+  callUnmute: "माइक चालू करें",
+  callMuted: "माइक बंद है।",
+  callNotHeard: "समझ नहीं आया। फिर से बोलिए, या नीचे लिखिए।",
+  callTypeInstead: "आवाज़ ठीक से नहीं आ रही। नीचे लिखकर पूछ सकते हैं; तारा बोलकर जवाब देगी।",
+  callMicBlocked: "तारा से बात करने के लिए माइक्रोफ़ोन की अनुमति दें।",
+  callMicUnsupported: "इस ब्राउज़र में वॉइस कॉल नहीं चलती। अपना सवाल लिखकर पूछें।",
+  callReviewLabel: "मैंने सुना (थोड़ी देर में भेज दूँगी; कोई शब्द गलत हो तो ठीक करें)",
+  callReviewSend: "भेजें",
+  callReviewRetake: "फिर से बोलें",
+  offTopicNote: "यह आपके बिज़नेस से बाहर का सवाल है, इसलिए तारा ने जवाब नहीं दिया। कोई क्रेडिट नहीं कटा।",
   quick: {
     product_description: "प्रोडक्ट विवरण बेहतर करें",
     product_seo: "प्रोडक्ट का SEO टाइटल",

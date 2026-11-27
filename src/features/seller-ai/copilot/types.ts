@@ -23,7 +23,13 @@ export type CopilotProposalView = {
 
 export type CopilotLink = { label: string; href: string };
 
-export type CopilotReply = { answer: string; links: CopilotLink[]; proposals: CopilotProposalView[] };
+export type CopilotReply = {
+  answer: string;
+  links: CopilotLink[];
+  proposals: CopilotProposalView[];
+  /** Outside the seller's business: Tara declined, nothing can run, and the credit was refunded. */
+  offTopic?: boolean;
+};
 
 export type CopilotCosts = { ask: number | null; balance: number | null };
 

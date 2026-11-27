@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, Copy, Loader2, Mic, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { ArrowRight, Check, Copy, Info, Loader2, Mic, PhoneCall, RotateCcw, Send, Sparkles, Square, Trash2, Volume2, VolumeX, X } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { COPILOT_LANGUAGES, COPILOT_LANGUAGE_NAMES, isCopilotLanguage, type CopilotLanguage } from "@/features/seller-ai/copilot/languages";
 import { QUICK_ACTIONS, quickAction, quickActionMessage, type CopilotIntent } from "@/features/seller-ai/copilot/quick-actions";
@@ -14,6 +14,9 @@ import { MarkdownLite } from "./markdown-lite";
 import { useCopilotMic } from "./use-copilot-mic";
 import { cancelSpeech, speak as speakInBrowser } from "@/lib/speech/browser-speech";
 import { VoicePicker } from "@/components/speech/voice-picker";
+import { useTaraCall, type TaraSpeech, type TaraTurnOutcome } from "@/features/onboarding/voice/use-tara-call";
+import { copilotCallGreeting, spokenText } from "@/features/seller-ai/copilot/call-greeting";
+import { CopilotCallBar } from "./copilot-call-bar";
 
 type ProposalState = {
   view: CopilotProposalView;
@@ -29,6 +32,8 @@ type Message = {
   links?: CopilotLink[];
   proposals?: ProposalState[];
   error?: boolean;
+  /** Outside the seller's business: declined, nothing to run, no credits used. */
+  offTopic?: boolean;
 };
 
 /**
@@ -143,6 +148,10 @@ export function CopilotDrawer({
   const site = adapter.siteType;
   const copy = copilotCopy(panelLanguage);
   const [messages, setMessages] = useState<Message[]>(() => (typeof window === "undefined" ? [] : readSession(site, scope)));
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
   const [draft, setDraft] = useState("");
   const [intent, setIntent] = useState<CopilotIntent | null>(null);
   const [pending, setPending] = useState(false);
@@ -204,8 +213,8 @@ export function CopilotDrawer({
       cancelSpeech();
       const r = await adapter.speak({ text: text.slice(0, 2400), language });
       if (!r.ok || !r.data) {
-        // Sarvam unavailable (no credits / outage / limit): the browser's own female voice.
-        void speakInBrowser(text.replace(/\*\*|`|^#+\s*/gm, "").replace(/^\s*[-*]\s+/gm, "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1"), `${language}-IN`);
+        // Sarvam unavailable (no credits / outage / limit): the seller's chosen device voice.
+        void speakInBrowser(spokenText(text), `${language}-IN`);
         return;
       }
       const audio = new Audio(`data:${r.data.mimeType};base64,${r.data.audioBase64}`);
@@ -215,34 +224,59 @@ export function CopilotDrawer({
     [adapter, language],
   );
 
-  const send = useCallback(
-    (question: string, withIntent: CopilotIntent | null, base: Message[] = messages) => {
+  /** Asks Tara and adds both turns to the chat. Resolves to what Tara said (or the error shown). */
+  const ask = useCallback(
+    async (question: string, withIntent: CopilotIntent | null, base: Message[]): Promise<string | null> => {
       const q = question.trim().slice(0, 2000);
-      if (!q || pending) return;
+      if (!q) return null;
       const history = historyFor(base, q);
       setMessages([...base, { role: "user", content: q, intent: withIntent }]);
       setDraft("");
       setIntent(null);
       setPending(true);
-      void (async () => {
-        const r = await adapter.ask({ messages: history, language, intent: withIntent });
-        setPending(false);
-        if (!r.ok) {
-          setMessages((m) => [...m, { role: "assistant", content: errorText(r, copy.errorGeneric), error: true }]);
-          return;
-        }
-        setMessages((m) => [
-          ...m,
-          { role: "assistant", content: r.data.answer, links: r.data.links, proposals: r.data.proposals.map((view) => ({ view, status: "open" as const })) },
-        ]);
-        loadCosts();
-        if (speak) void playReply(r.data.answer);
-      })();
+      const r = await adapter.ask({ messages: history, language, intent: withIntent });
+      setPending(false);
+      if (!r.ok) {
+        const text = errorText(r, copy.errorGeneric);
+        setMessages((m) => [...m, { role: "assistant", content: text, error: true }]);
+        return text;
+      }
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          content: r.data.answer,
+          links: r.data.links,
+          proposals: r.data.proposals.map((view) => ({ view, status: "open" as const })),
+          offTopic: r.data.offTopic || undefined,
+        },
+      ]);
+      loadCosts();
+      return r.data.answer;
     },
-    [adapter, copy.errorGeneric, language, loadCosts, messages, pending, playReply, speak],
+    [adapter, copy.errorGeneric, language, loadCosts],
+  );
+
+  /** In a voice call Tara's reply is spoken by the call; otherwise by "Read replies aloud". */
+  const callOnRef = useRef(false);
+  const send = useCallback(
+    (question: string, withIntent: CopilotIntent | null, base: Message[] = messages) => {
+      if (pending || !question.trim()) return;
+      void ask(question, withIntent, base).then((answer) => {
+        if (answer && speak && !callOnRef.current) void playReply(answer);
+      });
+    },
+    [ask, messages, pending, playReply, speak],
   );
 
   const submit = () => {
+    if (call.active && !intent && draft.trim() && !pending) {
+      // Typed during a call: Tara answers aloud, then listens again.
+      const text = draft;
+      setDraft("");
+      void call.sendTyped(() => voiceTurn(text));
+      return;
+    }
     const planAt = intent ? -1 : openPlanIndex();
     if (planAt >= 0 && isPlanConfirmation(draft)) {
       // "yes / haan / kar do": run the plan shown above; no extra AI question (no credits for asking).
@@ -308,34 +342,63 @@ export function CopilotDrawer({
     })();
   };
 
-  /** "Do it" (or a spoken/typed "yes"): every open step of that reply, in order, then a spoken summary. */
-  const runPlan = (mi: number) => {
-    const steps = (messages[mi]?.proposals ?? []).filter((p) => p.status === "open");
-    if (busyProposal || pending || !steps.length) return;
+  /** Runs every open step of reply `mi` in order; resolves to the summary Tara says (null = nothing to run). */
+  const executePlan = async (mi: number, list: Message[]): Promise<string | null> => {
+    const steps = (list[mi]?.proposals ?? []).filter((p) => p.status === "open");
+    if (busyProposal || !steps.length) return null;
     setBusyProposal(`${mi}:plan`);
-    void (async () => {
-      const done: string[] = [];
-      const failed: string[] = [];
-      for (const p of steps) {
-        const r = await runStep(mi, p);
-        (r.ok ? done : failed).push(r.text);
-      }
-      setBusyProposal(null);
-      loadCosts();
-      const summary = [failed.length ? "" : copy.planDone, ...done, ...(failed.length ? [copy.planPartly, ...failed] : [])].filter(Boolean).join("\n");
-      setMessages((m) => [...m, { role: "assistant", content: summary, error: failed.length > 0 && !done.length }]);
-      if (speak) void playReply(summary);
-    })();
+    const done: string[] = [];
+    const failed: string[] = [];
+    for (const p of steps) {
+      const r = await runStep(mi, p);
+      (r.ok ? done : failed).push(r.text);
+    }
+    setBusyProposal(null);
+    loadCosts();
+    const summary = [failed.length ? "" : copy.planDone, ...done, ...(failed.length ? [copy.planPartly, ...failed] : [])].filter(Boolean).join("\n");
+    setMessages((m) => [...m, { role: "assistant", content: summary, error: failed.length > 0 && !done.length }]);
+    return summary;
+  };
+
+  /** "Do it" (or a typed "yes"): every open step of that reply, in order, then a spoken summary. */
+  const runPlan = (mi: number) => {
+    if (pending) return;
+    void executePlan(mi, messages).then((summary) => {
+      if (summary && speak && !callOnRef.current) void playReply(summary);
+    });
   };
 
   /** Index of the latest reply whose plan still has open steps (a "yes" runs it). */
-  const openPlanIndex = (): number => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i]!;
+  const openPlanIndex = (list: Message[] = messages): number => {
+    for (let i = list.length - 1; i >= 0; i--) {
+      const m = list[i]!;
       if (m.role === "user") return -1; // the seller already moved on
       if (m.proposals?.some((p) => p.status === "open")) return i;
     }
     return -1;
+  };
+
+  /** Tara's voice for a line: the premium (Sarvam) voice when available, else null (device voice). */
+  const speechFor = async (text: string): Promise<TaraSpeech | null> => {
+    const r = await adapter.speak({ text: text.slice(0, 2400), language }).catch(() => null);
+    return r?.ok && r.data ? r.data : null;
+  };
+
+  /** One spoken turn of the call: a "yes / haan" runs the open plan; anything else is a question. */
+  const voiceTurn = async (text: string): Promise<TaraTurnOutcome> => {
+    const list = messagesRef.current;
+    const planAt = openPlanIndex(list);
+    let reply: string | null;
+    if (planAt >= 0 && isPlanConfirmation(text)) {
+      const withYes: Message[] = [...list, { role: "user", content: text.trim() }];
+      setMessages(withYes);
+      reply = await executePlan(planAt, withYes);
+    } else {
+      reply = await ask(text, null, list);
+    }
+    if (!reply) return { outcome: "error", speech: null };
+    const line = spokenText(reply);
+    return { outcome: "heard", speech: await speechFor(line), text: line };
   };
 
   const onAudio = useCallback(
@@ -374,6 +437,41 @@ export function CopilotDrawer({
     spokenBase.current = draft;
     void voice.start();
   };
+
+  const call = useTaraCall({
+    speak,
+    locale: `${language}-IN`,
+    // Browsers without speech recognition: record and transcribe on the server, then answer.
+    onTake: async (audio) => {
+      const fd = new FormData();
+      fd.set("audio", audio, `copilot.${audio.type.includes("mp4") ? "mp4" : audio.type.includes("ogg") ? "ogg" : "webm"}`);
+      fd.set("language", language);
+      const r = await adapter.transcribe(fd);
+      if (!r.ok) return { outcome: r.error.code === "VALIDATION" ? "empty" : "stt_unavailable", speech: null };
+      return voiceTurn(r.data.transcript);
+    },
+    onHeard: voiceTurn,
+    reviewBeforeSend: true,
+    greeting: async () => {
+      const text = copilotCallGreeting(language);
+      return { text, speech: await speechFor(text) };
+    },
+    onMicFailed: (reason) => show({ tone: "warning", message: reason === "denied" ? copy.callMicBlocked : copy.callMicUnsupported }),
+  });
+  useEffect(() => {
+    callOnRef.current = call.active;
+  }, [call.active]);
+  const { end: endCall } = call;
+  // Closing the drawer or switching the reply language ends the call (it listens in one language).
+  useEffect(() => {
+    if (!open && callOnRef.current) endCall();
+  }, [open, endCall]);
+  useEffect(
+    () => () => {
+      if (callOnRef.current) endCall();
+    },
+    [language, endCall],
+  );
 
   const copyAnswer = (i: number, text: string) => {
     void navigator.clipboard?.writeText(text).then(() => {
@@ -426,6 +524,22 @@ export function CopilotDrawer({
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={() => {
+            if (call.active) return call.end();
+            audioRef.current?.pause();
+            cancelSpeech();
+            if (voice.recording) voice.stop();
+            void call.start(); // inside the tap: unlocks audio and asks for the mic
+          }}
+          aria-pressed={call.active}
+          className={`grid size-8 place-items-center rounded-lg ${call.active ? "bg-accent text-white" : "hover:bg-surface-secondary"}`}
+          aria-label={call.active ? copy.callEnd : copy.callStart}
+          title={call.active ? copy.callEnd : copy.callStart}
+        >
+          <PhoneCall aria-hidden className="size-4" />
+        </button>
         <VoicePicker lang={`${language}-IN`} />
         <button
           type="button"
@@ -492,6 +606,11 @@ export function CopilotDrawer({
             <div key={mi} className="space-y-2">
               <div className={`group relative max-w-[95%] rounded-2xl rounded-bl-md px-3 py-2 ${m.error ? "border border-error/25 bg-error/10 text-error" : "bg-surface-secondary"}`}>
                 {m.error ? <p className="whitespace-pre-line">{m.content}</p> : <MarkdownLite text={m.content} />}
+                {m.offTopic ? (
+                  <p className="mt-1.5 flex items-start gap-1 text-[11px] text-muted">
+                    <Info aria-hidden className="mt-px size-3 shrink-0" /> {copy.offTopicNote}
+                  </p>
+                ) : null}
                 {m.error ? (
                   <button type="button" onClick={() => retry(mi)} disabled={pending} className="mt-2 inline-flex min-h-8 items-center gap-1 rounded-md border border-error/30 px-2 text-caption font-medium hover:bg-error/10 disabled:opacity-50">
                     <RotateCcw aria-hidden className="size-3.5" /> {copy.retry}
@@ -586,6 +705,22 @@ export function CopilotDrawer({
         ) : null}
       </div>
 
+      {call.active ? (
+        <CopilotCallBar
+          view={call.view}
+          caption={call.caption}
+          review={call.review}
+          meterRef={call.meterRef}
+          onTap={call.tap}
+          onMute={call.toggleMute}
+          onEnd={call.end}
+          onConfirmReview={call.confirmReview}
+          onRetake={call.retake}
+          copy={copy}
+          busy={pending || busyProposal !== null}
+        />
+      ) : null}
+
       <form
         className="border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         onSubmit={(e) => {
@@ -627,7 +762,7 @@ export function CopilotDrawer({
             <button
               type="button"
               onClick={toggleMic}
-              disabled={transcribing || pending}
+              disabled={transcribing || pending || call.active}
               aria-pressed={voice.recording}
               className={`grid size-10 shrink-0 place-items-center rounded-lg border disabled:opacity-50 ${voice.recording ? "animate-pulse border-error bg-error/10 text-error" : "border-border hover:bg-surface-secondary"}`}
               aria-label={voice.recording ? copy.micStop : copy.micStart}
