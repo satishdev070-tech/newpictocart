@@ -1,7 +1,7 @@
 import "server-only";
 import { AppError } from "@/lib/errors";
 import { storeOrigin, storeSubdomain } from "@/lib/platform/urls";
-import { getAiCreditBalance, getAiCreditCatalog } from "@/features/ai-credits/server";
+import { getAiCreditBalance, getAiCreditCatalog, refundAiCredit } from "@/features/ai-credits/server";
 import { runSellerAiGeneration } from "@/features/seller-ai/server";
 import type { InformativeCopilotAsk } from "@/features/seller-ai/copilot/schemas";
 import type { CopilotReply } from "@/features/seller-ai/copilot/types";
@@ -81,6 +81,11 @@ export async function askInformativeCopilot(ctx: InformativeContext, input: Info
     schema: informativeCopilotReplySchema,
     limit: LIMIT,
   });
+  // Outside the business: a polite "can't help with that", nothing to run, and the question is free.
+  if (r.data.topic === "off_topic") {
+    await refundAiCredit(r.charge, "off_topic question");
+    return { answer: r.data.reply, links: [], proposals: [], offTopic: true };
+  }
   return {
     answer: r.data.reply,
     links: r.data.links,

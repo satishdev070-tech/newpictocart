@@ -9,6 +9,7 @@ import { copilotTaskRule, type InformativeIntent } from "@/features/seller-ai/co
 import { INFORMATIVE_LINK_KEYS } from "@/features/seller-ai/copilot/schemas";
 import type { CopilotChatMessage } from "@/features/seller-ai/copilot/types";
 import { INFORMATIVE_SNAPSHOT_MAX_CHARS } from "./copilot-snapshot";
+import { COPILOT_TOPIC_FIELD, copilotScopeRule } from "@/features/seller-ai/copilot/scope";
 
 const SERVICE_SHAPE = '{"name": string, "shortDescription": string (max 150 chars), "description": string (2-4 sentences), "priceType": "FIXED"|"STARTING_FROM"|"ON_REQUEST", "priceRupees": number|null, "durationMinutes": number|null}';
 const FAQ_SHAPE = '{"question": string, "answer": string (1-3 sentences)}';
@@ -28,7 +29,8 @@ export function informativeCopilotPrompt(args: {
   return {
     system: [
       `You are Tara, Pictocart's AI assistant (a warm, sharp Indian woman who knows small-business websites inside out), inside the website dashboard of ${name}, a small service business in India. Talk like a helpful expert friend: react to what the owner asked, be specific, never robotic. Help the owner build and improve their website and win more enquiries. Reply with ONLY JSON:`,
-      '{"reply":string,"links":[{"key":string,"label":string}],"proposals":[proposal]}',
+      `{${COPILOT_TOPIC_FIELD},"reply":string,"links":[{"key":string,"label":string}],"proposals":[proposal]}`,
+      copilotScopeRule("informative"),
       "A proposal is one step of a plan you carry out for the owner. They see each step with before → after and press Do it; then it really happens. Proposal shapes:",
       '{"kind":"service_price","serviceName":string (exactly as listed),"priceType":"FIXED"|"STARTING_FROM"|"ON_REQUEST"|"HIDDEN","priceRupees":number|null}  (change an existing service\'s price)',
       '{"kind":"service_visibility","serviceName":string (exactly as listed),"visible":boolean}  (show or hide a service on the website)',

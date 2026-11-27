@@ -6,6 +6,7 @@ import { z } from "zod";
 import { AGENT_LINKS, type AgentLinkKey, faqProposalItemSchema } from "../schemas";
 import { COPILOT_LANGUAGES } from "./languages";
 import { INFORMATIVE_INTENTS, STORE_INTENTS } from "./quick-actions";
+import { copilotTopicSchema } from "./scope";
 import { blogApplySchema, blogModelSchema, priceApplySchema, priceModelSchema, statusApplySchema, statusModelSchema, stockApplySchema, stockModelSchema } from "./actions-plan";
 
 export const COPILOT_MAX_MESSAGES = 16;
@@ -86,6 +87,7 @@ const keepValid = <S extends z.ZodType>(schema: S) =>
     );
 
 export const storeCopilotReplySchema = z.object({
+  topic: copilotTopicSchema,
   answer: capped(3000).pipe(z.string().min(1)),
   links: linkList<AgentLinkKey>(AGENT_LINKS),
   proposals: keepValid(storeModelProposalSchema),

@@ -5,6 +5,7 @@
  */
 import { z } from "zod";
 import { informativeLinksSchema } from "@/features/seller-ai/copilot/schemas";
+import { copilotTopicSchema } from "@/features/seller-ai/copilot/scope";
 import type { CopilotProposalView } from "@/features/seller-ai/copilot/types";
 import { formatServicePrice, type PriceType } from "../pricing";
 import { proposalSchema, proposalTitle, proposalWrites, type Proposal } from "./schemas";
@@ -12,6 +13,7 @@ import { proposalSchema, proposalTitle, proposalWrites, type Proposal } from "./
 const longText = (max: number) => z.string().transform((s) => s.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, max));
 
 export const informativeCopilotReplySchema = z.object({
+  topic: copilotTopicSchema,
   reply: longText(3000).pipe(z.string().min(1)),
   links: informativeLinksSchema,
   proposals: z

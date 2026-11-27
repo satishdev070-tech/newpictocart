@@ -5,7 +5,7 @@ import { runAction, type ActionResult } from "@/lib/actions/result";
 import { parseInput } from "@/lib/validation/common";
 import { AppError } from "@/lib/errors";
 import { assertPermission, can, requireTenant } from "@/lib/tenant/membership";
-import { getAiCreditBalance } from "@/features/ai-credits/server";
+import { getAiCreditBalance, refundAiCredit } from "@/features/ai-credits/server";
 import { applyFaqsProposalAction } from "../actions";
 import { runSellerAiGeneration } from "../server";
 import { storeCopilotPrompt } from "./prompts";
@@ -52,6 +52,11 @@ export async function askStoreCopilotAction(input: unknown): Promise<ActionResul
       schema: storeCopilotReplySchema,
       limit: { key: "seller-agent", perDay: ASK_DAILY_LIMIT, message: `You've asked Tara ${ASK_DAILY_LIMIT} questions today. Try again tomorrow.` },
     });
+    // Outside the store: a polite "can't help with that", nothing to run, and the question is free.
+    if (r.data.topic === "off_topic") {
+      await refundAiCredit(r.charge, "off_topic question");
+      return { answer: r.data.answer, links: [], proposals: [], offTopic: true };
+    }
     // Only offer changes this member may apply; say so when Tara planned something they can't do.
     const allowed = r.data.proposals.filter((p) => can(ctx, PROPOSAL_PERMISSION[p.type]) && (p.type !== "product_status" || p.status !== "publish" || can(ctx, "catalog.publish")));
     const notAllowed = r.data.proposals.length - allowed.length;

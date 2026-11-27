@@ -16,6 +16,7 @@ const db = vi.hoisted(() => ({
 const faqs = vi.hoisted(() => ({ apply: vi.fn() }));
 const voice = vi.hoisted(() => ({ transcribe: vi.fn(async () => ({ transcript: "hello" })), speak: vi.fn(async () => null) }));
 const audit = vi.hoisted(() => vi.fn(async () => undefined));
+const credits = vi.hoisted(() => ({ refund: vi.fn(async () => undefined) }));
 
 vi.mock("next/cache", () => ({ refresh: () => undefined }));
 vi.mock("@/lib/tenant/membership", () => ({
@@ -55,7 +56,11 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/features/seller-ai/actions", () => ({ applyFaqsProposalAction: (i: unknown) => faqs.apply(i) }));
 vi.mock("@/features/seller-ai/server", () => ({ runSellerAiGeneration: vi.fn() }));
-vi.mock("@/features/ai-credits/server", () => ({ getAiCreditBalance: async () => 10, getAiCreditCatalog: async () => ({ costs: [{ kind: "store_agent", credits: 2 }] }) }));
+vi.mock("@/features/ai-credits/server", () => ({
+  getAiCreditBalance: async () => 10,
+  getAiCreditCatalog: async () => ({ costs: [{ kind: "store_agent", credits: 2 }] }),
+  refundAiCredit: credits.refund,
+}));
 vi.mock("@/features/seller-ai/copilot/voice", async () => {
   const { parseVoiceForm } = await import("@/features/seller-ai/copilot/schemas");
   return {
@@ -74,7 +79,10 @@ vi.mock("@/features/seller-ai/copilot/server", async () => {
   return { ...real, loadStoreCopilotContext: vi.fn(), storeCopilotCosts: async () => ({ ask: 2, faqApply: 5 }) };
 });
 
+import { runSellerAiGeneration } from "@/features/seller-ai/server";
+import { loadStoreCopilotContext } from "@/features/seller-ai/copilot/server";
 import {
+  askStoreCopilotAction,
   applyStoreCopilotProposalAction,
   speakStoreCopilotAction,
   storeCopilotCostsAction,
@@ -162,5 +170,34 @@ describe("costs and voice actions", () => {
   it("speak rejects unsupported languages", async () => {
     expect(await speakStoreCopilotAction({ text: "hi", language: "fr" })).toMatchObject({ ok: false, error: { code: "VALIDATION" } });
     expect(auth.requireTenant).not.toHaveBeenCalled();
+  });
+});
+
+describe("ask: questions outside the store", () => {
+  it("declines gracefully, offers nothing to run and refunds the credit", async () => {
+    vi.mocked(loadStoreCopilotContext).mockResolvedValue({ snapshot: "Store: Nuts", products: [] });
+    const charge = { ledgerId: "l1" } as never;
+    vi.mocked(runSellerAiGeneration).mockResolvedValue({
+      data: {
+        topic: "off_topic",
+        answer: "I'm Tara, your store assistant, so that's outside what I can help with. Want me to check your stock?",
+        links: [{ label: "Products", href: "/dashboard/catalog/products" }],
+        proposals: [{ type: "stock", productTitle: "Almonds", mode: "set", quantity: 5 }],
+      },
+      charge,
+    } as never);
+    const r = await askStoreCopilotAction({ messages: [{ role: "user", content: "Who won the cricket match yesterday?" }], language: "en" });
+    expect(r).toMatchObject({ ok: true, data: { links: [], proposals: [], offTopic: true } });
+    expect(credits.refund).toHaveBeenCalledWith(charge, "off_topic question");
+  });
+
+  it("keeps store questions charged", async () => {
+    credits.refund.mockClear();
+    vi.mocked(loadStoreCopilotContext).mockResolvedValue({ snapshot: "Store: Nuts", products: [] });
+    vi.mocked(runSellerAiGeneration).mockResolvedValue({ data: { topic: "business", answer: "You have 3 products.", links: [], proposals: [] }, charge: { ledgerId: "l2" } } as never);
+    const r = await askStoreCopilotAction({ messages: [{ role: "user", content: "How many products do I have?" }], language: "en" });
+    expect(r).toMatchObject({ ok: true, data: { answer: "You have 3 products." } });
+    expect(r.ok && r.data.offTopic).toBeFalsy();
+    expect(credits.refund).not.toHaveBeenCalled();
   });
 });
