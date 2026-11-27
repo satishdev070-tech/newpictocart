@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LayoutGrid, LayoutList, Search } from "lucide-react";
-import { USER_TYPE_LABEL, USER_TYPES } from "./schemas";
+import { SITE_TYPE_LABEL, SITE_TYPES, USER_TYPE_LABEL, USER_TYPES } from "./schemas";
 
 const ctl = "h-9 rounded-md border border-border bg-surface px-3 text-small";
 
@@ -18,6 +18,7 @@ export function UsersDirectoryFilters({ stores }: Props) {
   const [, start] = useTransition();
   const [q, setQ] = useState(sp.get("q") ?? "");
   const type = sp.get("type") ?? "";
+  const site = sp.get("site") ?? "";
   const store = sp.get("store") ?? "";
   const view = sp.get("view") === "grid" ? "grid" : "list";
 
@@ -42,7 +43,7 @@ export function UsersDirectoryFilters({ stores }: Props) {
 
   const qs = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    for (const [k, v] of Object.entries({ q: sp.get("q") || undefined, type: type || undefined, store: store || undefined, view: view === "grid" ? "grid" : undefined, ...patch })) {
+    for (const [k, v] of Object.entries({ q: sp.get("q") || undefined, type: type || undefined, site: site || undefined, store: store || undefined, view: view === "grid" ? "grid" : undefined, ...patch })) {
       if (v) p.set(k, v);
     }
     const s = p.toString();
@@ -56,7 +57,7 @@ export function UsersDirectoryFilters({ stores }: Props) {
           Search users
         </label>
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" aria-hidden />
-        <input id="q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, email, phone, store or theme" className={`${ctl} w-full pl-9`} />
+        <input id="q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, email, phone (98765 43210), store or theme" className={`${ctl} w-full pl-9`} />
       </div>
       <label className="sr-only" htmlFor="type">
         Type
@@ -66,6 +67,17 @@ export function UsersDirectoryFilters({ stores }: Props) {
         {USER_TYPES.map((t) => (
           <option key={t} value={t}>
             {USER_TYPE_LABEL[t]}
+          </option>
+        ))}
+      </select>
+      <label className="sr-only" htmlFor="site">
+        Site type
+      </label>
+      <select id="site" value={site} onChange={(e) => setParam({ site: e.target.value })} className={ctl}>
+        <option value="">All site types</option>
+        {SITE_TYPES.map((t) => (
+          <option key={t} value={t}>
+            {SITE_TYPE_LABEL[t]}
           </option>
         ))}
       </select>

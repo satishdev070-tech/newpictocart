@@ -68,7 +68,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
         }
       />
       {sp.deleted ? <p role="status" className="mb-4 text-sm text-success">Product deleted.</p> : null}
-      <FilterBar action="/dashboard/products" resetHref="/dashboard/products" label="Filter products">
+      <FilterBar action="/dashboard/products" resetHref="/dashboard/products" label="Filter products" active={filtered}>
         <TextField label="Search" name="q" type="search" defaultValue={f.q ?? ""} placeholder="Title or SKU" className="sm:col-span-2" />
         <SelectField label="Status" name="status" defaultValue={f.status ?? ""} options={[{ value: "", label: "Any status" }, ...PRODUCT_STATUSES.map((s) => ({ value: s, label: PRODUCT_STATUS_LABELS[s] }))]} />
         <SelectField label="Type" name="type" defaultValue={f.type ?? ""} options={[{ value: "", label: "Any type" }, ...typeOptions]} />

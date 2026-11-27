@@ -15,7 +15,7 @@ import { PLATFORM_NAME } from "@/config/platform";
 import { renderAdminPasswordResetEmail } from "@/features/notifications/email/account-templates";
 import { isMissingSchemaError } from "@/features/platform/schemas";
 import { accountActionDenial, isDeleteConfirmed, storesToDelete, temporaryPassword, type AccountAction } from "./rules";
-import { USER_PAGE_SIZE, userTypes, type DirectoryStore, type DirectoryUser, type UserDetail, type UserDirectoryFilter, type UserStats } from "./schemas";
+import { directoryStoreSchema, toDirectoryUser, USER_PAGE_SIZE, type DirectoryUser, type UserDetail, type UserDirectoryFilter, type UserStats } from "./schemas";
 
 /**
  * Super Admin user directory: every auth account with its type (platform staff / seller /
@@ -24,39 +24,30 @@ import { USER_PAGE_SIZE, userTypes, type DirectoryStore, type DirectoryUser, typ
  * (ADR-006) and are audited. Platform staff accounts are managed on Platform users, never here.
  */
 
-const storeSchema = z.object({ tenantId: z.string(), name: z.string(), slug: z.string(), role: z.string(), status: z.string(), theme: z.string().nullable().catch(null) });
+const storeSchema = directoryStoreSchema;
 
-export type Directory = { available: boolean; rows: DirectoryUser[]; total: number };
+/** `siteFilter` is false while migration 9300 is missing (v1 directory: site-type filter ignored). */
+export type Directory = { available: boolean; siteFilter: boolean; rows: DirectoryUser[]; total: number };
 
 export async function listUserDirectory(f: UserDirectoryFilter): Promise<Directory> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("platform_user_directory", {
+  const common = {
     p_search: f.q ?? undefined,
     p_type: f.type ?? undefined,
     p_tenant: f.store ?? undefined,
     p_limit: USER_PAGE_SIZE,
     p_offset: (f.page - 1) * USER_PAGE_SIZE,
-  });
+  };
+  // v2 (9300): digits phone search, site types, WhatsApp verified. Fall back to v1 until it runs.
+  const v2 = await supabase.rpc("platform_user_directory_v2", { ...common, p_site_type: f.site ?? undefined });
+  if (!v2.error) return { available: true, siteFilter: true, rows: (v2.data ?? []).map(toDirectoryUser), total: Number(v2.data?.[0]?.total_count ?? 0) };
+  if (!isMissingSchemaError(v2.error)) throw mapDbError(v2.error);
+  const { data, error } = await supabase.rpc("platform_user_directory", common);
   if (error) {
-    if (isMissingSchemaError(error)) return { available: false, rows: [], total: 0 };
+    if (isMissingSchemaError(error)) return { available: false, siteFilter: false, rows: [], total: 0 };
     throw mapDbError(error);
   }
-  const rows = (data ?? []).map((r): DirectoryUser => {
-    const stores = z.array(storeSchema).catch([]).parse(r.stores) as DirectoryStore[];
-    const base = { platformRole: r.platform_role, stores, customerStores: r.customer_stores ?? 0 };
-    return {
-      userId: r.user_id,
-      email: r.email,
-      phone: r.phone,
-      displayName: r.display_name,
-      createdAt: r.created_at,
-      lastSignInAt: r.last_sign_in_at,
-      emailConfirmed: Boolean(r.email_confirmed),
-      ...base,
-      types: userTypes(base),
-    };
-  });
-  return { available: true, rows, total: Number(data?.[0]?.total_count ?? 0) };
+  return { available: true, siteFilter: false, rows: (data ?? []).map(toDirectoryUser), total: Number(data?.[0]?.total_count ?? 0) };
 }
 
 export async function getUserStats(): Promise<UserStats | null> {

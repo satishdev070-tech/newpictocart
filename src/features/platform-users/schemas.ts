@@ -8,9 +8,15 @@ export const USER_TYPE_LABEL: Record<UserType, string> = { platform: "Platform s
 
 const optionalText = (max: number) => z.preprocess((v) => (typeof v === "string" && v.trim() ? v.trim() : undefined), z.string().max(max).optional());
 
+/** Website type of a store (tenants.website_type, migration 8000). */
+export const SITE_TYPES = ["ONLINE_STORE", "INFORMATIVE"] as const;
+export type SiteType = (typeof SITE_TYPES)[number];
+export const SITE_TYPE_LABEL: Record<SiteType, string> = { ONLINE_STORE: "Online Store", INFORMATIVE: "Informative Website" };
+
 export const userDirectoryFilterSchema = z.object({
   q: optionalText(120),
   type: z.enum(USER_TYPES).optional().catch(undefined),
+  site: z.enum(SITE_TYPES).optional().catch(undefined),
   store: z.uuid().optional().catch(undefined),
   view: z.enum(["list", "grid"]).catch("list"),
   page: z.coerce.number().int().min(1).max(10_000).catch(1),
@@ -32,7 +38,18 @@ export const addCustomerRoleSchema = z.object({ userId: z.uuid(), tenantId: z.uu
 export const deleteAccountSchema = z.object({ userId: z.uuid(), reason, confirm: z.string().max(20) });
 export const accountStatusSchema = z.object({ userId: z.uuid(), status: z.enum(["active", "disabled"]), reason });
 
-export type DirectoryStore = { tenantId: string; name: string; slug: string; role: string; status: string; theme: string | null };
+export type DirectoryStore = { tenantId: string; name: string; slug: string; role: string; status: string; theme: string | null; websiteType: SiteType };
+
+/** One store in the directory/detail `stores` JSON; `websiteType` is only sent by v2 (9300). */
+export const directoryStoreSchema = z.object({
+  tenantId: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  role: z.string(),
+  status: z.string(),
+  theme: z.string().nullable().catch(null),
+  websiteType: z.enum(SITE_TYPES).catch("ONLINE_STORE"),
+});
 
 export type DirectoryUser = {
   userId: string;
@@ -42,11 +59,52 @@ export type DirectoryUser = {
   createdAt: string;
   lastSignInAt: string | null;
   emailConfirmed: boolean;
+  /** Phone confirmed over WhatsApp (profiles.phone_verified_at); false on the v1 directory. */
+  phoneVerified: boolean;
   platformRole: string | null;
   stores: DirectoryStore[];
   customerStores: number;
   types: UserType[];
+  /** Website types across the user's stores (both when they run one of each). */
+  siteTypes: SiteType[];
 };
+
+/** A row from platform_user_directory (3700) or platform_user_directory_v2 (9300). */
+export type DirectoryRow = {
+  user_id: string;
+  email: string | null;
+  phone: string | null;
+  display_name: string | null;
+  created_at: string;
+  last_sign_in_at: string | null;
+  email_confirmed: boolean | null;
+  platform_role: string | null;
+  stores: unknown;
+  customer_stores: number | null;
+  phone_verified?: boolean | null;
+  site_types?: string[] | null;
+};
+
+/** Maps one RPC row to the page model. v1 rows have no phone_verified/site_types: derive from stores. */
+export function toDirectoryUser(r: DirectoryRow): DirectoryUser {
+  const stores: DirectoryStore[] = z.array(directoryStoreSchema).catch([]).parse(r.stores);
+  const base = { platformRole: r.platform_role, stores, customerStores: r.customer_stores ?? 0 };
+  const fromRow = Array.isArray(r.site_types) ? r.site_types : stores.map((s) => s.websiteType);
+  const siteTypes = SITE_TYPES.filter((t) => fromRow.includes(t));
+  return {
+    userId: r.user_id,
+    email: r.email,
+    phone: r.phone,
+    displayName: r.display_name,
+    createdAt: r.created_at,
+    lastSignInAt: r.last_sign_in_at,
+    emailConfirmed: Boolean(r.email_confirmed),
+    phoneVerified: Boolean(r.phone_verified),
+    ...base,
+    types: userTypes(base),
+    siteTypes,
+  };
+}
 
 export type UserStats = { total: number; platform: number; sellers: number; customers: number };
 
