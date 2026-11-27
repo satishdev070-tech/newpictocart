@@ -18,7 +18,7 @@ export default async function BookCallPage() {
   const upcoming = mine.bookings.filter((b) => b.startsAt && b.startsAt >= now && (b.status === "requested" || b.status === "confirmed"));
   return (
     <div className="space-y-6">
-      <PageHeader title="Book a free call with our team" description="A Pictocart expert calls you to help set up your store, payments, products or marketing. Free for every merchant." />
+      <PageHeader title="Book a free call" description="Talk to our team: a Pictocart expert calls you to help set up your store, payments, products or marketing. Free for every merchant." />
       {upcoming.length ? (
         <Card title="Your upcoming calls">
           <ul className="divide-y divide-border">

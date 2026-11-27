@@ -789,3 +789,10 @@ html:has(.theme-marketing) {
     height: 1.25rem;
   }
 }
+
+/* Phones/tablets: lift the floating Tara buttons above a pinned save bar (ActionForm stickySubmit etc.). */
+@media (max-width: 63.99rem) {
+  .theme-panel:has([data-sticky-submit]) {
+    --fab-lift: 4.25rem;
+  }
+}

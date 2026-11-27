@@ -827,7 +827,7 @@ export function ProductEditor({
         </div>
       </div>
       {/* Phones/tablets: the Status card (with Save) sits at the very end, so keep Save in reach. */}
-      <div className="sticky bottom-[calc(var(--bottom-nav-h,0px)+0.5rem)] z-20 flex items-center gap-3 rounded-xl border border-border bg-surface/95 p-2 pl-4 shadow-lg backdrop-blur lg:hidden">
+      <div data-sticky-submit className="sticky bottom-[calc(var(--bottom-nav-h,0px)+0.5rem)] z-20 flex items-center gap-3 rounded-xl border border-border bg-surface/95 p-2 pl-4 shadow-lg backdrop-blur lg:hidden">
         <span className={`min-w-0 flex-1 truncate text-caption ${dirty && !pending ? "text-warning" : "text-muted"}`}>
           {pending ? "Saving…" : dirty ? "Unsaved changes" : PRODUCT_STATUS_LABELS[d.status]}
         </span>

@@ -47,7 +47,7 @@ export default async function BookCallPublicPage() {
             </li>
           ))}
         </ul>
-        <div className="theme-panel mx-auto mt-10 max-w-3xl rounded-2xl border border-border bg-surface p-4 text-foreground shadow-xl sm:p-6" data-theme="light">
+        <div className="theme-panel mx-auto mt-10 max-w-3xl rounded-2xl border border-border bg-surface p-4 text-foreground shadow-xl sm:p-6">
           {available ? <BookCallForm mode="public" slots={slots} /> : <p className="py-6 text-center text-small text-muted">Booking opens soon. Please check back later.</p>}
         </div>
       </Container>

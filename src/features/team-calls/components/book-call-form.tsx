@@ -116,7 +116,7 @@ export function BookCallForm({ slots, mode, defaults }: Props) {
           </div>
         ) : null}
       </fieldset>
-      <div className="sticky bottom-[calc(var(--bottom-nav-h,0px)+0.5rem)] z-10 rounded-xl border border-border bg-surface/95 p-2 shadow-lg backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
+      <div data-sticky-submit className="sticky bottom-[calc(var(--bottom-nav-h,0px)+0.5rem)] z-10 rounded-xl border border-border bg-surface/95 p-2 shadow-lg backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
         <SubmitButton className="min-h-11 w-full sm:w-auto" disabled={!slotId}>
           <Phone aria-hidden />
           {chosen ? `Book ${formatCallWhen(chosen.startsAt)}` : "Pick a time to book"}
