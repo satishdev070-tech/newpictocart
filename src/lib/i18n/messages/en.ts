@@ -105,6 +105,8 @@ export const en = {
     crumbExport: "Export",
     crumbSupport: "Support",
     crumbDetails: "Details",
+    more: "More",
+    quickNav: "Quick navigation",
   },
   account: {
     menu: "Account and store",

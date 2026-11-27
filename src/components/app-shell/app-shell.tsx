@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 import type { NavGroup } from "@/components/dashboard/nav";
+import type { BottomNavItem } from "./nav-tree";
 import { AppShellClient, type ShellText } from "./app-shell-client";
 import { SIDEBAR_COOKIE, parseSidebarCollapsed, type SidebarPanel } from "./sidebar-cookie";
 
@@ -21,6 +22,10 @@ type Props = {
   /** Translated chrome labels and the panel's `lang` (seller panel); English when omitted. */
   text?: ShellText;
   lang?: string;
+  /** Phone/tablet bottom bar tabs (seller panel); More opens the drawer. */
+  bottomNav?: BottomNavItem[];
+  /** Extra links at the top of the phone drawer. */
+  drawerTop?: ReactNode;
   children: ReactNode;
 };
 

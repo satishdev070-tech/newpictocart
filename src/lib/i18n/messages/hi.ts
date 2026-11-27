@@ -103,6 +103,8 @@ export const hi: Messages = {
     crumbExport: "एक्सपोर्ट",
     crumbSupport: "सहायता",
     crumbDetails: "विवरण",
+    more: "और",
+    quickNav: "त्वरित नेविगेशन",
   },
   account: {
     menu: "अकाउंट और स्टोर",

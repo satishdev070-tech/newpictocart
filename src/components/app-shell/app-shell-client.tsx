@@ -3,11 +3,11 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, CornerDownLeft, Menu as MenuIcon, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
+import { ChevronDown, ChevronRight, CornerDownLeft, Ellipsis, Menu as MenuIcon, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { NavGroup, NavItem } from "@/components/dashboard/nav";
 import { NAV_ICONS, NAV_ICON_STROKE } from "./icons";
-import { activeGroupFor, activeHrefFor, breadcrumbsFor, flyoutTop, isSubmenu, submenuId, type Crumb } from "./nav-tree";
+import { activeBottomHref, activeGroupFor, activeHrefFor, breadcrumbsFor, flyoutTop, isSubmenu, submenuId, type BottomNavItem, type Crumb } from "./nav-tree";
 import { sidebarCookie, type SidebarPanel } from "./sidebar-cookie";
 import { idlePrefetchHrefs, runPrefetchQueue, shouldSkipIdlePrefetch } from "./prefetch";
 
@@ -24,6 +24,10 @@ export type ShellText = {
   searchPages: string;
   jumpTo: string;
   breadcrumb: string;
+  /** Phone bottom bar: the tab that opens the full menu. */
+  more?: string;
+  /** Phone bottom bar landmark label. */
+  quickNav?: string;
   /** Breadcrumb labels for path segments after a nav item ("new", "edit", ids → "details"...). */
   segments?: Record<string, string>;
 };
@@ -40,6 +44,8 @@ const EN_TEXT: ShellText = {
   searchPages: "Search pages",
   jumpTo: "Jump to…",
   breadcrumb: "Breadcrumb",
+  more: "More",
+  quickNav: "Quick navigation",
 };
 
 const TextContext = createContext<ShellText>(EN_TEXT);
@@ -59,6 +65,10 @@ type Props = {
   text?: ShellText;
   /** `lang` of the panel (the seller's chosen language). */
   lang?: string;
+  /** Phone/tablet bottom bar (below `lg`); the last tab, More, opens the full navigation drawer. */
+  bottomNav?: BottomNavItem[];
+  /** Shown at the top of the drawer on phones (e.g. an Orders shortcut). */
+  drawerTop?: ReactNode;
   children: ReactNode;
 };
 
@@ -600,7 +610,57 @@ function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {
 
 /* ------------------------------------------------------------------ shell */
 
-export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFooter, topbarStart, topbarEnd, banner, storageKey, panel, initialCollapsed, text = EN_TEXT, lang, children }: Props) {
+/* ---------------------------------------------------------------- bottom bar */
+
+/**
+ * Phone/tablet bottom navigation (hidden from `lg`). 4 main tabs + More (opens the drawer).
+ * Each tab is a 56 px tall target; the bar pads for the home indicator (safe-area inset).
+ */
+function BottomNav({ items, homeHref, onMore, onNavigate }: { items: BottomNavItem[]; homeHref: string; onMore: () => void; onNavigate: OnNavigate }) {
+  const pathname = usePathname();
+  const text = useContext(TextContext);
+  const [pending, setPending] = useState<{ href: string; from: string } | null>(null);
+  const active = pending && pending.from === pathname ? pending.href : activeBottomHref(pathname, items, homeHref);
+  const tab = "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 text-[11px] font-medium leading-tight transition-colors";
+  return (
+    <nav aria-label={text.quickNav ?? "Quick navigation"} data-bottom-nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-surface/85 lg:hidden">
+      <ul className="mx-auto flex max-w-xl items-stretch gap-1 px-2 py-1">
+        {items.map((item) => {
+          const Icon = NAV_ICONS[item.icon];
+          const on = active === item.href;
+          return (
+            <li key={item.href} className="flex min-w-0 flex-1">
+              <Link
+                href={item.href}
+                aria-current={on ? "page" : undefined}
+                onClick={(e) => {
+                  onNavigate(item.href, e);
+                  if (!(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)) setPending({ href: item.href, from: pathname });
+                }}
+                className={cn(tab, on ? "text-accent" : "text-muted hover:text-foreground")}
+              >
+                <span aria-hidden className={cn("grid h-7 w-12 place-items-center rounded-full transition-colors", on ? "bg-accent-soft" : "")}>
+                  <Icon className="size-5" strokeWidth={NAV_ICON_STROKE} />
+                </span>
+                <span className="w-full truncate text-center">{item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+        <li className="flex min-w-0 flex-1">
+          <button type="button" onClick={onMore} aria-haspopup="dialog" className={cn(tab, active === null ? "text-accent" : "text-muted hover:text-foreground")}>
+            <span aria-hidden className={cn("grid h-7 w-12 place-items-center rounded-full", active === null ? "bg-accent-soft" : "")}>
+              <Ellipsis className="size-5" strokeWidth={NAV_ICON_STROKE} />
+            </span>
+            <span className="w-full truncate text-center">{text.more ?? "More"}</span>
+          </button>
+        </li>
+      </ul>
+    </nav>
+  );
+}
+
+export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFooter, topbarStart, topbarEnd, banner, storageKey, panel, initialCollapsed, text = EN_TEXT, lang, bottomNav, drawerTop, children }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
@@ -661,7 +721,11 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
 
   return (
     <TextContext value={text}>
-    <div lang={lang} className="theme-panel flex min-h-dvh flex-1 bg-background">
+    <div
+      lang={lang}
+      data-has-bottom-nav={bottomNav?.length ? "" : undefined}
+      className={cn("theme-panel flex min-h-dvh flex-1 bg-background", bottomNav?.length ? "[--bottom-nav-h:calc(4.25rem+env(safe-area-inset-bottom))] lg:[--bottom-nav-h:0px]" : "")}
+    >
       <aside
         data-collapsed={collapsed || undefined}
         data-tour="nav"
@@ -721,6 +785,7 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+            {drawerTop ? <div className="mb-3 lg:hidden">{drawerTop}</div> : null}
             <ExpandedNav groups={groups} active={active} storageKey={storageKey} onNavigate={onNavigate} onAfterNavigate={() => drawer.current?.close()} />
           </div>
           <div className="shrink-0 space-y-0.5 border-t border-border p-3">{sidebarFooter}</div>
@@ -740,11 +805,18 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
           <div className="flex items-center gap-1">{topbarEnd}</div>
         </header>
         {banner}
-        <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8 has-[[data-full-width]]:max-w-none">
+        <main
+          id="main"
+          className={cn(
+            "mx-auto w-full min-w-0 max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8 has-[[data-full-width]]:max-w-none",
+            bottomNav?.length ? "pb-[calc(var(--bottom-nav-h)+1.5rem)] lg:pb-8" : "",
+          )}
+        >
           <Breadcrumbs crumbs={crumbs} />
           {children}
         </main>
       </div>
+      {bottomNav?.length ? <BottomNav items={bottomNav} homeHref={homeHref} onNavigate={onNavigate} onMore={() => drawer.current?.showModal()} /> : null}
     </div>
     </TextContext>
   );

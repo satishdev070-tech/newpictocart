@@ -24,7 +24,7 @@ export function CopilotLauncher({ panelLanguage, children }: { panelLanguage?: s
             setOpen(true);
           }}
           aria-haspopup="dialog"
-          className="fixed right-4 bottom-4 z-40 inline-flex min-h-12 items-center gap-2 rounded-full bg-accent px-4 text-small font-semibold text-white shadow-lg ring-1 ring-white/20 transition-transform hover:scale-[1.03] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:right-6 sm:bottom-6"
+          className="fixed right-4 bottom-[calc(1rem+var(--bottom-nav-h,0px))] z-40 inline-flex min-h-12 items-center gap-2 rounded-full bg-accent px-4 text-small font-semibold text-white shadow-lg ring-1 ring-white/20 transition-transform hover:scale-[1.03] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:right-6 sm:bottom-[calc(1.5rem+var(--bottom-nav-h,0px))]"
           aria-label={copy.open}
         >
           <Sparkles aria-hidden className="size-5" />

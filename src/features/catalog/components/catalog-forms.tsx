@@ -287,7 +287,7 @@ export function CategoryForm({ value, parents, sizeCharts = [] }: { value?: Cate
   const [slug, setSlug] = useState(value?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(Boolean(value?.id || value?.slug));
   return (
-    <ActionForm action={saveCategoryAction} fields={value?.id ? { id: value.id } : {}} submitLabel={value?.id ? "Save category" : "Add category"} success="Saved." encType="multipart/form-data" resetOnSuccess={!value?.id}>
+    <ActionForm action={saveCategoryAction} fields={value?.id ? { id: value.id } : {}} submitLabel={value?.id ? "Save category" : "Add category"} success="Saved." encType="multipart/form-data" resetOnSuccess={!value?.id} stickySubmit>
       {(e) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Name" name="name" value={name} required errors={e.name} onChange={(event) => { setName(event.target.value); if (!slugTouched) setSlug(slugify(event.target.value)); }} />
@@ -372,7 +372,7 @@ export function CollectionForm({ value, categories, products }: { value: Collect
   const conds = rules.conditions as CollectionCondition[];
   const setCond = (i: number, c: CollectionCondition) => setRules({ ...rules, conditions: conds.map((x, j) => (j === i ? c : x)) as CollectionRules["conditions"] });
   return (
-    <ActionForm action={saveCollectionAction} fields={{ ...(value.id ? { id: value.id } : {}), rules: JSON.stringify(rules) }} submitLabel={value.id ? "Save collection" : "Create collection"} encType="multipart/form-data">
+    <ActionForm action={saveCollectionAction} fields={{ ...(value.id ? { id: value.id } : {}), rules: JSON.stringify(rules) }} submitLabel={value.id ? "Save collection" : "Create collection"} encType="multipart/form-data" stickySubmit>
       {(e) => (
         <div className="space-y-6">
           {type === "manual" ? selected.map((id) => <input key={id} type="hidden" name="productIds[]" value={id} />) : null}
@@ -401,8 +401,8 @@ export function CollectionForm({ value, categories, products }: { value: Collect
               <div className="space-y-3">
                 <SelectField label="Products must match" name="_match" value={rules.match} onChange={(ev) => setRules({ ...rules, match: ev.target.value as "all" | "any" })} options={[{ value: "all", label: "All conditions" }, { value: "any", label: "Any condition" }]} />
                 {conds.map((c, i) => (
-                  <div key={i} className="flex flex-wrap items-end gap-2">
-                    <select aria-label="Field" className={`${input} w-40`} value={c.field} onChange={(ev) => setCond(i, defaultCondition(ev.target.value, categories))}>
+                  <div key={i} className="grid grid-cols-1 gap-2 rounded-lg border border-border p-2 sm:flex sm:flex-wrap sm:items-end sm:border-0 sm:p-0">
+                    <select aria-label="Field" className={`${input} w-full sm:w-40`} value={c.field} onChange={(ev) => setCond(i, defaultCondition(ev.target.value, categories))}>
                       {RULE_FIELDS.map((f) => (
                         <option key={f.value} value={f.value}>
                           {f.label}
@@ -410,7 +410,7 @@ export function CollectionForm({ value, categories, products }: { value: Collect
                       ))}
                     </select>
                     {c.field === "price" ? (
-                      <select aria-label="Comparison" className={`${input} w-32`} value={c.op} onChange={(ev) => setCond(i, { ...c, op: ev.target.value } as CollectionCondition)}>
+                      <select aria-label="Comparison" className={`${input} w-full sm:w-32`} value={c.op} onChange={(ev) => setCond(i, { ...c, op: ev.target.value } as CollectionCondition)}>
                         <option value="lte">at most</option>
                         <option value="gte">at least</option>
                       </select>
@@ -418,7 +418,7 @@ export function CollectionForm({ value, categories, products }: { value: Collect
                       <span className="pb-2 text-sm text-muted">is</span>
                     )}
                     {c.field === "product_type" ? (
-                      <select aria-label="Value" className={`${input} w-44`} value={String(c.value)} onChange={(ev) => setCond(i, { ...c, value: ev.target.value } as CollectionCondition)}>
+                      <select aria-label="Value" className={`${input} w-full sm:w-44`} value={String(c.value)} onChange={(ev) => setCond(i, { ...c, value: ev.target.value } as CollectionCondition)}>
                         {RULE_TYPES.some((t) => t.key === String(c.value)) ? null : <option value={String(c.value)}>{typeLabel(String(c.value))}</option>}
                         {RULE_TYPES.map((t) => (
                           <option key={t.key} value={t.key}>
@@ -427,7 +427,7 @@ export function CollectionForm({ value, categories, products }: { value: Collect
                         ))}
                       </select>
                     ) : c.field === "category" ? (
-                      <select aria-label="Value" className={`${input} w-44`} value={String(c.value)} onChange={(ev) => setCond(i, { ...c, value: ev.target.value } as CollectionCondition)}>
+                      <select aria-label="Value" className={`${input} w-full sm:w-44`} value={String(c.value)} onChange={(ev) => setCond(i, { ...c, value: ev.target.value } as CollectionCondition)}>
                         {categories.map((t) => (
                           <option key={t.id} value={t.id}>
                             {t.label}
@@ -435,12 +435,12 @@ export function CollectionForm({ value, categories, products }: { value: Collect
                         ))}
                       </select>
                     ) : c.field === "on_sale" ? (
-                      <select aria-label="Value" className={`${input} w-32`} value={String(c.value)} onChange={(ev) => setCond(i, { ...c, value: ev.target.value === "true" } as CollectionCondition)}>
+                      <select aria-label="Value" className={`${input} w-full sm:w-32`} value={String(c.value)} onChange={(ev) => setCond(i, { ...c, value: ev.target.value === "true" } as CollectionCondition)}>
                         <option value="true">Yes</option>
                         <option value="false">No</option>
                       </select>
                     ) : (
-                      <input aria-label="Value" className={`${input} w-44`} value={Array.isArray(c.value) ? c.value.join(", ") : String(c.value)} onChange={(ev) => setCond(i, { ...c, value: c.field === "price" ? Number(ev.target.value) || 0 : ev.target.value } as CollectionCondition)} />
+                      <input aria-label="Value" className={`${input} w-full sm:w-44`} value={Array.isArray(c.value) ? c.value.join(", ") : String(c.value)} onChange={(ev) => setCond(i, { ...c, value: c.field === "price" ? Number(ev.target.value) || 0 : ev.target.value } as CollectionCondition)} />
                     )}
                     <Button variant="ghost" size="sm" onClick={() => setRules({ ...rules, conditions: conds.filter((_, j) => j !== i) as CollectionRules["conditions"] })}>
                       Remove
@@ -478,8 +478,8 @@ export function CollectionForm({ value, categories, products }: { value: Collect
                   .slice(0, 300)
                   .map((p) => (
                     <li key={p.id}>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={selected.includes(p.id)} onChange={(ev) => setSelected((s) => (ev.target.checked ? [...s, p.id] : s.filter((x) => x !== p.id)))} />
+                      <label className="flex min-h-11 items-center gap-3 rounded-md px-1 text-sm hover:bg-surface-secondary">
+                        <input type="checkbox" className="size-5 shrink-0" checked={selected.includes(p.id)} onChange={(ev) => setSelected((s) => (ev.target.checked ? [...s, p.id] : s.filter((x) => x !== p.id)))} />
                         {p.label}
                       </label>
                     </li>
