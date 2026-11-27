@@ -15,6 +15,7 @@ export const hi: Messages = {
       Storefront: "ऑनलाइन स्टोर",
       Analytics: "एनालिटिक्स",
       Settings: "सेटिंग्स",
+      Help: "मदद",
     },
     items: {
       Dashboard: "डैशबोर्ड",
@@ -61,6 +62,7 @@ export const hi: Messages = {
       Taxes: "टैक्स",
       Notifications: "सूचनाएँ",
       "Security & activity": "सुरक्षा और गतिविधि",
+      "Book a free call": "फ़्री कॉल बुक करें",
     },
   },
   settingsNav: {

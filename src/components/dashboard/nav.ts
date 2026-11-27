@@ -108,4 +108,9 @@ export const DASHBOARD_NAV: { label: string; icon: NavIconName; items: TenantNav
       { href: "/dashboard/settings/security", label: "Security & activity", permission: "members.manage", icon: "roles" },
     ],
   },
+  {
+    label: "Help",
+    icon: "support",
+    items: [{ href: "/dashboard/book-call", label: "Book a free call", permission: "store.read", icon: "support" }],
+  },
 ];

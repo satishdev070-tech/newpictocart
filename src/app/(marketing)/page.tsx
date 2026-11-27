@@ -23,6 +23,7 @@ import {
   Testimonials,
   TrustStrip,
 } from "@/features/marketing-site/components/landing-sections";
+import { BookCallBand } from "@/features/team-calls/components/book-call-band";
 
 export const revalidate = 3600;
 
@@ -79,9 +80,12 @@ export default async function HomePage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd([organizationJsonLd(origin), softwareApplicationJsonLd(origin, plans), ...(faqs.length ? [faqJsonLd(faqs)] : [])]) }} />
       {visible.map((key) => (
         <div key={key} data-section={key}>
+          {/* "Book a free call" sits just before the closing call to action. */}
+          {key === "cta" ? <BookCallBand /> : null}
           {sections[key]()}
         </div>
       ))}
+      {visible.includes("cta") ? null : <BookCallBand />}
     </>
   );
 }
