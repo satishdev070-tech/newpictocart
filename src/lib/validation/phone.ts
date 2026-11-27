@@ -29,7 +29,7 @@ export function formatPhone(e164: string | null | undefined): string {
 }
 
 export const phoneSchema = z
-  .string()
+  .string({ error: "Enter your mobile number" })
   .trim()
   .max(24)
   .transform((v, ctx) => {

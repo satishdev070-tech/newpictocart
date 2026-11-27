@@ -5,10 +5,27 @@ import { ActionForm, InlineAction } from "@/features/settings/ui/action-controls
 import { TextField } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { clearAppCredentialAction, rotateVerifyTokenAction, saveAppCredentialAction, sendTestEmailAction } from "../actions";
-import type { AppProvider } from "../core";
+import { WHATSAPP_OTP_DEFAULTS, type AppProvider } from "../core";
 
 /** Write-only credential form: secrets are never sent back to the browser, only a masked hint. */
-export function AppCredentialForm({ provider, idLabel, secretLabel, clientId, secretHint, savedInDb }: { provider: AppProvider; idLabel: string | null; secretLabel: string; clientId: string | null; secretHint: string | null; savedInDb: boolean }) {
+export function AppCredentialForm({
+  provider,
+  idLabel,
+  secretLabel,
+  clientId,
+  secretHint,
+  savedInDb,
+  settings = {},
+}: {
+  provider: AppProvider;
+  idLabel: string | null;
+  secretLabel: string;
+  clientId: string | null;
+  secretHint: string | null;
+  savedInDb: boolean;
+  /** Non-secret saved settings (e.g. the WhatsApp template name). */
+  settings?: Record<string, string>;
+}) {
   return (
     <div className="space-y-3">
       <ActionForm action={saveAppCredentialAction} fields={{ provider }} submitLabel="Save" success="Saved. Sellers can connect now if both values are set." className="space-y-3">
@@ -25,6 +42,30 @@ export function AppCredentialForm({ provider, idLabel, secretLabel, clientId, se
               hint={secretHint ? "Leave blank to keep the saved value." : "Stored encrypted. It can't be viewed again after saving."}
               errors={e.secret ?? e._form}
             />
+            {provider === "whatsapp" ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TextField
+                  label="Authentication template name"
+                  name="templateName"
+                  defaultValue={settings.templateName ?? ""}
+                  placeholder={WHATSAPP_OTP_DEFAULTS.templateName}
+                  autoComplete="off"
+                  spellCheck={false}
+                  hint={`Blank uses ${WHATSAPP_OTP_DEFAULTS.templateName}.`}
+                  errors={e.templateName}
+                />
+                <TextField
+                  label="Template language"
+                  name="templateLanguage"
+                  defaultValue={settings.templateLanguage ?? ""}
+                  placeholder={WHATSAPP_OTP_DEFAULTS.templateLanguage}
+                  autoComplete="off"
+                  spellCheck={false}
+                  hint={`Blank uses ${WHATSAPP_OTP_DEFAULTS.templateLanguage}.`}
+                  errors={e.templateLanguage}
+                />
+              </div>
+            ) : null}
           </>
         )}
       </ActionForm>

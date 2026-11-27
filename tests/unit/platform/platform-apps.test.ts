@@ -72,7 +72,7 @@ describe("input schema", () => {
   it("treats blank secret as keep-existing and rejects junk", () => {
     expect(saveAppCredentialSchema.parse({ provider: "meta", clientId: " 1234567 ", secret: "" })).toEqual({ provider: "meta", clientId: "1234567", secret: undefined });
     expect(saveAppCredentialSchema.safeParse({ provider: "meta", secret: "has space in it" }).success).toBe(false);
-    expect(saveAppCredentialSchema.safeParse({ provider: "whatsapp", secret: "x".repeat(20) }).success).toBe(false);
+    expect(saveAppCredentialSchema.safeParse({ provider: "tiktok", secret: "x".repeat(20) }).success).toBe(false);
     expect(saveAppCredentialSchema.safeParse({ provider: "google", clientId: "a b" }).success).toBe(false);
   });
 });
@@ -87,7 +87,7 @@ describe("setup guide URLs", () => {
     expect(meta.permissions.map((p) => p.name)).toEqual(expect.arrayContaining(["pages_manage_posts", "instagram_content_publish", "pages_messaging", "instagram_manage_messages", "whatsapp_business_messaging"]));
     expect(g.find((x) => x.provider === "google")!.redirectUris).toEqual(["https://pictocart.in/api/oauth/youtube/callback", "https://pictocart.in/api/oauth/google-business/callback"]);
     expect(g.find((x) => x.provider === "linkedin")!.redirectUris).toEqual(["https://pictocart.in/api/oauth/linkedin/callback"]);
-    expect(g.map((x) => x.provider)).toEqual(["meta", "pinterest", "linkedin", "google", "nvidia", "gemini", "groq", "anthropic"]);
+    expect(g.map((x) => x.provider)).toEqual(["meta", "whatsapp", "pinterest", "linkedin", "google", "nvidia", "gemini", "groq", "anthropic"]);
   });
 });
 

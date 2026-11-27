@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { IndianRupee, Package, Receipt, ShoppingBag, Users } from "lucide-react";
+import { ChevronRight, IndianRupee, Package, PhoneCall, Receipt, ShoppingBag, Users } from "lucide-react";
 import { Card, StatCard, type StatTone } from "@/components/ui/layout";
 import { formatMoney } from "@/lib/money";
 import type { HomeKpis, SetupStep } from "@/features/analytics/home";
@@ -73,5 +73,21 @@ export function HomeSetupChecklist({ steps }: { steps: SetupStep[] }) {
         ))}
       </ol>
     </Card>
+  );
+}
+
+/** Small home card: book a free call with the Pictocart team (Dashboard → Book a free call). */
+export function HomeBookCallCard() {
+  return (
+    <Link href="/dashboard/book-call" className="flex min-h-11 items-center gap-3 rounded-xl border border-border bg-surface p-4 shadow-xs transition-colors hover:border-accent/40 hover:bg-accent-soft">
+      <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
+        <PhoneCall className="size-5" strokeWidth={1.75} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-small font-semibold">Book a free call with our team</span>
+        <span className="block text-caption text-muted">Get help setting up your store, products or marketing.</span>
+      </span>
+      <ChevronRight aria-hidden className="size-4 shrink-0 text-muted" />
+    </Link>
   );
 }

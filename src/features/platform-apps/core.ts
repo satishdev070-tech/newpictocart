@@ -7,7 +7,7 @@ import { z } from "zod";
  * masked hint.
  */
 
-export const APP_PROVIDERS = ["meta", "pinterest", "google", "linkedin", "nvidia", "gemini", "groq", "anthropic", "resend", "unsplash", "razorpay", "cashfree", "payu"] as const;
+export const APP_PROVIDERS = ["meta", "pinterest", "google", "linkedin", "nvidia", "gemini", "groq", "anthropic", "resend", "unsplash", "razorpay", "cashfree", "payu", "whatsapp"] as const;
 export type AppProvider = (typeof APP_PROVIDERS)[number];
 
 export const AI_PROVIDERS = ["nvidia", "gemini", "groq", "anthropic"] as const satisfies readonly AppProvider[];
@@ -17,8 +17,11 @@ export type AiProvider = (typeof AI_PROVIDERS)[number];
 export const PAYMENT_APP_PROVIDERS = ["razorpay", "cashfree", "payu"] as const satisfies readonly AppProvider[];
 export type PaymentAppProvider = (typeof PAYMENT_APP_PROVIDERS)[number];
 
-/** OAuth + payment gateways need a client id + secret; AI providers only an API key (stored as `secret`). */
-export const needsClientId = (p: AppProvider) => p === "meta" || p === "pinterest" || p === "google" || p === "linkedin" || p === "razorpay" || p === "cashfree" || p === "payu";
+/**
+ * OAuth + payment gateways need a client id + secret; AI providers only an API key (stored as `secret`).
+ * The platform WhatsApp sender stores its phone number ID as the client id and the permanent token as the secret.
+ */
+export const needsClientId = (p: AppProvider) => p === "meta" || p === "pinterest" || p === "google" || p === "linkedin" || p === "razorpay" || p === "cashfree" || p === "payu" || p === "whatsapp";
 
 /** Non-secret settings kept in `extra` (plain JSON). Anything else is dropped. Razorpay webhook secret is stored encrypted under webhookSecretCiphertext. */
 export const EXTRA_KEYS: Record<AppProvider, readonly string[]> = {
@@ -35,7 +38,62 @@ export const EXTRA_KEYS: Record<AppProvider, readonly string[]> = {
   razorpay: ["webhookSecretCiphertext"],
   cashfree: ["environment"],
   payu: ["environment"],
+  whatsapp: ["templateName", "templateLanguage"],
 };
+
+/** Non-secret `extra` values that may be shown back in the admin form (never ciphertext). */
+export const PUBLIC_EXTRA_KEYS: Partial<Record<AppProvider, readonly string[]>> = {
+  whatsapp: ["templateName", "templateLanguage"],
+};
+
+/** Platform WhatsApp sender (verification codes): an AUTHENTICATION template with {{1}} = code + copy-code button. */
+export const WHATSAPP_OTP_DEFAULTS = { templateName: "pictocart_otp", templateLanguage: "en" } as const;
+
+export type WhatsappOtpSender = { phoneNumberId: string; token: string; templateName: string; templateLanguage: string };
+
+/** The sender settings from the resolved credential, with the template defaults filled in. */
+export function whatsappOtpSender(cred: AppCredential | null): WhatsappOtpSender | null {
+  if (!cred?.clientId || !cred.secret) return null;
+  return {
+    phoneNumberId: cred.clientId,
+    token: cred.secret,
+    templateName: cred.extra.templateName || WHATSAPP_OTP_DEFAULTS.templateName,
+    templateLanguage: cred.extra.templateLanguage || WHATSAPP_OTP_DEFAULTS.templateLanguage,
+  };
+}
+
+export type WhatsappOtpPayload = {
+  messaging_product: "whatsapp";
+  recipient_type: "individual";
+  to: string;
+  type: "template";
+  template: {
+    name: string;
+    language: { code: string };
+    components: [{ type: "body"; parameters: [{ type: "text"; text: string }] }, { type: "button"; sub_type: "url"; index: "0"; parameters: [{ type: "text"; text: string }] }];
+  };
+};
+
+/**
+ * Meta authentication-template send: the code fills the body variable {{1}} AND the copy-code
+ * (OTP) button's url parameter. `to` is E.164; the Cloud API takes the digits.
+ */
+export function buildWhatsappOtpPayload(toE164: string, code: string, templateName: string, templateLanguage: string): WhatsappOtpPayload {
+  return {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: toE164.replace(/^\+/, ""),
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: templateLanguage },
+      components: [
+        { type: "body", parameters: [{ type: "text", text: code }] },
+        { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: code }] },
+      ],
+    },
+  };
+}
 
 export type AppCredential = { clientId: string | null; secret: string; extra: Record<string, string>; source: "db" | "env" };
 
@@ -58,6 +116,7 @@ const ENV_NAMES: Record<AppProvider, { id?: string; secret: string; extra?: Reco
   razorpay: { id: "PLATFORM_RAZORPAY_KEY_ID", secret: "PLATFORM_RAZORPAY_KEY_SECRET" },
   cashfree: { id: "PLATFORM_CASHFREE_APP_ID", secret: "PLATFORM_CASHFREE_SECRET_KEY" },
   payu: { id: "PLATFORM_PAYU_MERCHANT_KEY", secret: "PLATFORM_PAYU_MERCHANT_SALT" },
+  whatsapp: { id: "PLATFORM_WHATSAPP_PHONE_NUMBER_ID", secret: "PLATFORM_WHATSAPP_ACCESS_TOKEN" },
 };
 export const envNamesFor = (p: AppProvider) => ENV_NAMES[p];
 
@@ -118,6 +177,8 @@ export type AppCredentialStatus = {
   /** A row is saved in the console (it may only hold non-secret settings). */
   savedInDb: boolean;
   extraKeys: string[];
+  /** Non-secret settings safe to show in the form (PUBLIC_EXTRA_KEYS only). */
+  settings: Record<string, string>;
 };
 
 export function toStatus(provider: AppProvider, cred: AppCredential | null, row: CredentialRow): AppCredentialStatus {
@@ -131,7 +192,14 @@ export function toStatus(provider: AppProvider, cred: AppCredential | null, row:
     incomplete,
     savedInDb: Boolean(row),
     extraKeys: Object.keys(cred?.extra ?? cleanExtra(provider, row?.extra)),
+    settings: publicSettings(provider, cred?.extra ?? cleanExtra(provider, row?.extra)),
   };
+}
+
+function publicSettings(provider: AppProvider, extra: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of PUBLIC_EXTRA_KEYS[provider] ?? []) if (extra[k]) out[k] = extra[k];
+  return out;
 }
 
 // ---- Input schemas (shared by the admin form and the server action) -----------------------
@@ -152,6 +220,9 @@ export const saveAppCredentialSchema = z.object({
   webhookSecret: z.preprocess(blankToUndef, z.string().min(10, "That webhook secret looks too short").max(500).regex(/^\S+$/, "Secrets don't contain spaces").optional()),
   /** Cashfree / PayU: sandbox vs production. */
   environment: z.preprocess(blankToUndef, z.enum(["test", "live"]).optional()),
+  /** WhatsApp only: the approved AUTHENTICATION template's name and language code. Not secret. */
+  templateName: z.preprocess(blankToUndef, z.string().max(512).regex(/^[a-z0-9_]+$/, "Use the template name exactly as in WhatsApp Manager (lowercase letters, numbers, underscores)").optional()),
+  templateLanguage: z.preprocess(blankToUndef, z.string().max(10).regex(/^[a-z]{2,3}(?:_[A-Z]{2})?$/, "Use a language code such as en or en_US").optional()),
 });
 export type SaveAppCredentialInput = z.infer<typeof saveAppCredentialSchema>;
 

@@ -42,7 +42,7 @@ function Guide({ g, s, verifyToken }: { g: SetupGuide; s: AppCredentialStatus; v
     >
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
-          <AppCredentialForm provider={g.provider} idLabel={g.idLabel} secretLabel={g.secretLabel} clientId={s.source === "env" ? null : s.clientId} secretHint={s.source === "db" ? s.secretHint : null} savedInDb={s.savedInDb} />
+          <AppCredentialForm provider={g.provider} idLabel={g.idLabel} secretLabel={g.secretLabel} clientId={s.source === "env" ? null : s.clientId} secretHint={s.source === "db" ? s.secretHint : null} savedInDb={s.savedInDb} settings={s.settings} />
           {s.source === "env" ? (
             <p className="text-caption text-muted">
               Currently using env vars ({[env.id, env.secret].filter(Boolean).join(", ")}{s.secretHint ? `, secret ending ${s.secretHint}` : ""}). Saving here overrides them.
@@ -105,7 +105,7 @@ export default async function SocialAppsPage() {
   const guides = setupGuides(platformOrigin());
   return (
     <div className="space-y-6">
-      <PageHeader title="Social apps" description="Add the platform's Meta, Pinterest and Google apps, and the AI API keys, so sellers can connect their own accounts. Values are stored encrypted, every change is audited, and secrets can't be viewed after saving." />
+      <PageHeader title="Social apps" description="Add the platform's Meta, Pinterest and Google apps, the WhatsApp verification sender and the AI API keys, so sellers can connect their own accounts. Values are stored encrypted, every change is audited, and secrets can't be viewed after saving." />
       {guides.map((g) => (
         <Guide key={g.provider} g={g} s={byProvider.get(g.provider)!} verifyToken={g.provider === "meta" ? verifyToken : null} />
       ))}
