@@ -1,5 +1,6 @@
 "use client";
 
+import { recognitionLang } from "@/features/onboarding/voice/browser-speech";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { OnbCard, OnbSub, onbButton } from "@/components/onboarding-ui";
@@ -318,6 +319,7 @@ export function VoiceScreen({
     <section className="mx-auto w-full max-w-6xl pb-24 lg:pb-0">
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
         <CallPanel
+          voiceLang={recognitionLang(draft.locale)}
           t={t}
           view={view}
           active={call.active}

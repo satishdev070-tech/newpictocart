@@ -1,5 +1,6 @@
 "use client";
 
+import { VoicePicker } from "@/components/speech/voice-picker";
 import { useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
 import { Check, Keyboard, Mic, MicOff, PhoneOff, RotateCcw, Send, Sparkles } from "lucide-react";
 import { onbButton, onbField } from "@/components/onboarding-ui";
@@ -169,8 +170,11 @@ export function CallPanel({
   review,
   onConfirmReview,
   onRetake,
+  voiceLang,
 }: {
   t: VoiceUiCopy;
+  /** BCP-47 tag of Tara's spoken language: shows the "Tara's voice" picker (device voices). */
+  voiceLang?: string;
   view: TaraCallView;
   /** Words heard in this turn, waiting for the seller's OK (null when not reviewing). */
   review?: string | null;
@@ -224,6 +228,7 @@ export function CallPanel({
           <span aria-hidden className={cn("size-1.5 rounded-full", active ? "bg-emerald-400 motion-safe:animate-pulse" : "bg-mk-dim")} />
           {active ? t.statusOnCall : t.statusIdle}
         </span>
+        {voiceLang ? <VoicePicker lang={voiceLang} tone="onboarding" /> : null}
       </div>
 
       <div className="flex flex-col items-center gap-3 py-2 text-center">

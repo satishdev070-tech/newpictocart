@@ -7,7 +7,7 @@
  * unit-tested. The thin DOM accessors at the bottom are safe on the server: they return null there.
  */
 
-import { voiceGenderScore } from "@/lib/speech/voice-gender";
+import { chooseVoice } from "@/lib/speech/voices";
 
 // ---- locale → recognition language ------------------------------------------------------
 
@@ -34,39 +34,14 @@ export function primaryLanguage(tag: string): string {
 
 export type VoiceLike = Pick<SpeechSynthesisVoice, "lang" | "name" | "localService" | "default">;
 
-function normTag(tag: string): string {
-  return tag.trim().replace(/_/g, "-").toLowerCase();
-}
-
 /**
  * Best `speechSynthesis` voice for a locale, or null if none speaks the language (the caller
- * then stays silent instead of reading Hindi with an English voice). Order of preference:
- * exact tag (hi-IN) → same language, Indian region → same language elsewhere. Within each
- * group, prefer a female voice, then an on-device voice, then the platform default.
+ * then stays silent instead of reading Hindi with an English voice). Shared ranking
+ * (`lib/speech/voices.ts`): exact tag → India → elsewhere; female; most natural-sounding.
+ * `preferredName` is the seller's saved voice, used when this device has it.
  */
-export function pickVoice<V extends VoiceLike>(voices: readonly V[], locale: string): V | null {
-  const want = normTag(recognitionLang(locale));
-  const lang = primaryLanguage(want);
-  const score = (v: V): number | null => {
-    const tag = normTag(v.lang);
-    if (primaryLanguage(tag) !== lang) return null;
-    let s = tag === want ? 300 : tag.endsWith("-in") ? 200 : 100;
-    // Tara is a woman: a female voice wins over a male one of a closer region.
-    s += voiceGenderScore(v.name) * 150; // female outranks region (never language)
-    if (v.localService) s += 10;
-    if (v.default) s += 5;
-    return s;
-  };
-  let best: V | null = null;
-  let bestScore = -Infinity; // male-only devices score below 0 and must still get a voice
-  for (const v of voices) {
-    const s = score(v);
-    if (s !== null && s > bestScore) {
-      best = v;
-      bestScore = s;
-    }
-  }
-  return best;
+export function pickVoice<V extends VoiceLike>(voices: readonly V[], locale: string, preferredName?: string | null): V | null {
+  return chooseVoice(voices, recognitionLang(locale), preferredName);
 }
 
 /** Safety timeout for an utterance whose `onend` never fires (some engines drop it). */

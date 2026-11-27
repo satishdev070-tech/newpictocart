@@ -1,5 +1,6 @@
 "use client";
 
+import { recognitionLang } from "@/features/onboarding/voice/browser-speech";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { onbButton } from "@/components/onboarding-ui";
@@ -164,6 +165,7 @@ export function TaraInfoPanel({ locale, onFacts }: { locale: string; onFacts: (f
   return (
     <section aria-label={tb.taraCta} className="mb-8 grid gap-4 lg:grid-cols-2">
       <CallPanel
+          voiceLang={recognitionLang(locale)}
         t={t}
         view={call.view}
         active={call.active}

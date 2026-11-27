@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Check, Loader2, Mic, MicOff, RotateCcw, Send, Square, Undo2, Volume2, VolumeX, X } from "lucide-react";
+import { VoicePicker } from "@/components/speech/voice-picker";
 import { ASSISTANT_LOCALES, ASSISTANT_LOCALE_LABELS, speechTagFor, type AssistantLocale } from "../languages";
 import type { AssistantActionView } from "../schemas";
 import type { PublicError } from "@/lib/errors";
@@ -248,6 +249,7 @@ export function VoiceDrawer({ open, storeName, autoListen, onClose }: { open: bo
             </option>
           ))}
         </select>
+        <VoicePicker lang={speechTagFor(locale)} />
         <button
           type="button"
           onClick={() => {

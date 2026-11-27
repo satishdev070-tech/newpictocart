@@ -1,6 +1,6 @@
 "use client";
 
-import { voiceGenderScore } from "./voice-gender";
+import { chooseVoice, speakPieces, speechSynth, taraDeviceVoice } from "./voices";
 import { captionReducer, captionText, emptyCaption, piecesFromResults, type CaptionState } from "./caption";
 
 /**
@@ -223,39 +223,17 @@ export function dictate(lang: string, cb: { onInterim: (text: string) => void; o
 // ---- Text-to-speech ----------------------------------------------------------------------------
 
 /**
- * Best installed voice for a BCP-47 tag: an Indian (exact-locale) female voice, then any female
- * voice of the language, then the exact locale, then on-device. Null when nothing speaks the language.
+ * Best installed voice for a BCP-47 tag (see `rankVoices`): language first, then an Indian
+ * female voice, then the most natural-sounding one. Null when nothing speaks the language.
  */
-export function pickVoice(voices: SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice | null {
-  const want = lang.toLowerCase().replace("_", "-");
-  const base = want.split("-")[0]!;
-  const norm = (v: SpeechSynthesisVoice) => v.lang.toLowerCase().replace("_", "-");
-  let best: SpeechSynthesisVoice | null = null;
-  let bestScore = -Infinity; // male-only devices score below 0 and must still get a voice
-  for (const v of voices) {
-    const tag = norm(v);
-    if (tag.split("-")[0] !== base) continue;
-    // Tara is a woman: gender outranks region (an en-US female beats an en-IN male), and the
-    // Indian female voice (exact locale) beats both. Language itself is never traded away.
-    const score = (tag === want ? 100 : 0) + voiceGenderScore(v.name) * 150 + (v.localService ? 2 : 0);
-    if (score > bestScore) {
-      best = v;
-      bestScore = score;
-    }
-  }
-  return best;
+export function pickVoice(voices: SpeechSynthesisVoice[], lang: string, preferredName?: string | null): SpeechSynthesisVoice | null {
+  return chooseVoice(voices, lang, preferredName);
 }
 
+/** The voice Tara uses on this device for `lang`: the seller's saved choice, else the best one. */
 export function voicesFor(lang: string): Promise<SpeechSynthesisVoice | null> {
   if (!speechOutputSupported()) return Promise.resolve(null);
-  const synth = window.speechSynthesis;
-  const now = synth.getVoices();
-  if (now.length) return Promise.resolve(pickVoice(now, lang));
-  return new Promise((resolve) => {
-    const done = () => resolve(pickVoice(synth.getVoices(), lang));
-    synth.addEventListener("voiceschanged", done, { once: true });
-    setTimeout(done, 1200);
-  });
+  return taraDeviceVoice(lang);
 }
 
 /**
@@ -277,20 +255,12 @@ export function cancelSpeech(): void {
   if (speechOutputSupported()) window.speechSynthesis.cancel();
 }
 
-/** Speaks `text`; resolves when done/cancelled. Resolves false when no voice exists for `lang`. */
+/** Speaks `text` sentence by sentence at the seller's speed; resolves when done/cancelled. False when no voice exists for `lang`. */
 export async function speak(text: string, lang: string): Promise<boolean> {
-  if (!speechOutputSupported() || !text.trim()) return false;
+  const synth = speechSynth();
+  if (!synth || !text.trim()) return false;
   const voice = await voicesFor(lang);
   // Hindi with no Hindi voice would be read letter by letter by an English voice: stay text-only.
   if (!voice && lang.startsWith("hi")) return false;
-  cancelSpeech();
-  return new Promise((resolve) => {
-    const u = new SpeechSynthesisUtterance(text.slice(0, 600));
-    u.lang = voice?.lang ?? lang;
-    if (voice) u.voice = voice;
-    u.rate = 1;
-    u.onend = () => resolve(true);
-    u.onerror = () => resolve(false);
-    window.speechSynthesis.speak(u);
-  });
+  return speakPieces(synth, text.slice(0, 2400), voice, lang);
 }

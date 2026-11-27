@@ -13,6 +13,7 @@ import { isPlanConfirmation, planCredits } from "@/features/seller-ai/copilot/ac
 import { MarkdownLite } from "./markdown-lite";
 import { useCopilotMic } from "./use-copilot-mic";
 import { cancelSpeech, speak as speakInBrowser } from "@/lib/speech/browser-speech";
+import { VoicePicker } from "@/components/speech/voice-picker";
 
 type ProposalState = {
   view: CopilotProposalView;
@@ -425,6 +426,7 @@ export function CopilotDrawer({
             </option>
           ))}
         </select>
+        <VoicePicker lang={`${language}-IN`} />
         <button
           type="button"
           onClick={() => {
