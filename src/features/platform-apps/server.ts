@@ -111,12 +111,16 @@ export async function saveAppCredential(ctx: PlatformContext, input: SaveAppCred
   const from = p === "resend" ? input.from : undefined;
   const webhookSecret = p === "razorpay" ? input.webhookSecret : undefined;
   const environment = p === "cashfree" || p === "payu" ? input.environment : undefined;
-  if (!clientId && !input.secret && !from && !webhookSecret && !environment) throw new AppError("VALIDATION", { fieldErrors: { _form: ["Enter at least one value to save."] } });
+  const templateName = p === "whatsapp" ? input.templateName : undefined;
+  const templateLanguage = p === "whatsapp" ? input.templateLanguage : undefined;
+  if (!clientId && !input.secret && !from && !webhookSecret && !environment && !templateName && !templateLanguage) throw new AppError("VALIDATION", { fieldErrors: { _form: ["Enter at least one value to save."] } });
   const before = await freshRow(p);
   const extra = { ...cleanExtra(p, before?.extra) };
   if (from) extra.from = from;
   if (webhookSecret) extra.webhookSecretCiphertext = encryptSecret(webhookSecret, PURPOSE);
   if (environment) extra.environment = environment;
+  if (templateName) extra.templateName = templateName;
+  if (templateLanguage) extra.templateLanguage = templateLanguage;
   const { error } = await createSupabaseAdminClient()
     .from("platform_app_credentials")
     .upsert(
@@ -140,6 +144,7 @@ export async function saveAppCredential(ctx: PlatformContext, input: SaveAppCred
     from_changed: Boolean(from && from !== cleanExtra(p, before?.extra).from),
     webhook_secret_changed: Boolean(webhookSecret),
     environment_changed: Boolean(environment && environment !== cleanExtra(p, before?.extra).environment),
+    template_changed: Boolean((templateName && templateName !== cleanExtra(p, before?.extra).templateName) || (templateLanguage && templateLanguage !== cleanExtra(p, before?.extra).templateLanguage)),
   });
 }
 

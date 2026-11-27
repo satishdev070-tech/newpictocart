@@ -407,7 +407,7 @@ export function ProductEditor({
               </ul>
             ) : null}
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[840px] text-sm">
+              <table className="stack-table w-full min-w-[840px] text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase text-muted">
                     <th className="py-2 pr-2">Variant</th>
@@ -433,19 +433,19 @@ export function ProductEditor({
                         {variantTitle(v) || "Default"}
                         {rowErr ? <p className="mt-0.5 text-xs font-normal text-error">{rowErr}</p> : null}
                       </td>
-                      <td className="py-2 pr-2">
+                      <td data-label="SKU" className="py-2 pr-2">
                         <input aria-label="SKU" aria-invalid={skuErr ? true : undefined} className={input} value={v.sku} onChange={(e) => setVariant(i, { sku: e.target.value })} onFocus={() => !v.sku && d.slug && setVariant(i, { sku: suggestSku(d.slug, v) })} />
                         {skuErr ? <p className="mt-0.5 text-xs text-error">{skuErr}</p> : null}
                       </td>
-                      <td className="py-2 pr-2">
+                      <td data-label="Price (₹)" className="py-2 pr-2">
                         <input aria-label="Price" aria-invalid={priceErr ? true : undefined} inputMode="decimal" className={input} value={v.price} onChange={(e) => setVariant(i, { price: e.target.value })} />
                         {priceErr ? <p className="mt-0.5 text-xs text-error">{priceErr}</p> : null}
                       </td>
-                      <td className="py-2 pr-2">
+                      <td data-label="MRP (₹)" className="py-2 pr-2">
                         <input aria-label="MRP" aria-invalid={mrpErr ? true : undefined} inputMode="decimal" className={input} value={v.compareAtPrice} onChange={(e) => setVariant(i, { compareAtPrice: e.target.value })} />
                         {mrpErr ? <p className="mt-0.5 text-xs text-error">{mrpErr}</p> : null}
                       </td>
-                      <td className="w-20 py-2 pr-2">
+                      <td data-label="% off" className="w-20 py-2 pr-2">
                         <input
                           aria-label="Discount % off MRP"
                           inputMode="decimal"
@@ -466,10 +466,10 @@ export function ProductEditor({
                           }}
                         />
                       </td>
-                      <td className="py-2 pr-2">
+                      <td data-label="Weight (g)" className="py-2 pr-2">
                         <input aria-label="Weight in grams" inputMode="numeric" className={input} value={v.weightGrams} onChange={(e) => setVariant(i, { weightGrams: e.target.value })} />
                       </td>
-                      <td className="py-2 pr-2">
+                      <td data-label={stockColumnLabel} className="py-2 pr-2">
                         {v.id ? (
                           canWriteInventory ? (
                             <span className="inline-flex flex-col gap-0.5">
@@ -487,10 +487,10 @@ export function ProductEditor({
                           "—"
                         )}
                       </td>
-                      <td className="py-2 pr-2">
+                      <td data-label="Track stock" data-check className="py-2 pr-2">
                         <input type="checkbox" aria-label="Track inventory" checked={v.trackInventory} onChange={(e) => setVariant(i, { trackInventory: e.target.checked })} />
                       </td>
-                      <td className="py-2">
+                      <td data-label="Active" data-check className="py-2">
                         <input type="checkbox" aria-label="Active" checked={v.status === "active"} onChange={(e) => setVariant(i, { status: e.target.checked ? "active" : "archived" })} />
                       </td>
                     </tr>
@@ -825,6 +825,15 @@ export function ProductEditor({
             </Card>
           ) : null}
         </div>
+      </div>
+      {/* Phones/tablets: the Status card (with Save) sits at the very end, so keep Save in reach. */}
+      <div data-sticky-submit className="sticky bottom-[calc(var(--bottom-nav-h,0px)+0.5rem)] z-20 flex items-center gap-3 rounded-xl border border-border bg-surface/95 p-2 pl-4 shadow-lg backdrop-blur lg:hidden">
+        <span className={`min-w-0 flex-1 truncate text-caption ${dirty && !pending ? "text-warning" : "text-muted"}`}>
+          {pending ? "Saving…" : dirty ? "Unsaved changes" : PRODUCT_STATUS_LABELS[d.status]}
+        </span>
+        <Button type="submit" pending={pending} disabled={pending} className="min-h-11 px-6">
+          {pending ? "Saving…" : d.id ? "Save" : "Create product"}
+        </Button>
       </div>
     </form>
   );

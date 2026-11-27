@@ -46,6 +46,11 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
         description={total === 1 ? t("pages.products.countOne") : t("pages.products.count", { count: total })}
         actions={
           <>
+            {writable ? (
+              <Link href="/dashboard/products/new" className="inline-flex h-11 flex-1 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground sm:hidden">
+                Add product
+              </Link>
+            ) : null}
             <a href={`/dashboard/products/export${queryString(params)}`} className="inline-flex h-10 items-center rounded-md border border-border bg-surface px-4 text-sm font-medium" download>
               Export CSV
             </a>
@@ -54,7 +59,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
                 <Link href="/dashboard/products/import" className="inline-flex h-10 items-center rounded-md border border-border bg-surface px-4 text-sm font-medium">
                   Import
                 </Link>
-                <Link href="/dashboard/products/new" className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
+                <Link href="/dashboard/products/new" className="hidden h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground sm:inline-flex">
                   Add product
                 </Link>
               </>
@@ -63,7 +68,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
         }
       />
       {sp.deleted ? <p role="status" className="mb-4 text-sm text-success">Product deleted.</p> : null}
-      <FilterBar action="/dashboard/products" resetHref="/dashboard/products" label="Filter products">
+      <FilterBar action="/dashboard/products" resetHref="/dashboard/products" label="Filter products" active={filtered}>
         <TextField label="Search" name="q" type="search" defaultValue={f.q ?? ""} placeholder="Title or SKU" className="sm:col-span-2" />
         <SelectField label="Status" name="status" defaultValue={f.status ?? ""} options={[{ value: "", label: "Any status" }, ...PRODUCT_STATUSES.map((s) => ({ value: s, label: PRODUCT_STATUS_LABELS[s] }))]} />
         <SelectField label="Type" name="type" defaultValue={f.type ?? ""} options={[{ value: "", label: "Any type" }, ...typeOptions]} />
@@ -85,6 +90,33 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
             </div>
           ) : null}
           <form id="bulk-products">
+            {/* Phones: one card per product, the facts sellers check first (photo, name, status, price, stock). */}
+            <ul className="space-y-2 md:hidden" aria-label="Products">
+              {rows.map((p) => (
+                <li key={p.id} className="flex items-stretch gap-2 rounded-xl border border-border bg-surface p-2 shadow-xs">
+                  {writable ? (
+                    <label className="grid w-9 shrink-0 place-items-center">
+                      <input type="checkbox" name="ids[]" value={p.id} aria-label={`Select ${p.title}`} className="size-5" />
+                    </label>
+                  ) : null}
+                  <Link href={`/dashboard/products/${p.id}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg py-1 pr-1">
+                    <span className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-border/50">{p.thumbUrl ? <Image src={p.thumbUrl} alt="" fill sizes="64px" className="object-cover" /> : null}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{p.title}</span>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-small">
+                        <Badge tone={PRODUCT_STATUS_TONE[p.status as keyof typeof PRODUCT_STATUS_TONE] ?? "neutral"}>{PRODUCT_STATUS_LABELS[p.status as keyof typeof PRODUCT_STATUS_LABELS] ?? p.status}</Badge>
+                        <span className="font-semibold tabular-nums">{p.minPrice === null ? "—" : p.maxPrice !== null && p.maxPrice !== p.minPrice ? `${formatMoney(p.minPrice)} – ${formatMoney(p.maxPrice)}` : formatMoney(p.minPrice)}</span>
+                      </span>
+                      <span className="mt-0.5 block truncate text-caption text-muted">
+                        {p.stockTotal === null ? "Stock not tracked" : `${p.stockTotal} in stock`}
+                        {p.categoryName ? ` · ${p.categoryName}` : ""}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden md:block">
             <Table caption="Products">
               <thead>
                 <tr>
@@ -123,6 +155,7 @@ export default async function ProductsPage({ searchParams }: PageProps<"/dashboa
                 ))}
               </tbody>
             </Table>
+            </div>
           </form>
           <Pagination page={f.page} pageSize={PRODUCT_PAGE_SIZE} total={total} basePath="/dashboard/products" params={{ ...params, sort: f.sort }} />
         </>

@@ -26,7 +26,7 @@ export function VoiceLauncher({ storeName }: { storeName: string }) {
           aria-haspopup="dialog"
           aria-label="Talk to Tara"
           title="Talk to Tara (voice assistant)"
-          className="fixed right-4 bottom-20 z-40 grid size-12 place-items-center rounded-full bg-foreground text-surface shadow-lg ring-1 ring-white/20 transition-transform hover:scale-[1.05] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:right-6 sm:bottom-24"
+          className="fixed right-4 bottom-[calc(5rem+var(--bottom-nav-h,0px)+var(--fab-lift,0px))] z-40 grid size-12 place-items-center rounded-full bg-foreground text-surface shadow-lg ring-1 ring-white/20 transition-transform hover:scale-[1.05] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:right-6 sm:bottom-[calc(6rem+var(--bottom-nav-h,0px)+var(--fab-lift,0px))]"
         >
           <Mic aria-hidden className="size-5" />
         </button>

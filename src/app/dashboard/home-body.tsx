@@ -13,7 +13,10 @@ import { BusinessCoachCard } from "@/features/seller-ai/components/business-coac
 import { AiWalletCard } from "@/features/seller-ai/components/ai-wallet-card";
 import { getAiWalletSummary } from "@/features/seller-ai/server";
 import type { Messages } from "@/lib/i18n/messages/en";
-import { HomeKpiStrip, HomeSetupChecklist } from "./home-panels";
+import { getVerificationStatus } from "@/features/verification/server";
+import { showClaimCard } from "@/features/verification/schemas";
+import { ClaimBonusCard } from "@/features/verification/components/verification-cards";
+import { HomeBookCallCard, HomeKpiStrip, HomeSetupChecklist } from "./home-panels";
 
 const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
@@ -23,10 +26,13 @@ const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short
  */
 export async function DashboardHomeBody({ coachText, walletText }: { coachText: Messages["ai"]["coach"]; walletText: Messages["ai"]["wallet"] }) {
   const ctx = await requireTenant();
-  const [home, launch, wallet] = await Promise.all([
+  const isOwner = ctx.role === "owner";
+  const [home, launch, wallet, verification] = await Promise.all([
     getDashboardHome(ctx),
     getLaunchStatusForMember(ctx.tenantId),
     can(ctx, "marketing.read") ? getAiWalletSummary(ctx.tenantId).catch(() => null) : Promise.resolve(null),
+    // Fail-soft: null before migration 9200 (card hidden).
+    isOwner ? getVerificationStatus().catch(() => null) : Promise.resolve(null),
   ]);
 
   return (
@@ -39,6 +45,8 @@ export async function DashboardHomeBody({ coachText, walletText }: { coachText: 
           </div>
         </Card>
       ) : null}
+
+      {verification && showClaimCard(verification, isOwner) ? <ClaimBonusCard status={verification} /> : null}
 
       {wallet ? <AiWalletCard summary={wallet} text={walletText} canRecharge={can(ctx, "billing.manage")} /> : null}
 
@@ -85,6 +93,8 @@ export async function DashboardHomeBody({ coachText, walletText }: { coachText: 
         </div>
 
         <div className="space-y-6">
+          <HomeBookCallCard />
+
           <RecentActivityCard audience={{ userId: ctx.user.id, scope: "tenant", tenantId: ctx.tenantId }} href="/dashboard/notifications" />
 
           {home.counts.toFulfil !== null || home.lowStock ? (

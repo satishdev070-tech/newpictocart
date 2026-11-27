@@ -24,6 +24,7 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
       { href: "/admin/stores", label: "Stores", permission: "platform.tenants.read", icon: "stores" },
       { href: "/admin/domains", label: "Domains", permission: "platform.tenants.read", icon: "domains" },
       { href: "/admin/support", label: "Support sessions", permission: "platform.support.impersonate", icon: "support" },
+      { href: "/admin/team-calls", label: "Team calls", permission: "platform.users.manage", icon: "support" },
     ],
   },
   {

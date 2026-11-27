@@ -4465,6 +4465,39 @@ export type Database = {
           },
         ]
       }
+      phone_verifications: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          expires_at: string
+          id: string
+          phone: string
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          phone: string
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          phone?: string
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       pincode_rules: {
         Row: {
           cod_allowed: boolean
@@ -5227,6 +5260,7 @@ export type Database = {
           display_name: string | null
           id: string
           phone: string | null
+          phone_verified_at: string | null
           status: string
           updated_at: string
         }
@@ -5236,6 +5270,7 @@ export type Database = {
           display_name?: string | null
           id: string
           phone?: string | null
+          phone_verified_at?: string | null
           status?: string
           updated_at?: string
         }
@@ -5245,6 +5280,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           phone?: string | null
+          phone_verified_at?: string | null
           status?: string
           updated_at?: string
         }
@@ -6303,6 +6339,111 @@ export type Database = {
           },
         ]
       }
+      team_call_bookings: {
+        Row: {
+          admin_note: string | null
+          created_at: string
+          decided_by: string | null
+          email: string | null
+          id: string
+          name: string
+          phone: string
+          slot_id: string
+          source: string
+          status: string
+          tenant_id: string | null
+          topic: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          admin_note?: string | null
+          created_at?: string
+          decided_by?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          phone: string
+          slot_id: string
+          source: string
+          status?: string
+          tenant_id?: string | null
+          topic?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          admin_note?: string | null
+          created_at?: string
+          decided_by?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string
+          slot_id?: string
+          source?: string
+          status?: string
+          tenant_id?: string | null
+          topic?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_call_bookings_slot_id_fkey"
+            columns: ["slot_id"]
+            isOneToOne: false
+            referencedRelation: "team_call_slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_call_bookings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_call_slots: {
+        Row: {
+          active: boolean
+          booked_count: number
+          capacity: number
+          created_at: string
+          created_by: string | null
+          duration_minutes: number
+          id: string
+          note: string | null
+          starts_at: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          booked_count?: number
+          capacity?: number
+          created_at?: string
+          created_by?: string | null
+          duration_minutes?: number
+          id?: string
+          note?: string | null
+          starts_at: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          booked_count?: number
+          capacity?: number
+          created_at?: string
+          created_by?: string | null
+          duration_minutes?: number
+          id?: string
+          note?: string | null
+          starts_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tenant_counters: {
         Row: {
           key: string
@@ -6877,6 +7018,48 @@ export type Database = {
         }
         Relationships: []
       }
+      verification_rewards: {
+        Row: {
+          created_at: string
+          credits: number
+          ledger_id: string | null
+          phone: string
+          tenant_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits: number
+          ledger_id?: string | null
+          phone: string
+          tenant_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits?: number
+          ledger_id?: string | null
+          phone?: string
+          tenant_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_rewards_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "ai_credit_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_rewards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhook_events: {
         Row: {
           error: string | null
@@ -7028,11 +7211,39 @@ export type Database = {
         }
         Returns: number
       }
+      book_team_call: {
+        Args: {
+          p_email: string
+          p_name: string
+          p_phone: string
+          p_slot: string
+          p_source: string
+          p_tenant?: string
+          p_topic: string
+        }
+        Returns: string
+      }
+      cancel_my_team_call: {
+        Args: {
+          p_booking: string
+        }
+        Returns: undefined
+      }
       cancel_order: {
         Args: { p_order: string; p_reason: string }
         Returns: undefined
       }
       cancel_plan_request: { Args: { p_request: string }; Returns: undefined }
+      claim_verification_bonus: {
+        Args: {
+          p_tenant: string
+        }
+        Returns: {
+          balance: number
+          credits: number
+          status: string
+        }[]
+      }
       close_own_store: {
         Args: { p_confirm_slug: string; p_tenant: string }
         Returns: undefined
@@ -7193,6 +7404,18 @@ export type Database = {
         }
         Returns: number
       }
+      platform_add_team_call_slots: {
+        Args: {
+          p_capacity: number
+          p_day: string
+          p_duration: number
+          p_every: number
+          p_from: string
+          p_to: string
+          p_tz?: string
+        }
+        Returns: number
+      }
       platform_adjust_partner_credit: {
         Args: {
           p_delta: number
@@ -7263,6 +7486,12 @@ export type Database = {
           p_request: string
         }
         Returns: undefined
+      }
+      platform_delete_team_call_slot: {
+        Args: {
+          p_id: string
+        }
+        Returns: string
       }
       platform_find_user_by_email: {
         Args: { p_email: string }
@@ -7459,6 +7688,17 @@ export type Database = {
           total_amount: number
         }[]
       }
+      platform_save_team_call_slot: {
+        Args: {
+          p_active: boolean
+          p_capacity: number
+          p_duration: number
+          p_id: string
+          p_note: string
+          p_starts_at: string
+        }
+        Returns: string
+      }
       platform_set_agency_payout: {
         Args: {
           p_agency: string
@@ -7519,6 +7759,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      platform_update_team_call_booking: {
+        Args: {
+          p_admin_note: string
+          p_id: string
+          p_status: string
+        }
+        Returns: undefined
+      }
       platform_user_detail: {
         Args: {
           p_user: string
@@ -7542,6 +7790,32 @@ export type Database = {
           last_sign_in_at: string
           phone: string
           platform_role: string
+          stores: Json
+          total_count: number
+          user_id: string
+          user_types: string[]
+        }[]
+      }
+      platform_user_directory_v2: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_site_type?: string
+          p_tenant?: string
+          p_type?: string
+        }
+        Returns: {
+          created_at: string
+          customer_stores: number
+          display_name: string
+          email: string
+          email_confirmed: boolean
+          last_sign_in_at: string
+          phone: string
+          phone_verified: boolean
+          platform_role: string
+          site_types: string[]
           stores: Json
           total_count: number
           user_id: string
@@ -7893,6 +8167,13 @@ export type Database = {
         Returns: string
       }
       tenant_entitlements: { Args: { p_tenant: string }; Returns: Json }
+      svc_start_phone_verification: {
+        Args: {
+          p_phone: string
+          p_user: string
+        }
+        Returns: string
+      }
       update_fulfillment: {
         Args: {
           p_carrier?: string
@@ -7914,6 +8195,13 @@ export type Database = {
           in_stock: boolean
           variant_id: string
         }[]
+      }
+      verify_phone_code: {
+        Args: {
+          p_code: string
+          p_phone: string
+        }
+        Returns: string
       }
     }
     Enums: {

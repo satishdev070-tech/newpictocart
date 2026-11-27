@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { platformIconMetadata } from "@/features/platform/server/public-config";
 import Link from "next/link";
-import { ChevronsUpDown, ExternalLink, Shield, UserCircle } from "lucide-react";
+import { ChevronsUpDown, ExternalLink, Shield, ShoppingBag, UserCircle } from "lucide-react";
 import { requireTenant } from "@/lib/tenant/membership";
 import { DASHBOARD_NAV } from "@/components/dashboard/nav";
 import { AppShell } from "@/components/app-shell/app-shell";
@@ -25,6 +25,8 @@ import { VoiceLauncher } from "@/features/voice-assistant/components/voice-launc
 import { voiceAssistantFlagMode, voiceAssistantVisible } from "@/features/voice-assistant/flag";
 import { SellerTopbarChrome, SellerTopbarChromeFallback, SellerTrialBanner } from "@/features/dashboard-ui/shell-chrome";
 import { SidebarLink } from "@/components/app-shell/sidebar-link";
+import { bottomNavItems } from "@/components/app-shell/nav-tree";
+import { SELLER_BOTTOM_NAV } from "@/components/dashboard/nav";
 import { accountAccessFor } from "@/lib/auth/landing";
 import { canSwitchPanels } from "@/lib/auth/role-routing";
 import { SUPPORT_LOGIN_COOKIE, readSupportLogin } from "@/features/platform/server/store-admin";
@@ -61,6 +63,15 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     m.nav,
   );
   const displayName = ctx.user.displayName ?? ctx.user.email ?? "Account";
+  // Phones: Dashboard · Products · Categories · Collections · More (drawer, Orders first).
+  const bottomNav = bottomNavItems(groups, SELLER_BOTTOM_NAV);
+  const ordersItem = groups.flatMap((g) => g.items).find((i) => i.href === "/dashboard/orders");
+  const drawerTop = ordersItem ? (
+    <Link href="/dashboard/orders" className="flex min-h-11 items-center gap-3 rounded-lg bg-accent-soft px-3 text-small font-semibold text-accent ring-1 ring-inset ring-accent/20">
+      <ShoppingBag aria-hidden className="size-4" strokeWidth={1.75} />
+      {ordersItem.label}
+    </Link>
+  ) : null;
 
   const brand = <PanelLogo href="/dashboard" label="Pictocart seller dashboard" />;
   const brandMark = <PanelMark href="/dashboard" label="Pictocart seller dashboard" />;
@@ -219,11 +230,13 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     searchPages: t("shell.searchPages"),
     jumpTo: t("shell.jumpTo"),
     breadcrumb: t("shell.breadcrumb"),
+    more: t("shell.more"),
+    quickNav: t("shell.quickNav"),
     segments: { new: t("shell.crumbNew"), edit: t("shell.crumbEdit"), import: t("shell.crumbImport"), export: t("shell.crumbExport"), support: t("shell.crumbSupport"), details: t("shell.crumbDetails") },
   };
 
   return (
-    <AppShell groups={groups} homeHref="/dashboard" brand={brand} brandMark={brandMark} sidebarFooter={sidebarFooter} topbarEnd={topbarEnd} banner={banner} storageKey="paliya-seller-sidebar" lang={locale} text={shellText}>
+    <AppShell groups={groups} homeHref="/dashboard" brand={brand} brandMark={brandMark} sidebarFooter={sidebarFooter} topbarEnd={topbarEnd} banner={banner} storageKey="paliya-seller-sidebar" lang={locale} text={shellText} bottomNav={bottomNav} drawerTop={drawerTop}>
       {children}
       {ctx.permissions.has("analytics.read") ? (
         <StoreCopilot panelLanguage={locale} scope={`${ctx.tenantId}:${ctx.user.id}`} />

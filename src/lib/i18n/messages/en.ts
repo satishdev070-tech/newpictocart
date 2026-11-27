@@ -15,6 +15,7 @@ export const en = {
       Storefront: "Storefront",
       Analytics: "Analytics",
       Settings: "Settings",
+      Help: "Help",
     },
     /** Keyed by the English item label in DASHBOARD_NAV (hrefs may be shared by Sales aliases). */
     items: {
@@ -62,6 +63,7 @@ export const en = {
       Taxes: "Taxes",
       Notifications: "Notifications",
       "Security & activity": "Security & activity",
+      "Book a free call": "Book a free call",
     },
   },
   /** Settings centre side menu (settings/layout.tsx), keyed like `nav`. */
@@ -105,6 +107,8 @@ export const en = {
     crumbExport: "Export",
     crumbSupport: "Support",
     crumbDetails: "Details",
+    more: "More",
+    quickNav: "Quick navigation",
   },
   account: {
     menu: "Account and store",

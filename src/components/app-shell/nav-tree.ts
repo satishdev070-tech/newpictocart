@@ -1,4 +1,4 @@
-import type { NavGroup } from "@/components/dashboard/nav";
+import type { NavGroup, NavItem } from "@/components/dashboard/nav";
 
 /** Pure navigation helpers shared by the sidebar, the breadcrumbs and their tests. */
 
@@ -55,4 +55,27 @@ export function breadcrumbsFor(pathname: string, groups: readonly NavGroup[], ho
     crumbs.push({ label, href: i === rest.length - 1 ? undefined : `${match.href}/${rest.slice(0, i + 1).join("/")}` });
   });
   return crumbs;
+}
+
+/** One tab of the phone bottom bar (seller panel). */
+export type BottomNavItem = { href: string; label: string; icon: NavItem["icon"] };
+
+/**
+ * Phone bottom bar tabs, in the order asked for, taken from the member's (permission-filtered,
+ * translated) nav so a tab never links to a page the member cannot open. Missing hrefs are skipped.
+ */
+export function bottomNavItems(groups: readonly NavGroup[], hrefs: readonly string[]): BottomNavItem[] {
+  const byHref = new Map<string, NavItem>();
+  for (const g of groups) for (const i of g.items) if (!byHref.has(i.href)) byHref.set(i.href, i);
+  return hrefs.flatMap((href) => {
+    const i = byHref.get(href);
+    return i ? [{ href: i.href, label: i.label, icon: i.icon }] : [];
+  });
+}
+
+/** Active bottom tab: the longest matching tab href, or null (then "More" is shown as active). */
+export function activeBottomHref(pathname: string, items: readonly BottomNavItem[], homeHref: string): string | null {
+  let best: string | null = null;
+  for (const i of items) if (navItemMatches(pathname, i.href, homeHref) && (!best || i.href.length > best.length)) best = i.href;
+  return best;
 }

@@ -174,6 +174,7 @@ export function ActionForm({
   className,
   submitVariant = "primary",
   encType,
+  stickySubmit = false,
 }: {
   action: FormAction;
   fields?: Record<string, string>;
@@ -184,6 +185,8 @@ export function ActionForm({
   className?: string;
   submitVariant?: ButtonProps["variant"];
   encType?: "multipart/form-data";
+  /** Phones/tablets: keep the submit button pinned above the bottom bar while scrolling a long form. */
+  stickySubmit?: boolean;
 }) {
   const [state, formAction] = useActionState(action, null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -198,7 +201,14 @@ export function ActionForm({
       <HiddenFields fields={fields} />
       <FormMessage state={state} success={success} />
       {children(fieldErrors(state))}
-      <div>
+      <div
+        data-sticky-submit={stickySubmit || undefined}
+        className={
+          stickySubmit
+            ? "sticky bottom-[calc(var(--bottom-nav-h,0px)+0.5rem)] z-20 rounded-xl border border-border bg-surface/95 p-2 shadow-lg backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-blur-none [&>button]:min-h-11 [&>button]:w-full lg:[&>button]:w-auto"
+            : undefined
+        }
+      >
         <SubmitButton variant={submitVariant}>{submitLabel}</SubmitButton>
       </div>
     </form>

@@ -22,6 +22,7 @@ const MIGRATION = [
   readFileSync(new URL("../../../supabase/migrations/20261028004300_nvidia_provider_store_agent.sql", import.meta.url), "utf8"),
   readFileSync(new URL("../../../supabase/migrations/20261028004800_generate_reviews.sql", import.meta.url), "utf8"),
   readFileSync(new URL("../../../supabase/migrations/20261029005400_generate_faq.sql", import.meta.url), "utf8"),
+  readFileSync(new URL("../../../supabase/migrations/20261127009000_catalog_ai_from_photo.sql", import.meta.url), "utf8"),
 ].join("\n");
 
 describe("seller AI schemas", () => {

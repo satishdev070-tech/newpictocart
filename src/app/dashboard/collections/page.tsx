@@ -20,12 +20,31 @@ export default async function CollectionsPage({ searchParams }: PageProps<"/dash
       <PageHeader
         title={t("pages.collections.title")}
         description={t("pages.collections.description")}
-        actions={writable ? <Link href="/dashboard/collections/new" className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Create collection</Link> : null}
+        actions={writable ? <Link href="/dashboard/collections/new" className="inline-flex h-11 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground sm:h-10 sm:w-auto">Create collection</Link> : null}
       />
       {sp.deleted ? <p role="status" className="mb-4 text-sm text-success">Collection deleted.</p> : null}
       {rows.length === 0 ? (
         <EmptyState title="No collections yet" description="Create manual collections or automated ones that fill themselves by rules." />
       ) : (
+        <>
+        <ul className="space-y-2 md:hidden" aria-label="Collections">
+          {rows.map((c) => (
+            <li key={c.id}>
+              <Link href={`/dashboard/collections/${c.id}`} className="flex min-h-16 items-center gap-3 rounded-xl border border-border bg-surface p-2 shadow-xs">
+                <span className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-border/50">{c.imageUrl ? <Image src={c.imageUrl} alt="" fill sizes="56px" className="object-cover" /> : null}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{c.title}</span>
+                  <span className="mt-1 flex flex-wrap items-center gap-2 text-caption text-muted">
+                    <Badge tone={c.status === "active" ? "success" : "neutral"}>{c.status === "active" ? "Active" : "Draft"}</Badge>
+                    <span>{c.productCount} product{c.productCount === 1 ? "" : "s"}</span>
+                    <span>· {c.type === "automated" ? "Automated" : "Manual"}</span>
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <div className="hidden md:block">
         <Table caption="Collections">
           <thead>
             <tr>
@@ -53,6 +72,8 @@ export default async function CollectionsPage({ searchParams }: PageProps<"/dash
             ))}
           </tbody>
         </Table>
+        </div>
+        </>
       )}
     </div>
   );

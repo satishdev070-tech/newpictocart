@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, Check, CheckCircle2, Clock, Download, ExternalLink, Handshake, Lock, Mail, ShieldCheck, Store, User } from "lucide-react";
+import { BadgeCheck, CalendarDays, Check, CheckCircle2, Clock, Download, ExternalLink, Handshake, Lock, Mail, ShieldCheck, Store, User } from "lucide-react";
 import { can, requireTenant } from "@/lib/tenant/membership";
 import { Badge, Card, PageHeader } from "@/components/ui/layout";
 import { buttonClass } from "@/components/ui/button";
@@ -13,6 +13,10 @@ import { featureLabels, getStorePlanOverview } from "@/features/billing/server";
 import { getOwnProfile, getStorePartnerLink, getStoreOverview } from "@/features/account/server";
 import { avatarInitial } from "@/features/account/schemas";
 import { ChangePasswordForm, PlanCountdown, ProfileForm, RequestDeletionButton } from "@/features/account/components";
+import { getVerificationStatus } from "@/features/verification/server";
+import { VERIFICATION_BONUS_CREDITS } from "@/features/verification/schemas";
+import { VerifyPhoneForm } from "@/features/verification/components/verify-phone";
+import { EmailVerificationRow } from "@/features/verification/components/verification-cards";
 
 export const metadata: Metadata = { title: "My Profile" };
 
@@ -29,7 +33,7 @@ function SectionTitle({ icon, children }: { icon: React.ReactNode; children: Rea
 
 export default async function SellerProfilePage() {
   const ctx = await requireTenant();
-  const [{ t, m, locale }, profile, store, launch, plan, labels, partner] = await Promise.all([
+  const [{ t, m, locale }, profile, store, launch, plan, labels, partner, verification] = await Promise.all([
     getI18n(),
     getOwnProfile(ctx.user.id),
     getStoreOverview(ctx),
@@ -37,6 +41,7 @@ export default async function SellerProfilePage() {
     getStorePlanOverview(ctx),
     featureLabels(),
     getStorePartnerLink(ctx),
+    getVerificationStatus().catch(() => null),
   ]);
   const dateFmt = new Intl.DateTimeFormat(`${locale}-IN`, { dateStyle: "medium", timeZone: "Asia/Kolkata" });
   const monthFmt = new Intl.DateTimeFormat(`${locale}-IN`, { month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
@@ -88,6 +93,29 @@ export default async function SellerProfilePage() {
           labels={{ fullName: p("fullName"), phone: p("phone"), email: p("email"), emailLocked: p("emailLocked"), save: p("save"), saved: p("saved") }}
         />
       </Card>
+
+      {verification ? (
+        <div id="verify" className="scroll-mt-20">
+          <Card
+            title={<SectionTitle icon={<BadgeCheck aria-hidden />}>Verification</SectionTitle>}
+            description={
+              verification.reward
+                ? `Thanks for verifying. Your ${verification.reward.credits} bonus AI credits were added.`
+                : ctx.role === "owner"
+                  ? `Verify your email and WhatsApp number to get ${VERIFICATION_BONUS_CREDITS} free AI credits (one time).`
+                  : "Verify your email and WhatsApp number so the team can reach you."
+            }
+          >
+            <div className="space-y-4">
+              <EmailVerificationRow email={verification.email} verified={verification.emailVerified} />
+              <div>
+                <h3 className="mb-2 text-small font-medium">Verify WhatsApp number</h3>
+                <VerifyPhoneForm phone={verification.phone} verified={verification.phoneVerified} />
+              </div>
+            </div>
+          </Card>
+        </div>
+      ) : null}
 
       <Card
         title={<SectionTitle icon={<Store aria-hidden />}>{p("storeTitle")}</SectionTitle>}

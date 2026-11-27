@@ -15,6 +15,9 @@ export type NavGroup = { id?: string; label: string; icon?: NavIconName; items: 
 
 type TenantNavItem = NavItem & { permission: TenantPermission };
 
+/** Phone bottom bar tabs (in order); "More" (the full drawer) is always added after them. */
+export const SELLER_BOTTOM_NAV = ["/dashboard", "/dashboard/products", "/dashboard/categories", "/dashboard/collections"] as const;
+
 export const DASHBOARD_NAV: { label: string; icon: NavIconName; items: TenantNavItem[] }[] = [
   {
     label: "Overview",
@@ -104,5 +107,10 @@ export const DASHBOARD_NAV: { label: string; icon: NavIconName; items: TenantNav
       { href: "/dashboard/settings/notifications", label: "Notifications", permission: "settings.write", icon: "notifications" },
       { href: "/dashboard/settings/security", label: "Security & activity", permission: "members.manage", icon: "roles" },
     ],
+  },
+  {
+    label: "Help",
+    icon: "support",
+    items: [{ href: "/dashboard/book-call", label: "Book a free call", permission: "store.read", icon: "support" }],
   },
 ];

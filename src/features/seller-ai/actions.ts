@@ -28,6 +28,7 @@ import {
   businessCoachPrompt,
   contactReplyPrompt,
   generateFaqsPrompt,
+  catalogGroupPrompt,
   generateReviewsPrompt,
   productGeneratePrompt,
   storeAgentPrompt,
@@ -59,6 +60,11 @@ import {
   generateFaqContentSchema,
   generateFaqInputSchema,
   generateFaqResultSchema,
+  CATALOG_GROUP_CREDIT_KIND,
+  generateCatalogGroupContentSchema,
+  generateCatalogGroupInputSchema,
+  type CatalogGroupTarget,
+  type GenerateCatalogGroupResult,
   generateProductContentSchema,
   generateProductInputSchema,
   generateProductResultSchema,
@@ -133,6 +139,41 @@ export async function generateProductFromImageAction(input: {
       schema: generateProductContentSchema,
     });
     return generateProductResultSchema.parse(r.data);
+  });
+}
+
+/**
+ * Category / collection from a photo (Categories → Add, Collections → Create): the same debit →
+ * vision generate → refund path as products, on the product-from-image route (vision models),
+ * with its own credit kind. Fills the form only after the seller presses Apply.
+ */
+export async function generateCatalogGroupFromImageAction(input: { target: CatalogGroupTarget; hint?: string; images?: File[] }): Promise<ActionResult<GenerateCatalogGroupResult>> {
+  return runAction("sellerAi.generateCatalogGroup", async () => {
+    const ctx = await requireTenant();
+    assertPermission(ctx, "catalog.write");
+    const v = parseInput(generateCatalogGroupInputSchema, { target: input.target, hint: input.hint, locale: await getLocale().catch(() => undefined) });
+    const images = (await Promise.all((input.images ?? []).slice(0, 4).map(fileToImagePayload))).filter((x): x is NonNullable<typeof x> => Boolean(x));
+    if (!images.length && !(v.hint && v.hint.length >= 3)) {
+      throw new AppError("VALIDATION", { fieldErrors: { _form: ["Add a photo or a short hint describing what to create"] } });
+    }
+    const supabase = await createSupabaseServerClient();
+    const existing =
+      v.target === "category"
+        ? ((await supabase.from("categories").select("name").eq("tenant_id", ctx.tenantId).limit(60)).data ?? []).map((r) => r.name)
+        : ((await supabase.from("collections").select("title").eq("tenant_id", ctx.tenantId).limit(60)).data ?? []).map((r) => r.title);
+    const creditKind = CATALOG_GROUP_CREDIT_KIND[v.target];
+    const r = await runSellerAiGeneration({
+      tenantId: ctx.tenantId,
+      userId: ctx.user.id,
+      // Vision route shared with product-from-image (Admin → AI Health → Product from image).
+      feature: "generate_product",
+      creditKind,
+      input: { target: v.target, imageCount: images.length, hint: v.hint ?? null },
+      prompt: catalogGroupPrompt({ target: v.target, hint: v.hint, locale: v.locale ?? "en-IN", images, storeName: ctx.tenantName, existing }),
+      schema: generateCatalogGroupContentSchema,
+    });
+    const data = generateCatalogGroupContentSchema.parse(r.data);
+    return { ...data, tags: v.target === "collection" ? data.tags : [], creditKind };
   });
 }
 
