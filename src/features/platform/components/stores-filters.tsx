@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { STORE_SORTS, STORE_TYPE_LABEL, STORE_TYPES } from "../schemas";
+import { SITE_TYPE_LABEL, SITE_TYPES } from "@/features/platform-users/schemas";
 
 const ctl = "h-9 rounded-md border border-border bg-surface px-3 text-small";
 const TONE_KEYS = ["trial", "active", "suspended", "cancelled"] as const;
@@ -20,10 +21,12 @@ const SORT_LABEL: Record<(typeof STORE_SORTS)[number], string> = {
 type Props = {
   plans: { id: string; name: string }[];
   categories: { id: string; name: string }[] | null;
+  /** Listing v2 applied: Online Store / Informative filter and phone search. */
+  siteTyped?: boolean;
 };
 
 /** Live filters for Admin → Stores (debounced q; selects/dates push immediately). */
-export function StoresListFilters({ plans, categories }: Props) {
+export function StoresListFilters({ plans, categories, siteTyped = false }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -52,7 +55,7 @@ export function StoresListFilters({ plans, categories }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce on the search box only
   }, [q]);
 
-  const filtered = Boolean(sp.get("q") || sp.get("status") || sp.get("plan") || sp.get("from") || sp.get("to") || (typed && (sp.get("type") || sp.get("category"))));
+  const filtered = Boolean(sp.get("q") || sp.get("status") || sp.get("plan") || sp.get("from") || sp.get("to") || (typed && (sp.get("type") || sp.get("category"))) || (siteTyped && sp.get("site")));
 
   return (
     <div className="mb-4 grid gap-2 sm:flex sm:flex-wrap sm:items-end" role="search">
@@ -61,7 +64,7 @@ export function StoresListFilters({ plans, categories }: Props) {
           Search stores
         </label>
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" aria-hidden />
-        <input id="q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Store, owner email, domain or tenant ID" className={`${ctl} w-full pl-9`} />
+        <input id="q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={siteTyped ? "Store, owner email, phone, domain or tenant ID" : "Store, owner email, domain or tenant ID"} className={`${ctl} w-full pl-9`} />
       </div>
       <label className="sr-only" htmlFor="status">
         Status
@@ -85,13 +88,28 @@ export function StoresListFilters({ plans, categories }: Props) {
           </option>
         ))}
       </select>
+      {siteTyped ? (
+        <>
+          <label className="sr-only" htmlFor="site">
+            Website type
+          </label>
+          <select id="site" value={sp.get("site") ?? ""} onChange={(e) => setParam({ site: e.target.value })} className={ctl}>
+            <option value="">Online stores + websites</option>
+            {SITE_TYPES.map((s) => (
+              <option key={s} value={s}>
+                {SITE_TYPE_LABEL[s]}
+              </option>
+            ))}
+          </select>
+        </>
+      ) : null}
       {typed ? (
         <>
           <label className="sr-only" htmlFor="type">
             Store type
           </label>
           <select id="type" value={sp.get("type") ?? ""} onChange={(e) => setParam({ type: e.target.value })} className={ctl}>
-            <option value="">All types</option>
+            <option value="">All: real, demo, test</option>
             {STORE_TYPES.map((s) => (
               <option key={s} value={s}>
                 {STORE_TYPE_LABEL[s]}

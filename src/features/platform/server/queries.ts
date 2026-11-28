@@ -9,6 +9,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { logSpan, timeAsync } from "@/lib/observability/timing";
 import { bucketCounts, bucketWindows, recentMonthStarts, usageByMonth, type MonthlyUsage, type SeriesPoint } from "../stats";
 import { isMissingSchemaError, parseStoreType, type StoreType } from "../schemas";
+import { SITE_TYPES, type SiteType } from "@/features/platform-users/schemas";
 import type { auditFilterSchema, domainFilterSchema, StoreListFilter, tenantListFilterSchema } from "../schemas";
 
 /**
@@ -177,6 +178,9 @@ export type StoreListRow = {
   /** Null before migration 1800 (column missing). */
   storeType: StoreType | null;
   categoryName: string | null;
+  /** Null before listing v2 (20261128000100). */
+  siteType: SiteType | null;
+  ownerPhone: string | null;
 };
 
 export type StoreCategoryOption = { id: string; name: string };
@@ -197,7 +201,9 @@ export async function listStoreCategories(): Promise<StoreCategoryOption[] | nul
  * platform.tenants.read). Store type and category (migration 1800) are used only when the
  * project has them: `categories` is null otherwise, and the type/category filters are ignored.
  */
-export async function listStores(f: StoreListFilter): Promise<{ rows: StoreListRow[]; total: number; categories: StoreCategoryOption[] | null }> {
+export async function listStores(
+  f: StoreListFilter,
+): Promise<{ rows: StoreListRow[]; total: number; categories: StoreCategoryOption[] | null; siteTyped: boolean }> {
   const supabase = await createSupabaseServerClient();
   let categories = await listStoreCategories();
   const base = {
@@ -210,6 +216,24 @@ export async function listStores(f: StoreListFilter): Promise<{ rows: StoreListR
     p_limit: f.pageSize,
     p_offset: (f.page - 1) * f.pageSize,
   };
+  // v2 (20261128000100): site type, owner phone and phone search. Falls back when not applied yet.
+  if (categories) {
+    const v2 = await supabase.rpc("platform_list_stores_v2", { ...base, p_type: f.type, p_category: f.category, p_site_type: f.site });
+    if (!v2.error) {
+      const data = v2.data ?? [];
+      return {
+        rows: data.map((r) => ({
+          ...storeRow(r, true),
+          siteType: (SITE_TYPES as readonly string[]).includes(r.website_type) ? (r.website_type as SiteType) : "ONLINE_STORE",
+          ownerPhone: r.owner_phone ?? null,
+        })),
+        total: Number(data[0]?.total_count ?? 0),
+        categories,
+        siteTyped: true,
+      };
+    }
+    if (!isMissingSchemaError(v2.error)) check(v2.error);
+  }
   let res = categories ? await supabase.rpc("platform_list_stores", { ...base, p_type: f.type, p_category: f.category }) : await supabase.rpc("platform_list_stores", base);
   if (categories && res.error && isMissingSchemaError(res.error)) {
     // Table exists but the 10-arg RPC doesn't (partially applied): use the old signature.
@@ -220,7 +244,31 @@ export async function listStores(f: StoreListFilter): Promise<{ rows: StoreListR
   check(error);
   // The old RPC has no store_type column: treat the new fields as unavailable.
   if (categories && data?.length && !("store_type" in data[0]!)) categories = null;
-  const rows = (data ?? []).map((r) => ({
+  const typed = categories !== null;
+  const rows = (data ?? []).map((r) => ({ ...storeRow(r, typed), siteType: null, ownerPhone: null }));
+  return { rows, total: Number(data?.[0]?.total_count ?? 0), categories, siteTyped: false };
+}
+
+type StoreRpcRow = {
+  tenant_id: string;
+  name: string;
+  slug: string;
+  status: string;
+  plan_name: string | null;
+  created_at: string;
+  owner_email: string | null;
+  primary_domain: string | null;
+  products: number | null;
+  orders: number | null;
+  customers: number | null;
+  revenue: number | null;
+  last_activity: string | null;
+  store_type?: string | null;
+  category_name?: string | null;
+};
+
+function storeRow(r: StoreRpcRow, typed: boolean): Omit<StoreListRow, "siteType" | "ownerPhone"> {
+  return {
     id: r.tenant_id,
     name: r.name,
     slug: r.slug,
@@ -234,10 +282,9 @@ export async function listStores(f: StoreListFilter): Promise<{ rows: StoreListR
     customers: Number(r.customers ?? 0),
     revenueMinor: toMinor(r.revenue ?? 0),
     lastActivity: r.last_activity ?? null,
-    storeType: categories ? parseStoreType(r.store_type) : null,
-    categoryName: categories ? (r.category_name ?? null) : null,
-  }));
-  return { rows, total: Number(data?.[0]?.total_count ?? 0), categories };
+    storeType: typed ? parseStoreType(r.store_type) : null,
+    categoryName: typed ? (r.category_name ?? null) : null,
+  };
 }
 
 export async function listTenants(f: TenantListFilter): Promise<{ rows: TenantListRow[]; total: number }> {
