@@ -50,6 +50,31 @@ const EN_TEXT: ShellText = {
 
 const TextContext = createContext<ShellText>(EN_TEXT);
 
+/**
+ * Super Admin sidebar look: warm orange (brand) instead of the neutral seller sidebar. Only the
+ * navigation chrome changes; the page content keeps the panel theme.
+ */
+const BrandNavContext = createContext(false);
+const BRAND_NAV = {
+  aside: "border-orange-200/70 bg-gradient-to-b from-orange-50 via-surface to-surface dark:border-orange-900/50 dark:from-orange-950/40",
+  footer: "border-orange-200/70 dark:border-orange-900/50",
+  groupBtn: "hover:bg-orange-500/10 hover:text-orange-800 dark:hover:text-orange-200",
+  groupIcon: (active: boolean) =>
+    active
+      ? "grid size-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-sm shadow-orange-500/30"
+      : "grid size-7 shrink-0 place-items-center rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400",
+  groupLabel: (active: boolean) => (active ? "font-semibold text-orange-800 dark:text-orange-200" : ""),
+  nested: (active: boolean) =>
+    active
+      ? "bg-gradient-to-r from-orange-500 to-orange-600 font-semibold text-white shadow-sm shadow-orange-500/25"
+      : "text-foreground/70 hover:bg-orange-500/10 hover:text-orange-800 dark:hover:text-orange-200",
+  top: (active: boolean) =>
+    active ? "bg-gradient-to-r from-orange-500 to-orange-600 font-semibold text-white shadow-sm shadow-orange-500/25" : "text-foreground/85 hover:bg-orange-500/10 hover:text-orange-800 dark:hover:text-orange-200",
+  guide: (active: boolean) => (active ? "bg-white/90" : "bg-orange-300/70 dark:bg-orange-800"),
+  rail: (on: boolean) =>
+    on ? "bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-sm shadow-orange-500/30" : "text-orange-700/80 hover:bg-orange-500/10 hover:text-orange-800 dark:text-orange-300/80 dark:hover:text-orange-200",
+} as const;
+
 type Props = {
   groups: NavGroup[];
   homeHref: string;
@@ -153,6 +178,7 @@ function ExpandedNav({ groups, active, storageKey, onNavigate, onAfterNavigate }
   // Warm the router cache for a submenu's pages as soon as the pointer or focus reaches it.
   const warm = (g: NavGroup) => g.items.forEach((i) => router.prefetch(i.href));
   const text = useContext(TextContext);
+  const brandNav = useContext(BrandNavContext);
   const row = (item: NavItem, nested = false) => (
     <NavRow
       key={item.label}
@@ -175,6 +201,40 @@ function ExpandedNav({ groups, active, storageKey, onNavigate, onAfterNavigate }
           const Icon = NAV_ICONS[g.icon ?? g.items[0]!.icon];
           const id = submenuId(storageKey, g.id ?? g.label);
           const hasActive = g.label === activeGroup;
+          if (brandNav) {
+            return (
+              <li key={g.label}>
+                <button
+                  type="button"
+                  aria-expanded={expanded}
+                  aria-controls={id}
+                  onClick={() => toggle(g.label)}
+                  onKeyDown={(e) => {
+                    if ((e.key === "ArrowRight" && !expanded) || (e.key === "ArrowLeft" && expanded)) {
+                      e.preventDefault();
+                      toggle(g.label);
+                    }
+                  }}
+                  onPointerEnter={() => warm(g)}
+                  onFocus={() => warm(g)}
+                  className={cn("flex h-10 w-full items-center gap-2.5 rounded-lg px-2 text-left text-body font-medium text-foreground/85 transition-colors", BRAND_NAV.groupBtn)}
+                >
+                  <span aria-hidden className={BRAND_NAV.groupIcon(hasActive)}>
+                    <Icon strokeWidth={NAV_ICON_STROKE} className="size-4" />
+                  </span>
+                  <span className={cn("flex-1 truncate", BRAND_NAV.groupLabel(hasActive))}>{g.label}</span>
+                  <ChevronDown aria-hidden className={cn("size-4 shrink-0 text-orange-400 transition-transform duration-200", expanded && "rotate-180")} />
+                </button>
+                <div id={id} inert={!expanded} className={cn("grid transition-[grid-template-rows] duration-200 ease-out", expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+                  <ul className="min-h-0 space-y-0.5 overflow-hidden">
+                    <li aria-hidden className="h-0.5" />
+                    {g.items.map((item) => row(item, true))}
+                    <li aria-hidden className="h-1.5" />
+                  </ul>
+                </div>
+              </li>
+            );
+          }
           return (
             <li key={g.label}>
               <button
@@ -218,6 +278,34 @@ function ExpandedNav({ groups, active, storageKey, onNavigate, onAfterNavigate }
 
 function NavRow({ item, active, nested, onClick }: { item: NavItem; active: boolean; nested: boolean; onClick: (e: MouseEvent<HTMLAnchorElement>) => void }) {
   const Icon = NAV_ICONS[item.icon];
+  const brandNav = useContext(BrandNavContext);
+  if (brandNav) {
+    return (
+      <li>
+        <Link
+          href={item.href}
+          prefetch={false}
+          onClick={onClick}
+          aria-current={active ? "page" : undefined}
+          className={cn(
+            "relative flex items-center gap-3 rounded-lg transition-colors",
+            nested ? "ml-[1.35rem] h-9 pl-5 pr-3 text-small" : "h-10 px-2 text-body font-medium",
+            nested ? BRAND_NAV.nested(active) : BRAND_NAV.top(active),
+          )}
+        >
+          {nested ? (
+            <span aria-hidden className={cn("absolute left-2 top-1/2 size-1.5 -translate-y-1/2 rounded-full", BRAND_NAV.guide(active))} />
+          ) : (
+            <span aria-hidden className={cn("grid size-7 shrink-0 place-items-center rounded-lg", active ? "bg-white/20" : "bg-orange-500/10 text-orange-600 dark:text-orange-400")}>
+              <Icon strokeWidth={NAV_ICON_STROKE} className="size-4" />
+            </span>
+          )}
+          <span className="min-w-0 truncate">{item.label}</span>
+          <PendingHint />
+        </Link>
+      </li>
+    );
+  }
   return (
     <li>
       <Link
@@ -342,8 +430,12 @@ function RailNav({ groups, active, storageKey, onNavigate, tip }: RailNavProps) 
   useEffect(() => cancelClose, []);
 
   const openGroup = flyout ? groups.find((g) => g.label === flyout.label) : undefined;
+  const brandNav = useContext(BrandNavContext);
   const iconClass = (on: boolean) =>
-    cn("relative grid size-11 place-items-center rounded-xl transition-colors", on ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-secondary hover:text-foreground");
+    cn(
+      "relative grid size-11 place-items-center rounded-xl transition-colors",
+      brandNav ? BRAND_NAV.rail(on) : on ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-secondary hover:text-foreground",
+    );
 
   return (
     <nav ref={navRef} aria-label={text.mainNav} onKeyDown={onArrowKeys}>
@@ -719,8 +811,10 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
   };
   const toggleLabel = collapsed ? text.expandSidebar : text.collapseSidebar;
 
+  const brandNav = panel === "admin";
   return (
     <TextContext value={text}>
+    <BrandNavContext value={brandNav}>
     <div
       lang={lang}
       data-has-bottom-nav={bottomNav?.length ? "" : undefined}
@@ -729,7 +823,11 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
       <aside
         data-collapsed={collapsed || undefined}
         data-tour="nav"
-        className={cn("sticky top-0 z-40 hidden h-dvh shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 ease-out lg:flex", collapsed ? "w-[76px]" : "w-64")}
+        className={cn(
+          "sticky top-0 z-40 hidden h-dvh shrink-0 flex-col border-r transition-[width] duration-200 ease-out lg:flex",
+          brandNav ? BRAND_NAV.aside : "border-border bg-surface",
+          collapsed ? "w-[76px]" : "w-64",
+        )}
       >
         <div className={cn("flex shrink-0", collapsed ? "flex-col items-center gap-2 px-2 pb-1 pt-3" : "h-16 items-center gap-2 pl-4 pr-3")}>
           {collapsed ? (brandMark ?? null) : <div className="min-w-0 flex-1 overflow-hidden">{brand}</div>}
@@ -766,7 +864,7 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
           )}
         </div>
 
-        {collapsed ? null : <div className="shrink-0 space-y-0.5 border-t border-border p-3">{sidebarFooter}</div>}
+        {collapsed ? null : <div className={cn("shrink-0 space-y-0.5 border-t p-3", brandNav ? BRAND_NAV.footer : "border-border")}>{sidebarFooter}</div>}
         {tip.node}
       </aside>
 
@@ -777,7 +875,7 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
         onClick={(e) => e.target === drawer.current && drawer.current?.close()}
       >
         {/* .theme-panel paints the page background on the dialog itself; the drawer is a surface. */}
-        <div className="flex h-full flex-col bg-surface">
+        <div className={cn("flex h-full flex-col", brandNav ? BRAND_NAV.aside : "bg-surface")}>
           <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
             <div className="min-w-0 flex-1 overflow-hidden">{brand}</div>
             <button type="button" onClick={() => drawer.current?.close()} aria-label={text.closeNav} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-secondary">
@@ -818,6 +916,7 @@ export function AppShellClient({ groups, homeHref, brand, brandMark, sidebarFoot
       </div>
       {bottomNav?.length ? <BottomNav items={bottomNav} homeHref={homeHref} onNavigate={onNavigate} onMore={() => drawer.current?.showModal()} /> : null}
     </div>
+    </BrandNavContext>
     </TextContext>
   );
 }

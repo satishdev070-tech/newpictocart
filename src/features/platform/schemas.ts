@@ -4,6 +4,7 @@ import { isValidStoreSlug } from "@/lib/tenant/host";
 import { TENANT_STATUSES } from "@/lib/tenant/context";
 import { PLATFORM_ROLES } from "@/lib/permissions/matrix";
 import { commissionPercentField } from "@/features/platform-finance/schemas";
+import { SITE_TYPES } from "@/features/platform-users/schemas";
 
 /** Zod schemas for every super-admin form and list filter. Pure; shared by forms and server actions. */
 
@@ -55,6 +56,8 @@ export const storeListFilterSchema = tenantListFilterSchema.extend({
   sort: z.enum(STORE_SORTS).catch("newest").default("newest"),
   type: z.enum(STORE_TYPES).optional().catch(undefined),
   category: optionalUuid.catch(undefined),
+  /** Online Store / Informative Website (tenants.website_type); needs listing v2. */
+  site: z.enum(SITE_TYPES).optional().catch(undefined),
 });
 export type StoreListFilter = z.infer<typeof storeListFilterSchema>;
 

@@ -7577,6 +7577,41 @@ export type Database = {
           total_count: number
         }[]
       }
+      platform_list_stores_v2: {
+        Args: {
+          p_category?: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_plan?: string
+          p_q?: string
+          p_site_type?: string
+          p_sort?: string
+          p_status?: string
+          p_to?: string
+          p_type?: string
+        }
+        Returns: {
+          category_name: string
+          created_at: string
+          customers: number
+          last_activity: string
+          name: string
+          orders: number
+          owner_email: string
+          owner_phone: string
+          plan_name: string
+          primary_domain: string
+          products: number
+          revenue: number
+          slug: string
+          status: string
+          store_type: string
+          tenant_id: string
+          total_count: number
+          website_type: string
+        }[]
+      }
       platform_mark_license_batch_paid: {
         Args: {
           p_batch: string

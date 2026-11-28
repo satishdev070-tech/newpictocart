@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Globe, Phone, ShoppingBag } from "lucide-react";
 import { requirePlatform } from "@/lib/platform/access";
 import { STORE_TYPE_LABEL, storeListFilterSchema } from "@/features/platform/schemas";
+import { SITE_TYPE_LABEL, type SiteType } from "@/features/platform-users/schemas";
 import { listPlans, listStores } from "@/features/platform/server/queries";
 import { StoresListFilters } from "@/features/platform/components/stores-filters";
 import { Badge, PageHeader } from "@/components/ui/layout";
@@ -16,15 +17,33 @@ export const metadata: Metadata = { title: "Stores" };
 const TONE = { trial: "accent", active: "success", suspended: "error", cancelled: "neutral" } as const;
 const TYPE_TONE = { real: "success", demo: "info", test: "warning" } as const;
 
+/** Online Store / Informative Website chip (same labels as Admin → Users). */
+function SiteChip({ site }: { site: SiteType }) {
+  const Icon = site === "INFORMATIVE" ? Globe : ShoppingBag;
+  return (
+    <span
+      className={
+        site === "INFORMATIVE"
+          ? "inline-flex items-center gap-1 rounded-md bg-violet-500/10 px-1.5 py-0.5 text-caption font-medium whitespace-nowrap text-violet-700 ring-1 ring-violet-500/25 ring-inset dark:text-violet-300"
+          : "inline-flex items-center gap-1 rounded-md bg-orange-500/10 px-1.5 py-0.5 text-caption font-medium whitespace-nowrap text-orange-700 ring-1 ring-orange-500/25 ring-inset dark:text-orange-300"
+      }
+    >
+      <Icon aria-hidden className="size-3" />
+      {SITE_TYPE_LABEL[site]}
+    </span>
+  );
+}
+
 export default async function StoresPage({ searchParams }: PageProps<"/admin/stores">) {
   const ctx = await requirePlatform("platform.tenants.read");
   const f = storeListFilterSchema.parse(await searchParams);
-  const [{ rows, total, categories }, plans] = await Promise.all([listStores(f), listPlans()]);
+  const [{ rows, total, categories, siteTyped }, plans] = await Promise.all([listStores(f), listPlans()]);
   // Store type / category exist only once migration 1800 is applied (categories !== null).
   const typed = categories !== null;
   const type = typed ? f.type : undefined;
   const category = typed ? f.category : undefined;
-  const filtered = Boolean(f.q || f.status || f.plan || f.from || f.to || type || category);
+  const site = siteTyped ? f.site : undefined;
+  const filtered = Boolean(f.q || f.status || f.plan || f.from || f.to || type || category || site);
   return (
     <div>
       <PageHeader
@@ -38,7 +57,7 @@ export default async function StoresPage({ searchParams }: PageProps<"/admin/sto
           ) : null
         }
       />
-      <StoresListFilters plans={plans} categories={categories} />
+      <StoresListFilters plans={plans} categories={categories} siteTyped={siteTyped} />
       {rows.length ? (
         // Compact list: the essentials on one line; select a row to see everything else.
         <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface" aria-label="Stores">
@@ -51,6 +70,7 @@ export default async function StoresPage({ searchParams }: PageProps<"/admin/sto
                     <span className="min-w-0">
                       <span className="flex flex-wrap items-center gap-2">
                         <span className="truncate font-medium">{t.name}</span>
+                        {t.siteType ? <SiteChip site={t.siteType} /> : null}
                         {typed && t.storeType ? <Badge tone={TYPE_TONE[t.storeType]}>{STORE_TYPE_LABEL[t.storeType]}</Badge> : null}
                       </span>
                       <span className="block truncate font-mono text-caption text-muted">{t.slug}</span>
@@ -73,6 +93,14 @@ export default async function StoresPage({ searchParams }: PageProps<"/admin/sto
                     <dl className="space-y-1">
                       <dt className="text-caption text-muted">Owner</dt>
                       <dd className="break-all">{t.ownerEmail ?? "No owner"}</dd>
+                      {t.ownerPhone ? (
+                        <dd className="flex items-center gap-1.5">
+                          <Phone aria-hidden className="size-3.5 text-muted" />
+                          <a href={`tel:${t.ownerPhone.replace(/[^0-9+]/g, "")}`} className="tabular-nums hover:underline">
+                            {t.ownerPhone}
+                          </a>
+                        </dd>
+                      ) : null}
                       {typed ? (
                         <>
                           <dt className="pt-2 text-caption text-muted">Category</dt>
@@ -114,7 +142,7 @@ export default async function StoresPage({ searchParams }: PageProps<"/admin/sto
       ) : (
         <EmptyState title={filtered ? "No stores match" : "No stores yet"} description={filtered ? "Try a different search or clear the filters." : "Stores appear here as sellers sign up."} />
       )}
-      <Pagination page={f.page} pageSize={f.pageSize} total={total} basePath="/admin/stores" params={{ q: f.q, status: f.status, plan: f.plan, from: f.from, to: f.to, sort: f.sort === "newest" ? undefined : f.sort, type, category }} />
+      <Pagination page={f.page} pageSize={f.pageSize} total={total} basePath="/admin/stores" params={{ q: f.q, status: f.status, plan: f.plan, from: f.from, to: f.to, sort: f.sort === "newest" ? undefined : f.sort, type, category, site }} />
     </div>
   );
 }
